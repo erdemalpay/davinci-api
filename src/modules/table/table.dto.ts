@@ -1,10 +1,10 @@
-import { IsEnum, IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class TableDto {
   @IsNumber()
   @MinLength(4)
   @MaxLength(20)
-  playerCount: Number
+  playerCount: number
 
   @IsString()
   @MinLength(4)
