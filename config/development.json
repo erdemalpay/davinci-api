@@ -1,0 +1,16 @@
+{
+  "db": {
+    "port": "27017",
+    "host": "localhost",
+    "name": "dv-local"
+  },
+  "app": {
+    "port": 4000
+  },
+  "panel": {
+    "host": "http://localhost:3000"
+  },
+  "jwt": {
+    "secret": "davinci" 
+  }
+}
