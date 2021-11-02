@@ -1,4 +1,4 @@
-import {
+/* import {
   Delete,
   Get,
   Param,
@@ -33,3 +33,4 @@ export class GameController {
     );
   }
 }
+ */

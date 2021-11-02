@@ -1,4 +1,4 @@
-import { IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
+/* import { IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class TableDto {
   @IsNumber()
@@ -32,3 +32,4 @@ export class TableDto {
   finishHour: string;
   
 }
+ */

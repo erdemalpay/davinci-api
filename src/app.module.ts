@@ -1,7 +1,6 @@
 import * as config from 'config';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 
@@ -12,6 +11,6 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 });
 
 @Module({
-  imports: [ScheduleModule.forRoot(), DbModule, UserModule, AuthModule],
+  imports: [DbModule, UserModule, AuthModule],
 })
 export class AppModule {}

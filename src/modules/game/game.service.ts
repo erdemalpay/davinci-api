@@ -1,4 +1,4 @@
-const bgg = require('../libs/bgg');
+/* const bgg = require('../libs/bgg');
 import {
   BadRequestException,
   HttpException,
@@ -40,3 +40,4 @@ const addGame = async id => {
 module.exports = {
 	addGame
 };
+ */

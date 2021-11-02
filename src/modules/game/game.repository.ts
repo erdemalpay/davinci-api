@@ -1,9 +1,7 @@
-import { Injectable } from '@nestjs/common';
+/* import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { PaginateModel, Query } from 'mongoose';
 import { Game } from './game.schema';
-
-
 
 @Injectable()
 export class ItemRepository {
@@ -20,6 +18,4 @@ export class ItemRepository {
     return this.gameModel.findOne({ id: gameId });
   }
 
-
-
-}
+} */

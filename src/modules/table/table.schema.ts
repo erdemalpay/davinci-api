@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+/* import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 @Schema()
@@ -29,4 +29,4 @@ export class Table extends Document {
 
 export const TableSchema = SchemaFactory.createForClass(Table);
 
-purifySchema(TableSchema);
+purifySchema(TableSchema); */
