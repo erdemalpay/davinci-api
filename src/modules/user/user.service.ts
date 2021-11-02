@@ -44,9 +44,9 @@ export class UserService {
 
   async checkDefaultUser() {
     const userProps: CreateUserDto = {
-      username: 'dv',
+      username: 'dvdv',
       name:'dv',
-      password: 'dv',
+      password: 'dvdv',
       active: true,
     };
 

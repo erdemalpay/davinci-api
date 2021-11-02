@@ -5,7 +5,6 @@ export class CreateUserDto {
   @IsString()
   @MinLength(4)
   @MaxLength(20)
-  @ApiProperty()
   username: string;
 
   @IsString()
@@ -16,7 +15,6 @@ export class CreateUserDto {
   @IsString()
   @MinLength(4)
   @MaxLength(20)
-  @ApiProperty()
   password: string;
 
   @ApiProperty()
