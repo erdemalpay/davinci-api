@@ -19,8 +19,6 @@ export class CreateUserDto {
 
   @ApiProperty()
   active: boolean;
-
- 
 }
 
 export class UserResponse {
@@ -35,6 +33,9 @@ export class UserResponse {
 
   @ApiProperty()
   active: boolean;
+  
+  @ApiProperty()
+  role: string;
 
   @ApiProperty()
   id: number;
