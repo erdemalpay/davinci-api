@@ -21,7 +21,7 @@ async function bootstrap() {
     .setTitle('Da Vinci API')
     .setDescription('Da Vinci API docs')
     .setVersion('0.0.1')
-    // .addCookieAuth('jwt')
+    .addCookieAuth('jwt')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
