@@ -11,7 +11,7 @@ async function bootstrap() {
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   app.use(cookieParser());
   
-  const whitelist = ['https://panelv2.davinciboardgame.com', 'http://localhost:5000'];
+  const whitelist = ['https://panelv2.davinciboardgame.com', 'http://localhost:5000', 'http://127.0.0.1:5000'];
 
   app.enableCors({
     origin: function (origin, callback) {
