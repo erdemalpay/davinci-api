@@ -10,7 +10,7 @@ export const setCors: CorsOptionsDelegate<Request> = (req, cb) => {
   console.log({whiteListConfig});
 
   return cb(null, {
-    origin: whiteListConfig.map((host) => new RegExp(host)),
+    origin: whiteListConfig,
     credentials: true,
   });
 };
