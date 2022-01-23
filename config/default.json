@@ -13,5 +13,5 @@
   "jwt": {
     "secret": "dav1nc1" 
   },
-	"corsWhitelist": ["https://panelv2.davinciboardgame.com", "http://localhost:3000"]
+	"corsWhitelist": ["https://panelv2.davinciboardgame.com", "http://localhost:3000", "https://davinci-nextjs.vercel.app/"]
 }
