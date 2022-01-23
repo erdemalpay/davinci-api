@@ -7,6 +7,7 @@ export const setCors: CorsOptionsDelegate<Request> = (req, cb) => {
   }
 
   const whiteListConfig = config.get('corsWhitelist') as string[];
+  console.log({whiteListConfig});
 
   return cb(null, {
     origin: whiteListConfig.map((host) => new RegExp(host)),
