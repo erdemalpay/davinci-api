@@ -1,5 +1,5 @@
 import * as config from 'config';
-import { Strategy } from 'passport-jwt';
+import { Strategy, ExtractJwt } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
@@ -13,7 +13,7 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private userService: UserService) {
     super({
-      jwtFromRequest: (req: Request) => req.cookies?.jwt || null,
+      jwtFromRequest: (req: Request) => ExtractJwt.fromAuthHeaderAsBearerToken()(req) || null,
       ignoreExpiration: false,
       secretOrKey: config.get('jwt.secret'),
     });

@@ -11,7 +11,6 @@ async function bootstrap() {
 
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-  app.use(cookieParser());
   
   app.enableCors(setCors);
 
@@ -19,7 +18,7 @@ async function bootstrap() {
     .setTitle('Da Vinci API')
     .setDescription('Da Vinci API docs')
     .setVersion('0.0.1')
-    .addCookieAuth('jwt')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
