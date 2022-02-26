@@ -1,21 +1,22 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-@Schema()
-export class User extends Document {
-  @Prop({ unique: true, required: true, index: true })
-  username: string;
 
-  @Prop({ required: true, index: true })
+@Schema({ _id: false })
+export class User extends Document {
+  @Prop({ type: String })
+  _id: string;
+
+  @Prop({ type: String, required: true, index: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   password: string;
-  
+
   @Prop({ required: true })
   active: boolean;
-  
-  @Prop({ required: true, default: 'user' })
+
+  @Prop({ type: String, required: true, default: 'user' })
   role: string;
 }
 

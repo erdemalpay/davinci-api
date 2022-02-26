@@ -1,36 +1,23 @@
-/* import {
-  Delete,
-  Get,
-  Param,
-  Query,
-  HttpCode,
-} from '@nestjs/common';
-import { GetListDto  } from './game.dto';
+import { Delete, Get, Param, Query, HttpCode } from '@nestjs/common';
 
+import { GameService } from './game.service';
 
 export class GameController {
   constructor(private readonly GameService: GameService) {}
 
   @Get('/games')
-  async getGames(@Query() getListDto: GetListDto) {
-    return this.GameService.getGames(getListDto);
+  async getGames() {
+    return this.GameService.getGames();
   }
 
   @Delete('/game/:id')
   @HttpCode(204)
   async deleteItem(@Param('id') id: number) {
-    await this.GameService.deleteItem(id);
+    await this.GameService.deleteGame(id);
   }
-
-
 
   @Get('/game/:id')
-  getItem(
-    @Param('id') id: number
-  ) {
-    return this.GameService.getGame(
-      id
-    );
+  getItem(@Param('id') id: number) {
+    return this.GameService.getGameById(id);
   }
 }
- */

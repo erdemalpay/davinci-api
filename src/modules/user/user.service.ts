@@ -7,9 +7,7 @@ import { CreateUserDto } from './user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectModel(User.name) private userModel: Model<User>
-  ) {
+  constructor(@InjectModel(User.name) private userModel: Model<User>) {
     this.checkDefaultUser();
   }
 
@@ -19,8 +17,8 @@ export class UserService {
     await user.save();
   }
 
-  async findByUsername(username: string): Promise<User | undefined> {
-    return this.userModel.findOne({ username });
+  async findById(_id: string): Promise<User | undefined> {
+    return this.userModel.findOne({ _id });
   }
 
   async getAll(): Promise<User[]> {
@@ -28,10 +26,10 @@ export class UserService {
   }
 
   async validateCredentials(
-    username: string,
+    _id: string,
     password: string,
   ): Promise<User | null> {
-    const user = await this.findByUsername(username);
+    const user = await this.findById(_id);
 
     if (!user) {
       return null;
@@ -44,13 +42,14 @@ export class UserService {
 
   async checkDefaultUser() {
     const userProps: CreateUserDto = {
-      username: 'dvdv',
-      name:'dv',
+      _id: 'dvdv',
+      name: '-',
       password: 'dvdv',
       active: true,
+      role: 'admin',
     };
 
-    const user = await this.findByUsername(userProps.username);
+    const user = await this.findById(userProps._id);
 
     if (user) return;
 
@@ -58,5 +57,4 @@ export class UserService {
 
     console.log('Created default user.'); // eslint-disable-line no-console
   }
-
 }

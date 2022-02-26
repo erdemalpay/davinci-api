@@ -1,43 +1,33 @@
-/* const bgg = require('../libs/bgg');
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
+import { getGameDetails } from '../../lib/bgg';
+import { Injectable } from '@nestjs/common';
 import { Game } from './game.schema';
-import { GameRepository } from './game.repository';
-
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 @Injectable()
-export class GameService{
-	constructor(
-		private gameRepository: GameRepository,
-	){}
+export class GameService {
+  constructor(
+    @InjectModel(Game.name)
+    private gameModel: Model<Game>,
+  ) {}
 
-	getGames(getListDto: GetListDto) {
-    return this.GameRepository.getGames(getListDto);
+  getGames() {
+    return this.gameModel.find();
   }
 
-	getGameById(gameId: number) {
-    return this.GameRepository.getGame(gameId);
+  getGameById(gameId: number) {
+    return this.gameModel.findById(gameId);
   }
 
-	async deleteGame(gameId: number) {
+  async deleteGame(gameId: number) {
     const $game = await this.getGameById(gameId);
-    await this.GameRepository.deleteGame(gameId);
+    await this.gameModel.findByIdAndDelete(gameId);
   }
 
-
+  async addGame(gameId: number) {
+    const gameDetails = await getGameDetails(gameId);
+    const game = new Game(gameDetails);
+    await game.save();
+    return true;
+  }
 }
-const addGame = async id => {
-	const gameDetails = await bgg.getGameDetails(id);
-	const game = new Game(gameDetails);
-	await game.save();
-	return true;
-};
-
-module.exports = {
-	addGame
-};
- */

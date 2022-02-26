@@ -1,33 +1,30 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
+import { User } from '../user/user.schema';
 
 @Schema()
-export class Table extends Document {
+export class Gameplay extends Document {
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 
-  @Prop({ type: [{ type: Number, ref: Gameplay.name }] })
-  gameplays: Gameplay[];
-
-  @Prop({ required: true })
+  @Prop({ unique: true, required: true, index: true })
   playerCount: Number;
 
-  @Prop({ required: true })
-  name: string;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  mentor: User;
 
   @Prop({ required: true })
   date: string;
 
   @Prop({ required: true })
-  startHour: string;
+  startHour: boolean;
 
-  @Prop()
-  finishHour: string;
+  @Prop({ required: true })
+  finishHour: boolean;
 }
 
-export const TableSchema = SchemaFactory.createForClass(Table);
+export const GameplaySchema = SchemaFactory.createForClass(Gameplay);
 
-purifySchema(TableSchema);
+purifySchema(GameplaySchema);

@@ -13,13 +13,14 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private userService: UserService) {
     super({
-      jwtFromRequest: (req: Request) => ExtractJwt.fromAuthHeaderAsBearerToken()(req) || null,
+      jwtFromRequest: (req: Request) =>
+        ExtractJwt.fromAuthHeaderAsBearerToken()(req) || null,
       ignoreExpiration: false,
       secretOrKey: config.get('jwt.secret'),
     });
   }
 
   async validate(payload: JwtPayload) {
-    return this.userService.findByUsername(payload.username);
+    return this.userService.findById(payload.username);
   }
 }
