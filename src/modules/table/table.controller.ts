@@ -5,7 +5,6 @@ import { TableService } from './table.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 
 @ApiTags('Table')
-@UseGuards(JwtAuthGuard)
 @Controller('tables')
 export class TableController {
   constructor(private readonly tableService: TableService) {}
