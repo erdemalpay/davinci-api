@@ -12,7 +12,7 @@ export class TableService {
     return this.tableModel.create(tableDto);
   }
 
-  async findById(_id: string): Promise<Table | undefined> {
+  async findById(_id: number): Promise<Table | undefined> {
     return this.tableModel.findOne({ _id });
   }
 
