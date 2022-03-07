@@ -1,17 +1,9 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiResponse, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TableResponse } from './table.dto';
 import { TableService } from './table.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 
-@ApiCookieAuth('jwt')
 @ApiTags('Table')
 @UseGuards(JwtAuthGuard)
 @Controller('tables')
