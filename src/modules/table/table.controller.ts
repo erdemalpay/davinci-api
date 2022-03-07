@@ -1,4 +1,4 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiResponse, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { TableResponse } from './table.dto';
 import { TableService } from './table.service';
@@ -19,7 +19,7 @@ export class TableController {
 
   @ApiResponse({ type: [TableResponse] })
   @Get('/tables')
-  listUsers() {
-    return this.tableService.getAll();
+  getTables(@Query('location') location: number) {
+    return this.tableService.getByLocation(location);
   }
 }

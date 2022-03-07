@@ -16,7 +16,7 @@ export class TableService {
     return this.tableModel.findOne({ _id });
   }
 
-  async getAll(): Promise<Table[]> {
-    return this.tableModel.find({});
+  async getByLocation(location: number): Promise<Table[]> {
+    return this.tableModel.find({ location });
   }
 }
