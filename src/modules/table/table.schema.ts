@@ -4,8 +4,11 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
 
-@Schema()
+@Schema({ _id: false })
 export class Table extends Document {
+  @Prop({ required: true })
+  _id: Number;
+
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 

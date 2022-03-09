@@ -1,8 +1,12 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-@Schema()
+
+@Schema({ _id: false })
 export class Location extends Document {
+  @Prop({ required: true })
+  _id: Number;
+
   @Prop({ required: true, index: true })
   name: string;
 

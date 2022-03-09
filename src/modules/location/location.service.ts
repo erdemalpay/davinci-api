@@ -26,9 +26,11 @@ export class LocationService {
       return;
     }
     const location1: CreateLocationDto = {
+      _id: 1,
       name: 'Bahçelievler',
     };
     const location2: CreateLocationDto = {
+      _id: 2,
       name: 'Neorama',
     };
     await this.create(location1);

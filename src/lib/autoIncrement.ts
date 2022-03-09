@@ -2,11 +2,7 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection, Schema } from 'mongoose';
 import * as AutoIncrementFactory from 'mongoose-sequence';
 
-export const createAutoIncrementConfig = (
-  name: string,
-  _schema: any,
-  index = true,
-) => {
+export const createAutoIncrementConfig = (name: string, _schema: any) => {
   // _schema should be strictly typed
   return {
     name,
@@ -15,12 +11,11 @@ export const createAutoIncrementConfig = (
       const AutoIncrement = AutoIncrementFactory(connection);
       schema.plugin(AutoIncrement, {
         id: `${name.toLowerCase()}Id`,
-        inc_field: 'id',
       });
 
-      if (index) {
+      /* if (index) {
         schema.index({ id: 1 });
-      }
+      } */
 
       return schema;
     },
