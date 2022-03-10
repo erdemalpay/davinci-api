@@ -6,6 +6,7 @@ import { Response as Res } from 'express';
 import { LocalAuthGuard, JwtAuthGuard } from './auth.guards';
 import { ApiTags, ApiBody } from '@nestjs/swagger';
 import { LoginCredentialsDto } from './auth.dto';
+import { Public } from './public.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -13,13 +14,14 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @UseGuards(LocalAuthGuard)
+  @Public()
   @ApiBody({ type: LoginCredentialsDto })
   @Post('/login')
   async login(@ReqUser() user: User, @Response() res: Res) {
     const { access_token } = await this.authService.login(user);
 
     res.send({
-      token: access_token
+      token: access_token,
     });
   }
 

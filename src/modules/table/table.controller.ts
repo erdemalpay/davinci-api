@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
-import { TableResponse } from './table.dto';
+import { Public } from '../auth/public.decorator';
+import { TableResponse, TableDto } from './table.dto';
 import { TableService } from './table.service';
 
 @ApiTags('Table')
@@ -8,15 +9,22 @@ import { TableService } from './table.service';
 export class TableController {
   constructor(private readonly tableService: TableService) {}
 
+  @Public()
+  @ApiResponse({ type: [TableResponse] })
+  @Get('/all')
+  getTables(@Query('location') location: number) {
+    return this.tableService.getByLocation(location);
+  }
+
   @Get('/:id')
   @ApiResponse({ type: TableResponse })
   getTable(@Param() id: number) {
     return this.tableService.findById(id);
   }
 
-  @ApiResponse({ type: [TableResponse] })
-  @Get('/all')
-  getTables(@Query('location') location: number) {
-    return this.tableService.getByLocation(location);
+  @Post('/')
+  @ApiResponse({ type: TableResponse })
+  createTable(@Body() tableDto: TableDto) {
+    return this.tableService.create(tableDto);
   }
 }
