@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { User } from '../user/user.schema';
 import { ReqUser } from '../user/user.decorator';
 import { Response as Res } from 'express';
-import { LocalAuthGuard, JwtAuthGuard } from './auth.guards';
+import { LocalAuthGuard } from './auth.guards';
 import { ApiTags, ApiBody } from '@nestjs/swagger';
 import { LoginCredentialsDto } from './auth.dto';
 import { Public } from './public.decorator';
@@ -13,8 +13,8 @@ import { Public } from './public.decorator';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @UseGuards(LocalAuthGuard)
   @Public()
+  @UseGuards(LocalAuthGuard)
   @ApiBody({ type: LoginCredentialsDto })
   @Post('/login')
   async login(@ReqUser() user: User, @Response() res: Res) {
@@ -25,9 +25,8 @@ export class AuthController {
     });
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('/logout')
-  async logout(@Response() res) {
+  async logout(@Response() res: Res) {
     res.clearCookie('jwt');
     res.status(204).end();
   }

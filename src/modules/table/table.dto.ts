@@ -1,4 +1,4 @@
-import { IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 
 export class TableDto {
   @IsNumber()

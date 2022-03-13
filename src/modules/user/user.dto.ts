@@ -29,14 +29,11 @@ export class UserResponse {
   name: string;
 
   @ApiProperty()
-  password: string;
-
-  @ApiProperty()
   active: boolean;
 
   @ApiProperty()
   role: string;
 
   @ApiProperty()
-  id: number;
+  _id: number;
 }

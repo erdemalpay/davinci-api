@@ -30,11 +30,12 @@ export class UserService {
     password: string,
   ): Promise<User | null> {
     const user = await this.findById(_id);
+    console.log('trace');
 
     if (!user) {
       return null;
     }
-
+    console.log({ user });
     const isValid = await compare(password, user.password);
 
     return isValid ? user : null;

@@ -1,5 +1,5 @@
 import * as config from 'config';
-import * as bodyParser from 'body-parser';
+const express = require('express');
 // import * as cookieParser from 'cookie-parser';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -10,8 +10,8 @@ import { JwtAuthGuard } from './modules/auth/auth.guards';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(bodyParser.json({ limit: '50mb' }));
-  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   app.enableCors(setCors);
 

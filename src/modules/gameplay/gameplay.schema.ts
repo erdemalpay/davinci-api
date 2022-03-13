@@ -6,7 +6,7 @@ import { User } from '../user/user.schema';
 
 @Schema({ _id: false })
 export class Gameplay extends Document {
-  @Prop({ required: true })
+  @Prop({ type: Number })
   _id: Number;
 
   @Prop({ required: true, type: Number, ref: Location.name })

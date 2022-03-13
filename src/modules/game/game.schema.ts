@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 @Schema()
 export class Game extends Document {
-  @Prop({ unique: true, required: true })
+  @Prop({ required: true })
   _id: number;
 
   @Prop({ required: true, index: true })

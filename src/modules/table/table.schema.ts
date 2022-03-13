@@ -6,7 +6,7 @@ import { Location } from '../location/location.schema';
 
 @Schema({ _id: false })
 export class Table extends Document {
-  @Prop({ required: true })
+  @Prop({ type: Number })
   _id: Number;
 
   @Prop({ required: true, type: Number, ref: Location.name })

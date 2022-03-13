@@ -11,6 +11,7 @@ export const createAutoIncrementConfig = (name: string, _schema: any) => {
       const AutoIncrement = AutoIncrementFactory(connection);
       schema.plugin(AutoIncrement, {
         id: `${name.toLowerCase()}Id`,
+        inc_field: '_id',
       });
 
       /* if (index) {
