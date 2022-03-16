@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -22,9 +22,6 @@ export class CreateUserDto {
 }
 
 export class UserResponse {
-  @ApiProperty()
-  username: string;
-
   @ApiProperty()
   name: string;
 

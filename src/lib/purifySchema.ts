@@ -5,7 +5,7 @@ export function purifySchema<T extends Document>(
   additionalProps: string[] = [],
 ) {
   schema.methods.toJSON = function () {
-    const defaultProps = ['_id', '__v'];
+    const defaultProps = ['__v'];
     const obj = this.toObject();
 
     const props = [...defaultProps, ...additionalProps];
