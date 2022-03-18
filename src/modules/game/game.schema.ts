@@ -1,21 +1,21 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { purifySchema } from 'src/lib/purifySchema';
+import { purifySchema } from '../../lib/purifySchema';
 @Schema()
 export class Game extends Document {
   @Prop({ required: true })
   _id: number;
 
   @Prop({ required: true, index: true })
-  title: string;
+  name: string;
 
-  @Prop({ required: true })
+  @Prop()
   image: string;
 
-  @Prop({ required: true })
+  @Prop()
   thumbnail: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: false })
   expansion: boolean;
 }
 

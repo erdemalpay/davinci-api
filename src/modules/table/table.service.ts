@@ -3,10 +3,15 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Table } from './table.schema';
 import { TableDto } from './table.dto';
+import { GameplayService } from '../gameplay/gameplay.service';
+import { CreateGameplayDto } from '../gameplay/dto/create-gameplay.dto';
 
 @Injectable()
 export class TableService {
-  constructor(@InjectModel(Table.name) private tableModel: Model<Table>) {}
+  constructor(
+    @InjectModel(Table.name) private tableModel: Model<Table>,
+    private readonly gameplayService: GameplayService,
+  ) {}
 
   async create(tableDto: TableDto) {
     return this.tableModel.create(tableDto);
@@ -18,5 +23,18 @@ export class TableService {
 
   async getByLocation(location: number): Promise<Table[]> {
     return this.tableModel.find({ location });
+  }
+
+  async addGameplay(id: number, gameplayDto: CreateGameplayDto) {
+    const table = await this.findById(id);
+
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    const gameplay = await this.gameplayService.create(gameplayDto);
+
+    table.gameplays.push(gameplay);
+    await table.save();
   }
 }

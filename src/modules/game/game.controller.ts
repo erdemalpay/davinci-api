@@ -1,23 +1,31 @@
-import { Delete, Get, Param, Query, HttpCode } from '@nestjs/common';
+import {
+  Delete,
+  Get,
+  Param,
+  Query,
+  HttpCode,
+  Controller,
+} from '@nestjs/common';
+import { Public } from '../auth/public.decorator';
 
 import { GameService } from './game.service';
 
+@Controller('games')
 export class GameController {
-  constructor(private readonly GameService: GameService) {}
+  constructor(private readonly gameService: GameService) {}
 
-  @Get('/games')
+  @Get('/all')
   async getGames() {
-    return this.GameService.getGames();
+    return this.gameService.getGames();
   }
 
-  @Delete('/game/:id')
-  @HttpCode(204)
-  async deleteItem(@Param('id') id: number) {
-    await this.GameService.deleteGame(id);
+  @Get('/migrate')
+  async migrateGames() {
+    return this.gameService.migrateGames();
   }
 
   @Get('/game/:id')
   getItem(@Param('id') id: number) {
-    return this.GameService.getGameById(id);
+    return this.gameService.getGameById(id);
   }
 }

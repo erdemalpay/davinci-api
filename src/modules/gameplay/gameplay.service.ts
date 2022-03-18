@@ -10,6 +10,7 @@ export class GameplayService {
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
   ) {}
+
   create(createGameplayDto: CreateGameplayDto) {
     return this.gameplayModel.create(createGameplayDto);
   }
