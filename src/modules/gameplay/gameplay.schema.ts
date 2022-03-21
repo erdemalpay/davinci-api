@@ -1,6 +1,7 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Game } from '../game/game.schema';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 
@@ -12,20 +13,23 @@ export class Gameplay extends Document {
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 
-  @Prop({ unique: true, required: true, index: true })
+  @Prop({ required: true })
   playerCount: Number;
 
-  @Prop({ required: true, type: Number, ref: Location.name })
+  @Prop({ required: true, type: String, ref: User.name })
   mentor: User;
 
   @Prop({ required: true })
   date: string;
 
   @Prop({ required: true })
-  startHour: boolean;
+  startHour: string;
 
-  @Prop({ required: true })
-  finishHour: boolean;
+  @Prop()
+  finishHour: string;
+
+  @Prop({ required: true, type: Number, ref: Game.name })
+  game: Game;
 }
 
 export const GameplaySchema = SchemaFactory.createForClass(Gameplay);

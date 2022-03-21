@@ -18,4 +18,7 @@ export class CreateGameplayDto {
 
   @IsString()
   finishHour: string;
+
+  @IsNumber()
+  game: number;
 }

@@ -26,7 +26,7 @@ export class TableController {
   @Post('/:id/gameplay')
   @ApiResponse({ type: TableResponse })
   addGameplayToTable(
-    @Param() id: number,
+    @Param('id') id: number,
     @Body() gameplayDto: CreateGameplayDto,
   ) {
     return this.tableService.addGameplay(id, gameplayDto);

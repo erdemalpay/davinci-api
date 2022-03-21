@@ -22,11 +22,11 @@ export class TableService {
   }
 
   async getByLocation(location: number): Promise<Table[]> {
-    return this.tableModel.find({ location });
+    return this.tableModel.find({ location }).populate('gameplays');
   }
 
   async addGameplay(id: number, gameplayDto: CreateGameplayDto) {
-    const table = await this.findById(id);
+    const table = await this.tableModel.findById(id);
 
     if (!table) {
       throw new Error('Table not found');
