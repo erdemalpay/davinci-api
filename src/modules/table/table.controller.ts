@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  Put,
+  Patch,
+} from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
 import { CreateGameplayDto } from '../gameplay/dto/create-gameplay.dto';
@@ -36,5 +45,11 @@ export class TableController {
   @ApiResponse({ type: TableResponse })
   createTable(@Body() tableDto: TableDto) {
     return this.tableService.create(tableDto);
+  }
+
+  @Patch('/:id')
+  @ApiResponse({ type: TableResponse })
+  updateTable(@Param('id') id: number, @Body() tableDto: TableDto) {
+    return this.tableService.update(id, tableDto);
   }
 }

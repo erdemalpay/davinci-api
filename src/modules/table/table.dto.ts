@@ -2,22 +2,25 @@ import { IsNumber, IsString } from 'class-validator';
 
 export class TableDto {
   @IsNumber()
-  location: number;
+  _id?: number;
 
   @IsNumber()
-  playerCount: number;
+  location?: number;
+
+  @IsNumber()
+  playerCount?: number;
 
   @IsString()
-  name: string;
+  name?: string;
 
   @IsString()
-  date: string;
+  date?: string;
 
   @IsString()
-  startHour: string;
+  startHour?: string;
 
   @IsString()
-  finishHour: string;
+  finishHour?: string;
 }
 
 export class TableResponse {

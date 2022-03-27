@@ -17,6 +17,10 @@ export class TableService {
     return this.tableModel.create(tableDto);
   }
 
+  async update(_id: number, tableDto: TableDto) {
+    return this.tableModel.findOneAndUpdate({ _id }, tableDto);
+  }
+
   async findById(_id: number): Promise<Table | undefined> {
     return this.tableModel.findOne({ _id });
   }
