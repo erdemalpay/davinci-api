@@ -7,7 +7,7 @@ import { Location } from '../location/location.schema';
 @Schema({ _id: false })
 export class Table extends Document {
   @Prop({ type: Number })
-  _id: Number;
+  _id: number;
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
@@ -16,7 +16,7 @@ export class Table extends Document {
   gameplays: Gameplay[];
 
   @Prop({ required: true })
-  playerCount: Number;
+  playerCount: number;
 
   @Prop({ required: true })
   name: string;

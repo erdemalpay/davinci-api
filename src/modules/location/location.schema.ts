@@ -5,7 +5,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 @Schema({ _id: false })
 export class Location extends Document {
   @Prop({ type: Number })
-  _id: Number;
+  _id: number;
 
   @Prop({ required: true, index: true })
   name: string;

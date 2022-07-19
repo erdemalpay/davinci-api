@@ -1,4 +1,4 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsArray, IsNumber, IsString } from 'class-validator';
 
 export class TableDto {
   @IsNumber()
@@ -21,6 +21,9 @@ export class TableDto {
 
   @IsString()
   finishHour?: string;
+
+  @IsArray()
+  gameplays?: number[];
 }
 
 export class TableResponse {

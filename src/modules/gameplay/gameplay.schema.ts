@@ -8,13 +8,13 @@ import { User } from '../user/user.schema';
 @Schema({ _id: false })
 export class Gameplay extends Document {
   @Prop({ type: Number })
-  _id: Number;
+  _id: number;
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 
   @Prop({ required: true })
-  playerCount: Number;
+  playerCount: number;
 
   @Prop({ required: true, type: String, ref: User.name })
   mentor: User;

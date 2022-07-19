@@ -8,7 +8,7 @@ import { CreateUserDto } from './user.dto';
 @Injectable()
 export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {
-    this.checkDefaultUser();
+    // this.checkDefaultUser();
   }
 
   async create(userProps: CreateUserDto) {
