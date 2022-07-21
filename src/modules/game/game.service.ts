@@ -23,9 +23,7 @@ export class GameService {
 
   async addGame(gameId: number) {
     const gameDetails = await getGameDetails(gameId);
-    const game = new Game(gameDetails);
-    await game.save();
-    return true;
+    return this.gameModel.create(gameDetails);
   }
 
   async migrateGames() {

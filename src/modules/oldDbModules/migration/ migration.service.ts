@@ -75,8 +75,13 @@ export class MigrationService {
 
   async migrateGames() {
     const oldGames = await this.oldGameService.getAll();
+    const existingGames = await this.gameService.getGames();
+    const existingGameIds = existingGames.map((game) => game._id);
     oldGames.forEach(async (oldGame) => {
-      await this.gameService.addGame(oldGame._id);
+      if (!existingGameIds.includes(oldGame._id)) {
+        console.log(`Game not found. Adding now: ${oldGame.title}`);
+        await this.gameService.addGame(oldGame._id);
+      }
     });
   }
 }

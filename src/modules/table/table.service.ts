@@ -18,7 +18,7 @@ export class TableService {
   }
 
   async update(_id: number, tableDto: TableDto) {
-    return this.tableModel.findOneAndUpdate({ _id }, tableDto);
+    return this.tableModel.findOneAndUpdate({ _id }, tableDto, { new: true });
   }
 
   async findById(_id: number): Promise<Table | undefined> {
