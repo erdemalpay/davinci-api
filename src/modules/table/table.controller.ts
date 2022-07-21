@@ -5,7 +5,7 @@ import {
   Param,
   Query,
   Body,
-  Put,
+  Delete,
   Patch,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -39,6 +39,15 @@ export class TableController {
     @Body() gameplayDto: CreateGameplayDto,
   ) {
     return this.tableService.addGameplay(id, gameplayDto);
+  }
+
+  @Delete('/:tableId/gameplay/:gameplayId')
+  @ApiResponse({ type: TableResponse })
+  removeGameplayFromTable(
+    @Param('tableId') tableId: number,
+    @Param('gameplayId') gameplayId: number,
+  ) {
+    return this.tableService.removeGameplay(tableId, gameplayId);
   }
 
   @Post('/new')

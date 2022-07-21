@@ -1,24 +1,16 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, Delete } from '@nestjs/common';
 import { GameplayService } from './gameplay.service';
-import { CreateGameplayDto } from './dto/create-gameplay.dto';
 import { UpdateGameplayDto } from './dto/update-gameplay.dto';
 
 @Controller('gameplays')
 export class GameplayController {
   constructor(private readonly gameplayService: GameplayService) {}
 
-  @Post()
+  // We have removed this endpoint since gameplay creation will be done through table controller
+  /* @Post()
   create(@Body() createGameplayDto: CreateGameplayDto) {
     return this.gameplayService.create(createGameplayDto);
-  }
+  } */
 
   @Get()
   findAll() {

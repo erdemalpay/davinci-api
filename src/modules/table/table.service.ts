@@ -41,4 +41,19 @@ export class TableService {
     table.gameplays.push(gameplay);
     await table.save();
   }
+
+  async removeGameplay(tableId: number, gameplayId: number) {
+    const table = await this.tableModel.findById(tableId);
+
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    await this.gameplayService.remove(gameplayId);
+
+    table.gameplays = table.gameplays.filter(
+      (gameplay) => gameplay._id !== gameplayId,
+    );
+    await table.save();
+  }
 }
