@@ -1,9 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { GameplayService } from './gameplay.service';
 import { CreateGameplayDto } from './dto/create-gameplay.dto';
 import { UpdateGameplayDto } from './dto/update-gameplay.dto';
 
-@Controller('gameplay')
+@Controller('gameplays')
 export class GameplayController {
   constructor(private readonly gameplayService: GameplayService) {}
 
@@ -23,7 +31,10 @@ export class GameplayController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateGameplayDto: UpdateGameplayDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateGameplayDto: UpdateGameplayDto,
+  ) {
     return this.gameplayService.update(+id, updateGameplayDto);
   }
 
