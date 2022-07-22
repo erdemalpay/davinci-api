@@ -22,7 +22,7 @@ export class UserService {
   }
 
   async getAll(): Promise<User[]> {
-    return this.userModel.find({});
+    return this.userModel.find({ active: true });
   }
 
   async validateCredentials(
