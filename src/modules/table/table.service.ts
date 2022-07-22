@@ -56,4 +56,15 @@ export class TableService {
     );
     await table.save();
   }
+
+  async removeTableAndGameplays(id: number) {
+    const table = await this.tableModel.findById(id);
+    await Promise.all(
+      table.gameplays.map((gameplay) =>
+        this.gameplayService.remove(gameplay._id),
+      ),
+    );
+
+    return this.tableModel.findByIdAndRemove(id);
+  }
 }

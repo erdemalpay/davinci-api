@@ -32,6 +32,12 @@ export class TableController {
     return this.tableService.findById(id);
   }
 
+  @Delete('/:id')
+  @ApiResponse({ type: TableResponse })
+  removeTable(@Param('id') id: number) {
+    return this.tableService.removeTableAndGameplays(id);
+  }
+
   @Post('/:id/gameplay')
   @ApiResponse({ type: TableResponse })
   addGameplayToTable(
