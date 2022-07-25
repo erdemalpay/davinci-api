@@ -22,5 +22,6 @@
     "https://panelv2.davinciboardgame.com",
     "http://localhost:3000",
     "https://davinci-nextjs.vercel.app"
-  ]
+  ],
+  "migrationEnabled": false
 }
