@@ -26,7 +26,12 @@ export class TableService {
   }
 
   async getByLocation(location: number, date: string): Promise<Table[]> {
-    return this.tableModel.find({ location, date }).populate('gameplays');
+    return this.tableModel.find({ location, date }).populate({
+      path: 'gameplays',
+      populate: {
+        path: 'mentor',
+      },
+    });
   }
 
   async addGameplay(id: number, gameplayDto: CreateGameplayDto) {
