@@ -29,7 +29,13 @@ export class MigrationService {
 
   async migrateUsers() {
     const oldUsers = await this.oldUserService.getAll();
+    const existingUsers = await this.userService.getAll(false);
+    const existingUserIds = existingUsers.map((user) => user._id);
     oldUsers.forEach(async (oldUser) => {
+      if (existingUserIds.includes(oldUser.username)) {
+        console.log(`User ${oldUser.username} already exists. Skipping...`);
+        return;
+      }
       await this.userService.create({
         name: oldUser.name,
         _id: oldUser.username,
@@ -95,11 +101,11 @@ export class MigrationService {
     const oldGames = await this.oldGameService.getAll();
     const existingGames = await this.gameService.getGames();
     const existingGameIds = existingGames.map((game) => game._id);
-    oldGames.forEach(async (oldGame) => {
+    for await (const oldGame of oldGames) {
       if (!existingGameIds.includes(oldGame._id)) {
         console.log(`Game not found. Adding now: ${oldGame.title}`);
         await this.gameService.addGame(oldGame._id);
       }
-    });
+    }
   }
 }

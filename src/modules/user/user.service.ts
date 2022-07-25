@@ -21,8 +21,9 @@ export class UserService {
     return this.userModel.findOne({ _id });
   }
 
-  async getAll(): Promise<User[]> {
-    return this.userModel.find({ active: true });
+  async getAll(filterInactives = true): Promise<User[]> {
+    const query = filterInactives ? { active: true } : {};
+    return this.userModel.find(query);
   }
 
   async validateCredentials(
