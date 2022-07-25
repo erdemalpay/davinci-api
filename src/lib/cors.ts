@@ -1,4 +1,4 @@
-import { CorsOptionsDelegate } from "@nestjs/common/interfaces/external/cors-options.interface";
+import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 import * as config from 'config';
 
 export const setCors: CorsOptionsDelegate<Request> = (req, cb) => {
@@ -7,7 +7,6 @@ export const setCors: CorsOptionsDelegate<Request> = (req, cb) => {
   }
 
   const whiteListConfig = config.get('corsWhitelist') as string[];
-  console.log({whiteListConfig});
 
   return cb(null, {
     origin: whiteListConfig,

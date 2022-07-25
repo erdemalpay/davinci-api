@@ -1,0 +1,7 @@
+{
+  "db": {
+    "host": "localhost",
+    "name": "davinci-prod"
+  },
+  "migrationEnabled": true
+}

@@ -41,7 +41,26 @@ export class MigrationService {
 
   async migrateTablesAndGameplays() {
     const oldTables = await this.oldTableService.getAll();
+    console.log(`${oldTables.length} tables will be migrated.`);
     for await (const oldTable of oldTables) {
+      const tableCreationTime = oldTable._id.getTimestamp();
+      const tableDate =
+        oldTable.date || format(tableCreationTime, 'yyyy-MM-dd');
+      const tableStartHour =
+        oldTable.startHour || format(tableCreationTime, 'HH:mm');
+
+      // Check if table already exists
+      const existingTable = await this.tableService.findByQuery({
+        name: oldTable.name,
+        date: tableDate,
+        startHour: tableStartHour,
+      });
+
+      if (existingTable) {
+        console.log(`Table ${oldTable.name} from ${tableDate} already exists.`);
+        continue;
+      }
+
       const gameplays = await Promise.all(
         oldTable.gameplays.map((oldGameplay: Gameplay) => {
           const creationTime = oldGameplay._id.getTimestamp();
@@ -58,18 +77,17 @@ export class MigrationService {
           });
         }),
       );
-      const tableCreationTime = oldTable._id.getTimestamp();
-      const tableDate = format(tableCreationTime, 'yyyy-MM-dd');
-      const tableStartHour = format(tableCreationTime, 'HH:mm');
+
       await this.tableService.create({
         name: oldTable.name,
         location: 1,
         playerCount: oldTable.playerCount,
-        date: oldTable.date || tableDate,
-        startHour: oldTable.startHour || tableStartHour,
+        date: tableDate,
+        startHour: tableStartHour,
         finishHour: oldTable.finishHour,
         gameplays: gameplays.map((gameplay) => gameplay._id),
       });
+      console.log(`Table ${oldTable.name} from ${tableDate} is migrated.`);
     }
   }
 

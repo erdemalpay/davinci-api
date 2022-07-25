@@ -25,6 +25,10 @@ export class TableService {
     return this.tableModel.findOne({ _id });
   }
 
+  async findByQuery(query: Partial<TableDto>): Promise<Table | undefined> {
+    return this.tableModel.findOne(query);
+  }
+
   async getByLocation(location: number, date: string): Promise<Table[]> {
     return this.tableModel.find({ location, date }).populate({
       path: 'gameplays',
