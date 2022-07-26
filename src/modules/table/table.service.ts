@@ -68,6 +68,9 @@ export class TableService {
 
   async removeTableAndGameplays(id: number) {
     const table = await this.tableModel.findById(id);
+    if (!table) {
+      throw new Error(`Table ${id} does not exist.`);
+    }
     await Promise.all(
       table.gameplays.map((gameplay) =>
         this.gameplayService.remove(gameplay._id),
