@@ -26,7 +26,7 @@ export class LocationService {
       return;
     }
     const location1: CreateLocationDto = {
-      name: 'Bahçelievler',
+      name: 'Bahçeli',
     };
     const location2: CreateLocationDto = {
       name: 'Neorama',
