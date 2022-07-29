@@ -11,6 +11,8 @@ import { OldGameModule } from '../oldGame/game.module';
 import { GameplayModule } from 'src/modules/gameplay/gameplay.module';
 import { OldGameplayModule } from '../oldGameplay/gameplay.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { VisitModule } from 'src/modules/visit/visit.module';
+import { OldVisitModule } from '../oldVisit/visit.module';
 
 const { host, port, name } = config.get('olddb');
 const mongoUrl = `mongodb://${host}:${port}/${name}`;
@@ -30,6 +32,8 @@ const OldDbModule = MongooseModule.forRoot(mongoUrl, {
     OldGameModule,
     GameplayModule,
     OldGameplayModule,
+    VisitModule,
+    OldVisitModule,
   ],
   providers: [MigrationService],
   exports: [MigrationService],

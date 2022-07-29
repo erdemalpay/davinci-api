@@ -10,12 +10,17 @@ import { OldGameService } from '../oldGame/game.service';
 import { GameplayService } from 'src/modules/gameplay/gameplay.service';
 import { OldGameplayService } from '../oldGameplay/gameplay.service';
 import { Gameplay } from '../oldGameplay/gameplay.schema';
+import { VisitService } from 'src/modules/visit/visit.service';
+import { OldVisitService } from '../oldVisit/visit.service';
 
 @Injectable()
 export class MigrationService {
   constructor(
     private readonly userService: UserService,
     private readonly oldUserService: OldUserService,
+
+    private readonly visitService: VisitService,
+    private readonly oldVisitService: OldVisitService,
 
     private readonly tableService: TableService,
     private readonly oldTableService: OldTableService,
@@ -106,6 +111,44 @@ export class MigrationService {
         console.log(`Game not found. Adding now: ${oldGame.title}`);
         await this.gameService.addGame(oldGame._id);
       }
+    }
+  }
+
+  async migrateVisits() {
+    const oldVisits = await this.oldVisitService.getAll();
+    // const existingUsers = await this.visitService.getAll(false);
+    // const existingUserIds = existingUsers.map((user) => user._id);
+    for await (const oldVisit of oldVisits) {
+      const visitCreationTime = oldVisit._id.getTimestamp();
+      const visitDate =
+        oldVisit.date || format(visitCreationTime, 'yyyy-MM-dd');
+      const visitStartHour =
+        oldVisit.startHour || format(visitCreationTime, 'HH:mm');
+
+      // Check if visit already exists
+      const existingUser = await this.visitService.findOneByQuery({
+        location: 1,
+        date: visitDate,
+        startHour: visitStartHour,
+        user: oldVisit.user.username,
+      });
+
+      if (existingUser) {
+        console.log(
+          `Visit with user ${oldVisit.user.username} from ${visitDate} already exists.`,
+        );
+        continue;
+      }
+      await this.visitService.create({
+        location: 1,
+        date: visitDate,
+        startHour: visitStartHour,
+        finishHour: oldVisit.finishHour,
+        user: oldVisit.user.username,
+      });
+      console.log(
+        `Visit with user ${oldVisit.user.username} from ${visitDate} is migrated.`,
+      );
     }
   }
 }

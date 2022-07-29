@@ -26,4 +26,10 @@ export class MigrationController {
   migrateGames() {
     return this.migrationService.migrateGames();
   }
+
+  @Public()
+  @Get('/visits')
+  migrateVisits() {
+    return this.migrationService.migrateVisits();
+  }
 }

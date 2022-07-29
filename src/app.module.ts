@@ -8,6 +8,7 @@ import { GameplayModule } from './modules/gameplay/gameplay.module';
 import { LocationModule } from './modules/location/location.module';
 import { TableModule } from './modules/table/table.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
+import { VisitModule } from './modules/visit/visit.module';
 
 const { host, port, name } = config.get('db');
 const mongoUrl = `mongodb://${host}:${port}/${name}`;
@@ -23,6 +24,7 @@ const modules = [
   LocationModule,
   TableModule,
   UserModule,
+  VisitModule,
 ];
 
 if (config.get('migrationEnabled')) {
