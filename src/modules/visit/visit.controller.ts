@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { VisitService } from './visit.service';
 import { VisitDto } from './visit.dto';
+import { CreateVisitDto } from './create.visit.dto';
 
 @Controller('/visits')
 export class VisitController {
@@ -19,13 +20,13 @@ export class VisitController {
     return this.visitService.findByDateAndLocation(date, location);
   }
 
-  @Post('/')
-  createVisit(@Body() visitDto: VisitDto) {
-    return this.visitService.create(visitDto);
+  @Post('/new')
+  createVisit(@Body() createVisitDto: CreateVisitDto) {
+    return this.visitService.create(createVisitDto);
   }
 
   @Patch('/:id')
-  updateVisit(@Param('id') id: number, @Body() visitDto: VisitDto) {
-    return this.updateVisit(id, visitDto);
+  updateVisit(@Param('id') id: number) {
+    return this.visitService.finish(id);
   }
 }

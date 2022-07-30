@@ -1,26 +1,40 @@
 import { InjectModel } from '@nestjs/mongoose';
-import { Visit } from './visit.schema';
 import { Model } from 'mongoose';
+import { format } from 'date-fns';
+
+import { Visit } from './visit.schema';
 import { VisitDto } from './visit.dto';
+import { CreateVisitDto } from './create.visit.dto';
 
 export class VisitService {
   constructor(@InjectModel(Visit.name) private visitModel: Model<Visit>) {}
 
   findByDateAndLocation(date: string, location: number) {
-    return this.visitModel.find({ date, location }).populate('user');
+    return this.visitModel
+      .find({ date, location })
+      .populate({ path: 'user', select: '_id name role active' });
   }
 
   findOneByQuery(visitDto: VisitDto) {
     return this.visitModel.findOne(visitDto);
   }
 
-  create(createVisitDto: VisitDto) {
-    return this.visitModel.create(createVisitDto);
+  create(createVisitDto: CreateVisitDto) {
+    return this.visitModel.create({
+      user: createVisitDto.user,
+      location: createVisitDto.location,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      startHour: format(new Date(), 'HH:mm'),
+    });
   }
 
-  update(id: number, updateVisitDto: VisitDto) {
-    return this.visitModel.findOneAndUpdate({ _id: id }, updateVisitDto, {
-      new: true,
-    });
+  finish(id: number) {
+    return this.visitModel.findOneAndUpdate(
+      { _id: id },
+      { finishHour: format(new Date(), 'HH:mm') },
+      {
+        new: true,
+      },
+    );
   }
 }
