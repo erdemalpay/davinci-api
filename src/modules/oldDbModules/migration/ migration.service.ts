@@ -139,7 +139,7 @@ export class MigrationService {
         );
         continue;
       }
-      await this.visitService.create({
+      await this.visitService.createManually({
         location: 1,
         date: visitDate,
         startHour: visitStartHour,

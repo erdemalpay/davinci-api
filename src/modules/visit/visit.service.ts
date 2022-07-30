@@ -28,6 +28,10 @@ export class VisitService {
     });
   }
 
+  createManually(visitDto: VisitDto) {
+    return this.visitModel.create(visitDto);
+  }
+
   finish(id: number) {
     return this.visitModel.findOneAndUpdate(
       { _id: id },
