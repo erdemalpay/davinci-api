@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
-import { CreateGameplayDto } from '../gameplay/dto/create-gameplay.dto';
+import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { TableResponse, TableDto } from './table.dto';
 import { TableService } from './table.service';
 
@@ -42,7 +42,7 @@ export class TableController {
   @ApiResponse({ type: TableResponse })
   addGameplayToTable(
     @Param('id') id: number,
-    @Body() gameplayDto: CreateGameplayDto,
+    @Body() gameplayDto: GameplayDto,
   ) {
     return this.tableService.addGameplay(id, gameplayDto);
   }

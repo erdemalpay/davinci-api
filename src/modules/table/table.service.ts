@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { Table } from './table.schema';
 import { TableDto } from './table.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
-import { CreateGameplayDto } from '../gameplay/dto/create-gameplay.dto';
+import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 
 @Injectable()
 export class TableService {
@@ -38,7 +38,7 @@ export class TableService {
     });
   }
 
-  async addGameplay(id: number, gameplayDto: CreateGameplayDto) {
+  async addGameplay(id: number, gameplayDto: GameplayDto) {
     const table = await this.tableModel.findById(id);
 
     if (!table) {

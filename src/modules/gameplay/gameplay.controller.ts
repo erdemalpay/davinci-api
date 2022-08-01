@@ -1,6 +1,14 @@
-import { Controller, Get, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { GameplayService } from './gameplay.service';
-import { UpdateGameplayDto } from './dto/update-gameplay.dto';
+import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 
 @Controller('gameplays')
 export class GameplayController {
@@ -12,9 +20,26 @@ export class GameplayController {
     return this.gameplayService.create(createGameplayDto);
   } */
 
-  @Get()
+  @Get('/all')
   findAll() {
     return this.gameplayService.findAll();
+  }
+
+  @Get('/query')
+  findByQuery(
+    @Query('location') location: number,
+    @Query('field') field: string,
+    @Query('limit') limit: number,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.gameplayService.groupByField({
+      location,
+      field,
+      limit,
+      startDate,
+      endDate,
+    });
   }
 
   @Get(':id')
@@ -25,7 +50,7 @@ export class GameplayController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateGameplayDto: UpdateGameplayDto,
+    @Body() updateGameplayDto: PartialGameplayDto,
   ) {
     return this.gameplayService.update(+id, updateGameplayDto);
   }

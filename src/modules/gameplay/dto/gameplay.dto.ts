@@ -1,6 +1,6 @@
 import { IsNumber, IsString } from 'class-validator';
 
-export class CreateGameplayDto {
+export class GameplayDto {
   @IsNumber()
   location: number;
 
