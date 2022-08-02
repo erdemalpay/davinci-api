@@ -23,7 +23,9 @@ export class GameplayService {
   async groupByField(query: GameplayQueryDto) {
     const matchQuery = {
       date: { $gte: query.startDate },
-      location: Number(query.location),
+      location: {
+        $in: query.location.split(',').map((location) => Number(location)),
+      },
     };
     if (query.endDate) {
       matchQuery.date['$lte'] = query.endDate;

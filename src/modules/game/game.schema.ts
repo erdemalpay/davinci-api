@@ -10,6 +10,9 @@ export class Game extends Document {
   name: string;
 
   @Prop()
+  displayName: string;
+
+  @Prop()
   image: string;
 
   @Prop()
