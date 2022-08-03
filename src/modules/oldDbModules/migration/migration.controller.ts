@@ -10,6 +10,14 @@ export class MigrationController {
   constructor(private readonly migrationService: MigrationService) {}
 
   @Public()
+  @Get('/all')
+  async migrateAll() {
+    await this.migrationService.migrateUsers();
+    await this.migrationService.migrateVisits();
+    await this.migrationService.migrateTablesAndGameplays();
+  }
+
+  @Public()
   @Get('/users')
   migrateUsers() {
     return this.migrationService.migrateUsers();

@@ -10,7 +10,7 @@ export class OldVisitService {
   async getAll(): Promise<Visit[]> {
     return this.visitModel
       .find({
-        date: { $gte: '2022-07-10' },
+        date: { $gte: '2022-07-01' },
       })
       .populate('user');
   }
