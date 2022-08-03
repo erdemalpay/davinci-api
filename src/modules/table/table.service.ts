@@ -38,8 +38,8 @@ export class TableService {
     );
   }
 
-  async findById(_id: number): Promise<Table | undefined> {
-    return this.tableModel.findOne({ _id });
+  async findById(id: number): Promise<Table | undefined> {
+    return this.tableModel.findById(id);
   }
 
   async findByQuery(query: Partial<TableDto>): Promise<Table | undefined> {

@@ -33,8 +33,8 @@ export class VisitService {
   }
 
   finish(id: number) {
-    return this.visitModel.findOneAndUpdate(
-      { _id: id },
+    return this.visitModel.findByIdAndUpdate(
+      id,
       { finishHour: format(new Date(), 'HH:mm') },
       {
         new: true,

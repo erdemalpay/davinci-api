@@ -17,8 +17,8 @@ export class UserService {
     await user.save();
   }
 
-  async findById(_id: string): Promise<User | undefined> {
-    return this.userModel.findOne({ _id });
+  async findById(id: string): Promise<User | undefined> {
+    return this.userModel.findById(id);
   }
 
   async getAll(filterInactives = true): Promise<User[]> {
