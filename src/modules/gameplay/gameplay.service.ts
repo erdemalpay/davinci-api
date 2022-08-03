@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { GameplayQueryDto } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
@@ -40,21 +41,27 @@ export class GameplayService {
     // return this.gameModel.populate(result, { path: 'game' });
   }
 
-  findOne(id: number) {
-    return this.gameplayModel.find({ _id: id });
+  findById(id: number) {
+    return this.gameplayModel.findById(id);
   }
 
   update(id: number, partialGameplayDto: PartialGameplayDto) {
-    return this.gameplayModel.findOneAndUpdate(
-      { _id: id },
-      partialGameplayDto,
-      {
-        new: true,
-      },
-    );
+    return this.gameplayModel.findByIdAndUpdate(id, partialGameplayDto, {
+      new: true,
+    });
   }
 
   remove(id: number) {
-    return this.gameplayModel.findOneAndDelete({ _id: id });
+    return this.gameplayModel.findByIdAndDelete(id);
+  }
+
+  close(id: number) {
+    return this.gameplayModel.findByIdAndUpdate(
+      id,
+      {
+        finishHour: format(new Date(), 'HH:mm'),
+      },
+      { new: true },
+    );
   }
 }

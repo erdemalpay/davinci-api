@@ -44,7 +44,7 @@ export class GameplayController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.gameplayService.findOne(+id);
+    return this.gameplayService.findById(+id);
   }
 
   @Patch(':id')

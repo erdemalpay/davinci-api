@@ -5,6 +5,7 @@ import { Table } from './table.schema';
 import { TableDto } from './table.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { format } from 'date-fns';
 
 @Injectable()
 export class TableService {
@@ -17,8 +18,24 @@ export class TableService {
     return this.tableModel.create(tableDto);
   }
 
-  async update(_id: number, tableDto: TableDto) {
-    return this.tableModel.findOneAndUpdate({ _id }, tableDto, { new: true });
+  async update(id: number, tableDto: TableDto) {
+    return this.tableModel.findByIdAndUpdate(id, tableDto, { new: true });
+  }
+
+  async close(id: number) {
+    const table = await this.tableModel.findById(id);
+    // Close the previous gameplay
+    if (table.gameplays.length) {
+      const lastGameplay = table.gameplays[table.gameplays.length - 1];
+      await this.gameplayService.close(lastGameplay._id);
+    }
+    return this.tableModel.findByIdAndUpdate(
+      id,
+      {
+        finishHour: format(new Date(), 'HH:mm'),
+      },
+      { new: true },
+    );
   }
 
   async findById(_id: number): Promise<Table | undefined> {
@@ -44,7 +61,11 @@ export class TableService {
     if (!table) {
       throw new Error('Table not found');
     }
-
+    // Close the previous gameplay
+    if (table.gameplays.length) {
+      const lastGameplay = table.gameplays[table.gameplays.length - 1];
+      await this.gameplayService.close(lastGameplay._id);
+    }
     const gameplay = await this.gameplayService.create(gameplayDto);
 
     table.gameplays.push(gameplay);
