@@ -15,12 +15,12 @@ import { CreateVisitDto } from './create.visit.dto';
 export class VisitController {
   constructor(private readonly visitService: VisitService) {}
 
-  @Get('/all')
+  @Get()
   getVisits(@Query('date') date: string, @Query('location') location: number) {
     return this.visitService.findByDateAndLocation(date, location);
   }
 
-  @Post('/new')
+  @Post()
   createVisit(@Body() createVisitDto: CreateVisitDto) {
     return this.visitService.create(createVisitDto);
   }

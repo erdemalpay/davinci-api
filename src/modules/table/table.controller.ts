@@ -21,15 +21,9 @@ export class TableController {
 
   @Public()
   @ApiResponse({ type: [TableResponse] })
-  @Get('/all')
+  @Get()
   getTables(@Query('location') location: number, @Query('date') date: string) {
     return this.tableService.getByLocation(location, date);
-  }
-
-  @Get('/:id')
-  @ApiResponse({ type: TableResponse })
-  getTable(@Param() id: number) {
-    return this.tableService.findById(id);
   }
 
   @Delete('/:id')
@@ -56,7 +50,7 @@ export class TableController {
     return this.tableService.removeGameplay(tableId, gameplayId);
   }
 
-  @Post('/new')
+  @Post()
   @ApiResponse({ type: TableResponse })
   createTable(@Body() tableDto: TableDto) {
     return this.tableService.create(tableDto);

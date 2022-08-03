@@ -14,7 +14,7 @@ import { GameService } from './game.service';
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
-  @Get('/all')
+  @Get()
   async getGames() {
     return this.gameService.getGames();
   }
@@ -22,10 +22,5 @@ export class GameController {
   @Get('/migrate')
   async migrateGames() {
     return this.gameService.migrateGames();
-  }
-
-  @Get('/game/:id')
-  getItem(@Param('id') id: number) {
-    return this.gameService.getGameById(id);
   }
 }

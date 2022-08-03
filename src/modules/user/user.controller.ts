@@ -19,7 +19,7 @@ export class UserController {
   }
 
   @ApiResponse({ type: [UserResponse] })
-  @Get('/all')
+  @Get()
   listUsers() {
     return this.userService.getAll();
   }

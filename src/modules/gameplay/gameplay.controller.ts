@@ -20,7 +20,7 @@ export class GameplayController {
     return this.gameplayService.create(createGameplayDto);
   } */
 
-  @Get('/all')
+  @Get()
   findAll() {
     return this.gameplayService.findAll();
   }
