@@ -64,7 +64,7 @@ export class TableService {
     // Close the previous gameplay
     if (table.gameplays.length) {
       const lastGameplay = table.gameplays[table.gameplays.length - 1];
-      await this.gameplayService.close(lastGameplay._id);
+      await this.gameplayService.close(lastGameplay as unknown as number);
     }
     const gameplay = await this.gameplayService.create(gameplayDto);
 
