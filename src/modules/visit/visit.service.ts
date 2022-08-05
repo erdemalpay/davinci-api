@@ -15,6 +15,12 @@ export class VisitService {
       .populate({ path: 'user', select: '_id name role active' });
   }
 
+  findMonthlyByLocation(date: string, location: number) {
+    return this.visitModel
+      .find({ date: { $gte: `${date}-01`, $lte: `${date}-31` }, location })
+      .populate({ path: 'user', select: '_id name' });
+  }
+
   findOneByQuery(visitDto: VisitDto) {
     return this.visitModel.findOne(visitDto);
   }

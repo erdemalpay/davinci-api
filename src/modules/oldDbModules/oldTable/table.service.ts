@@ -10,7 +10,7 @@ export class OldTableService {
   async getAll(): Promise<Table[]> {
     return this.tableModel
       .find({
-        date: '2022-07-01',
+        date: { $gte: '2022-07-01' },
       })
       .populate({
         path: 'gameplays',

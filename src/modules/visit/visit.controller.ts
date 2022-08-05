@@ -8,7 +8,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { VisitService } from './visit.service';
-import { VisitDto } from './visit.dto';
 import { CreateVisitDto } from './create.visit.dto';
 
 @Controller('/visits')
@@ -18,6 +17,14 @@ export class VisitController {
   @Get()
   getVisits(@Query('date') date: string, @Query('location') location: number) {
     return this.visitService.findByDateAndLocation(date, location);
+  }
+
+  @Get('/monthly')
+  getMonthlyVisits(
+    @Query('date') date: string,
+    @Query('location') location: number,
+  ) {
+    return this.visitService.findMonthlyByLocation(date, location);
   }
 
   @Post()
