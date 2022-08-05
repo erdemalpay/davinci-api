@@ -72,6 +72,20 @@ export class MigrationService {
         continue;
       }
 
+      // Fill missing finish hours
+      oldTable.gameplays.forEach((gameplay, index) => {
+        if (!gameplay.finishHour) {
+          // Check if it is last item or not
+          if (oldTable.gameplays.length === index + 1) {
+            gameplay.finishHour = oldTable.finishHour || '23:59';
+          } else {
+            gameplay.finishHour =
+              oldTable.gameplays[index + 1].startHour ||
+              format(oldTable.gameplays[index + 1]._id.getTimestamp(), 'HH:mm');
+          }
+        }
+      });
+
       const gameplays = await Promise.all(
         oldTable.gameplays.map((oldGameplay: Gameplay) => {
           const creationTime = oldGameplay._id.getTimestamp();
@@ -95,7 +109,7 @@ export class MigrationService {
         playerCount: oldTable.playerCount,
         date: tableDate,
         startHour: tableStartHour,
-        finishHour: oldTable.finishHour,
+        finishHour: oldTable.finishHour || '23:59',
         gameplays: gameplays.map((gameplay) => gameplay._id),
       });
       console.log(`Table ${oldTable.name} from ${tableDate} is migrated.`);
