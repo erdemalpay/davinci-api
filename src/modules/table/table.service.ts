@@ -22,20 +22,20 @@ export class TableService {
     return this.tableModel.findByIdAndUpdate(id, tableDto, { new: true });
   }
 
-  async close(id: number, finishHour: string) {
+  async close(id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
     // Close the previous gameplay
     if (table.gameplays.length) {
       const lastGameplay = table.gameplays[table.gameplays.length - 1];
       await this.gameplayService.close(
         lastGameplay as unknown as number,
-        finishHour,
+        tableDto.finishHour,
       );
     }
     return this.tableModel.findByIdAndUpdate(
       id,
       {
-        finishHour,
+        finishHour: tableDto.finishHour,
       },
       { new: true },
     );

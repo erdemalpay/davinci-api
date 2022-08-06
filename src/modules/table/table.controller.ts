@@ -64,7 +64,7 @@ export class TableController {
 
   @Patch('/close/:id')
   @ApiResponse({ type: TableResponse })
-  closeTable(@Param('id') id: number, @Body() finishHour: string) {
-    return this.tableService.close(id, finishHour);
+  closeTable(@Param('id') id: number, @Body() tableDto: TableDto) {
+    return this.tableService.close(id, tableDto);
   }
 }
