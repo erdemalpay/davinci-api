@@ -55,11 +55,11 @@ export class GameplayService {
     return this.gameplayModel.findByIdAndDelete(id);
   }
 
-  close(id: number) {
+  close(id: number, finishHour: string) {
     return this.gameplayModel.findByIdAndUpdate(
       id,
       {
-        finishHour: format(new Date(), 'HH:mm'),
+        finishHour,
       },
       { new: true },
     );
