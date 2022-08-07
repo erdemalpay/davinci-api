@@ -67,4 +67,10 @@ export class TableController {
   closeTable(@Param('id') id: number, @Body() tableDto: TableDto) {
     return this.tableService.close(id, tableDto);
   }
+
+  @Patch('/reopen/:id')
+  @ApiResponse({ type: TableResponse })
+  reopenTable(@Param('id') id: number) {
+    return this.tableService.reopen(id);
+  }
 }

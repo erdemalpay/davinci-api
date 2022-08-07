@@ -41,6 +41,14 @@ export class TableService {
     );
   }
 
+  async reopen(id: number) {
+    return this.tableModel.findByIdAndUpdate(
+      id,
+      { $unset: { finishHour: '' } },
+      { new: true },
+    );
+  }
+
   async findById(id: number): Promise<Table | undefined> {
     return this.tableModel.findById(id);
   }
