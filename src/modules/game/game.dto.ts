@@ -10,6 +10,10 @@ export class GameDto {
   name: string;
 
   @IsString()
+  @ApiProperty()
+  displayName: string;
+
+  @IsString()
   image: string;
 
   @IsString()

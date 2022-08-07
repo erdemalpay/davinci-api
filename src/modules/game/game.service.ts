@@ -5,6 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { getItems } from 'src/lib/mongo';
 import { mapGames } from 'src/lib/mappers';
+import { GameDto } from './game.dto';
 
 @Injectable()
 export class GameService {
@@ -21,8 +22,16 @@ export class GameService {
     return this.gameModel.findById(gameId);
   }
 
+  async getGameDetails(gameId: number) {
+    return getGameDetails(gameId);
+  }
+
   async addGame(gameId: number) {
     const gameDetails = await getGameDetails(gameId);
+    return this.gameModel.create(gameDetails);
+  }
+
+  async addGameByDetails(gameDetails: GameDto) {
     return this.gameModel.create(gameDetails);
   }
 
