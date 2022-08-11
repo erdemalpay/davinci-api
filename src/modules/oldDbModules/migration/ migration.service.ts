@@ -8,7 +8,6 @@ import { OldTableService } from '../oldTable/table.service';
 import { GameService } from 'src/modules/game/game.service';
 import { OldGameService } from '../oldGame/game.service';
 import { GameplayService } from 'src/modules/gameplay/gameplay.service';
-import { OldGameplayService } from '../oldGameplay/gameplay.service';
 import { Gameplay } from '../oldGameplay/gameplay.schema';
 import { VisitService } from 'src/modules/visit/visit.service';
 import { OldVisitService } from '../oldVisit/visit.service';
@@ -29,7 +28,6 @@ export class MigrationService {
     private readonly oldGameService: OldGameService,
 
     private readonly gameplayService: GameplayService,
-    private readonly oldGameplayService: OldGameplayService,
   ) {}
 
   async migrateUsers() {
@@ -74,15 +72,16 @@ export class MigrationService {
 
       // Fill missing finish hours
       oldTable.gameplays.forEach((gameplay, index) => {
-        if (!gameplay.finishHour) {
-          // Check if it is last item or not
-          if (oldTable.gameplays.length === index + 1) {
-            gameplay.finishHour = oldTable.finishHour || '23:59';
-          } else {
-            gameplay.finishHour =
-              oldTable.gameplays[index + 1].startHour ||
-              format(oldTable.gameplays[index + 1]._id.getTimestamp(), 'HH:mm');
-          }
+        if (gameplay.finishHour) {
+          return;
+        }
+        // Check if it is last item or not
+        if (oldTable.gameplays.length === index + 1) {
+          gameplay.finishHour = oldTable.finishHour || '23:59';
+        } else {
+          gameplay.finishHour =
+            oldTable.gameplays[index + 1].startHour ||
+            format(oldTable.gameplays[index + 1]._id.getTimestamp(), 'HH:mm');
         }
       });
 

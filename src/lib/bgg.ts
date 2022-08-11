@@ -1,4 +1,4 @@
-import bggClient, { getBggThing } from 'bgg-xml-api-client';
+import { getBggThing } from 'bgg-xml-api-client';
 import { GameDto } from 'src/modules/game/game.dto';
 
 export const getGameDetails = async (id: number): Promise<GameDto> => {

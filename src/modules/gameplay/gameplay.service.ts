@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { GameplayQueryDto } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
@@ -10,7 +9,7 @@ import { Gameplay } from './gameplay.schema';
 @Injectable()
 export class GameplayService {
   constructor(
-    @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>, // @InjectModel(Game.name) private gameModel: Model<Game>,
+    @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
   ) {}
 
   create(createGameplayDto: GameplayDto) {
@@ -38,7 +37,40 @@ export class GameplayService {
       { $sort: { playCount: -1 } },
       { $limit: Number(query.limit) },
     ]);
-    // return this.gameModel.populate(result, { path: 'game' });
+  }
+
+  async queryData(query: GameplayQueryDto) {
+    const filterQuery = {};
+    const { startDate, endDate, game, mentor, page, limit, sort, asc } = query;
+    if (startDate || endDate) {
+      filterQuery['date'] = {};
+    }
+    if (endDate) {
+      filterQuery['date']['$lte'] = endDate;
+    }
+    if (startDate) {
+      filterQuery['date']['$gte'] = startDate;
+    }
+    if (game) {
+      filterQuery['game'] = game;
+    }
+    if (mentor) {
+      filterQuery['mentor'] = mentor;
+    }
+    const sortObject = {};
+    if (sort) {
+      sortObject[sort] = asc;
+    }
+
+    const totalCount = await this.gameplayModel.count(filterQuery);
+    const items = await this.gameplayModel
+      .find(filterQuery)
+      .sort(sortObject)
+      .skip(page ? page - 1 : 0)
+      .limit(limit || 0)
+      .populate({ path: 'mentor', select: 'name' })
+      .populate({ path: 'game', select: 'name' });
+    return { totalCount, items };
   }
 
   findById(id: number) {

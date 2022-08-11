@@ -5,7 +5,6 @@ import { Table } from './table.schema';
 import { TableDto } from './table.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
-import { format } from 'date-fns';
 
 @Injectable()
 export class TableService {

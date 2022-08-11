@@ -1,10 +1,12 @@
-import { PartialType } from '@nestjs/swagger';
-import { GameplayDto } from './gameplay.dto';
-
 export class GameplayQueryDto {
   location: string;
-  field: string;
-  limit: number;
-  startDate: string;
+  field?: string;
+  startDate?: string;
   endDate?: string;
+  limit?: number;
+  page?: number;
+  game?: number;
+  mentor?: string;
+  sort?: string;
+  asc?: number;
 }

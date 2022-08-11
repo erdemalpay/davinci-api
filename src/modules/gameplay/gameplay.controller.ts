@@ -28,9 +28,34 @@ export class GameplayController {
   @Get('/query')
   findByQuery(
     @Query('location') location: string,
+    @Query('limit') limit: number,
+    @Query('page') page: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('game') game?: number,
+    @Query('mentor') mentor?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
+  ) {
+    return this.gameplayService.queryData({
+      location,
+      startDate,
+      endDate,
+      limit,
+      page,
+      game,
+      mentor,
+      sort,
+      asc,
+    });
+  }
+
+  @Get('/group')
+  groupByQuery(
+    @Query('location') location: string,
     @Query('field') field: string,
     @Query('limit') limit: number,
-    @Query('startDate') startDate: string,
+    @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
     return this.gameplayService.groupByField({

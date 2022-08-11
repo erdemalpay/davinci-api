@@ -1,8 +1,7 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiResponse, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { UserResponse } from './user.dto';
 import { UserService } from './user.service';
-import { Request as Req } from 'express';
 import { ReqUser } from './user.decorator';
 import { User } from './user.schema';
 
@@ -20,7 +19,7 @@ export class UserController {
 
   @ApiResponse({ type: [UserResponse] })
   @Get()
-  listUsers() {
+  listActiveUsers() {
     return this.userService.getAll();
   }
 }
