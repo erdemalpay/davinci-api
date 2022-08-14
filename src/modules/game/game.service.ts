@@ -2,7 +2,7 @@ import { getGameDetails } from '../../lib/bgg';
 import { Injectable } from '@nestjs/common';
 import { Game } from './game.schema';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { getItems } from 'src/lib/mongo';
 import { mapGames } from 'src/lib/mappers';
 import { GameDto } from './game.dto';
@@ -33,6 +33,10 @@ export class GameService {
 
   async addGameByDetails(gameDetails: GameDto) {
     return this.gameModel.create(gameDetails);
+  }
+
+  async update(id: number, gameDetails: UpdateQuery<Game>) {
+    return this.gameModel.findByIdAndUpdate(id, gameDetails, { new: true });
   }
 
   async migrateGames() {

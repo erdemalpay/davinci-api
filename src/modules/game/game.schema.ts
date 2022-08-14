@@ -10,9 +10,6 @@ export class Game extends Document {
   name: string;
 
   @Prop()
-  displayName: string;
-
-  @Prop()
   image: string;
 
   @Prop()
@@ -20,6 +17,9 @@ export class Game extends Document {
 
   @Prop({ required: true, default: false })
   expansion: boolean;
+
+  @Prop({ required: true, default: [] })
+  locations: number[];
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);

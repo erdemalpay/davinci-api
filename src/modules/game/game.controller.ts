@@ -1,7 +1,10 @@
-import { Get, Param, Controller, Post, Body } from '@nestjs/common';
+import { Get, Param, Controller, Post, Body, Patch } from '@nestjs/common';
 
 import { GameService } from './game.service';
 import { GameDto } from './game.dto';
+import { Public } from '../auth/public.decorator';
+import { UpdateQuery } from 'mongoose';
+import { Game } from './game.schema';
 
 @Controller('games')
 export class GameController {
@@ -12,6 +15,7 @@ export class GameController {
     return this.gameService.getGameDetails(id);
   }
 
+  @Public()
   @Get()
   async getGames() {
     return this.gameService.getGames();
@@ -20,6 +24,14 @@ export class GameController {
   @Post()
   async addGame(@Body() game: GameDto) {
     return this.gameService.addGameByDetails(game);
+  }
+
+  @Patch('/:id')
+  async updateGame(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Game>,
+  ) {
+    return this.gameService.update(id, updates);
   }
 
   @Get('/migrate')

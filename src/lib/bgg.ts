@@ -12,7 +12,6 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
     return {
       _id: id,
       name: item.name.length ? item.name[0].value : item.name.value,
-      displayName: '',
       expansion: item.type === 'boardgameexpansion',
       image: item.image,
       thumbnail: item.thumbnail,
