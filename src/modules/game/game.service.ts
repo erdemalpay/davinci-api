@@ -39,6 +39,10 @@ export class GameService {
     return this.gameModel.findByIdAndUpdate(id, gameDetails, { new: true });
   }
 
+  async remove(id: number) {
+    return this.gameModel.findByIdAndDelete(id);
+  }
+
   async migrateGames() {
     const games = await getItems('games');
     const mappedGames = mapGames(games);
