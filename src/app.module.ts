@@ -10,6 +10,7 @@ import { TableModule } from './modules/table/table.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { MembershipModule } from './modules/membership/membership.module';
+import { MenuModule } from './modules/menu/menu.module';
 
 const { host, port, name } = config.get('db');
 const mongoUrl = `mongodb://${host}:${port}/${name}`;
@@ -24,6 +25,7 @@ const modules = [
   GameplayModule,
   LocationModule,
   MembershipModule,
+  MenuModule,
   TableModule,
   UserModule,
   VisitModule,
