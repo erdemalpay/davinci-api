@@ -20,8 +20,9 @@ export class MenuService {
     return this.itemModel.find().populate('category').sort({ name: 1 });
   }
 
-  createCategory(createCategoryDto: CreateCategoryDto) {
-    return this.categoryModel.create(createCategoryDto);
+  async createCategory(createCategoryDto: CreateCategoryDto) {
+    const lastCategory = await this.categoryModel.findOne({}).sort({order: 'desc'});
+    return this.categoryModel.create({...createCategoryDto, order: lastCategory.order + 1});
   }
 
   updateCategory(id: number, updates: UpdateQuery<MenuCategory>) {
