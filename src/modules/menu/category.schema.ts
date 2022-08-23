@@ -9,6 +9,9 @@ export class MenuCategory extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+  
+  @Prop({ required: true, type: Number })
+  order: number;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);

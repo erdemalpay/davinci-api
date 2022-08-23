@@ -13,11 +13,11 @@ export class MenuService {
   ) {}
 
   findAllCategories() {
-    return this.categoryModel.find().sort({ name: 1 });
+    return this.categoryModel.find().sort({ order: 'asc' });
   }
 
   findAllItems() {
-    return this.itemModel.find().sort({ name: 1 });
+    return this.itemModel.find().populate('category').sort({ name: 1 });
   }
 
   createCategory(createCategoryDto: CreateCategoryDto) {

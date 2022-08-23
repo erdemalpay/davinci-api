@@ -12,6 +12,7 @@ import { CreateCategoryDto, CreateItemDto } from './menu.dto';
 import { UpdateQuery } from 'mongoose';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
+import { Public } from '../auth/public.decorator';
 
 @Controller('/menu')
 export class MenuController {
@@ -22,6 +23,7 @@ export class MenuController {
     return this.menuService.findAllCategories();
   }
 
+  @Public()
   @Get('/items')
   getItems() {
     return this.menuService.findAllItems();
