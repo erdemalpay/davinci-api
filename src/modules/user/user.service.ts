@@ -1,7 +1,7 @@
 import { hash, compare } from 'bcrypt';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { User } from './user.schema';
 import { CreateUserDto } from './user.dto';
 
@@ -13,8 +13,15 @@ export class UserService {
 
   async create(userProps: CreateUserDto) {
     const user = new this.userModel(userProps);
-    user.password = await hash(userProps.password, 10);
+    user.password = await hash('dv' /* temporary dummy password*/, 10);
+    user.role = 'user';
     await user.save();
+  }
+
+  async update(id: string, updateQuery: UpdateQuery<User>) {
+    return this.userModel.findByIdAndUpdate(id, updateQuery, {
+      new: true,
+    });
   }
 
   async findById(id: string): Promise<User | undefined> {
@@ -23,7 +30,7 @@ export class UserService {
 
   async getAll(filterInactives = true): Promise<User[]> {
     const query = filterInactives ? { active: true } : {};
-    return this.userModel.find(query);
+    return this.userModel.find(query).sort({ _id: 1 });
   }
 
   async validateCredentials(

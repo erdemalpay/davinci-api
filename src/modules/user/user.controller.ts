@@ -1,9 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiResponse, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
-import { UserResponse } from './user.dto';
+import { CreateUserDto, UserResponse } from './user.dto';
 import { UserService } from './user.service';
 import { ReqUser } from './user.decorator';
 import { User } from './user.schema';
+import { UpdateQuery } from 'mongoose';
 
 @ApiCookieAuth('jwt')
 @ApiTags('User')
@@ -19,7 +28,19 @@ export class UserController {
 
   @ApiResponse({ type: [UserResponse] })
   @Get()
-  listActiveUsers() {
-    return this.userService.getAll();
+  listUsers(@Query('all') all: boolean) {
+    return this.userService.getAll(!all);
+  }
+
+  @ApiResponse({ type: [UserResponse] })
+  @Post()
+  createUser(@Body() createUserDto: CreateUserDto) {
+    return this.userService.create(createUserDto);
+  }
+
+  @Patch('/:id')
+  @ApiResponse({ type: UserResponse })
+  updateUser(@Param('id') id: string, @Body() updateQuery: UpdateQuery<User>) {
+    return this.userService.update(id, updateQuery);
   }
 }
