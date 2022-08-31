@@ -26,12 +26,7 @@ export class VisitService {
   }
 
   create(createVisitDto: CreateVisitDto) {
-    return this.visitModel.create({
-      user: createVisitDto.user,
-      location: createVisitDto.location,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      startHour: format(new Date(), 'HH:mm'),
-    });
+    return this.visitModel.create(createVisitDto);
   }
 
   createManually(visitDto: VisitDto) {
