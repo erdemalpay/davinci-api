@@ -1,5 +1,5 @@
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { format } from 'date-fns';
 
 import { Visit } from './visit.schema';
@@ -33,13 +33,9 @@ export class VisitService {
     return this.visitModel.create(visitDto);
   }
 
-  finish(id: number) {
-    return this.visitModel.findByIdAndUpdate(
-      id,
-      { finishHour: format(new Date(), 'HH:mm') },
-      {
-        new: true,
-      },
-    );
+  update(id: number, updateQuery: UpdateQuery<Visit>) {
+    return this.visitModel.findByIdAndUpdate(id, updateQuery, {
+      new: true,
+    });
   }
 }

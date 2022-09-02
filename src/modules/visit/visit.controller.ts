@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { VisitService } from './visit.service';
 import { CreateVisitDto } from './create.visit.dto';
+import { Visit } from './visit.schema';
+import { UpdateQuery } from 'mongoose';
 
 @Controller('/visits')
 export class VisitController {
@@ -33,7 +35,10 @@ export class VisitController {
   }
 
   @Patch('/:id')
-  updateVisit(@Param('id') id: number) {
-    return this.visitService.finish(id);
+  updateVisit(
+    @Param('id') id: number,
+    @Body() updateQuery: UpdateQuery<Visit>,
+  ) {
+    return this.visitService.update(id, updateQuery);
   }
 }
