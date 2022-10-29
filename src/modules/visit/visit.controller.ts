@@ -9,8 +9,6 @@ import {
 } from '@nestjs/common';
 import { VisitService } from './visit.service';
 import { CreateVisitDto } from './create.visit.dto';
-import { Visit } from './visit.schema';
-import { UpdateQuery } from 'mongoose';
 
 @Controller('/visits')
 export class VisitController {
