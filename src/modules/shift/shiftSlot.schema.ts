@@ -1,7 +1,7 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { Location } from '../location/Location.schema';
+import { Location } from '../location/location.schema';
 import { ShiftValues } from './shiftDataTypes';
 
 @Schema({ _id: false })
