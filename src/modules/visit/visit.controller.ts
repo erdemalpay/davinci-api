@@ -34,11 +34,8 @@ export class VisitController {
     return this.visitService.create(createVisitDto);
   }
 
-  @Patch('/:id')
-  updateVisit(
-    @Param('id') id: number,
-    @Body() updateQuery: UpdateQuery<Visit>,
-  ) {
-    return this.visitService.update(id, updateQuery);
+  @Patch('/finish/:id')
+  finishVisit(@Param('id') id: number) {
+    return this.visitService.finish(id);
   }
 }

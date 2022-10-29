@@ -1,6 +1,6 @@
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
-import { format } from 'date-fns';
+import { Model } from 'mongoose';
+import { addHours, format } from 'date-fns';
 
 import { Visit } from './visit.schema';
 import { VisitDto } from './visit.dto';
@@ -26,16 +26,26 @@ export class VisitService {
   }
 
   create(createVisitDto: CreateVisitDto) {
-    return this.visitModel.create(createVisitDto);
+    // Server is running on UTC but we want to record times according to GMT+3
+    const gmtPlus3Now = addHours(new Date(), 3);
+    const startHour = format(gmtPlus3Now, 'HH:mm');
+    const date = format(gmtPlus3Now, 'yyyy-MM-dd');
+    return this.visitModel.create({ ...createVisitDto, date, startHour });
   }
 
   createManually(visitDto: VisitDto) {
     return this.visitModel.create(visitDto);
   }
 
-  update(id: number, updateQuery: UpdateQuery<Visit>) {
-    return this.visitModel.findByIdAndUpdate(id, updateQuery, {
-      new: true,
-    });
+  finish(id: number) {
+    const gmtPlus3Now = addHours(new Date(), 3);
+    const finishHour = format(gmtPlus3Now, 'HH:mm');
+    return this.visitModel.findByIdAndUpdate(
+      id,
+      { finishHour },
+      {
+        new: true,
+      },
+    );
   }
 }
