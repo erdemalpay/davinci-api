@@ -22,6 +22,7 @@ export class MembershipService {
       new: true,
     });
   }
+
   remove(id: number) {
     return this.membershipModel.findByIdAndRemove(id);
   }

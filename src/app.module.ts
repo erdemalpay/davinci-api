@@ -6,8 +6,9 @@ import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
 import { LocationModule } from './modules/location/location.module';
-import { TableModule } from './modules/table/table.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
+import { ShiftModule } from './modules/shift/shift.module';
+import { TableModule } from './modules/table/table.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
@@ -26,6 +27,7 @@ const modules = [
   LocationModule,
   MembershipModule,
   MenuModule,
+  ShiftModule,
   TableModule,
   UserModule,
   VisitModule,
