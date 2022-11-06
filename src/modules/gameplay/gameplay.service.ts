@@ -66,7 +66,7 @@ export class GameplayService {
     const items = await this.gameplayModel
       .find(filterQuery)
       .sort(sortObject)
-      .skip(page ? page - 1 : 0)
+      .skip(page ? (page - 1) * limit : 0)
       .limit(limit || 0)
       .populate({ path: 'mentor', select: 'name' })
       .populate({ path: 'game', select: 'name' });
