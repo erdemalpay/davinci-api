@@ -57,6 +57,7 @@ export class GameplayController {
     @Query('limit') limit: number,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('mentor') mentor?: string,
   ) {
     return this.gameplayService.groupByField({
       location,
@@ -64,6 +65,7 @@ export class GameplayController {
       limit,
       startDate,
       endDate,
+      mentor,
     });
   }
 

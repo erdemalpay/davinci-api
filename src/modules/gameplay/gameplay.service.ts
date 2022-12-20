@@ -30,6 +30,9 @@ export class GameplayService {
     if (query.endDate) {
       matchQuery.date['$lte'] = query.endDate;
     }
+    if (query.mentor) {
+      matchQuery['mentor'] = query.mentor;
+    }
 
     return this.gameplayModel.aggregate([
       { $match: matchQuery },
