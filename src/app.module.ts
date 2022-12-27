@@ -13,6 +13,7 @@ import { VisitModule } from './modules/visit/visit.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
+import { RewardModule } from './modules/reward/reward.module';
 
 const { host, port, name } = config.get('db');
 const mongoUrl = `mongodb://${host}:${port}/${name}`;
@@ -27,6 +28,7 @@ const modules = [
   GameplayModule,
   LocationModule,
   MembershipModule,
+  RewardModule,
   MenuModule,
   ReservationModule,
   ShiftModule,
