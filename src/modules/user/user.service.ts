@@ -1,20 +1,27 @@
 import { hash, compare } from 'bcrypt';
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from './user.schema';
 import { CreateUserDto } from './user.dto';
+import { Role } from './user.role.schema';
+import { RolePermissionEnum } from './user.role.enum';
 
 @Injectable()
-export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {
+export class UserService implements OnModuleInit {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Role.name) private roleModel: Model<Role>,
+  ) {
     // this.checkDefaultUser();
+  }
+  onModuleInit() {
+    this.checkDefaultRoles();
   }
 
   async create(userProps: CreateUserDto) {
     const user = new this.userModel(userProps);
     user.password = await hash('dv' /* temporary dummy password*/, 10);
-    user.role = 'user';
     await user.save();
   }
 
@@ -30,7 +37,11 @@ export class UserService {
 
   async getAll(filterInactives = true): Promise<User[]> {
     const query = filterInactives ? { active: true } : {};
-    return this.userModel.find(query).sort({ _id: 1 });
+    return this.userModel.find(query).populate('role').sort({ _id: 1 });
+  }
+
+  async getRoles(): Promise<Role[]> {
+    return this.roleModel.find();
   }
 
   async validateCredentials(
@@ -53,7 +64,6 @@ export class UserService {
       name: '-',
       password: 'dvdv',
       active: true,
-      role: 'admin',
     };
 
     const user = await this.findById(userProps._id);
@@ -63,5 +73,53 @@ export class UserService {
     await this.create(userProps);
 
     console.log('Created default user.'); // eslint-disable-line no-console
+  }
+
+  async checkDefaultRoles() {
+    const roles = await this.roleModel.find();
+    if (roles.length) return;
+
+    await this.roleModel.create({
+      name: 'Manager',
+      color: '#e17055',
+      permissions: Object.values(RolePermissionEnum),
+    });
+
+    await this.roleModel.create({
+      name: 'Game Master',
+      color: '#74b9ff',
+    });
+
+    await this.roleModel.create({
+      name: 'Game Manager',
+      color: '#d63031',
+    });
+
+    await this.roleModel.create({
+      name: 'Catering Manager',
+      color: '#00cec9',
+    });
+
+    await this.roleModel.create({
+      name: 'Barista',
+      color: '#b8e994',
+    });
+
+    await this.roleModel.create({
+      name: 'Kitchen',
+      color: '#a29bfe',
+    });
+
+    await this.roleModel.create({
+      name: 'Service',
+      color: '#4a69bd',
+    });
+
+    await this.roleModel.create({
+      name: 'Cleaning',
+      color: '#82ccdd',
+    });
+
+    console.log('Created default roles.'); // eslint-disable-line no-console
   }
 }

@@ -12,7 +12,11 @@ export class VisitService {
   findByDateAndLocation(date: string, location: number) {
     return this.visitModel
       .find({ date, location })
-      .populate({ path: 'user', select: '_id name role active' });
+      .populate({
+        path: 'user',
+        select: '_id name role active',
+        populate: 'role',
+      });
   }
 
   findMonthlyByLocation(date: string, location: number) {

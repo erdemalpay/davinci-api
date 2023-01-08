@@ -13,6 +13,7 @@ import { UserService } from './user.service';
 import { ReqUser } from './user.decorator';
 import { User } from './user.schema';
 import { UpdateQuery } from 'mongoose';
+import { Role } from './user.role.schema';
 
 @ApiCookieAuth('jwt')
 @ApiTags('User')
@@ -24,6 +25,12 @@ export class UserController {
   @ApiResponse({ type: UserResponse })
   getProfile(@ReqUser() user: User) {
     return user;
+  }
+
+  @ApiResponse({ type: [Role] })
+  @Get('/roles')
+  listRoles() {
+    return this.userService.getRoles();
   }
 
   @ApiResponse({ type: [UserResponse] })

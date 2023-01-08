@@ -1,10 +1,10 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 import { Gameplay } from '../oldGameplay/gameplay.schema';
 
 @Schema()
 export class Table extends Document {
-  @Prop({ type: [{ type: Types.ObjectId, ref: Gameplay.name }] })
+  @Prop({ type: [{ type: Number, ref: Gameplay.name }] })
   gameplays: Gameplay[];
 
   @Prop({ required: true })
