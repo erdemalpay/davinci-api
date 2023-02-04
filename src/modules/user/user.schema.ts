@@ -1,7 +1,6 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { RolePermissionEnum } from './user.role.enum';
 import { Role } from './user.role.schema';
 
 @Schema({ _id: false })
@@ -22,7 +21,7 @@ export class User extends Document {
     required: true,
     type: Number,
     ref: Role.name,
-    default: 2, // Game master
+    default: Number(2), // Game master
   })
   role: Role;
 }

@@ -9,10 +9,20 @@ import {
 } from '@nestjs/common';
 import { VisitService } from './visit.service';
 import { CreateVisitDto } from './create.visit.dto';
+import { Public } from '../auth/public.decorator';
 
 @Controller('/visits')
 export class VisitController {
   constructor(private readonly visitService: VisitService) {}
+
+  @Public()
+  @Get('/kalender')
+  asyncgetKalenderVisits(
+    @Query('start-date') startDate: string,
+    @Query('end-date') endDate: string,
+  ) {
+    return this.visitService.getVisits(startDate, endDate);
+  }
 
   @Get()
   getVisits(@Query('date') date: string, @Query('location') location: number) {

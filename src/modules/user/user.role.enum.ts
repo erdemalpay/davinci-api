@@ -1,7 +1,8 @@
 export enum RolePermissionEnum {
   ADMIN = 'Admin',
-  MANAGEMENT = 'Management',
-  CHECKIN = 'CheckIn',
-  TABLES = 'Tables',
   ANALYTICS = 'Analytics',
+  CHECKIN = 'CheckIn',
+  OPERATION = 'Operation',
+  MANAGEMENT = 'Management',
+  TABLES = 'Tables',
 }

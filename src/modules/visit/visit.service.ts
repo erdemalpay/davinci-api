@@ -5,18 +5,17 @@ import { addHours, format } from 'date-fns';
 import { Visit } from './visit.schema';
 import { VisitDto } from './visit.dto';
 import { CreateVisitDto } from './create.visit.dto';
+import { userInfo } from 'os';
 
 export class VisitService {
   constructor(@InjectModel(Visit.name) private visitModel: Model<Visit>) {}
 
   findByDateAndLocation(date: string, location: number) {
-    return this.visitModel
-      .find({ date, location })
-      .populate({
-        path: 'user',
-        select: '_id name role active',
-        populate: 'role',
-      });
+    return this.visitModel.find({ date, location }).populate({
+      path: 'user',
+      select: '_id name role active',
+      populate: 'role',
+    });
   }
 
   findMonthlyByLocation(date: string, location: number) {
@@ -51,5 +50,24 @@ export class VisitService {
         new: true,
       },
     );
+  }
+
+  async getVisits(startDate: string, endDate: string) {
+    const visits = await this.visitModel
+      .find(
+        { date: { $gte: startDate, $lte: endDate } },
+        { __v: false, _id: false },
+      )
+      .sort({ date: 1, location: 1 })
+      .populate('user')
+      .lean();
+
+    return visits.map((visit) => {
+      return {
+        ...visit,
+        role: visit.user.role,
+        user: visit.user._id,
+      };
+    });
   }
 }

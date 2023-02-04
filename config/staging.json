@@ -1,0 +1,14 @@
+{
+  "db": {
+    "port": "27017",
+    "host": "davinci-db",
+    "name": "davinci-demo"
+  },
+  "app": {
+    "port": 4000
+  },
+  "panel": {
+    "host": "http://localhost:3000"
+  },
+  "migrationEnabled": false
+}

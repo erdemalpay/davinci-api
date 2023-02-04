@@ -8,9 +8,10 @@ services:
       - ./davinci-data:/data/db
     ports:
       - '27017:27017'
-  api:
-    build: .
-    container_name: davinci-api
+  api-production:
+    build:
+      dockerfile: ./Dockerfile.production
+    container_name: davinci-api-prod
     restart: always
     depends_on:
       - mongo
@@ -18,3 +19,14 @@ services:
       - '80:4000'
     volumes:
       - ./logs:/app/logs
+  api-staging:
+    build:
+      dockerfile: ./Dockerfile.staging
+    container_name: davinci-api-staging
+    restart: always
+    depends_on:
+      - mongo
+    ports:
+      - '8080:5000'
+    volumes:
+      - ./logs:/app/logs-staging
