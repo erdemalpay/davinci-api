@@ -17,7 +17,7 @@ services:
     depends_on:
       - mongo
     ports:
-      - '80:4000'
+      - '8070:4000'
     volumes:
       - ./logs:/app/logs
   api-staging:
