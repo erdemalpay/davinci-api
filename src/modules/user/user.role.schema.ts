@@ -1,7 +1,7 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { RolePermissionEnum } from './user.role.enum';
+import { RolePermissionEnum } from './user.enums';
 
 @Schema({ _id: false })
 export class Role extends Document {

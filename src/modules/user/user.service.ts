@@ -1,11 +1,11 @@
-import { hash, compare } from 'bcrypt';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { compare, hash } from 'bcrypt';
 import { Model, UpdateQuery } from 'mongoose';
-import { User } from './user.schema';
 import { CreateUserDto } from './user.dto';
+import { RolePermissionEnum } from './user.enums';
 import { Role } from './user.role.schema';
-import { RolePermissionEnum } from './user.role.enum';
+import { User } from './user.schema';
 
 @Injectable()
 export class UserService implements OnModuleInit {
@@ -28,6 +28,16 @@ export class UserService implements OnModuleInit {
   async update(id: string, updateQuery: UpdateQuery<User>) {
     return this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
+    });
+  }
+
+  async updatePassword(user: User, oldPassword: string, newPassword: string) {
+    const isValid = await this.validateCredentials(user._id, oldPassword);
+    console.log({ isValid });
+    if (!isValid) throw new Error('Password not correct');
+    const hashedNewPassword = await hash(newPassword, 10);
+    return this.update(user._id, {
+      password: hashedNewPassword,
     });
   }
 

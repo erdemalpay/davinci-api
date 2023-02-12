@@ -7,13 +7,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiResponse, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
-import { CreateUserDto, UserResponse } from './user.dto';
-import { UserService } from './user.service';
-import { ReqUser } from './user.decorator';
-import { User } from './user.schema';
+import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
+import { ReqUser } from './user.decorator';
+import { CreateUserDto, UserResponse } from './user.dto';
 import { Role } from './user.role.schema';
+import { User } from './user.schema';
+import { UserService } from './user.service';
 
 @ApiCookieAuth('jwt')
 @ApiTags('User')
@@ -22,9 +22,18 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('/me')
-  @ApiResponse({ type: UserResponse })
   getProfile(@ReqUser() user: User) {
     return user;
+  }
+
+  @Post('/password')
+  updatePassword(
+    @ReqUser() user: User,
+    @Body('oldPassword') oldPassword: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    console.log({ user, oldPassword, newPassword });
+    return this.userService.updatePassword(user, oldPassword, newPassword);
   }
 
   @ApiResponse({ type: [Role] })

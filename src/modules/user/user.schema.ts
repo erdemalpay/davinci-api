@@ -1,6 +1,7 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { WorkType } from './user.enums';
 import { Role } from './user.role.schema';
 
 @Schema({ _id: false })
@@ -11,8 +12,38 @@ export class User extends Document {
   @Prop({ type: String, required: true, index: true })
   name: string;
 
+  @Prop({ type: String })
+  fullName: string;
+
   @Prop({ type: String, required: true })
   password: string;
+
+  @Prop({ type: Date })
+  jobStartDate: Date;
+
+  @Prop({ type: Date })
+  jobEndDate?: Date;
+
+  @Prop({ type: Date })
+  insuranceStartDate: Date;
+
+  @Prop({ type: String })
+  profileImage: string;
+
+  @Prop({ type: String })
+  phone: string;
+
+  @Prop({ type: String })
+  address: string;
+
+  @Prop({ type: String })
+  iban: string;
+
+  @Prop({ type: String })
+  birthDate: Date;
+
+  @Prop({ type: String, enum: WorkType })
+  workType: WorkType;
 
   @Prop({ required: true })
   active: boolean;

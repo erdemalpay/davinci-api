@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
-import { Reservation, ReservationStatusEnum } from './reservation.schema';
-import { ReservationDto } from './reservation.dto';
 import { addHours, format } from 'date-fns';
+import { Model, UpdateQuery } from 'mongoose';
+import { ReservationDto } from './reservation.dto';
+import { Reservation } from './reservation.schema';
 
 @Injectable()
 export class ReservationService {

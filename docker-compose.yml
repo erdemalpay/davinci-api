@@ -11,7 +11,7 @@ services:
   api-production:
     build:
       dockerfile: ./Dockerfile.production
-    container_name: davinci-api-prod
+    container_name: davinci-api-production
     restart: always
     depends_on:
       - mongo
@@ -27,6 +27,6 @@ services:
     depends_on:
       - mongo
     ports:
-      - '8080:5000'
+      - '8080:4000'
     volumes:
       - ./logs:/app/logs-staging

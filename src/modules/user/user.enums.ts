@@ -6,3 +6,8 @@ export enum RolePermissionEnum {
   MANAGEMENT = 'Management',
   TABLES = 'Tables',
 }
+
+export enum WorkType {
+  FULLTIME = 'Full Time',
+  PARTTIME = 'Part Time',
+}
