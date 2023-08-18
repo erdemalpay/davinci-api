@@ -20,7 +20,8 @@
   },
   "corsWhitelist": [
     "https://panel.davinciboardgame.com",
-    "https://panelv2.davinciboardgame.com",
+    "https://panel-demo.davinciboardgame.com",
+    "https://staging-panel.davinciboardgame.com/",
     "http://localhost:3000",
     "https://davinci-nextjs.vercel.app",
     "https://davinci-nextjs-git-static-props-erdemalpay.vercel.app",

@@ -32,7 +32,6 @@ export class UserController {
     @Body('oldPassword') oldPassword: string,
     @Body('newPassword') newPassword: string,
   ) {
-    console.log({ user, oldPassword, newPassword });
     return this.userService.updatePassword(user, oldPassword, newPassword);
   }
 
