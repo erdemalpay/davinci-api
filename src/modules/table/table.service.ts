@@ -1,20 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Table } from './table.schema';
-import { TableDto } from './table.dto';
-import { GameplayService } from '../gameplay/gameplay.service';
+import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { GameplayService } from '../gameplay/gameplay.service';
+import { TableDto } from './table.dto';
+import { Table } from './table.schema';
 
 @Injectable()
 export class TableService {
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
+    private readonly activityService: ActivityService,
   ) {}
 
   async create(tableDto: TableDto) {
-    return this.tableModel.create(tableDto);
+    const createdTable = await this.tableModel.create(tableDto);
+    this.activityService.addActivity();
+    return createdTable;
   }
 
   async update(id: number, tableDto: TableDto) {
