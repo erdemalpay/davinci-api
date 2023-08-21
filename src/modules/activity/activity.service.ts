@@ -54,7 +54,7 @@ export class ActivityService {
       user,
       type,
       payload: {
-        target: newState._id,
+        target: newState,
         path: dif.path[0],
         value,
         oldValue,
