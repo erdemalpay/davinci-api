@@ -1,16 +1,17 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { TableService } from './table.service';
+import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
+import { GameplayModule } from '../gameplay/gameplay.module';
 import { TableController } from './table.controller';
 import { Table, TableSchema } from './table.schema';
-import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
-import { GameplayModule } from '../gameplay/gameplay.module';
+import { TableService } from './table.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Table.name, TableSchema),
 ]);
 @Module({
-  imports: [mongooseModule, GameplayModule],
+  imports: [mongooseModule, GameplayModule, ActivityModule],
   providers: [TableService],
   exports: [TableService],
   controllers: [TableController],

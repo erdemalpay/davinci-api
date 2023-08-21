@@ -1,14 +1,16 @@
 import {
-  Controller,
-  Get,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Patch,
   Query,
 } from '@nestjs/common';
-import { GameplayService } from './gameplay.service';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
+import { GameplayService } from './gameplay.service';
 
 @Controller('gameplays')
 export class GameplayController {
@@ -76,10 +78,11 @@ export class GameplayController {
 
   @Patch(':id')
   update(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updateGameplayDto: PartialGameplayDto,
   ) {
-    return this.gameplayService.update(+id, updateGameplayDto);
+    return this.gameplayService.update(user, +id, updateGameplayDto);
   }
 
   @Delete(':id')

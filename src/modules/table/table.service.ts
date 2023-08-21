@@ -1,24 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Table } from './table.schema';
-import { TableDto } from './table.dto';
-import { GameplayService } from '../gameplay/gameplay.service';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { GameplayService } from '../gameplay/gameplay.service';
+import { User } from '../user/user.schema';
+import { TableDto } from './table.dto';
+import { Table } from './table.schema';
 
 @Injectable()
 export class TableService {
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
+    private readonly activityService: ActivityService,
   ) {}
 
-  async create(tableDto: TableDto) {
-    return this.tableModel.create(tableDto);
+  async create(user: User, tableDto: TableDto) {
+    const createdTable = await this.tableModel.create(tableDto);
+    this.activityService.addActivity(
+      user,
+      ActivityType.CREATE_TABLE,
+      createdTable,
+    );
+    return createdTable;
   }
 
-  async update(id: number, tableDto: TableDto) {
-    return this.tableModel.findByIdAndUpdate(id, tableDto, { new: true });
+  async update(user: User, id: number, tableDto: TableDto) {
+    const existingTable = await this.tableModel.findById(id);
+    const updatedTable = await this.tableModel.findByIdAndUpdate(id, tableDto, {
+      new: true,
+    });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_TABLE,
+      existingTable,
+      updatedTable,
+    );
+    return updatedTable;
   }
 
   async close(id: number, tableDto: TableDto) {
@@ -65,7 +85,7 @@ export class TableService {
     });
   }
 
-  async addGameplay(id: number, gameplayDto: GameplayDto) {
+  async addGameplay(user: User, id: number, gameplayDto: GameplayDto) {
     const table = await this.tableModel.findById(id);
 
     if (!table) {
@@ -80,19 +100,29 @@ export class TableService {
       );
     }
     const gameplay = await this.gameplayService.create(gameplayDto);
+    this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
+      tableId: id,
+      gameplay,
+    });
 
     table.gameplays.push(gameplay);
     await table.save();
   }
 
-  async removeGameplay(tableId: number, gameplayId: number) {
+  async removeGameplay(user: User, tableId: number, gameplayId: number) {
     const table = await this.tableModel.findById(tableId);
 
     if (!table) {
       throw new Error('Table not found');
     }
-
+    const gameplay = await this.gameplayService.findById(gameplayId);
     await this.gameplayService.remove(gameplayId);
+
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_GAMEPLAY,
+      gameplay,
+    );
 
     table.gameplays = table.gameplays.filter(
       (gameplay) => gameplay._id !== gameplayId,
@@ -100,11 +130,12 @@ export class TableService {
     await table.save();
   }
 
-  async removeTableAndGameplays(id: number) {
+  async removeTableAndGameplays(user: User, id: number) {
     const table = await this.tableModel.findById(id);
     if (!table) {
       throw new Error(`Table ${id} does not exist.`);
     }
+    this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
         this.gameplayService.remove(gameplay._id),

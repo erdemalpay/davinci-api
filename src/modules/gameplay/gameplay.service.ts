@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { GameplayQueryDto } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
@@ -10,6 +12,7 @@ import { Gameplay } from './gameplay.schema';
 export class GameplayService {
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
+    private readonly activityService: ActivityService,
   ) {}
 
   create(createGameplayDto: GameplayDto) {
@@ -80,10 +83,22 @@ export class GameplayService {
     return this.gameplayModel.findById(id);
   }
 
-  update(id: number, partialGameplayDto: PartialGameplayDto) {
-    return this.gameplayModel.findByIdAndUpdate(id, partialGameplayDto, {
-      new: true,
-    });
+  async update(user, id: number, partialGameplayDto: PartialGameplayDto) {
+    const existingGameplay = await this.gameplayModel.findById(id);
+    const updatedGameplay = await this.gameplayModel.findByIdAndUpdate(
+      id,
+      partialGameplayDto,
+      {
+        new: true,
+      },
+    );
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_GAMEPLAY,
+      existingGameplay,
+      updatedGameplay,
+    );
+    return updatedGameplay;
   }
 
   remove(id: number) {

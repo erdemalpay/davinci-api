@@ -1,16 +1,17 @@
 import { Module } from '@nestjs/common';
-import { GameplayService } from './gameplay.service';
-import { GameplayController } from './gameplay.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Gameplay, GameplaySchema } from './gameplay.schema';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
+import { GameplayController } from './gameplay.controller';
+import { Gameplay, GameplaySchema } from './gameplay.schema';
+import { GameplayService } from './gameplay.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Gameplay.name, GameplaySchema),
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [mongooseModule, ActivityModule],
   providers: [GameplayService],
   exports: [GameplayService],
   controllers: [GameplayController],

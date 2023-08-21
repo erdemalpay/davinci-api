@@ -1,15 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { format } from 'date-fns';
-
-import { OldUserService } from '../oldUser/user.service';
-import { UserService } from '../../user/user.service';
-import { TableService } from 'src/modules/table/table.service';
-import { OldTableService } from '../oldTable/table.service';
 import { GameService } from 'src/modules/game/game.service';
-import { OldGameService } from '../oldGame/game.service';
 import { GameplayService } from 'src/modules/gameplay/gameplay.service';
-import { Gameplay } from '../oldGameplay/gameplay.schema';
+import { TableService } from 'src/modules/table/table.service';
 import { VisitService } from 'src/modules/visit/visit.service';
+import { UserService } from '../../user/user.service';
+import { OldGameService } from '../oldGame/game.service';
+import { Gameplay } from '../oldGameplay/gameplay.schema';
+import { OldTableService } from '../oldTable/table.service';
+import { OldUserService } from '../oldUser/user.service';
 import { OldVisitService } from '../oldVisit/visit.service';
 
 @Injectable()
@@ -102,7 +101,9 @@ export class MigrationService {
         }),
       );
 
-      await this.tableService.create({
+      const dvUser = await this.userService.findById('dv');
+
+      await this.tableService.create(dvUser, {
         name: oldTable.name,
         location: 1,
         playerCount: oldTable.playerCount,
