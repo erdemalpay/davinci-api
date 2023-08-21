@@ -9,12 +9,12 @@ export class Activity<T extends keyof ActivityTypePayload> extends Document {
   _id: number;
 
   @Prop({ required: true, type: String, ref: User.name })
-  actor: User;
+  user: User;
 
   @Prop()
   type: T;
 
-  @Prop()
+  @Prop({ type: Object })
   payload: ActivityTypePayload[T];
 }
 

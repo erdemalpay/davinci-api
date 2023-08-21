@@ -1,17 +1,19 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Param,
-  Query,
   Body,
+  Controller,
   Delete,
+  Get,
+  Param,
   Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
-import { TableResponse, TableDto } from './table.dto';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
+import { TableDto, TableResponse } from './table.dto';
 import { TableService } from './table.service';
 
 @ApiTags('Table')
@@ -28,38 +30,44 @@ export class TableController {
 
   @Delete('/:id')
   @ApiResponse({ type: TableResponse })
-  removeTable(@Param('id') id: number) {
-    return this.tableService.removeTableAndGameplays(id);
+  removeTable(@ReqUser() user: User, @Param('id') id: number) {
+    return this.tableService.removeTableAndGameplays(user, id);
   }
 
   @Post('/:id/gameplay')
   @ApiResponse({ type: TableResponse })
   addGameplayToTable(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() gameplayDto: GameplayDto,
   ) {
-    return this.tableService.addGameplay(id, gameplayDto);
+    return this.tableService.addGameplay(user, id, gameplayDto);
   }
 
   @Delete('/:tableId/gameplay/:gameplayId')
   @ApiResponse({ type: TableResponse })
   removeGameplayFromTable(
+    @ReqUser() user: User,
     @Param('tableId') tableId: number,
     @Param('gameplayId') gameplayId: number,
   ) {
-    return this.tableService.removeGameplay(tableId, gameplayId);
+    return this.tableService.removeGameplay(user, tableId, gameplayId);
   }
 
   @Post()
   @ApiResponse({ type: TableResponse })
-  createTable(@Body() tableDto: TableDto) {
-    return this.tableService.create(tableDto);
+  createTable(@ReqUser() user: User, @Body() tableDto: TableDto) {
+    return this.tableService.create(user, tableDto);
   }
 
   @Patch('/:id')
   @ApiResponse({ type: TableResponse })
-  updateTable(@Param('id') id: number, @Body() tableDto: TableDto) {
-    return this.tableService.update(id, tableDto);
+  updateTable(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() tableDto: TableDto,
+  ) {
+    return this.tableService.update(user, id, tableDto);
   }
 
   @Patch('/close/:id')
