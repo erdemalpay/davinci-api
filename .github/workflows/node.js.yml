@@ -36,11 +36,11 @@ jobs:
         run: rsync -avz -r -e "ssh -i ./ssh/id_rsa" ./dist ./config Dockerfile.production Dockerfile.staging docker-compose.yml yarn.lock package.json ${{ secrets.USERNAME }}@${{ secrets.HOST }}:app
       - name: Run deploy command
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cd app &&
-            if [[ $(docker ps --filter name=davinci-db --filter status=running -q) ]]; then
-              sudo docker-compose up -d api-staging api-production --build
-            else
-              sudo docker-compose up -d --build
-            fi &&
-            sudo docker system prune -af"
+          ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }}
+          cd app &&
+          if [[ $(docker ps --filter name=davinci-db --filter status=running -q) ]]; then
+            sudo docker-compose up -d api-staging api-production --build
+          else
+            sudo docker-compose up -d --build
+          fi &&
+          sudo docker system prune -af"
