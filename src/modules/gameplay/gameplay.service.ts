@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { GameplayQueryDto } from './dto/gameplay-query.dto';
+import {
+  GameplayQueryDto,
+  GameplayQueryGroupDto,
+} from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 import { Gameplay } from './gameplay.schema';
@@ -39,15 +42,39 @@ export class GameplayService {
 
     return this.gameplayModel.aggregate([
       { $match: matchQuery },
-      { $group: { _id: `$${query.field}`, playCount: { $sum: 1 } } },
-      { $sort: { playCount: -1 } },
+      {
+        $group: {
+          _id: `$${query.field}`,
+          uniqueCount: { $addToSet: '$game' },
+          playCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          uniqueCount: { $size: '$uniqueCount' },
+          playCount: 1,
+        },
+      },
+      { $sort: { uniqueCount: -1 } },
       { $limit: Number(query.limit) },
     ]);
   }
 
   async queryData(query: GameplayQueryDto) {
     const filterQuery = {};
-    const { startDate, endDate, game, mentor, page, limit, sort, asc } = query;
+    const {
+      startDate,
+      endDate,
+      game,
+      mentor,
+      page,
+      limit,
+      sort,
+      asc,
+      groupBy,
+    } = query;
+
+    // Existing filter logic
     if (startDate || endDate) {
       filterQuery['date'] = {};
     }
@@ -63,12 +90,50 @@ export class GameplayService {
     if (mentor) {
       filterQuery['mentor'] = mentor;
     }
+
+    // Check if groupBy exists, and if so, use aggregation
+    if (groupBy && groupBy.length) {
+      // Initial grouping object
+      const initialGroup: any = {
+        _id: {},
+        total: { $sum: 1 },
+      };
+      groupBy.forEach((field) => {
+        initialGroup._id[field] = `$${field}`;
+      });
+
+      const aggregation = [{ $match: filterQuery }, { $group: initialGroup }];
+
+      // If there's more than one field, we want to create nested groups
+      if (groupBy.length > 1) {
+        const secondaryGroups = groupBy.slice(1).map((field) => {
+          return {
+            $group: {
+              _id: `$_id.${groupBy[0]}`,
+              [field]: {
+                $push: {
+                  field: `$_id.${field}`,
+                  count: '$total',
+                },
+              },
+              total: { $sum: '$total' },
+            },
+          };
+        });
+        aggregation.push(...secondaryGroups);
+      }
+
+      const items = await this.gameplayModel.aggregate(aggregation).exec();
+      return { totalCount: items.length, items };
+    }
+
+    // Existing sorting logic (used when groupBy is not provided)
     const sortObject = {};
     if (sort) {
       sortObject[sort] = asc;
     }
 
-    const totalCount = await this.gameplayModel.count(filterQuery);
+    const totalCount = await this.gameplayModel.countDocuments(filterQuery);
     const items = await this.gameplayModel
       .find(filterQuery)
       .sort(sortObject)
@@ -77,6 +142,67 @@ export class GameplayService {
       .populate({ path: 'mentor', select: 'name' })
       .populate({ path: 'game', select: 'name' });
     return { totalCount, items };
+  }
+
+  async queryGroupData(query: GameplayQueryGroupDto) {
+    const filterQuery = { playerCount: { $gte: 1, $lte: 50 } };
+    const { startDate, endDate, groupBy } = query;
+
+    // Existing filter logic
+    if (startDate || endDate) {
+      filterQuery['date'] = {};
+    }
+    if (endDate) {
+      filterQuery['date']['$lte'] = endDate;
+    }
+    if (startDate) {
+      filterQuery['date']['$gte'] = startDate;
+    }
+
+    // Initial grouping object
+    const initialGroup: any = {
+      _id: {},
+      total: { $sum: 1 },
+    };
+    groupBy.forEach((field) => {
+      initialGroup._id[field] = `$${field}`;
+    });
+
+    const aggregation: PipelineStage[] = [
+      { $match: filterQuery },
+      { $group: initialGroup },
+      { $sort: { total: -1 } },
+    ];
+
+    const secondaryGroups = groupBy.slice(1).map((field) => {
+      return {
+        $group: {
+          _id: `$_id.${groupBy[0]}`,
+          secondary: {
+            $push: {
+              field: `$_id.${field}`,
+              count: '$total',
+            },
+          },
+          total: { $sum: '$total' },
+        },
+      };
+    });
+    secondaryGroups.forEach((group) => {
+      aggregation.push(group);
+      aggregation.push({ $unwind: '$secondary' });
+      aggregation.push({ $sort: { 'secondary.count': -1 } }); // Sort by count (descending) for the nested group
+      aggregation.push({ $sort: { total: -1 } }); // Sort by total (descending) for the main group
+      aggregation.push({
+        $group: {
+          _id: '$_id',
+          secondary: { $push: '$secondary' },
+          total: { $first: '$total' },
+        },
+      });
+    });
+
+    return this.gameplayModel.aggregate(aggregation).exec();
   }
 
   findById(id: number) {

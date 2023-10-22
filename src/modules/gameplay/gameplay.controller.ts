@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { FieldGrouping } from './dto/gameplay-query.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 import { GameplayService } from './gameplay.service';
 
@@ -49,6 +50,21 @@ export class GameplayController {
       mentor,
       sort,
       asc,
+    });
+  }
+
+  @Get('/query-group')
+  findByQueryGroup(
+    @Query('location') location: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('groupBy') groupBy?: string,
+  ) {
+    return this.gameplayService.queryGroupData({
+      location,
+      startDate,
+      endDate,
+      groupBy: groupBy?.split(',') as FieldGrouping[],
     });
   }
 
