@@ -7,17 +7,18 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { MenuService } from './menu.service';
-import { CreateCategoryDto, CreateItemDto } from './menu.dto';
 import { UpdateQuery } from 'mongoose';
+import { Public } from '../auth/public.decorator';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
-import { Public } from '../auth/public.decorator';
+import { CreateCategoryDto, CreateItemDto } from './menu.dto';
+import { MenuService } from './menu.service';
 
 @Controller('/menu')
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
+  @Public()
   @Get('/categories')
   getCategories() {
     return this.menuService.findAllCategories();
