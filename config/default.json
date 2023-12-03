@@ -26,7 +26,8 @@
     "https://davinci-nextjs.vercel.app",
     "https://davinci-nextjs-git-static-props-erdemalpay.vercel.app",
     "https://yervarmi-davinci-git-v2-erdemalpay.vercel.app",
-    "https://yervarmi.davinciboardgame.com"
+    "https://yervarmi.davinciboardgame.com",
+    "https://davinci-menu-react.vercel.app/"
   ],
   "migrationEnabled": false
 }

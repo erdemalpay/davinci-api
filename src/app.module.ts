@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import * as config from 'config';
 import { ActivityModule } from './modules/activity/activity.module';
+import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
@@ -23,8 +25,10 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 });
 
 const modules = [
+  ConfigModule.forRoot({ isGlobal: true }),
   ActivityModule,
   AuthModule,
+  AssetModule,
   DbModule,
   GameModule,
   GameplayModule,

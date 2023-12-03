@@ -11,6 +11,12 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
+  @Prop({ type: String })
+  description: string;
+
+  @Prop({ type: String })
+  imageUrl: string;
+
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
   category: MenuCategory;
 

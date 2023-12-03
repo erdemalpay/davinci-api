@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
-import { MenuController } from './menu.controller';
-import { MenuItem, MenuItemSchema } from './item.schema';
 import { MenuCategory, MenuCategorySchema } from './category.schema';
+import { MenuItem, MenuItemSchema } from './item.schema';
+import { MenuController } from './menu.controller';
 import { MenuService } from './menu.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
