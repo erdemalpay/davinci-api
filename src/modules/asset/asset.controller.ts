@@ -13,7 +13,11 @@ export class AssetController {
   constructor(private readonly assetService: AssetService) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
+    }),
+  )
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body('filename') filename: string,
