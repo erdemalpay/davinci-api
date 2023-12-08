@@ -35,7 +35,7 @@ export class AssetService {
       folder: 'menu',
       transformation: {
         crop: 'scale',
-        width: 1200,
+        width: 800,
         height: 800,
       },
     };
