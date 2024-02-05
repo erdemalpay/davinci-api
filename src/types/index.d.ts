@@ -3,3 +3,8 @@ declare namespace Express {
     user: any;
   }
 }
+
+export interface DailyPlayerCount {
+  date: string;
+  totalPlayerCount: number;
+}

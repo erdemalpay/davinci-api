@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
+import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -143,5 +144,52 @@ export class TableService {
     );
 
     return this.tableModel.findByIdAndRemove(id);
+  }
+  async getTotalPlayerCountsByMonthAndYear(
+    month: string,
+    year: string,
+  ): Promise<DailyPlayerCount[]> {
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-${new Date(
+      parseInt(year),
+      parseInt(month),
+      0,
+    ).getDate()}`;
+
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$date',
+          totalPlayerCount: { $sum: '$playerCount' },
+        },
+      },
+      {
+        $addFields: {
+          date: '$_id',
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: 1,
+          totalPlayerCount: 1,
+        },
+      },
+      {
+        $sort: { date: 1 },
+      },
+    ];
+
+    return this.tableModel.aggregate(aggregationPipeline).exec() as Promise<
+      DailyPlayerCount[]
+    >;
   }
 }

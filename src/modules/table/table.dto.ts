@@ -39,3 +39,11 @@ export class TableResponse {
   @IsString()
   date: string;
 }
+
+export class TotalPlayerCountResponse {
+  @IsString()
+  date: string;
+
+  @IsNumber()
+  totalPlayerCount: number;
+}
