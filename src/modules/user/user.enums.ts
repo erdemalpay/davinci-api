@@ -11,3 +11,8 @@ export enum WorkType {
   FULLTIME = 'Full Time',
   PARTTIME = 'Part Time',
 }
+
+export enum UserGameUpdateType {
+  ADD = 'add',
+  REMOVE = 'remove',
+}

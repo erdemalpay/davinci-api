@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { UserService } from './user.service';
-import { UserController } from './user.controller';
-import { User, UserSchema } from './user.schema';
-import { Role, RoleSchema } from './user.role.schema';
 import { createAutoIncrementConfig } from '../../lib/autoIncrement';
+import { GameModule } from '../game/game.module';
+import { UserController } from './user.controller';
+import { Role, RoleSchema } from './user.role.schema';
+import { User, UserSchema } from './user.schema';
+import { UserService } from './user.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: User.name, useFactory: () => UserSchema },
@@ -12,7 +13,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [mongooseModule, GameModule],
   providers: [UserService],
   exports: [UserService],
   controllers: [UserController],
