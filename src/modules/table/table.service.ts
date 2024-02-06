@@ -152,7 +152,7 @@ export class TableService {
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-${new Date(
       parseInt(year),
-      parseInt(month),
+      parseInt(month) - 1,
       0,
     ).getDate()}`;
 
@@ -167,20 +167,36 @@ export class TableService {
       },
       {
         $group: {
-          _id: '$date',
+          _id: { date: '$date', location: '$location' },
           totalPlayerCount: { $sum: '$playerCount' },
         },
       },
       {
+        $group: {
+          _id: '$_id.date',
+          counts: {
+            $push: {
+              k: {
+                $concat: [
+                  'totalPlayerCountLocation',
+                  { $toString: '$_id.location' },
+                ],
+              },
+              v: '$totalPlayerCount',
+            },
+          },
+        },
+      },
+      {
         $addFields: {
-          date: '$_id',
+          countsByLocation: { $arrayToObject: '$counts' },
         },
       },
       {
         $project: {
           _id: 0,
-          date: 1,
-          totalPlayerCount: 1,
+          date: '$_id',
+          countsByLocation: 1,
         },
       },
       {
@@ -188,8 +204,23 @@ export class TableService {
       },
     ];
 
-    return this.tableModel.aggregate(aggregationPipeline).exec() as Promise<
-      DailyPlayerCount[]
-    >;
+    const results = await this.tableModel.aggregate(aggregationPipeline).exec();
+
+    // this is for sorting the locations inside the countsByLocation
+    const sortedResults = results.map((result) => {
+      const sortedCountsByLocationKeys = Object.keys(result.countsByLocation)
+        .sort()
+        .reduce((sortedObj, key) => {
+          sortedObj[key] = result.countsByLocation[key];
+          return sortedObj;
+        }, {});
+
+      return {
+        ...result,
+        countsByLocation: sortedCountsByLocationKeys,
+      };
+    });
+
+    return sortedResults;
   }
 }

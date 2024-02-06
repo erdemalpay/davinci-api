@@ -13,7 +13,11 @@ import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { TableDto, TableResponse, TotalPlayerCountResponse } from './table.dto';
+import {
+  AggregatedPlayerCountResponse,
+  TableDto,
+  TableResponse,
+} from './table.dto';
 import { TableService } from './table.service';
 
 @ApiTags('Table')
@@ -29,7 +33,7 @@ export class TableController {
   }
 
   @Get('/count')
-  @ApiResponse({ type: [TotalPlayerCountResponse] })
+  @ApiResponse({ type: AggregatedPlayerCountResponse })
   getTotalPlayerCount(
     @Query('month') month: string,
     @Query('year') year: string,

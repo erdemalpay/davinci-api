@@ -6,5 +6,5 @@ declare namespace Express {
 
 export interface DailyPlayerCount {
   date: string;
-  totalPlayerCount: number;
+  countsByLocation: { [key: string]: number };
 }
