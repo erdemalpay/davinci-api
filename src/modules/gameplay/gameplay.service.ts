@@ -143,7 +143,58 @@ export class GameplayService {
       .populate({ path: 'game', select: 'name' });
     return { totalCount, items };
   }
-
+  async groupGameMentorLocation() {
+    return this.gameplayModel.aggregate([
+      {
+        $group: {
+          _id: { game: '$game', location: '$location' },
+          mentors: { $push: '$mentor' },
+          location: { $first: '$location' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          game: '$_id.game',
+          location: 1,
+          mentors: 1,
+        },
+      },
+      {
+        $unwind: '$mentors',
+      },
+      {
+        $group: {
+          _id: { game: '$game', location: '$location', mentor: '$mentors' },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: { game: '$_id.game', location: '$_id.location' },
+          secondary: {
+            $push: {
+              field: '$_id.mentor',
+              count: '$count',
+            },
+          },
+          total: { $sum: '$count' },
+        },
+      },
+      {
+        $project: {
+          _id: '$_id.game',
+          location: '$_id.location',
+          secondary: 1,
+          total: 1,
+        },
+      },
+    ]);
+  }
+  async deneme(gameId: number) {
+    const items = await this.gameplayModel.find({ game: gameId });
+    return { items: items, lenght: items.length };
+  }
   async queryGroupData(query: GameplayQueryGroupDto) {
     const filterQuery = { playerCount: { $gte: 1, $lte: 50 } };
     const { startDate, endDate, groupBy } = query;
