@@ -146,6 +146,11 @@ export class GameplayService {
   async groupGameMentorLocation() {
     return this.gameplayModel.aggregate([
       {
+        $match: {
+          playerCount: { $gte: 1, $lte: 50 },
+        },
+      },
+      {
         $group: {
           _id: { game: '$game', location: '$location' },
           mentors: { $push: '$mentor' },
@@ -191,10 +196,7 @@ export class GameplayService {
       },
     ]);
   }
-  async deneme(gameId: number) {
-    const items = await this.gameplayModel.find({ game: gameId });
-    return { items: items, lenght: items.length };
-  }
+
   async queryGroupData(query: GameplayQueryGroupDto) {
     const filterQuery = { playerCount: { $gte: 1, $lte: 50 } };
     const { startDate, endDate, groupBy } = query;
