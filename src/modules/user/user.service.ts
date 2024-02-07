@@ -13,7 +13,7 @@ export class UserService implements OnModuleInit {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Role.name) private roleModel: Model<Role>,
   ) {
-    // this.checkDefaultUser();
+    this.checkDefaultUser();
   }
   onModuleInit() {
     this.checkDefaultRoles();
@@ -97,36 +97,49 @@ export class UserService implements OnModuleInit {
     await this.roleModel.create({
       name: 'Game Master',
       color: '#74b9ff',
+      permissions: [RolePermissionEnum.OPERATION],
     });
 
     await this.roleModel.create({
       name: 'Game Manager',
       color: '#d63031',
+      permissions: [
+        RolePermissionEnum.OPERATION,
+        RolePermissionEnum.MANAGEMENT,
+      ],
     });
 
     await this.roleModel.create({
       name: 'Catering Manager',
       color: '#00cec9',
+      permissions: [
+        RolePermissionEnum.OPERATION,
+        RolePermissionEnum.MANAGEMENT,
+      ],
     });
 
     await this.roleModel.create({
       name: 'Barista',
       color: '#b8e994',
+      permissions: [RolePermissionEnum.OPERATION],
     });
 
     await this.roleModel.create({
       name: 'Kitchen',
       color: '#a29bfe',
+      permissions: [RolePermissionEnum.OPERATION],
     });
 
     await this.roleModel.create({
       name: 'Service',
       color: '#4a69bd',
+      permissions: [RolePermissionEnum.OPERATION],
     });
 
     await this.roleModel.create({
       name: 'Cleaning',
       color: '#82ccdd',
+      permissions: [RolePermissionEnum.OPERATION],
     });
 
     console.log('Created default roles.'); // eslint-disable-line no-console
