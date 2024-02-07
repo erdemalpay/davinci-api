@@ -11,6 +11,7 @@ import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from './user.decorator';
 import { CreateUserDto, UserResponse } from './user.dto';
+import { UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
 import { UserService } from './user.service';
@@ -33,6 +34,15 @@ export class UserController {
     @Body('newPassword') newPassword: string,
   ) {
     return this.userService.updatePassword(user, oldPassword, newPassword);
+  }
+
+  @Patch('/games')
+  updateUserGames(
+    @ReqUser() user: User,
+    @Body('gameId') gameId: number,
+    @Body('updateType') updateType: UserGameUpdateType,
+  ): Promise<User | null> {
+    return this.userService.updateUserGames(user._id, gameId, updateType);
   }
 
   @ApiResponse({ type: [Role] })

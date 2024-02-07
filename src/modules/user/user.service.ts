@@ -2,16 +2,17 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';
 import { Model, UpdateQuery } from 'mongoose';
+import { GameService } from '../game/game.service';
 import { CreateUserDto } from './user.dto';
-import { RolePermissionEnum } from './user.enums';
+import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
-
 @Injectable()
 export class UserService implements OnModuleInit {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Role.name) private roleModel: Model<Role>,
+    private readonly gameService: GameService,
   ) {
     this.checkDefaultUser();
   }
@@ -40,8 +41,38 @@ export class UserService implements OnModuleInit {
     });
   }
 
+  async updateUserGames(
+    id: string,
+    gameId: number,
+    updateType: UserGameUpdateType,
+  ): Promise<User | null> {
+    const game = await this.gameService.getGameById(gameId);
+    if (!game) {
+      throw new Error('Game not found');
+    }
+    let updateQuery;
+    if (updateType === UserGameUpdateType.ADD) {
+      updateQuery = { $addToSet: { games: game._id } };
+    } else if (updateType === UserGameUpdateType.REMOVE) {
+      updateQuery = { $pull: { games: game._id } };
+    } else {
+      throw new Error('Invalid update type');
+    }
+
+    const updateResult = await this.userModel.findByIdAndUpdate(
+      id,
+      updateQuery,
+      { new: true },
+    );
+    if (!updateResult) {
+      throw new Error('User not found');
+    }
+
+    return updateResult;
+  }
+
   async findById(id: string): Promise<User | undefined> {
-    return this.userModel.findById(id);
+    return this.userModel.findById(id).populate('role').sort({ _id: 1 });
   }
 
   async getAll(filterInactives = true): Promise<User[]> {
