@@ -13,7 +13,11 @@ import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { TableDto, TableResponse } from './table.dto';
+import {
+  AggregatedPlayerCountResponse,
+  TableDto,
+  TableResponse,
+} from './table.dto';
 import { TableService } from './table.service';
 
 @ApiTags('Table')
@@ -26,6 +30,15 @@ export class TableController {
   @Get()
   getTables(@Query('location') location: number, @Query('date') date: string) {
     return this.tableService.getByLocation(location, date);
+  }
+
+  @Get('/count')
+  @ApiResponse({ type: AggregatedPlayerCountResponse })
+  getTotalPlayerCount(
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
+    return this.tableService.getTotalPlayerCountsByMonthAndYear(month, year);
   }
 
   @Delete('/:id')
