@@ -6,7 +6,7 @@ import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { User } from '../user/user.schema';
-import { TableDto } from './table.dto';
+import { CloseAllDto, TableDto } from './table.dto';
 import { Table } from './table.schema';
 
 @Injectable()
@@ -58,6 +58,28 @@ export class TableService {
       },
       { new: true },
     );
+  }
+  async closeAll(closeAllDto: CloseAllDto) {
+    const tables = await this.tableModel.find({
+      _id: { $in: closeAllDto.ids },
+    });
+
+    const updatePromises = tables.map(async (table) => {
+      if (table.gameplays.length) {
+        const lastGameplay = table.gameplays[table.gameplays.length - 1];
+        await this.gameplayService.close(
+          lastGameplay as unknown as number,
+          closeAllDto.finishHour,
+        );
+      }
+      return this.tableModel.findByIdAndUpdate(
+        table._id,
+        { $set: { finishHour: closeAllDto.finishHour } },
+        { new: true },
+      );
+    });
+
+    return Promise.all(updatePromises);
   }
 
   async reopen(id: number) {

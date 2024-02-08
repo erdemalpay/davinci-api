@@ -13,7 +13,7 @@ import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { TableDto, TableResponse } from './table.dto';
+import { CloseAllDto, TableDto, TableResponse } from './table.dto';
 import { TableService } from './table.service';
 
 @ApiTags('Table')
@@ -60,6 +60,22 @@ export class TableController {
     return this.tableService.create(user, tableDto);
   }
 
+  @Patch('/close/:id')
+  @ApiResponse({ type: TableResponse })
+  closeTable(@Param('id') id: number, @Body() tableDto: TableDto) {
+    return this.tableService.close(id, tableDto);
+  }
+  @Patch('/closeAll')
+  @ApiResponse({ type: [TableResponse] })
+  closeAll(@Body() closeAllDto: CloseAllDto) {
+    return this.tableService.closeAll(closeAllDto);
+  }
+
+  @Patch('/reopen/:id')
+  @ApiResponse({ type: TableResponse })
+  reopenTable(@Param('id') id: number) {
+    return this.tableService.reopen(id);
+  }
   @Patch('/:id')
   @ApiResponse({ type: TableResponse })
   updateTable(
@@ -68,17 +84,5 @@ export class TableController {
     @Body() tableDto: TableDto,
   ) {
     return this.tableService.update(user, id, tableDto);
-  }
-
-  @Patch('/close/:id')
-  @ApiResponse({ type: TableResponse })
-  closeTable(@Param('id') id: number, @Body() tableDto: TableDto) {
-    return this.tableService.close(id, tableDto);
-  }
-
-  @Patch('/reopen/:id')
-  @ApiResponse({ type: TableResponse })
-  reopenTable(@Param('id') id: number) {
-    return this.tableService.reopen(id);
   }
 }
