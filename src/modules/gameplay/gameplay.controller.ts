@@ -67,6 +67,10 @@ export class GameplayController {
       groupBy: groupBy?.split(',') as FieldGrouping[],
     });
   }
+  @Get('/group-game-mentor-location')
+  groupGameMentorLocation() {
+    return this.gameplayService.groupGameMentorLocation();
+  }
 
   @Get('/group')
   groupByQuery(
