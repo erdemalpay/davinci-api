@@ -28,7 +28,7 @@ export class TableController {
   @Public()
   @ApiResponse({ type: [TableResponse] })
   @Get()
-  getTables(@Query('month') location: number, @Query('date') date: string) {
+  getTables(@Query('location') location: number, @Query('date') date: string) {
     return this.tableService.getByLocation(location, date);
   }
 

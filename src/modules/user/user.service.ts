@@ -100,7 +100,7 @@ export class UserService implements OnModuleInit {
 
   async checkDefaultUser() {
     const userProps: CreateUserDto = {
-      _id: 'dvdv',
+      _id: 'dv',
       name: '-',
       password: 'dvdv',
       active: true,
