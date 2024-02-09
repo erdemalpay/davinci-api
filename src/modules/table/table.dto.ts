@@ -39,6 +39,13 @@ export class TableResponse {
   @IsString()
   date: string;
 }
+export class CloseAllDto {
+  @IsArray()
+  ids: number[];
+
+  @IsString()
+  finishHour: string;
+}
 export class AggregatedPlayerCountResponse {
   @IsString()
   date: string;
