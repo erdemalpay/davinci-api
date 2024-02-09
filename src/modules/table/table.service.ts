@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
+import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -165,5 +166,83 @@ export class TableService {
     );
 
     return this.tableModel.findByIdAndRemove(id);
+  }
+  async getTotalPlayerCountsByMonthAndYear(
+    month: string,
+    year: string,
+  ): Promise<DailyPlayerCount[]> {
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-${new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      0,
+    ).getDate()}`;
+
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { date: '$date', location: '$location' },
+          totalPlayerCount: { $sum: '$playerCount' },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.date',
+          counts: {
+            $push: {
+              k: {
+                $concat: [
+                  'totalPlayerCountLocation',
+                  { $toString: '$_id.location' },
+                ],
+              },
+              v: '$totalPlayerCount',
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          countsByLocation: { $arrayToObject: '$counts' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id',
+          countsByLocation: 1,
+        },
+      },
+      {
+        $sort: { date: 1 },
+      },
+    ];
+
+    const results = await this.tableModel.aggregate(aggregationPipeline).exec();
+
+    // this is for sorting the locations inside the countsByLocation
+    const sortedResults = results.map((result) => {
+      const sortedCountsByLocationKeys = Object.keys(result.countsByLocation)
+        .sort()
+        .reduce((sortedObj, key) => {
+          sortedObj[key] = result.countsByLocation[key];
+          return sortedObj;
+        }, {});
+
+      return {
+        ...result,
+        countsByLocation: sortedCountsByLocationKeys,
+      };
+    });
+
+    return sortedResults;
   }
 }

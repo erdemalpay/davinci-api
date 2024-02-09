@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, IsString } from 'class-validator';
+import { IsArray, IsNumber, IsObject, IsString } from 'class-validator';
 
 export class TableDto {
   @IsNumber()
@@ -45,4 +45,11 @@ export class CloseAllDto {
 
   @IsString()
   finishHour: string;
+}
+export class AggregatedPlayerCountResponse {
+  @IsString()
+  date: string;
+
+  @IsObject()
+  countsByLocation: { [key: string]: number };
 }
