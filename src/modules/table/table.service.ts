@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
+import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { User } from '../user/user.schema';
-import { TableDto } from './table.dto';
+import { CloseAllDto, TableDto } from './table.dto';
 import { Table } from './table.schema';
 
 @Injectable()
@@ -58,6 +59,28 @@ export class TableService {
       },
       { new: true },
     );
+  }
+  async closeAll(closeAllDto: CloseAllDto) {
+    const tables = await this.tableModel.find({
+      _id: { $in: closeAllDto.ids },
+    });
+
+    const updatePromises = tables.map(async (table) => {
+      if (table.gameplays.length) {
+        const lastGameplay = table.gameplays[table.gameplays.length - 1];
+        await this.gameplayService.close(
+          lastGameplay as unknown as number,
+          closeAllDto.finishHour,
+        );
+      }
+      return this.tableModel.findByIdAndUpdate(
+        table._id,
+        { $set: { finishHour: closeAllDto.finishHour } },
+        { new: true },
+      );
+    });
+
+    return Promise.all(updatePromises);
   }
 
   async reopen(id: number) {
@@ -143,5 +166,83 @@ export class TableService {
     );
 
     return this.tableModel.findByIdAndRemove(id);
+  }
+  async getTotalPlayerCountsByMonthAndYear(
+    month: string,
+    year: string,
+  ): Promise<DailyPlayerCount[]> {
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-${new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      0,
+    ).getDate()}`;
+
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { date: '$date', location: '$location' },
+          totalPlayerCount: { $sum: '$playerCount' },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.date',
+          counts: {
+            $push: {
+              k: {
+                $concat: [
+                  'totalPlayerCountLocation',
+                  { $toString: '$_id.location' },
+                ],
+              },
+              v: '$totalPlayerCount',
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          countsByLocation: { $arrayToObject: '$counts' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id',
+          countsByLocation: 1,
+        },
+      },
+      {
+        $sort: { date: 1 },
+      },
+    ];
+
+    const results = await this.tableModel.aggregate(aggregationPipeline).exec();
+
+    // this is for sorting the locations inside the countsByLocation
+    const sortedResults = results.map((result) => {
+      const sortedCountsByLocationKeys = Object.keys(result.countsByLocation)
+        .sort()
+        .reduce((sortedObj, key) => {
+          sortedObj[key] = result.countsByLocation[key];
+          return sortedObj;
+        }, {});
+
+      return {
+        ...result,
+        countsByLocation: sortedCountsByLocationKeys,
+      };
+    });
+
+    return sortedResults;
   }
 }

@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Game } from '../game/game.schema';
 import { WorkType } from './user.enums';
 import { Role } from './user.role.schema';
-
 @Schema({ _id: false })
 export class User extends Document {
   @Prop({ type: String })
@@ -47,6 +47,9 @@ export class User extends Document {
 
   @Prop({ required: true })
   active: boolean;
+
+  @Prop({ type: [{ type: Number, ref: Game.name }] })
+  games: Game[];
 
   @Prop({
     required: true,
