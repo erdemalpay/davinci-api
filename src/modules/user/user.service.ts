@@ -72,7 +72,7 @@ export class UserService implements OnModuleInit {
   }
 
   async findById(id: string): Promise<User | undefined> {
-    return this.userModel.findById(id).populate('role').sort({ _id: 1 });
+    return this.userModel.findById(id).populate('role');
   }
 
   async getAll(filterInactives = true): Promise<User[]> {
@@ -112,7 +112,7 @@ export class UserService implements OnModuleInit {
 
     await this.create(userProps);
 
-    console.log('Created default user.'); // eslint-disable-line no-console
+    console.log('Created default user dv.'); // eslint-disable-line no-console
   }
 
   async checkDefaultRoles() {
