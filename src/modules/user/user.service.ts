@@ -112,7 +112,7 @@ export class UserService implements OnModuleInit {
 
     await this.create(userProps);
 
-    console.log('Created default user.'); // eslint-disable-line no-console
+    console.log('Created default user dv.'); // eslint-disable-line no-console
   }
 
   async checkDefaultRoles() {

@@ -33,6 +33,7 @@ export class TableController {
     return this.tableService.getByLocation(location, date);
   }
 
+  @Public()
   @Get('/count')
   @ApiResponse({ type: AggregatedPlayerCountResponse })
   getTotalPlayerCount(
