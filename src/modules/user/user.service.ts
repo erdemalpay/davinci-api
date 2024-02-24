@@ -42,7 +42,7 @@ export class UserService implements OnModuleInit {
   }
 
   async updateUserGames(
-    id: string,
+    userId: string,
     gameId: number,
     updateType: UserGameUpdateType,
   ): Promise<User | null> {
@@ -60,7 +60,7 @@ export class UserService implements OnModuleInit {
     }
 
     const updateResult = await this.userModel.findByIdAndUpdate(
-      id,
+      userId,
       updateQuery,
       { new: true },
     );

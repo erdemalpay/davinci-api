@@ -2,7 +2,7 @@
   "db": {
     "port": "27017",
     "host": "localhost",
-    "name": "dv-local"
+    "name": "davinci-prod"
   },
   "olddb": {
     "port": "27018",
@@ -20,17 +20,11 @@
   },
   "corsWhitelist": [
     "https://panel.davinciboardgame.com",
-    "https://panel-demo.davinciboardgame.com",
-    "https://staging-panel.davinciboardgame.com/",
+    "https://panelv2.davinciboardgame.com",
     "http://localhost:3000",
     "https://davinci-nextjs.vercel.app",
-    "https://davinci-nextjs-git-static-props-erdemalpay.vercel.app",
     "https://yervarmi-davinci-git-v2-erdemalpay.vercel.app",
-    "https://yervarmi.davinciboardgame.com",
-    "https://yenimenu.davinciboardgame.com",
-    "https://menu.davinciboardgame.com",
-    "https://davinci-menu-react.vercel.app",
-    "https://davinci-react-git-*-erdemalpay.vercel.app"
+    "https://yervarmi.davinciboardgame.com"
   ],
   "migrationEnabled": false
 }
