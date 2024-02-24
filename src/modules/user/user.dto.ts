@@ -30,4 +30,13 @@ export class UserResponse {
 
   @ApiProperty()
   _id: number;
+
+  @ApiProperty()
+  imageUrl: string;
+
+  @ApiProperty()
+  phone: string;
+
+  @ApiProperty()
+  address: string;
 }
