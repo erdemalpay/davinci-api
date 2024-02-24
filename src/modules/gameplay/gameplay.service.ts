@@ -261,7 +261,12 @@ export class GameplayService {
   findById(id: number) {
     return this.gameplayModel.findById(id);
   }
-
+  findByMentor(mentor: string) {
+    return this.gameplayModel.find({
+      mentor,
+      playerCount: { $gte: 1, $lte: 50 },
+    });
+  }
   async update(user, id: number, partialGameplayDto: PartialGameplayDto) {
     const existingGameplay = await this.gameplayModel.findById(id);
     const updatedGameplay = await this.gameplayModel.findByIdAndUpdate(

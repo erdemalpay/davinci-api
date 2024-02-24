@@ -38,11 +38,11 @@ export class UserController {
 
   @Patch('/games')
   updateUserGames(
-    @ReqUser() user: User,
+    @Body('userId') userId: string,
     @Body('gameId') gameId: number,
     @Body('updateType') updateType: UserGameUpdateType,
   ): Promise<User | null> {
-    return this.userService.updateUserGames(user._id, gameId, updateType);
+    return this.userService.updateUserGames(userId, gameId, updateType);
   }
 
   @ApiResponse({ type: [Role] })
@@ -67,5 +67,10 @@ export class UserController {
   @ApiResponse({ type: UserResponse })
   updateUser(@Param('id') id: string, @Body() updateQuery: UpdateQuery<User>) {
     return this.userService.update(id, updateQuery);
+  }
+  @Get('/:id')
+  @ApiResponse({ type: UserResponse })
+  getUser(@Param('id') id: string) {
+    return this.userService.findById(id);
   }
 }
