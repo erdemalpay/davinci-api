@@ -39,6 +39,10 @@ export class MenuController {
   createItem(@Body() createItemDto: CreateItemDto) {
     return this.menuService.createItem(createItemDto);
   }
+  @Get('/items/setOrder')
+  setOrder() {
+    return this.menuService.setOrder();
+  }
 
   @Patch('/categories/:id')
   updateCategory(
