@@ -43,6 +43,8 @@ export class MigrationService {
         _id: oldUser.username,
         password: 'dvdv',
         active: oldUser.active,
+        fullName: oldUser.fullName,
+        imageUrl: oldUser.imageUrl,
       });
     });
   }
