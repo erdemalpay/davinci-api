@@ -53,7 +53,7 @@ export class MenuService {
     });
   }
 
-  async updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
+  updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
     return this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
