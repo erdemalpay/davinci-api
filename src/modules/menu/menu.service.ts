@@ -17,7 +17,13 @@ export class MenuService {
   }
 
   findAllItems() {
-    return this.itemModel.find().populate('category').sort({ name: 1 });
+    return this.itemModel.find().populate('category').sort({ order: 'asc' });
+  }
+  async setOrder() {
+    const items = await this.itemModel.find();
+    items.forEach(async (item, index) => {
+      await this.itemModel.findByIdAndUpdate(item._id, { order: index + 1 });
+    });
   }
 
   async createCategory(createCategoryDto: CreateCategoryDto) {
@@ -39,11 +45,15 @@ export class MenuService {
     return this.categoryModel.findByIdAndRemove(id);
   }
 
-  createItem(createItemDto: CreateItemDto) {
-    return this.itemModel.create(createItemDto);
+  async createItem(createItemDto: CreateItemDto) {
+    const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
+    return this.itemModel.create({
+      ...createItemDto,
+      order: lastItem ? lastItem.order + 1 : 1,
+    });
   }
 
-  updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
+  async updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
     return this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
