@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';
 import { Model, UpdateQuery } from 'mongoose';
+import { usernamify } from 'src/utils/usernamify';
 import { GameService } from '../game/game.service';
 import { CreateUserDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
@@ -23,6 +24,8 @@ export class UserService implements OnModuleInit {
   async create(userProps: CreateUserDto) {
     const user = new this.userModel(userProps);
     user.password = await hash('dv' /* temporary dummy password*/, 10);
+    user._id = usernamify(user.name);
+    user.active = true;
     await user.save();
   }
 
@@ -103,7 +106,9 @@ export class UserService implements OnModuleInit {
       _id: 'dv',
       name: '-',
       password: 'dvdv',
+      fullName: '',
       active: true,
+      imageUrl: '',
     };
 
     const user = await this.findById(userProps._id);
