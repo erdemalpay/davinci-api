@@ -41,7 +41,18 @@ export class MenuService {
       new: true,
     });
   }
-  removeCategory(id: number) {
+  async removeCategory(id: number) {
+    const categories = await this.categoryModel.find();
+    const deletedCategory = categories.find(
+      (category) => category._id.toString() === id.toString(),
+    );
+    categories.forEach(async (category) => {
+      if (category.order > deletedCategory.order) {
+        await this.categoryModel.findByIdAndUpdate(category._id, {
+          order: category.order - 1,
+        });
+      }
+    });
     return this.categoryModel.findByIdAndRemove(id);
   }
 
