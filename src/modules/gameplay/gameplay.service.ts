@@ -273,7 +273,6 @@ export class GameplayService {
         {
           $match: {
             mentor: mentor,
-            playerCount: { $gte: 1, $lte: 50 },
           },
         },
         {
