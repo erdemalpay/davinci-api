@@ -28,6 +28,9 @@ export class GameplayController {
     return this.gameplayService.findAll();
   }
 
+  getCategories() {
+    return this.gameplayService;
+  }
   @Get('/query')
   findByQuery(
     @Query('location') location: string,

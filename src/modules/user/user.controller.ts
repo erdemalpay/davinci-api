@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
+import { Public } from '../auth/public.decorator';
 import { ReqUser } from './user.decorator';
 import { CreateUserDto, UserResponse } from './user.dto';
 import { UserGameUpdateType } from './user.enums';
@@ -26,7 +27,11 @@ export class UserController {
   getProfile(@ReqUser() user: User) {
     return user;
   }
-
+  @Public()
+  @Get('/mentor')
+  setKnownGames() {
+    return this.userService.setKnownGames();
+  }
   @Post('/password')
   updatePassword(
     @ReqUser() user: User,
@@ -38,11 +43,17 @@ export class UserController {
 
   @Patch('/games')
   updateUserGames(
-    @Body('userId') userId: string,
+    @ReqUser() user: User,
     @Body('gameId') gameId: number,
+    @Body('learnDate') learnDate: string,
     @Body('updateType') updateType: UserGameUpdateType,
   ): Promise<User | null> {
-    return this.userService.updateUserGames(userId, gameId, updateType);
+    return this.userService.updateUserGames(
+      user,
+      gameId,
+      updateType,
+      learnDate,
+    );
   }
 
   @ApiResponse({ type: [Role] })
