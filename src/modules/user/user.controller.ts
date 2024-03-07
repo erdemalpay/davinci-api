@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
-import { Public } from '../auth/public.decorator';
 import { ReqUser } from './user.decorator';
 import { CreateUserDto, UserResponse } from './user.dto';
 import { UserGameUpdateType } from './user.enums';
@@ -27,8 +26,8 @@ export class UserController {
   getProfile(@ReqUser() user: User) {
     return user;
   }
-  @Public()
-  @Get('/mentor')
+
+  @Get('/setKnownGames')
   setKnownGames() {
     return this.userService.setKnownGames();
   }
