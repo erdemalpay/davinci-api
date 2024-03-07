@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from '../../lib/autoIncrement';
 import { GameModule } from '../game/game.module';
+import { GameplayModule } from '../gameplay/gameplay.module';
 import { UserController } from './user.controller';
 import { Role, RoleSchema } from './user.role.schema';
 import { User, UserSchema } from './user.schema';
@@ -13,7 +14,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, GameModule],
+  imports: [mongooseModule, GameModule, GameplayModule],
   providers: [UserService],
   exports: [UserService],
   controllers: [UserController],

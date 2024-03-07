@@ -267,6 +267,36 @@ export class GameplayService {
       playerCount: { $gte: 1, $lte: 50 },
     });
   }
+  async findEarliestGamesByMentor(mentor: string) {
+    try {
+      const gameplays = await this.gameplayModel.aggregate([
+        {
+          $match: {
+            mentor: mentor,
+            playerCount: { $gte: 1, $lte: 50 },
+          },
+        },
+        {
+          $group: {
+            _id: '$game',
+            earliestDate: { $min: '$date' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            game: '$_id',
+            learnDate: '$earliestDate',
+          },
+        },
+      ]);
+
+      return gameplays;
+    } catch (error) {
+      console.error('Error finding earliest games by mentor:', error);
+      throw error;
+    }
+  }
   async update(user, id: number, partialGameplayDto: PartialGameplayDto) {
     const existingGameplay = await this.gameplayModel.findById(id);
     const updatedGameplay = await this.gameplayModel.findByIdAndUpdate(
