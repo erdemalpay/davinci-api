@@ -4,6 +4,15 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Game } from '../game/game.schema';
 import { WorkType } from './user.enums';
 import { Role } from './user.role.schema';
+
+class UserGame {
+  @Prop({ required: true, type: Number, ref: Game.name })
+  game: number;
+
+  @Prop()
+  learnDate: string;
+}
+
 @Schema({ _id: false })
 export class User extends Document {
   @Prop({ type: String })
@@ -17,6 +26,9 @@ export class User extends Document {
 
   @Prop({ type: String, required: true })
   password: string;
+
+  @Prop({ type: String })
+  imageUrl: string;
 
   @Prop({ type: Date })
   jobStartDate: Date;
@@ -48,8 +60,8 @@ export class User extends Document {
   @Prop({ required: true })
   active: boolean;
 
-  @Prop({ type: [{ type: Number, ref: Game.name }] })
-  games: Game[];
+  @Prop([UserGame])
+  userGames: UserGame[];
 
   @Prop({
     required: true,

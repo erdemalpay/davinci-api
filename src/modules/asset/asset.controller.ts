@@ -21,8 +21,9 @@ export class AssetController {
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body('filename') filename: string,
+    @Body('foldername') foldername: string,
   ) {
     console.log(file);
-    return this.assetService.uploadImage(file.buffer, filename);
+    return this.assetService.uploadImage(file.buffer, filename, foldername);
   }
 }

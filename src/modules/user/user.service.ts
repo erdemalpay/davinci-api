@@ -2,17 +2,21 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';
 import { Model, UpdateQuery } from 'mongoose';
+import { usernamify } from 'src/utils/usernamify';
 import { GameService } from '../game/game.service';
+import { GameplayService } from '../gameplay/gameplay.service';
 import { CreateUserDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
+
 @Injectable()
 export class UserService implements OnModuleInit {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Role.name) private roleModel: Model<Role>,
     private readonly gameService: GameService,
+    private readonly gameplayService: GameplayService,
   ) {
     this.checkDefaultUser();
   }
@@ -23,6 +27,8 @@ export class UserService implements OnModuleInit {
   async create(userProps: CreateUserDto) {
     const user = new this.userModel(userProps);
     user.password = await hash('dv' /* temporary dummy password*/, 10);
+    user._id = usernamify(user.name);
+    user.active = true;
     await user.save();
   }
 
@@ -42,28 +48,37 @@ export class UserService implements OnModuleInit {
   }
 
   async updateUserGames(
-    id: string,
+    user: User,
     gameId: number,
     updateType: UserGameUpdateType,
+    learnDate: string,
   ): Promise<User | null> {
-    const game = await this.gameService.getGameById(gameId);
-    if (!game) {
+    const gameExists = await this.gameService.getGameById(gameId);
+    if (!gameExists) {
       throw new Error('Game not found');
     }
-    let updateQuery;
+    let newUserGames = user.userGames;
     if (updateType === UserGameUpdateType.ADD) {
-      updateQuery = { $addToSet: { games: game._id } };
+      const userGameToAdd = {
+        game: gameId,
+        learnDate: learnDate,
+      };
+
+      if (user.userGames.some((ug) => ug.game === gameId)) {
+        throw new Error('Game already added');
+      }
+      newUserGames.push(userGameToAdd);
     } else if (updateType === UserGameUpdateType.REMOVE) {
-      updateQuery = { $pull: { games: game._id } };
-    } else {
-      throw new Error('Invalid update type');
+      newUserGames = user.userGames.filter((ug) => ug.game !== gameId);
     }
 
+    // Perform the update operation
     const updateResult = await this.userModel.findByIdAndUpdate(
-      id,
-      updateQuery,
+      user._id,
+      { userGames: newUserGames },
       { new: true },
     );
+
     if (!updateResult) {
       throw new Error('User not found');
     }
@@ -82,6 +97,15 @@ export class UserService implements OnModuleInit {
 
   async getRoles(): Promise<Role[]> {
     return this.roleModel.find();
+  }
+  async setKnownGames() {
+    const users = await this.getAll(false);
+    users.forEach(async (user) => {
+      const knownGames = await this.gameplayService.findEarliestGamesByMentor(
+        user._id,
+      );
+      await this.update(user._id, { userGames: knownGames });
+    });
   }
 
   async validateCredentials(
@@ -103,7 +127,9 @@ export class UserService implements OnModuleInit {
       _id: 'dv',
       name: '-',
       password: 'dvdv',
+      fullName: '',
       active: true,
+      imageUrl: '',
     };
 
     const user = await this.findById(userProps._id);

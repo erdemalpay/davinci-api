@@ -2,7 +2,7 @@
   "db": {
     "port": "27017",
     "host": "localhost",
-    "name": "davinci-demo"
+    "name": "davinci-prod"
   },
   "olddb": {
     "port": "27018",

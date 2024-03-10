@@ -27,6 +27,10 @@ export class UserController {
     return user;
   }
 
+  @Get('/setKnownGames')
+  setKnownGames() {
+    return this.userService.setKnownGames();
+  }
   @Post('/password')
   updatePassword(
     @ReqUser() user: User,
@@ -40,9 +44,15 @@ export class UserController {
   updateUserGames(
     @ReqUser() user: User,
     @Body('gameId') gameId: number,
+    @Body('learnDate') learnDate: string,
     @Body('updateType') updateType: UserGameUpdateType,
   ): Promise<User | null> {
-    return this.userService.updateUserGames(user._id, gameId, updateType);
+    return this.userService.updateUserGames(
+      user,
+      gameId,
+      updateType,
+      learnDate,
+    );
   }
 
   @ApiResponse({ type: [Role] })
@@ -67,5 +77,10 @@ export class UserController {
   @ApiResponse({ type: UserResponse })
   updateUser(@Param('id') id: string, @Body() updateQuery: UpdateQuery<User>) {
     return this.userService.update(id, updateQuery);
+  }
+  @Get('/:id')
+  @ApiResponse({ type: UserResponse })
+  getUser(@Param('id') id: string) {
+    return this.userService.findById(id);
   }
 }

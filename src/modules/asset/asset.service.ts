@@ -24,7 +24,11 @@ export class AssetService {
     );
   }
 
-  uploadImage = async (buffer: Buffer, fileName: string) => {
+  uploadImage = async (
+    buffer: Buffer,
+    fileName: string,
+    foldername: string,
+  ) => {
     // Use the uploaded file's name as the asset's public ID and
     // allow overwriting the asset with new versions
     const options = {
@@ -32,7 +36,7 @@ export class AssetService {
       use_filename: true,
       unique_filename: false,
       overwrite: true,
-      folder: 'menu',
+      folder: foldername,
       transformation: {
         crop: 'scale',
         width: 800,

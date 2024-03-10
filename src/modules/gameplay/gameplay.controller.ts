@@ -90,7 +90,10 @@ export class GameplayController {
       mentor,
     });
   }
-
+  @Get('/mentor/:mentorId')
+  findByMentor(@Param('mentorId') mentorId: string) {
+    return this.gameplayService.findByMentor(mentorId);
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.gameplayService.findById(+id);
