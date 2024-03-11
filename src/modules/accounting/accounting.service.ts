@@ -12,7 +12,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().sort({ order: 'asc' });
+    return this.productModel.find().populate('unit').sort({ order: 'asc' });
   }
   createProduct(createProductDto: CreateProductDto) {
     return this.productModel.create(createProductDto);

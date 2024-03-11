@@ -17,4 +17,4 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   exports: [AccountingService],
   controllers: [AccountingController],
 })
-export class MenuModule {}
+export class AccountingModule {}

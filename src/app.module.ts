@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import * as config from 'config';
+import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -41,6 +42,7 @@ const modules = [
   TableModule,
   UserModule,
   VisitModule,
+  AccountingModule,
 ];
 
 if (config.get('migrationEnabled')) {
