@@ -37,7 +37,8 @@ export class AccountingService {
       new: true,
     });
   }
-  removeUnit(id: number) {
+  async removeUnit(id: number) {
+    await this.productModel.updateMany({ unit: id }, { unit: null });
     return this.unitModel.findByIdAndRemove(id);
   }
 }
