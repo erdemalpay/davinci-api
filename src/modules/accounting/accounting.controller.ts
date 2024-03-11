@@ -61,4 +61,28 @@ export class AccountingController {
   deleteUnit(@Param('id') id: number) {
     return this.accountingService.removeUnit(id);
   }
+
+  // Expense Types
+  @Get('/expense-types')
+  getExpenseTypes() {
+    return this.accountingService.findAllExpenseTypes();
+  }
+
+  @Post('/expense-types')
+  createExpenseType(@Body() createExpenseTypeDto: CreateUnitDto) {
+    return this.accountingService.createExpenseType(createExpenseTypeDto);
+  }
+
+  @Patch('/expense-types/:id')
+  updateExpenseType(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Unit>,
+  ) {
+    return this.accountingService.updateExpenseType(id, updates);
+  }
+
+  @Delete('/expense-types/:id')
+  deleteExpenseType(@Param('id') id: number) {
+    return this.accountingService.removeExpenseType(id);
+  }
 }

@@ -6,3 +6,7 @@ export class CreateProductDto {
 export class CreateUnitDto {
   name: string;
 }
+
+export class CreateExpenseTypeDto {
+  name: string;
+}
