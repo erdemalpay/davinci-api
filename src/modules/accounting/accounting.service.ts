@@ -31,7 +31,11 @@ export class AccountingService {
       new: true,
     });
   }
-  removeProduct(id: number) {
+  async removeProduct(id: number) {
+    const invoices = await this.invoiceModel.find({ product: id });
+    if (invoices.length > 0) {
+      throw new Error('Cannot remove product with invoices');
+    }
     return this.productModel.findByIdAndRemove(id);
   }
   //   Units
@@ -47,7 +51,10 @@ export class AccountingService {
     });
   }
   async removeUnit(id: number) {
-    await this.productModel.updateMany({ unit: id }, { unit: null });
+    const products = await this.productModel.find({ unit: id });
+    if (products.length > 0) {
+      throw new Error('Cannot remove unit with products');
+    }
     return this.unitModel.findByIdAndRemove(id);
   }
   //   Expense Types
@@ -62,7 +69,11 @@ export class AccountingService {
       new: true,
     });
   }
-  removeExpenseType(id: number) {
+  async removeExpenseType(id: number) {
+    const invoices = await this.invoiceModel.find({ expenseType: id });
+    if (invoices.length > 0) {
+      throw new Error('Cannot remove expense type with invoices');
+    }
     return this.expenseTypeModel.findByIdAndRemove(id);
   }
 
