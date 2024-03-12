@@ -21,7 +21,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit').sort({ order: 'asc' });
+    return this.productModel.find().populate('unit');
   }
   createProduct(createProductDto: CreateProductDto) {
     return this.productModel.create(createProductDto);
@@ -36,7 +36,7 @@ export class AccountingService {
   }
   //   Units
   findAllUnits() {
-    return this.unitModel.find().sort({ order: 'asc' });
+    return this.unitModel.find();
   }
   createUnit(createUnitDto: CreateUnitDto) {
     return this.unitModel.create(createUnitDto);
@@ -52,7 +52,7 @@ export class AccountingService {
   }
   //   Expense Types
   findAllExpenseTypes() {
-    return this.expenseTypeModel.find().sort({ order: 'asc' });
+    return this.expenseTypeModel.find();
   }
   createExpenseType(createExpenseTypeDto: CreateExpenseTypeDto) {
     return this.expenseTypeModel.create(createExpenseTypeDto);
@@ -68,7 +68,7 @@ export class AccountingService {
 
   // Invoices
   findAllInvoices() {
-    return this.invoiceModel.find().sort({ order: 'asc' });
+    return this.invoiceModel.find().populate('product expenseType');
   }
   createInvoice(createInvoiceDto: CreateInvoiceDto) {
     return this.invoiceModel.create(createInvoiceDto);
