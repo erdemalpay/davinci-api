@@ -8,7 +8,11 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { CreateProductDto, CreateUnitDto } from './accounting.dto';
+import {
+  CreateInvoiceDto,
+  CreateProductDto,
+  CreateUnitDto,
+} from './accounting.dto';
 import { Product } from './product.schema';
 
 import { AccountingService } from './accounting.service';
@@ -84,5 +88,25 @@ export class AccountingController {
   @Delete('/expense-types/:id')
   deleteExpenseType(@Param('id') id: number) {
     return this.accountingService.removeExpenseType(id);
+  }
+  // Invoices
+  @Get('/invoices')
+  getInvoices() {
+    return this.accountingService.findAllInvoices();
+  }
+
+  @Post('/invoices')
+  createInvoice(@Body() createInvoiceDto: CreateInvoiceDto) {
+    return this.accountingService.createInvoice(createInvoiceDto);
+  }
+
+  @Patch('/invoices/:id')
+  updateInvoice(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+    return this.accountingService.updateInvoice(id, updates);
+  }
+
+  @Delete('/invoices/:id')
+  deleteInvoice(@Param('id') id: number) {
+    return this.accountingService.removeInvoice(id);
   }
 }

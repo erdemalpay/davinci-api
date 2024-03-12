@@ -2,10 +2,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import {
   CreateExpenseTypeDto,
+  CreateInvoiceDto,
   CreateProductDto,
   CreateUnitDto,
 } from './accounting.dto';
 import { ExpenseType } from './expenseType.schema';
+import { Invoice } from './invoice.schema';
 import { Product } from './product.schema';
 import { Unit } from './unit.schema';
 
@@ -15,6 +17,7 @@ export class AccountingService {
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<Unit>,
+    @InjectModel(Invoice.name) private invoiceModel: Model<Unit>,
   ) {}
   //   Products
   findAllProducts() {
@@ -61,5 +64,21 @@ export class AccountingService {
   }
   removeExpenseType(id: number) {
     return this.expenseTypeModel.findByIdAndRemove(id);
+  }
+
+  // Invoices
+  findAllInvoices() {
+    return this.invoiceModel.find().sort({ order: 'asc' });
+  }
+  createInvoice(createInvoiceDto: CreateInvoiceDto) {
+    return this.invoiceModel.create(createInvoiceDto);
+  }
+  updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+    return this.invoiceModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeInvoice(id: number) {
+    return this.invoiceModel.findByIdAndRemove(id);
   }
 }
