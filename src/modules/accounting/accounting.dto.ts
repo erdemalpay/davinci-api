@@ -10,3 +10,11 @@ export class CreateUnitDto {
 export class CreateExpenseTypeDto {
   name: string;
 }
+
+export class CreateInvoiceDto {
+  product: number;
+  expenseType: number;
+  quantity: number;
+  totalExpense: number;
+  date: string;
+}
