@@ -14,6 +14,9 @@ export class Product extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
+  @Prop({ type: Number })
+  unitPrice: number;
+
   @Prop({ required: true, type: [{ type: Number, ref: ExpenseType.name }] })
   expenseType: ExpenseType[];
 

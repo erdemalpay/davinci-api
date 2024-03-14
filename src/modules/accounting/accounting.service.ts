@@ -132,10 +132,35 @@ export class AccountingService {
       .find()
       .populate('product expenseType brand vendor');
   }
-  createInvoice(createInvoiceDto: CreateInvoiceDto) {
+  async createInvoice(createInvoiceDto: CreateInvoiceDto) {
+    await this.productModel.findByIdAndUpdate(
+      createInvoiceDto.product,
+      {
+        $set: {
+          unitPrice: parseFloat(
+            (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
+              1,
+            ),
+          ),
+        },
+      },
+      { new: true },
+    );
+
     return this.invoiceModel.create(createInvoiceDto);
   }
-  updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+  async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+    if (updates.quantity && updates.totalExpense) {
+      const invoice = await this.invoiceModel.findById(id);
+      updates.unitPrice = updates.totalExpense / updates.quantity;
+      await this.productModel.findByIdAndUpdate(
+        invoice.product,
+        { unitPrice: updates.unitPrice.toFixed(1) },
+        {
+          new: true,
+        },
+      );
+    }
     return this.invoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
