@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import {
+  CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
   CreateUnitDto,
@@ -73,7 +74,7 @@ export class AccountingController {
   }
 
   @Post('/expense-types')
-  createExpenseType(@Body() createExpenseTypeDto: CreateUnitDto) {
+  createExpenseType(@Body() createExpenseTypeDto: CreateExpenseTypeDto) {
     return this.accountingService.createExpenseType(createExpenseTypeDto);
   }
 

@@ -23,6 +23,15 @@ export class Invoice extends Document {
 
   @Prop({ required: true })
   date: string;
+
+  @Prop({ required: false })
+  brand: string;
+
+  @Prop({ required: false })
+  company: string;
+
+  @Prop({ required: false })
+  documentNo: string;
 }
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);
