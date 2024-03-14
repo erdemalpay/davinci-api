@@ -199,8 +199,7 @@ export class GameplayService {
 
   async queryGroupData(query: GameplayQueryGroupDto) {
     const filterQuery = { playerCount: { $gte: 1, $lte: 50 } };
-    const { startDate, endDate, groupBy } = query;
-
+    const { startDate, endDate, groupBy, location } = query;
     // Existing filter logic
     if (startDate || endDate) {
       filterQuery['date'] = {};
@@ -211,7 +210,9 @@ export class GameplayService {
     if (startDate) {
       filterQuery['date']['$gte'] = startDate;
     }
-
+    if (location && location !== '0') {
+      filterQuery['location'] = Number(location);
+    }
     // Initial grouping object
     const initialGroup: any = {
       _id: {},
