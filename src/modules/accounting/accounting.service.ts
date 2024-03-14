@@ -1,23 +1,29 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import {
+  CreateBrandDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
   CreateUnitDto,
+  CreateVendorDto,
 } from './accounting.dto';
+import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { Product } from './product.schema';
 import { Unit } from './unit.schema';
+import { Vendor } from './vendor.schema';
 
 export class AccountingService {
   constructor(
     @InjectModel(Product.name)
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
-    @InjectModel(ExpenseType.name) private expenseTypeModel: Model<Unit>,
-    @InjectModel(Invoice.name) private invoiceModel: Model<Unit>,
+    @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
+    @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    @InjectModel(Brand.name) private brandModel: Model<Brand>,
+    @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
   ) {}
   //   Products
   findAllProducts() {
@@ -76,10 +82,55 @@ export class AccountingService {
     }
     return this.expenseTypeModel.findByIdAndRemove(id);
   }
+  //   Brands
+  findAllBrands() {
+    return this.brandModel.find();
+  }
+  createBrand(createBrandDto: CreateBrandDto) {
+    return this.brandModel.create(createBrandDto);
+  }
+  updateBrand(id: number, updates: UpdateQuery<Brand>) {
+    return this.brandModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeBrand(id: number) {
+    const products = await this.productModel.find({
+      brand: id,
+    });
+    if (products.length > 0) {
+      throw new Error('Cannot remove brand with products');
+    }
+    return this.brandModel.findByIdAndRemove(id);
+  }
+
+  //   Vendors
+  findAllVendors() {
+    return this.vendorModel.find();
+  }
+  createVendor(createVendorDto: CreateVendorDto) {
+    return this.vendorModel.create(createVendorDto);
+  }
+  updateVendor(id: number, updates: UpdateQuery<Vendor>) {
+    return this.vendorModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeVendor(id: number) {
+    const products = await this.productModel.find({
+      vendor: id,
+    });
+    if (products.length > 0) {
+      throw new Error('Cannot remove vendor with products');
+    }
+    return this.vendorModel.findByIdAndRemove(id);
+  }
 
   // Invoices
   findAllInvoices() {
-    return this.invoiceModel.find().populate('product expenseType');
+    return this.invoiceModel
+      .find()
+      .populate('product expenseType brand vendor');
   }
   createInvoice(createInvoiceDto: CreateInvoiceDto) {
     return this.invoiceModel.create(createInvoiceDto);

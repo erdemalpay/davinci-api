@@ -9,10 +9,12 @@ import {
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import {
+  CreateBrandDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
   CreateUnitDto,
+  CreateVendorDto,
 } from './accounting.dto';
 import { Product } from './product.schema';
 
@@ -90,6 +92,48 @@ export class AccountingController {
   deleteExpenseType(@Param('id') id: number) {
     return this.accountingService.removeExpenseType(id);
   }
+  // Brands
+  @Get('/brands')
+  getBrands() {
+    return this.accountingService.findAllBrands();
+  }
+
+  @Post('/brands')
+  createBrand(@Body() createBrandDto: CreateBrandDto) {
+    return this.accountingService.createBrand(createBrandDto);
+  }
+
+  @Patch('/brands/:id')
+  updateBrand(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+    return this.accountingService.updateBrand(id, updates);
+  }
+
+  @Delete('/brands/:id')
+  deleteBrand(@Param('id') id: number) {
+    return this.accountingService.removeBrand(id);
+  }
+
+  // Vendors
+  @Get('/vendors')
+  getVendors() {
+    return this.accountingService.findAllVendors();
+  }
+
+  @Post('/vendors')
+  createVendor(@Body() createVendorDto: CreateVendorDto) {
+    return this.accountingService.createVendor(createVendorDto);
+  }
+
+  @Patch('/vendors/:id')
+  updateVendor(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+    return this.accountingService.updateVendor(id, updates);
+  }
+
+  @Delete('/vendors/:id')
+  deleteVendor(@Param('id') id: number) {
+    return this.accountingService.removeVendor(id);
+  }
+
   // Invoices
   @Get('/invoices')
   getInvoices() {

@@ -1,8 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Product } from './product.schema';
+import { Vendor } from './vendor.schema';
 
 @Schema({ _id: false })
 export class Invoice extends Document {
@@ -24,11 +26,11 @@ export class Invoice extends Document {
   @Prop({ required: true })
   date: string;
 
-  @Prop({ required: false })
-  brand: string;
+  @Prop({ required: false, type: Number, ref: Brand.name })
+  brand: Brand;
 
-  @Prop({ required: false })
-  company: string;
+  @Prop({ required: false, type: Number, ref: Vendor.name })
+  vendor: Vendor;
 
   @Prop({ required: false })
   documentNo: string;
