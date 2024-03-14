@@ -1,6 +1,7 @@
 export class CreateProductDto {
   name: string;
   unit: number;
+  expenseType: number[];
 }
 
 export class CreateUnitDto {
@@ -9,6 +10,7 @@ export class CreateUnitDto {
 
 export class CreateExpenseTypeDto {
   name: string;
+  backgroundColor: string;
 }
 
 export class CreateInvoiceDto {
@@ -17,4 +19,7 @@ export class CreateInvoiceDto {
   quantity: number;
   totalExpense: number;
   date: string;
+  brand?: string;
+  company?: string;
+  documentNo?: string;
 }

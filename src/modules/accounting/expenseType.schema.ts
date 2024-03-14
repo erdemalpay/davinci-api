@@ -9,6 +9,9 @@ export class ExpenseType extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+
+  @Prop({ required: true, type: String })
+  backgroundColor: string;
 }
 
 export const ExpenseTypeSchema = SchemaFactory.createForClass(ExpenseType);
