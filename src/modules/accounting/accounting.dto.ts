@@ -2,9 +2,17 @@ export class CreateProductDto {
   name: string;
   unit: number;
   expenseType: number[];
+  brand?: number[];
+  vendor?: number[];
 }
 
 export class CreateUnitDto {
+  name: string;
+}
+export class CreateBrandDto {
+  name: string;
+}
+export class CreateVendorDto {
   name: string;
 }
 
@@ -19,7 +27,7 @@ export class CreateInvoiceDto {
   quantity: number;
   totalExpense: number;
   date: string;
-  brand?: string;
-  company?: string;
+  brand?: number;
+  vendor?: number;
   documentNo?: string;
 }
