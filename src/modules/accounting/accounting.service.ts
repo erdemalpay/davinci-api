@@ -5,6 +5,7 @@ import {
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
+  CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
 } from './accounting.dto';
@@ -12,6 +13,8 @@ import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { Product } from './product.schema';
+import { Stock } from './stock.schema';
+import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
@@ -24,6 +27,8 @@ export class AccountingService {
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
+    @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
+    @InjectModel(Stock.name) private stockModel: Model<Stock>,
   ) {}
   //   Products
   findAllProducts() {
@@ -132,15 +137,59 @@ export class AccountingService {
       .find()
       .populate('product expenseType brand vendor');
   }
-  createInvoice(createInvoiceDto: CreateInvoiceDto) {
+  async createInvoice(createInvoiceDto: CreateInvoiceDto) {
+    await this.productModel.findByIdAndUpdate(
+      createInvoiceDto.product,
+      {
+        $set: {
+          unitPrice: parseFloat(
+            (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
+              1,
+            ),
+          ),
+        },
+      },
+      { new: true },
+    );
+
     return this.invoiceModel.create(createInvoiceDto);
   }
-  updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+  async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+    if (updates.quantity || updates.totalExpense) {
+      const invoice = await this.invoiceModel.findById(id);
+      updates.unitPrice = updates.totalExpense / updates.quantity;
+      await this.productModel.findByIdAndUpdate(
+        invoice.product,
+        { unitPrice: updates.unitPrice.toFixed(1) },
+        {
+          new: true,
+        },
+      );
+    }
     return this.invoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
   }
   removeInvoice(id: number) {
     return this.invoiceModel.findByIdAndRemove(id);
+  }
+  // Stock Type
+  findAllStockTypes() {
+    return this.stockTypeModel.find();
+  }
+  createStockType(createStockTypeDto: CreateStockTypeDto) {
+    return this.stockTypeModel.create(createStockTypeDto);
+  }
+  updateStockType(id: number, updates: UpdateQuery<StockType>) {
+    return this.stockTypeModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeStockType(id: number) {
+    const stocks = await this.stockModel.find({ stockType: id });
+    if (stocks.length > 0) {
+      throw new Error('Cannot remove stock type with stocks');
+    }
+    return this.stockTypeModel.findByIdAndRemove(id);
   }
 }

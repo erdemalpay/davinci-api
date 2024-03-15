@@ -13,6 +13,7 @@ import {
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
+  CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
 } from './accounting.dto';
@@ -153,5 +154,25 @@ export class AccountingController {
   @Delete('/invoices/:id')
   deleteInvoice(@Param('id') id: number) {
     return this.accountingService.removeInvoice(id);
+  }
+  // Stock Types
+  @Get('/stock-types')
+  getStockTypes() {
+    return this.accountingService.findAllStockTypes();
+  }
+
+  @Post('/stock-types')
+  createStockType(@Body() createStockTypeDto: CreateStockTypeDto) {
+    return this.accountingService.createStockType(createStockTypeDto);
+  }
+
+  @Patch('/stock-types/:id')
+  updateStockType(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+    return this.accountingService.updateStockType(id, updates);
+  }
+
+  @Delete('/stock-types/:id')
+  deleteStockType(@Param('id') id: number) {
+    return this.accountingService.removeStockType(id);
   }
 }

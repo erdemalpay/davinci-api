@@ -7,9 +7,10 @@ import { Brand, BrandSchema } from './brand.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { Product, ProductSchema } from './product.schema';
+import { Stock, StockSchema } from './stock.schema';
+import { StockType, StockTypeSchema } from './stockType.schema';
 import { Unit, UnitSchema } from './unit.schema';
 import { Vendor, VendorSchema } from './vendor.schema';
-
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Product.name, ProductSchema),
   createAutoIncrementConfig(Unit.name, UnitSchema),
@@ -17,6 +18,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
   createAutoIncrementConfig(Brand.name, BrandSchema),
   createAutoIncrementConfig(Vendor.name, VendorSchema),
+  createAutoIncrementConfig(Stock.name, StockSchema),
+  createAutoIncrementConfig(StockType.name, StockTypeSchema),
 ]);
 
 @Module({

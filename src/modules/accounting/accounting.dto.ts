@@ -9,6 +9,9 @@ export class CreateProductDto {
 export class CreateUnitDto {
   name: string;
 }
+export class CreateStockTypeDto {
+  name: string;
+}
 export class CreateBrandDto {
   name: string;
 }
