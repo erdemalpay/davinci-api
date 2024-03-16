@@ -1,15 +1,17 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { Popular } from './popular.schema';
 
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
-import { CreateCategoryDto, CreateItemDto } from './menu.dto';
+import { CreateCategoryDto, CreateItemDto, CreatePopularDto } from './menu.dto';
 
 export class MenuService {
   constructor(
     @InjectModel(MenuCategory.name)
     private categoryModel: Model<MenuCategory>,
     @InjectModel(MenuItem.name) private itemModel: Model<MenuItem>,
+    @InjectModel(Popular.name) private popularModel: Model<Popular>,
   ) {}
 
   findAllCategories() {
@@ -71,5 +73,36 @@ export class MenuService {
   }
   removeItem(id: number) {
     return this.itemModel.findByIdAndRemove(id);
+  }
+
+  // popular
+  async findAllPopular() {
+    return this.popularModel.find().populate('item').sort({ order: 'asc' });
+  }
+
+  async createPopular(createPopularDto: CreatePopularDto) {
+    const popularItems = await this.popularModel.find().populate('item');
+    const lastItem = popularItems[popularItems.length - 1];
+    if (
+      popularItems.filter(
+        (popularItem) => popularItem.item._id === createPopularDto.item,
+      ).length > 0
+    ) {
+      throw new Error('Item already exists in popular');
+    }
+
+    return this.popularModel.create({
+      ...createPopularDto,
+      order: lastItem ? lastItem.order + 1 : 1,
+    });
+  }
+
+  async removePopular(id: number) {
+    return this.popularModel.findOneAndDelete({ item: id });
+  }
+  async updatePopular(id: number, updates: UpdateQuery<Popular>) {
+    return this.popularModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
   }
 }
