@@ -11,7 +11,7 @@ import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
-import { CreateCategoryDto, CreateItemDto } from './menu.dto';
+import { CreateCategoryDto, CreateItemDto, CreatePopularDto } from './menu.dto';
 import { MenuService } from './menu.service';
 
 @Controller('/menu')
@@ -65,5 +65,28 @@ export class MenuController {
   @Delete('/items/:id')
   deleteItem(@Param('id') id: number) {
     return this.menuService.removeItem(id);
+  }
+  // popular
+  @Get('/popular')
+  getPopular() {
+    return this.menuService.findAllPopular();
+  }
+
+  @Post('/popular')
+  createPopular(@Body() createPopularDto: CreatePopularDto) {
+    return this.menuService.createPopular(createPopularDto);
+  }
+
+  @Patch('/popular/:id')
+  updatePopular(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<MenuItem>,
+  ) {
+    return this.menuService.updatePopular(id, updates);
+  }
+
+  @Delete('/popular/:id')
+  deletePopular(@Param('id') id: number) {
+    return this.menuService.removePopular(id);
   }
 }
