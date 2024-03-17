@@ -11,10 +11,10 @@ export class Invoice extends Document {
   @Prop({ type: Number })
   _id: number;
 
-  @Prop({ required: true, type: Number, ref: Product.name })
+  @Prop({ required: true, type: String, ref: Product.name })
   product: Product;
 
-  @Prop({ required: true, type: Number, ref: ExpenseType.name })
+  @Prop({ required: true, type: String, ref: ExpenseType.name })
   expenseType: ExpenseType;
 
   @Prop({ required: true, type: Number })
@@ -26,10 +26,10 @@ export class Invoice extends Document {
   @Prop({ required: true })
   date: string;
 
-  @Prop({ required: false, type: Number, ref: Brand.name })
+  @Prop({ required: false, type: String, ref: Brand.name })
   brand: Brand;
 
-  @Prop({ required: false, type: Number, ref: Vendor.name })
+  @Prop({ required: false, type: String, ref: Vendor.name })
   vendor: Vendor;
 
   @Prop({ required: false })

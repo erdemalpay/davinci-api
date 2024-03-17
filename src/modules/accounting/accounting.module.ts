@@ -11,15 +11,16 @@ import { Stock, StockSchema } from './stock.schema';
 import { StockType, StockTypeSchema } from './stockType.schema';
 import { Unit, UnitSchema } from './unit.schema';
 import { Vendor, VendorSchema } from './vendor.schema';
+
 const mongooseModule = MongooseModule.forFeatureAsync([
-  createAutoIncrementConfig(Product.name, ProductSchema),
-  createAutoIncrementConfig(Unit.name, UnitSchema),
-  createAutoIncrementConfig(ExpenseType.name, ExpenseTypeSchema),
+  { name: Product.name, useFactory: () => ProductSchema },
+  { name: Unit.name, useFactory: () => UnitSchema },
+  { name: ExpenseType.name, useFactory: () => ExpenseTypeSchema },
+  { name: Brand.name, useFactory: () => BrandSchema },
+  { name: Vendor.name, useFactory: () => VendorSchema },
+  { name: StockType.name, useFactory: () => StockTypeSchema },
+  { name: Stock.name, useFactory: () => StockSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
-  createAutoIncrementConfig(Brand.name, BrandSchema),
-  createAutoIncrementConfig(Vendor.name, VendorSchema),
-  createAutoIncrementConfig(Stock.name, StockSchema),
-  createAutoIncrementConfig(StockType.name, StockTypeSchema),
 ]);
 
 @Module({

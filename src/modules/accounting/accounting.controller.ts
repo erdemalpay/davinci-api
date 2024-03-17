@@ -13,6 +13,7 @@ import {
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
+  CreateStockDto,
   CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
@@ -39,14 +40,14 @@ export class AccountingController {
 
   @Patch('/products/:id')
   updateCategory(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updates: UpdateQuery<Product>,
   ) {
     return this.accountingService.updateProduct(id, updates);
   }
 
   @Delete('/products/:id')
-  deleteCategory(@Param('id') id: number) {
+  deleteCategory(@Param('id') id: string) {
     return this.accountingService.removeProduct(id);
   }
   // Units
@@ -61,12 +62,12 @@ export class AccountingController {
   }
 
   @Patch('/units/:id')
-  updateUnit(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+  updateUnit(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
     return this.accountingService.updateUnit(id, updates);
   }
 
   @Delete('/units/:id')
-  deleteUnit(@Param('id') id: number) {
+  deleteUnit(@Param('id') id: string) {
     return this.accountingService.removeUnit(id);
   }
 
@@ -83,14 +84,14 @@ export class AccountingController {
 
   @Patch('/expense-types/:id')
   updateExpenseType(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updates: UpdateQuery<Unit>,
   ) {
     return this.accountingService.updateExpenseType(id, updates);
   }
 
   @Delete('/expense-types/:id')
-  deleteExpenseType(@Param('id') id: number) {
+  deleteExpenseType(@Param('id') id: string) {
     return this.accountingService.removeExpenseType(id);
   }
   // Brands
@@ -105,12 +106,12 @@ export class AccountingController {
   }
 
   @Patch('/brands/:id')
-  updateBrand(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+  updateBrand(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
     return this.accountingService.updateBrand(id, updates);
   }
 
   @Delete('/brands/:id')
-  deleteBrand(@Param('id') id: number) {
+  deleteBrand(@Param('id') id: string) {
     return this.accountingService.removeBrand(id);
   }
 
@@ -126,12 +127,12 @@ export class AccountingController {
   }
 
   @Patch('/vendors/:id')
-  updateVendor(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+  updateVendor(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
     return this.accountingService.updateVendor(id, updates);
   }
 
   @Delete('/vendors/:id')
-  deleteVendor(@Param('id') id: number) {
+  deleteVendor(@Param('id') id: string) {
     return this.accountingService.removeVendor(id);
   }
 
@@ -167,12 +168,33 @@ export class AccountingController {
   }
 
   @Patch('/stock-types/:id')
-  updateStockType(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+  updateStockType(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
     return this.accountingService.updateStockType(id, updates);
   }
 
   @Delete('/stock-types/:id')
-  deleteStockType(@Param('id') id: number) {
+  deleteStockType(@Param('id') id: string) {
     return this.accountingService.removeStockType(id);
+  }
+
+  // Stocks
+  @Get('/stocks')
+  getStock() {
+    return this.accountingService.findAllStocks();
+  }
+
+  @Post('/stocks')
+  createStock(@Body() createStockDto: CreateStockDto) {
+    return this.accountingService.createStock(createStockDto);
+  }
+
+  @Patch('/stocks/:id')
+  updateStock(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
+    return this.accountingService.updateStock(id, updates);
+  }
+
+  @Delete('/stocks/:id')
+  deleteStock(@Param('id') id: string) {
+    return this.accountingService.removeStock(id);
   }
 }
