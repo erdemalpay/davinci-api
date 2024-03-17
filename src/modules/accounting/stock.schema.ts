@@ -8,23 +8,26 @@ import { Unit } from './unit.schema';
 
 @Schema({ _id: false })
 export class Stock extends Document {
-  @Prop({ type: Number })
-  _id: number;
+  @Prop({ type: String })
+  _id: string;
 
-  @Prop({ required: true, type: Number, ref: Product.name })
+  @Prop({ required: true, type: String, ref: Product.name })
   product: Product;
 
-  @Prop({ required: false, type: Number, ref: Unit.name })
+  @Prop({ type: String, ref: Unit.name })
   unit: Unit;
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 
-  @Prop({ required: false, type: Number, ref: StockType.name })
+  @Prop({ type: String, ref: StockType.name })
   stockType: StockType;
 
   @Prop({ required: true, type: Number })
   quantity: number;
+
+  @Prop({ type: Number })
+  unitPrice: number;
 }
 
 export const StockSchema = SchemaFactory.createForClass(Stock);

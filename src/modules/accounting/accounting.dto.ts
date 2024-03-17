@@ -1,9 +1,9 @@
 export class CreateProductDto {
   name: string;
-  unit: number;
-  expenseType: number[];
-  brand?: number[];
-  vendor?: number[];
+  unit: string;
+  expenseType: string[];
+  brand?: string[];
+  vendor?: string[];
 }
 
 export class CreateUnitDto {
@@ -24,13 +24,22 @@ export class CreateExpenseTypeDto {
   backgroundColor: string;
 }
 
+export class CreateStockDto {
+  product: string;
+  unit?: string;
+  location: number;
+  stockType?: string;
+  quantity: number;
+  unitPrice?: number;
+}
+
 export class CreateInvoiceDto {
-  product: number;
-  expenseType: number;
+  product: string;
+  expenseType: string;
   quantity: number;
   totalExpense: number;
   date: string;
-  brand?: number;
-  vendor?: number;
+  brand?: string;
+  vendor?: string;
   documentNo?: string;
 }
