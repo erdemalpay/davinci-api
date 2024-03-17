@@ -244,4 +244,14 @@ export class AccountingService {
   removeStock(id: string) {
     return this.stockModel.findByIdAndRemove(id);
   }
+  async removeAll() {
+    await this.brandModel.deleteMany({});
+    await this.expenseTypeModel.deleteMany({});
+    await this.invoiceModel.deleteMany({});
+    await this.productModel.deleteMany({});
+    await this.stockModel.deleteMany({});
+    await this.stockTypeModel.deleteMany({});
+    await this.unitModel.deleteMany({});
+    await this.vendorModel.deleteMany({});
+  }
 }

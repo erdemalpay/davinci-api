@@ -197,4 +197,8 @@ export class AccountingController {
   deleteStock(@Param('id') id: string) {
     return this.accountingService.removeStock(id);
   }
+  @Get('/removeAll')
+  removeAll() {
+    return this.accountingService.removeAll();
+  }
 }
