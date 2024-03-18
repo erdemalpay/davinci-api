@@ -67,6 +67,7 @@ export class MenuController {
     return this.menuService.removeItem(id);
   }
   // popular
+  @Public()
   @Get('/popular')
   getPopular() {
     return this.menuService.findAllPopular();
