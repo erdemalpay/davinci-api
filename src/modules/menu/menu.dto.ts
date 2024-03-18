@@ -8,3 +8,7 @@ export class CreateItemDto {
   priceBahceli: number;
   priceNeorama: number;
 }
+
+export class CreatePopularDto {
+  item: number;
+}

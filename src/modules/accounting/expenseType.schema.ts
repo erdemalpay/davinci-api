@@ -4,8 +4,8 @@ import { purifySchema } from 'src/lib/purifySchema';
 
 @Schema({ _id: false })
 export class ExpenseType extends Document {
-  @Prop({ type: Number })
-  _id: number;
+  @Prop({ type: String })
+  _id: string;
 
   @Prop({ required: true, type: String })
   name: string;

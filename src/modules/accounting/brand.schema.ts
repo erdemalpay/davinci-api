@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 
 @Schema({ _id: false })
-export class Unit extends Document {
+export class Brand extends Document {
   @Prop({ type: String })
   _id: string;
 
@@ -11,6 +11,6 @@ export class Unit extends Document {
   name: string;
 }
 
-export const UnitSchema = SchemaFactory.createForClass(Unit);
+export const BrandSchema = SchemaFactory.createForClass(Brand);
 
-purifySchema(UnitSchema);
+purifySchema(BrandSchema);
