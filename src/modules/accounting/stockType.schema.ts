@@ -9,6 +9,9 @@ export class StockType extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+
+  @Prop({ required: true, type: String })
+  backgroundColor: string;
 }
 
 export const StockTypeSchema = SchemaFactory.createForClass(StockType);

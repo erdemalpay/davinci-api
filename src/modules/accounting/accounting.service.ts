@@ -233,6 +233,14 @@ export class AccountingService {
   async createStock(createStockDto: CreateStockDto) {
     const stock = new this.stockModel(createStockDto);
     stock._id = usernamify(createStockDto.product + createStockDto.location);
+    if (
+      stock.unitPrice === 0 ||
+      stock.unitPrice === undefined ||
+      stock.unitPrice === null
+    ) {
+      const product = await this.productModel.findById(createStockDto.product);
+      stock.unitPrice = product?.unitPrice ?? 0;
+    }
     await stock.save();
   }
 

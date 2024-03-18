@@ -11,6 +11,7 @@ export class CreateUnitDto {
 }
 export class CreateStockTypeDto {
   name: string;
+  backgroundColor: string;
 }
 export class CreateBrandDto {
   name: string;

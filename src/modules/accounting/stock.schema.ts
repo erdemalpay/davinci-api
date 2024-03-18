@@ -20,7 +20,7 @@ export class Stock extends Document {
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
 
-  @Prop({ type: String, ref: StockType.name })
+  @Prop({ required: true, type: String, ref: StockType.name })
   stockType: StockType;
 
   @Prop({ required: true, type: Number })

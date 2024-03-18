@@ -21,7 +21,13 @@ import {
 import { Product } from './product.schema';
 
 import { AccountingService } from './accounting.service';
+import { Brand } from './brand.schema';
+import { ExpenseType } from './expenseType.schema';
+import { Invoice } from './invoice.schema';
+import { Stock } from './stock.schema';
+import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
+import { Vendor } from './vendor.schema';
 
 @Controller('/accounting')
 export class AccountingController {
@@ -85,7 +91,7 @@ export class AccountingController {
   @Patch('/expense-types/:id')
   updateExpenseType(
     @Param('id') id: string,
-    @Body() updates: UpdateQuery<Unit>,
+    @Body() updates: UpdateQuery<ExpenseType>,
   ) {
     return this.accountingService.updateExpenseType(id, updates);
   }
@@ -106,7 +112,7 @@ export class AccountingController {
   }
 
   @Patch('/brands/:id')
-  updateBrand(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
+  updateBrand(@Param('id') id: string, @Body() updates: UpdateQuery<Brand>) {
     return this.accountingService.updateBrand(id, updates);
   }
 
@@ -127,7 +133,7 @@ export class AccountingController {
   }
 
   @Patch('/vendors/:id')
-  updateVendor(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
+  updateVendor(@Param('id') id: string, @Body() updates: UpdateQuery<Vendor>) {
     return this.accountingService.updateVendor(id, updates);
   }
 
@@ -148,7 +154,10 @@ export class AccountingController {
   }
 
   @Patch('/invoices/:id')
-  updateInvoice(@Param('id') id: number, @Body() updates: UpdateQuery<Unit>) {
+  updateInvoice(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Invoice>,
+  ) {
     return this.accountingService.updateInvoice(id, updates);
   }
 
@@ -168,7 +177,10 @@ export class AccountingController {
   }
 
   @Patch('/stock-types/:id')
-  updateStockType(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
+  updateStockType(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<StockType>,
+  ) {
     return this.accountingService.updateStockType(id, updates);
   }
 
@@ -189,7 +201,7 @@ export class AccountingController {
   }
 
   @Patch('/stocks/:id')
-  updateStock(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
+  updateStock(@Param('id') id: string, @Body() updates: UpdateQuery<Stock>) {
     return this.accountingService.updateStock(id, updates);
   }
 
