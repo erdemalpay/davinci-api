@@ -34,7 +34,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit');
+    return this.productModel.find().populate('unit stockType');
   }
   async createProduct(createProductDto: CreateProductDto) {
     const product = new this.productModel(createProductDto);
@@ -227,7 +227,7 @@ export class AccountingService {
   }
   // Stocks
   findAllStocks() {
-    return this.stockModel.find().populate('product stockType unit location');
+    return this.stockModel.find().populate('product location');
   }
 
   async createStock(createStockDto: CreateStockDto) {

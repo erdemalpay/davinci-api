@@ -2,6 +2,7 @@ export class CreateProductDto {
   name: string;
   unit: string;
   expenseType: string[];
+  stockType: string;
   brand?: string[];
   vendor?: string[];
 }
@@ -27,9 +28,7 @@ export class CreateExpenseTypeDto {
 
 export class CreateStockDto {
   product: string;
-  unit?: string;
   location: number;
-  stockType?: string;
   quantity: number;
   unitPrice?: number;
 }
