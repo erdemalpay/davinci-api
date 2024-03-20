@@ -150,52 +150,68 @@ export class AccountingService {
       .populate('product expenseType brand vendor');
   }
   async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-    await this.productModel.findByIdAndUpdate(
-      createInvoiceDto.product,
-      {
-        $set: {
-          unitPrice: parseFloat(
-            (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
-              1,
+    const ProductLastInvoice = await this.invoiceModel
+      .find({ product: createInvoiceDto.product })
+      .sort({ date: -1 })
+      .limit(1);
+    if (
+      ProductLastInvoice[0]?.date < createInvoiceDto.date ||
+      !ProductLastInvoice[0]
+    ) {
+      await this.productModel.findByIdAndUpdate(
+        createInvoiceDto.product,
+        {
+          $set: {
+            unitPrice: parseFloat(
+              (
+                createInvoiceDto.totalExpense / createInvoiceDto.quantity
+              ).toFixed(1),
             ),
-          ),
+          },
         },
-      },
-      { new: true },
-    );
-    await this.stockModel.findOneAndUpdate(
-      { product: createInvoiceDto.product },
-      {
-        $set: {
-          unitPrice: parseFloat(
-            (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
-              1,
+        { new: true },
+      );
+      await this.stockModel.findOneAndUpdate(
+        { product: createInvoiceDto.product },
+        {
+          $set: {
+            unitPrice: parseFloat(
+              (
+                createInvoiceDto.totalExpense / createInvoiceDto.quantity
+              ).toFixed(1),
             ),
-          ),
+          },
         },
-      },
-      { new: true },
-    );
+        { new: true },
+      );
+    }
+
     return this.invoiceModel.create(createInvoiceDto);
   }
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
     if (updates.quantity || updates.totalExpense) {
       const invoice = await this.invoiceModel.findById(id);
+      const ProductLastInvoice = await this.invoiceModel
+        .find({ product: invoice.product })
+        .sort({ date: -1 })
+        .limit(1);
       updates.unitPrice = updates.totalExpense / updates.quantity;
-      await this.productModel.findByIdAndUpdate(
-        invoice.product,
-        { unitPrice: updates.unitPrice.toFixed(1) },
-        {
-          new: true,
-        },
-      );
-      await this.stockModel.findOneAndUpdate(
-        { product: invoice.product },
-        { unitPrice: updates.unitPrice.toFixed(1) },
-        {
-          new: true,
-        },
-      );
+      if (ProductLastInvoice[0]._id == id) {
+        await this.productModel.findByIdAndUpdate(
+          invoice.product,
+          { unitPrice: updates.unitPrice.toFixed(1) },
+          {
+            new: true,
+          },
+        );
+        await this.stockModel.findOneAndUpdate(
+          { product: invoice.product },
+          { unitPrice: updates.unitPrice.toFixed(1) },
+          {
+            new: true,
+          },
+        );
+      }
     }
     return this.invoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
