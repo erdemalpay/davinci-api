@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
+import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
@@ -20,10 +21,13 @@ export class Product extends Document {
   @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
   expenseType: ExpenseType[];
 
-  @Prop({ required: true, type: [{ type: String, ref: Brand.name }] })
+  @Prop({ required: true, type: String, ref: StockType.name })
+  stockType: StockType;
+
+  @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
   brand: Brand[];
 
-  @Prop({ required: true, type: [{ type: String, ref: Vendor.name }] })
+  @Prop({ required: false, type: [{ type: String, ref: Vendor.name }] })
   vendor: Vendor[];
 
   @Prop({ required: true, type: String, ref: Unit.name })
