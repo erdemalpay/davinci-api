@@ -1,6 +1,7 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { MenuService } from './../menu/menu.service';
 import {
   CreateBrandDto,
   CreateExpenseTypeDto,
@@ -31,6 +32,7 @@ export class AccountingService {
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
+    private readonly MenuService: MenuService,
   ) {}
   //   Products
   findAllProducts() {
@@ -48,9 +50,18 @@ export class AccountingService {
   }
   async removeProduct(id: string) {
     const invoices = await this.invoiceModel.find({ product: id });
+    const menuItems = await this.MenuService.findAllItems();
+    if (
+      menuItems.some((item) =>
+        item.itemProduction.some((itemProduct) => itemProduct.product === id),
+      )
+    ) {
+      throw new Error('Cannot remove product with menu items');
+    }
     if (invoices.length > 0) {
       throw new Error('Cannot remove product with invoices');
     }
+
     return this.productModel.findByIdAndRemove(id);
   }
   //   Units
