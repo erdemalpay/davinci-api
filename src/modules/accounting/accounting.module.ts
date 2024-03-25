@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { MenuModule } from '../menu/menu.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
@@ -24,7 +25,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [mongooseModule, MenuModule],
   providers: [AccountingService],
   exports: [AccountingService],
   controllers: [AccountingController],
