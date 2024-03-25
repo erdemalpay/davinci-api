@@ -1,8 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Product } from '../accounting/product.schema';
 import { MenuCategory } from './category.schema';
+class ItemProduction {
+  @Prop()
+  quantity: number;
 
+  @Prop({ required: true, type: Number, ref: Product.name })
+  product: string;
+}
 @Schema({ _id: false })
 export class MenuItem extends Document {
   @Prop({ type: Number })
@@ -28,6 +35,9 @@ export class MenuItem extends Document {
 
   @Prop({ required: true, type: Number, default: 0 })
   priceNeorama: number;
+
+  @Prop([ItemProduction])
+  itemProduction: ItemProduction[];
 }
 
 export const MenuItemSchema = SchemaFactory.createForClass(MenuItem);
