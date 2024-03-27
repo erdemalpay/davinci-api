@@ -39,9 +39,17 @@ export class AccountingService {
     return this.productModel.find().populate('unit stockType');
   }
   async createProduct(createProductDto: CreateProductDto) {
-    const product = new this.productModel(createProductDto);
-    product._id = usernamify(product.name);
-    await product.save();
+    try {
+      const product = new this.productModel(createProductDto);
+      product._id = usernamify(product.name);
+      await product.save();
+
+      // Optionally, return the created product or a success message
+      return product;
+    } catch (error) {
+      console.error('Failed to create product:', error);
+      throw new Error('Failed to create product');
+    }
   }
   updateProduct(id: string, updates: UpdateQuery<Product>) {
     return this.productModel.findByIdAndUpdate(id, updates, {
@@ -161,44 +169,42 @@ export class AccountingService {
       .populate('product expenseType brand vendor');
   }
   async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-    const ProductLastInvoice = await this.invoiceModel
-      .find({ product: createInvoiceDto.product })
-      .sort({ date: -1 })
-      .limit(1);
-    if (
-      ProductLastInvoice[0]?.date < createInvoiceDto.date ||
-      !ProductLastInvoice[0]
-    ) {
-      await this.productModel.findByIdAndUpdate(
-        createInvoiceDto.product,
-        {
-          $set: {
-            unitPrice: parseFloat(
-              (
-                createInvoiceDto.totalExpense / createInvoiceDto.quantity
-              ).toFixed(1),
-            ),
-          },
-        },
-        { new: true },
-      );
-      await this.stockModel.findOneAndUpdate(
-        { product: createInvoiceDto.product },
-        {
-          $set: {
-            unitPrice: parseFloat(
-              (
-                createInvoiceDto.totalExpense / createInvoiceDto.quantity
-              ).toFixed(1),
-            ),
-          },
-        },
-        { new: true },
-      );
-    }
+    try {
+      const ProductLastInvoice = await this.invoiceModel
+        .find({ product: createInvoiceDto.product })
+        .sort({ date: -1 })
+        .limit(1);
 
-    return this.invoiceModel.create(createInvoiceDto);
+      if (
+        !ProductLastInvoice[0] ||
+        ProductLastInvoice[0]?.date < createInvoiceDto.date
+      ) {
+        const updatedUnitPrice = parseFloat(
+          (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
+            2,
+          ),
+        );
+
+        await this.productModel.findByIdAndUpdate(
+          createInvoiceDto.product,
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+
+        await this.stockModel.findOneAndUpdate(
+          { product: createInvoiceDto.product },
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+      }
+
+      return await this.invoiceModel.create(createInvoiceDto);
+    } catch (error) {
+      console.error('Failed to create invoice:', error);
+      throw new Error('Invoice creation failed.');
+    }
   }
+
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
     if (updates.quantity || updates.totalExpense) {
       const invoice = await this.invoiceModel.findById(id);
