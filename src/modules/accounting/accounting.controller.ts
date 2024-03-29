@@ -209,6 +209,12 @@ export class AccountingController {
   deleteStock(@Param('id') id: string) {
     return this.accountingService.removeStock(id);
   }
+  // script
+  @Get('/script')
+  script() {
+    return this.accountingService.runScript();
+  }
+
   @Get('/removeAll')
   removeAll() {
     return this.accountingService.removeAll();
