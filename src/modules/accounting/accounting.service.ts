@@ -22,6 +22,8 @@ import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
+const path = require('path');
+
 export class AccountingService {
   constructor(
     @InjectModel(Product.name)
@@ -308,7 +310,15 @@ export class AccountingService {
 
   async runScript() {
     try {
-      const filePath = './src/assets/InvoiceNew.xlsx';
+      // const filePath = './src/assets/InvoiceNew.xlsx';
+      const filePath = path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'assets',
+        'InvoiceNew.xlsx',
+      );
       const [
         yearValues,
         monthValues,
