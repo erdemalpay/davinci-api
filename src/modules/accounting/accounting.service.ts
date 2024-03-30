@@ -315,7 +315,6 @@ export class AccountingService {
         __dirname,
         '..',
         '..',
-        '..',
         'assets',
         'InvoiceNew.xlsx',
       );
