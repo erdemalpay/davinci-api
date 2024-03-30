@@ -479,9 +479,15 @@ export class AccountingService {
           quantity: quantityValues[i],
           totalExpense: totalExpenseValues[i],
           documentNo: documentNoValues[i] ?? '',
-          date: `${yearValues[i]}-${monthValues[i]
-            .toString()
-            .padStart(2, '0')}-${dayValues[i].toString().padStart(2, '0')}`,
+          date: `${
+            yearValues[i] && monthValues[i] && dayValues[i]
+              ? `${yearValues[i]}-${monthValues[i]
+                  .toString()
+                  .padStart(2, '0')}-${dayValues[i]
+                  .toString()
+                  .padStart(2, '0')}`
+              : ''
+          }`,
         };
         try {
           await this.createInvoice(invoiceBody);
