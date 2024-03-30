@@ -306,221 +306,131 @@ export class AccountingService {
   };
   eliminateDuplicates = (arr) => [...new Set(arr)];
 
-  runScriptUnit = async () => {
+  async runScript() {
     try {
       const filePath = './src/assets/InvoiceNew.xlsx';
-      const unitValues = this.readColumnFromExcel(filePath, 10);
-      const uniqueUnitValues = this.eliminateDuplicates(unitValues);
-      for (const unitValue of uniqueUnitValues) {
-        const body = { name: unitValue as string };
-        try {
-          await this.createUnit(body);
-        } catch (innerError) {
-          console.error(
-            `Error creating unit for ${unitValue}: ${innerError.message}`,
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScriptUnit: ${error.message}`);
-    }
-  };
-  runScriptExpenseType = async () => {
-    try {
-      const filePath = './src/assets/InvoiceNew.xlsx';
-      const expenseTypeValues = this.readColumnFromExcel(filePath, 8);
-      const uniqueValues = this.eliminateDuplicates(expenseTypeValues);
-      for (const item of uniqueValues) {
-        const body = { name: item as string, backgroundColor: '#FB6D48' };
-        if (
-          item === '' ||
-          item === undefined ||
-          item === null ||
-          item === '?'
-        ) {
-          continue;
-        }
-        try {
-          await this.createExpenseType(body);
-        } catch (innerError) {
-          console.error(`Error creating  for ${item}: ${innerError.message}`);
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScript: ${error.message}`);
-    }
-  };
-  runScriptVendor = async () => {
-    try {
-      const filePath = './src/assets/InvoiceNew.xlsx';
-      const vendorValues = this.readColumnFromExcel(filePath, 5);
-      const uniqueValues = this.eliminateDuplicates(vendorValues);
-      for (const item of uniqueValues) {
-        const body = { name: item as string };
-        if (
-          item === '' ||
-          item === undefined ||
-          item === null ||
-          item === '?'
-        ) {
-          continue;
-        }
-        try {
-          await this.createVendor(body);
-        } catch (innerError) {
-          console.error(`Error creating  for ${item}: ${innerError.message}`);
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScript: ${error.message}`);
-    }
-  };
-  runScriptBrand = async () => {
-    try {
-      const filePath = './src/assets/InvoiceNew.xlsx';
-      const brandValues = this.readColumnFromExcel(filePath, 6);
-      const uniqueValues = this.eliminateDuplicates(brandValues);
-      for (const item of uniqueValues) {
-        const body = { name: item as string };
-        if (
-          item === '' ||
-          item === undefined ||
-          item === null ||
-          item === '?'
-        ) {
-          continue;
-        }
-        try {
-          await this.createBrand(body);
-        } catch (innerError) {
-          console.error(`Error creating  for ${item}: ${innerError.message}`);
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScript: ${error.message}`);
-    }
-  };
-  runScriptProduct = async () => {
-    try {
-      const filePath = './src/assets/InvoiceNew.xlsx';
-      const brandValues = this.readColumnFromExcel(filePath, 6);
-      const vendorValues = this.readColumnFromExcel(filePath, 5);
-      const expenseTypeValues = this.readColumnFromExcel(filePath, 8);
-      const unitValues = this.readColumnFromExcel(filePath, 10);
-      const productValues = this.readColumnFromExcel(filePath, 9);
-      await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
-      for (var i = 91; i < productValues.length; i++) {
-        if (productValues[i] === undefined) {
-          continue;
-        }
-        const body = {
-          name: productValues[i] as string,
-          unit: usernamify(unitValues[i]) ?? '',
-          brand: [usernamify(brandValues[i] ?? '')],
-          vendor: [usernamify(vendorValues[i] ?? '')],
-          expenseType: [usernamify(expenseTypeValues[i] ?? '')],
-          stockType: 'gen',
-        };
-        if (
-          productValues[i] === '' ||
-          productValues[i] === undefined ||
-          productValues[i] === null ||
-          productValues[i] === '?'
-        ) {
-          continue;
-        }
-        try {
-          await this.createProduct(body);
-          console.log(`Successfully created : ${productValues[i]}`);
-        } catch (innerError) {
-          console.error(
-            `Error creating  for ${productValues[i]}: ${innerError.message}`,
-          );
-        }
-      }
-      for (var i = 1; i < 91; i++) {
-        if (productValues[i] === undefined) {
-          continue;
-        }
-        const body = {
-          name: productValues[i] as string,
-          unit: usernamify(unitValues[i]) ?? '',
-          brand: [usernamify(brandValues[i] ?? '')],
-          vendor: [usernamify(vendorValues[i] ?? '')],
-          expenseType: [usernamify(expenseTypeValues[i] ?? '')],
-          stockType: 'gen',
-        };
-        if (
-          productValues[i] === '' ||
-          productValues[i] === undefined ||
-          productValues[i] === null ||
-          productValues[i] === '?'
-        ) {
-          continue;
-        }
-        try {
-          await this.createProduct(body);
-        } catch (innerError) {
-          console.error(
-            `Error creating  for ${productValues[i]}: ${innerError.message}`,
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScript: ${error.message}`);
-    }
-  };
-  runScriptInvoice = async () => {
-    const filePath = './src/assets/InvoiceNew.xlsx';
-    const yearValues = this.readColumnFromExcel(filePath, 1);
-    const monthValues = this.readColumnFromExcel(filePath, 2);
-    const dayValues = this.readColumnFromExcel(filePath, 3);
-    const documentNoValues = this.readColumnFromExcel(filePath, 4);
-    const vendorValues = this.readColumnFromExcel(filePath, 5);
-    const brandValues = this.readColumnFromExcel(filePath, 6);
-    const expenseTypeValues = this.readColumnFromExcel(filePath, 8);
-    const productValues = this.readColumnFromExcel(filePath, 9);
-    const quantityValues = this.readColumnFromExcel(filePath, 14);
-    const totalExpenseValues = this.readColumnFromExcel(filePath, 15);
+      const [
+        yearValues,
+        monthValues,
+        dayValues,
+        documentNoValues,
+        vendorValues,
+        brandValues,
+        expenseTypeValues,
+        productValues,
+        unitValues,
+        quantityValues,
+        totalExpenseValues,
+      ] = [1, 2, 3, 4, 5, 6, 8, 9, 10, 14, 15].map((column) =>
+        this.readColumnFromExcel(filePath, column),
+      );
 
-    for (var i = 1; i < totalExpenseValues.length; i++) {
-      const body = {
-        product: usernamify(productValues[i]),
-        brand: usernamify(brandValues[i]) ?? '',
-        vendor: usernamify(vendorValues[i]) ?? '',
-        expenseType: usernamify(expenseTypeValues[i] ?? ''),
-        quantity: quantityValues[i],
-        totalExpense: totalExpenseValues[i],
-        documentNo: documentNoValues[i] ?? '',
-        date: `${
-          yearValues[i] && monthValues[i] && dayValues[i]
-            ? `${yearValues[i]}-${monthValues[i]
-                .toString()
-                .padStart(2, '0')}-${dayValues[i].toString().padStart(2, '0')}`
-            : ''
-        }`,
-      };
-      try {
-        await this.createInvoice(body);
-      } catch (innerError) {
-        console.error(
-          `Error creating  for ${productValues[i]}: ${innerError.message}`,
-        );
+      const uniqueUnits = this.eliminateDuplicates(unitValues);
+      const uniqueExpenseTypes = this.eliminateDuplicates(expenseTypeValues);
+      const uniqueVendors = this.eliminateDuplicates(vendorValues);
+      const uniqueBrands = this.eliminateDuplicates(brandValues);
+      const uniqueProducts = this.eliminateDuplicates(
+        productValues.filter(
+          (_, index) =>
+            typeof productValues[index] !== 'undefined' &&
+            productValues[index] !== '' &&
+            productValues[index] !== '?',
+        ),
+      );
+
+      // Create Units
+      for (const unit of uniqueUnits) {
+        try {
+          await this.createUnit({ name: unit as string });
+        } catch (error) {
+          console.error(`Error creating unit for ${unit}: ${error.message}`);
+        }
       }
-    }
-  };
-  runScript = async () => {
-    try {
-      await this.runScriptUnit();
-      await this.runScriptExpenseType();
-      await this.runScriptVendor();
-      await this.runScriptBrand();
-      await this.runScriptProduct();
-      await this.runScriptInvoice();
+
+      // Create Expense Types
+      for (const type of uniqueExpenseTypes) {
+        if (type) {
+          if (type === '?') {
+            continue;
+          }
+          try {
+            await this.createExpenseType({
+              name: type as string,
+              backgroundColor: '#FB6D48',
+            });
+          } catch (error) {
+            console.error(
+              `Error creating expense type for ${type}: ${error.message}`,
+            );
+          }
+        }
+      }
+
+      // Create Vendors
+      for (const vendor of uniqueVendors) {
+        try {
+          await this.createVendor({ name: vendor as string });
+        } catch (error) {
+          console.error(
+            `Error creating vendor for ${vendor}: ${error.message}`,
+          );
+        }
+      }
+
+      // Create Brands
+      for (const brand of uniqueBrands) {
+        try {
+          await this.createBrand({ name: brand as string });
+        } catch (error) {
+          console.error(`Error creating brand for ${brand}: ${error.message}`);
+        }
+      }
+
+      // Create Products and Invoices
+      await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
+      for (let i = 0; i < productValues.length; i++) {
+        if (uniqueProducts.includes(productValues[i])) {
+          try {
+            const productBody = {
+              name: productValues[i],
+              unit: usernamify(unitValues[i]) ?? '',
+              brand: [usernamify(brandValues[i] ?? '')],
+              vendor: [usernamify(vendorValues[i] ?? '')],
+              expenseType: [usernamify(expenseTypeValues[i] ?? '')],
+              stockType: 'gen',
+            };
+            await this.createProduct(productBody);
+          } catch (error) {
+            console.error(
+              `Error creating product for ${productValues[i]}: ${error.message}`,
+            );
+          }
+
+          const invoiceBody = {
+            product: usernamify(productValues[i]),
+            brand: usernamify(brandValues[i]) ?? '',
+            vendor: usernamify(vendorValues[i]) ?? '',
+            expenseType: usernamify(expenseTypeValues[i] ?? ''),
+            quantity: quantityValues[i],
+            totalExpense: totalExpenseValues[i],
+            documentNo: documentNoValues[i] ?? '',
+            date: `${yearValues[i]}-${monthValues[i]
+              .toString()
+              .padStart(2, '0')}-${dayValues[i].toString().padStart(2, '0')}`,
+          };
+          try {
+            await this.createInvoice(invoiceBody);
+          } catch (error) {
+            console.error(
+              `Error creating invoice for ${productValues[i]}: ${error.message}`,
+            );
+          }
+        }
+      }
     } catch (error) {
       console.error(`Error in runScript: ${error.message}`);
     }
-  };
+  }
 
   async removeAll() {
     await this.brandModel.deleteMany({});
