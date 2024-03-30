@@ -1,10 +1,10 @@
-import * as config from 'config';
-const express = require('express');
 import { NestFactory, Reflector } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as config from 'config';
 import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { setCors } from './lib/cors';
 import { JwtAuthGuard } from './modules/auth/auth.guards';
+const express = require('express');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
