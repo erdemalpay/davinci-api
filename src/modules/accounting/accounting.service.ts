@@ -52,6 +52,54 @@ export class AccountingService {
       throw new Error('Failed to create product');
     }
   }
+  async createProductForScript(createProductDto: CreateProductDto) {
+    const foundProduct = await this.productModel.findOne({
+      name: createProductDto.name,
+    });
+    if (foundProduct) {
+      const updatedBrand = [
+        ...new Set(
+          [...foundProduct.brand, ...createProductDto.brand].filter(
+            (item) => item !== '',
+          ),
+        ),
+      ];
+      const updatedVendor = [
+        ...new Set(
+          [...foundProduct.vendor, ...createProductDto.vendor].filter(
+            (item) => item !== '',
+          ),
+        ),
+      ];
+      const updatedExpenseType = [
+        ...new Set(
+          [...foundProduct.expenseType, ...createProductDto.expenseType].filter(
+            (item) => item !== '',
+          ),
+        ),
+      ];
+      await this.productModel.findByIdAndUpdate(
+        foundProduct._id,
+        {
+          brand: updatedBrand,
+          vendor: updatedVendor,
+          expenseType: updatedExpenseType,
+        },
+        {
+          new: true,
+        },
+      );
+    } else {
+      try {
+        const product = new this.productModel(createProductDto);
+        product._id = usernamify(product.name);
+        await product.save();
+      } catch (error) {
+        console.error('Failed to create product:', error);
+        throw new Error('Failed to create product');
+      }
+    }
+  }
   updateProduct(id: string, updates: UpdateQuery<Product>) {
     return this.productModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -386,45 +434,43 @@ export class AccountingService {
         }
       }
 
-      // Create Products and Invoices
       await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
+      // Create Products
       for (let i = 0; i < productValues.length; i++) {
-        if (uniqueProducts.includes(productValues[i])) {
-          try {
-            const productBody = {
-              name: productValues[i],
-              unit: usernamify(unitValues[i]) ?? '',
-              brand: [usernamify(brandValues[i] ?? '')],
-              vendor: [usernamify(vendorValues[i] ?? '')],
-              expenseType: [usernamify(expenseTypeValues[i] ?? '')],
-              stockType: 'gen',
-            };
-            await this.createProduct(productBody);
-          } catch (error) {
-            console.error(
-              `Error creating product for ${productValues[i]}: ${error.message}`,
-            );
-          }
-
-          const invoiceBody = {
-            product: usernamify(productValues[i]),
-            brand: usernamify(brandValues[i]) ?? '',
-            vendor: usernamify(vendorValues[i]) ?? '',
-            expenseType: usernamify(expenseTypeValues[i] ?? ''),
-            quantity: quantityValues[i],
-            totalExpense: totalExpenseValues[i],
-            documentNo: documentNoValues[i] ?? '',
-            date: `${yearValues[i]}-${monthValues[i]
-              .toString()
-              .padStart(2, '0')}-${dayValues[i].toString().padStart(2, '0')}`,
+        try {
+          const productBody = {
+            name: productValues[i],
+            unit: usernamify(unitValues[i] ?? ''),
+            brand: [usernamify(brandValues[i] ?? '')],
+            vendor: [usernamify(vendorValues[i] ?? '')],
+            expenseType: [usernamify(expenseTypeValues[i] ?? '')],
+            stockType: 'gen',
           };
-          try {
-            await this.createInvoice(invoiceBody);
-          } catch (error) {
-            console.error(
-              `Error creating invoice for ${productValues[i]}: ${error.message}`,
-            );
-          }
+          await this.createProductForScript(productBody);
+        } catch (error) {
+          console.error(
+            `Error creating product for ${productValues[i]}: ${error.message}`,
+          );
+        }
+
+        const invoiceBody = {
+          product: usernamify(productValues[i]),
+          brand: usernamify(brandValues[i]) ?? '',
+          vendor: usernamify(vendorValues[i]) ?? '',
+          expenseType: usernamify(expenseTypeValues[i] ?? ''),
+          quantity: quantityValues[i],
+          totalExpense: totalExpenseValues[i],
+          documentNo: documentNoValues[i] ?? '',
+          date: `${yearValues[i]}-${monthValues[i]
+            .toString()
+            .padStart(2, '0')}-${dayValues[i].toString().padStart(2, '0')}`,
+        };
+        try {
+          await this.createInvoice(invoiceBody);
+        } catch (error) {
+          console.error(
+            `Error creating invoice for ${productValues[i]}: ${error.message}`,
+          );
         }
       }
     } catch (error) {
