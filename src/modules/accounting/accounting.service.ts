@@ -354,7 +354,16 @@ export class AccountingService {
     }
     return values;
   };
-  eliminateDuplicates = (arr) => [...new Set(arr)];
+  eliminateDuplicates = function eliminateDuplicates(strings: string[]) {
+    const unique = {};
+    strings.forEach((str) => {
+      const username = usernamify(str);
+      if (!unique.hasOwnProperty(username)) {
+        unique[username] = str;
+      }
+    });
+    return Object.values(unique);
+  };
 
   async runScript() {
     try {
