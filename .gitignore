@@ -37,3 +37,4 @@ davinci-data
 
 .env
 config
+config/development.json

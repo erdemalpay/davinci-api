@@ -260,6 +260,9 @@ export class AccountingService {
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
     if (updates.quantity || updates.totalExpense) {
       const invoice = await this.invoiceModel.findById(id);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
       const ProductLastInvoice = await this.invoiceModel
         .find({ product: invoice.product })
         .sort({ date: -1 })
@@ -286,7 +289,30 @@ export class AccountingService {
       new: true,
     });
   }
-  removeInvoice(id: number) {
+  async removeInvoice(id: number) {
+    const invoice = await this.invoiceModel.findById(id);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+    const ProductLastInvoice = await this.invoiceModel
+      .find({ product: invoice.product })
+      .sort({ date: -1 });
+
+    if (ProductLastInvoice[0]?._id == id) {
+      await this.productModel.findByIdAndUpdate(
+        invoice.product,
+        {
+          unitPrice:
+            (
+              ProductLastInvoice[1]?.totalExpense /
+              ProductLastInvoice[1]?.quantity
+            ).toFixed(2) ?? 0,
+        },
+        {
+          new: true,
+        },
+      );
+    }
     return this.invoiceModel.findByIdAndRemove(id);
   }
   // Stock Type
