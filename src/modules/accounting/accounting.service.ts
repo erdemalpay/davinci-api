@@ -2,6 +2,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import * as xlsx from 'xlsx';
+import { Location } from '../location/location.schema';
 import { MenuService } from './../menu/menu.service';
 import {
   CreateBrandDto,
@@ -33,6 +34,7 @@ export class AccountingService {
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
+    @InjectModel(Location.name) private locationModel: Model<Location>,
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
     private readonly MenuService: MenuService,
@@ -252,7 +254,10 @@ export class AccountingService {
 
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
-      console.error('Failed to create invoice:', error);
+      console.error(
+        `Failed to create invoice: ${createInvoiceDto.product}`,
+        error,
+      );
       throw new Error('Invoice creation failed.');
     }
   }
@@ -372,7 +377,7 @@ export class AccountingService {
     const range = xlsx.utils.decode_range(sheet['!ref']);
     let values = [];
 
-    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
+    for (let rowNum = range.s.r || 1; rowNum <= range.e.r; rowNum++) {
       const cellAddress = { c: column, r: rowNum };
       const cellRef = xlsx.utils.encode_cell(cellAddress);
       const cell = sheet[cellRef];
@@ -414,7 +419,7 @@ export class AccountingService {
         unitValues,
         quantityValues,
         totalExpenseValues,
-      ] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15].map((column) =>
+      ] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14].map((column) =>
         this.readColumnFromExcel(filePath, column),
       );
 
@@ -506,8 +511,8 @@ export class AccountingService {
           expenseType: usernamify(expenseTypeValues[i] ?? ''),
           quantity: quantityValues[i],
           totalExpense: totalExpenseValues[i],
-          documentNo: documentNoValues[i] ?? '',
           location: locationValues[i] === 'B' ? 1 : 2,
+          documentNo: documentNoValues[i] ?? '',
           date: `${
             yearValues[i] && monthValues[i] && dayValues[i]
               ? `${yearValues[i]}-${monthValues[i]
@@ -519,7 +524,7 @@ export class AccountingService {
           }`,
         };
         try {
-          await this.createInvoice(invoiceBody);
+          void this.createInvoice(invoiceBody);
         } catch (error) {
           console.error(
             `Error creating invoice for ${productValues[i]}: ${error.message}`,

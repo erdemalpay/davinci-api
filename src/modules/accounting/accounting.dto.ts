@@ -38,6 +38,7 @@ export class CreateInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
+  location: number;
   date: string;
   brand?: string;
   vendor?: string;

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingService } from './accounting.service';
@@ -21,6 +22,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Vendor.name, useFactory: () => VendorSchema },
   { name: StockType.name, useFactory: () => StockTypeSchema },
   { name: Stock.name, useFactory: () => StockSchema },
+  { name: Location.name, useFactory: () => LocationSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
 ]);
 
