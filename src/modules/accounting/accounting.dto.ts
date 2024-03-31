@@ -42,4 +42,5 @@ export class CreateInvoiceDto {
   brand?: string;
   vendor?: string;
   documentNo?: string;
+  location: number;
 }
