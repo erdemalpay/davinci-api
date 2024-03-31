@@ -485,7 +485,12 @@ export class AccountingService {
         }
       }
 
-      await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
+      try {
+        await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
+      } catch (error) {
+        console.error(`Error creating stock type for Gen: ${error.message}`);
+      }
+
       // Create Products
       for (let i = 0; i < productValues.length; i++) {
         try {
@@ -524,7 +529,7 @@ export class AccountingService {
           }`,
         };
         try {
-          void this.createInvoice(invoiceBody);
+          await this.createInvoice(invoiceBody);
         } catch (error) {
           console.error(
             `Error creating invoice for ${productValues[i]}: ${error.message}`,
