@@ -217,7 +217,7 @@ export class AccountingService {
   findAllInvoices() {
     return this.invoiceModel
       .find()
-      .populate('product expenseType brand vendor')
+      .populate('product expenseType brand vendor location')
       .sort({ date: -1 });
   }
   async createInvoice(createInvoiceDto: CreateInvoiceDto) {
@@ -408,12 +408,13 @@ export class AccountingService {
         documentNoValues,
         vendorValues,
         brandValues,
+        locationValues,
         expenseTypeValues,
         productValues,
         unitValues,
         quantityValues,
         totalExpenseValues,
-      ] = [1, 2, 3, 4, 5, 6, 8, 9, 10, 14, 15].map((column) =>
+      ] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15].map((column) =>
         this.readColumnFromExcel(filePath, column),
       );
 
@@ -421,6 +422,7 @@ export class AccountingService {
       const uniqueExpenseTypes = this.eliminateDuplicates(expenseTypeValues);
       const uniqueVendors = this.eliminateDuplicates(vendorValues);
       const uniqueBrands = this.eliminateDuplicates(brandValues);
+
       const uniqueProducts = this.eliminateDuplicates(
         productValues.filter(
           (_, index) =>
@@ -505,6 +507,7 @@ export class AccountingService {
           quantity: quantityValues[i],
           totalExpense: totalExpenseValues[i],
           documentNo: documentNoValues[i] ?? '',
+          location: locationValues[i] === 'B' ? 1 : 2,
           date: `${
             yearValues[i] && monthValues[i] && dayValues[i]
               ? `${yearValues[i]}-${monthValues[i]
