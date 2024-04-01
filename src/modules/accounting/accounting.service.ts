@@ -235,7 +235,7 @@ export class AccountingService {
       ) {
         const updatedUnitPrice = parseFloat(
           (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
-            2,
+            4,
           ),
         );
 
@@ -276,14 +276,14 @@ export class AccountingService {
       if (ProductLastInvoice[0]._id == id) {
         await this.productModel.findByIdAndUpdate(
           invoice.product,
-          { unitPrice: updates.unitPrice.toFixed(1) },
+          { unitPrice: updates.unitPrice.toFixed(4) },
           {
             new: true,
           },
         );
         await this.stockModel.findOneAndUpdate(
           { product: invoice.product },
-          { unitPrice: updates.unitPrice.toFixed(1) },
+          { unitPrice: updates.unitPrice.toFixed(4) },
           {
             new: true,
           },
@@ -311,7 +311,7 @@ export class AccountingService {
             (
               ProductLastInvoice[1]?.totalExpense /
               ProductLastInvoice[1]?.quantity
-            ).toFixed(2) ?? 0,
+            ).toFixed(4) ?? 0,
         },
         {
           new: true,
