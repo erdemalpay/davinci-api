@@ -231,7 +231,7 @@ export class AccountingService {
 
       if (
         !ProductLastInvoice[0] ||
-        ProductLastInvoice[0]?.date < createInvoiceDto.date
+        ProductLastInvoice[0]?.date <= createInvoiceDto.date
       ) {
         const updatedUnitPrice = parseFloat(
           (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(

@@ -37,7 +37,7 @@ export class Invoice extends Document {
   location: Location;
 
   @Prop({ required: false })
-  documentNo: string;
+  note: string;
 }
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);

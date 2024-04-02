@@ -42,5 +42,5 @@ export class CreateInvoiceDto {
   date: string;
   brand?: string;
   vendor?: string;
-  documentNo?: string;
+  note?: string;
 }
