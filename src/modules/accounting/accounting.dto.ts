@@ -14,6 +14,9 @@ export class CreateStockTypeDto {
   name: string;
   backgroundColor: string;
 }
+export class CreateStockLocationDto {
+  name: string;
+}
 export class CreateBrandDto {
   name: string;
 }
@@ -28,7 +31,7 @@ export class CreateExpenseTypeDto {
 
 export class CreateStockDto {
   product: string;
-  location: number;
+  location: string;
   quantity: number;
   unitPrice?: number;
 }

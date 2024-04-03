@@ -10,6 +10,7 @@ import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { Product, ProductSchema } from './product.schema';
 import { Stock, StockSchema } from './stock.schema';
+import { StockLocation, StockLocationSchema } from './stockLocation.schema';
 import { StockType, StockTypeSchema } from './stockType.schema';
 import { Unit, UnitSchema } from './unit.schema';
 import { Vendor, VendorSchema } from './vendor.schema';
@@ -21,6 +22,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Brand.name, useFactory: () => BrandSchema },
   { name: Vendor.name, useFactory: () => VendorSchema },
   { name: StockType.name, useFactory: () => StockTypeSchema },
+  { name: StockLocation.name, useFactory: () => StockLocationSchema },
   { name: Stock.name, useFactory: () => StockSchema },
   { name: Location.name, useFactory: () => LocationSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
