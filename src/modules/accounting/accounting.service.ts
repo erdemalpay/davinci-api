@@ -50,10 +50,9 @@ export class AccountingService {
   async createProduct(createProductDto: CreateProductDto) {
     try {
       const product = new this.productModel(createProductDto);
-      product._id = usernamify(product.name);
+      product._id =
+        usernamify(product.name) + usernamify(createProductDto.unit);
       await product.save();
-
-      // Optionally, return the created product or a success message
       return product;
     } catch (error) {
       console.error('Failed to create product:', error);
