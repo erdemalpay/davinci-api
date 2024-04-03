@@ -14,6 +14,7 @@ import {
   CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
+  JoinProductDto,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
@@ -50,16 +51,57 @@ export class AccountingService {
   async createProduct(createProductDto: CreateProductDto) {
     try {
       const product = new this.productModel(createProductDto);
-      product._id = usernamify(product.name);
+      product._id =
+        usernamify(product.name) + usernamify(createProductDto.unit);
       await product.save();
-
-      // Optionally, return the created product or a success message
       return product;
     } catch (error) {
       console.error('Failed to create product:', error);
       throw new Error('Failed to create product');
     }
   }
+  async joinProducts(JoinProductDto: JoinProductDto) {
+    const { stayedProduct, removedProduct } = JoinProductDto;
+    const product = await this.productModel.findById(stayedProduct);
+    const removedProductDoc = await this.productModel.findById(removedProduct);
+
+    //checking the units
+    if (product.unit !== removedProductDoc.unit) {
+      throw new Error('Unit must be the same');
+    }
+
+    // update invoices
+    await this.invoiceModel.updateMany(
+      { product: removedProduct },
+      { $set: { product: stayedProduct } },
+    );
+    //update menu items
+    await this.MenuService.updateMenuItemProduct(stayedProduct, removedProduct);
+    // update product
+    product.brand = [
+      ...new Set([...product.brand, ...removedProductDoc.brand]),
+    ];
+    product.vendor = [
+      ...new Set([...product.vendor, ...removedProductDoc.vendor]),
+    ];
+    product.expenseType = [
+      ...new Set([...product.expenseType, ...removedProductDoc.expenseType]),
+    ];
+    // updating the unit price
+    const invoices = await this.invoiceModel
+      .find({ product: stayedProduct })
+      .sort({ date: -1 });
+    product.unitPrice =
+      parseFloat(
+        (invoices[0]?.totalExpense / invoices[0]?.quantity).toFixed(4),
+      ) ?? 0;
+    await product.save();
+
+    // remove product
+    await this.productModel.findByIdAndDelete(removedProduct);
+    return product;
+  }
+
   async createProductForScript(createProductDto: CreateProductDto) {
     const foundProduct = await this.productModel.findOne({
       name: createProductDto.name,

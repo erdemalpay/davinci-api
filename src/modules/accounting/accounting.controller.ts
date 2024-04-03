@@ -18,6 +18,7 @@ import {
   CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
+  JoinProductDto,
 } from './accounting.dto';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
@@ -45,7 +46,10 @@ export class AccountingController {
   createCategory(@Body() createProductDto: CreateProductDto) {
     return this.accountingService.createProduct(createProductDto);
   }
-
+  @Post('/products/join')
+  joinProduct(@Body() joinProductDto: JoinProductDto) {
+    return this.accountingService.joinProducts(joinProductDto);
+  }
   @Patch('/products/:id')
   updateCategory(
     @Param('id') id: string,
