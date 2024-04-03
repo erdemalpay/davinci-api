@@ -105,4 +105,28 @@ export class MenuService {
       new: true,
     });
   }
+  async updateMenuItemProduct(stayedProduct: string, removedProduct: string) {
+    const items = await this.itemModel.find();
+
+    items.forEach(async (item) => {
+      let isUpdated = false;
+      const updatedItemProduction = item.itemProduction.map(
+        (itemProduction) => {
+          if (itemProduction.product === removedProduct) {
+            isUpdated = true;
+            return {
+              ...itemProduction,
+              product: stayedProduct,
+            };
+          }
+          return itemProduction;
+        },
+      );
+      if (isUpdated) {
+        await this.itemModel.findByIdAndUpdate(item._id, {
+          $set: { itemProduction: updatedItemProduction },
+        });
+      }
+    });
+  }
 }

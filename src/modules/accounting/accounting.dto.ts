@@ -17,6 +17,10 @@ export class CreateStockTypeDto {
 export class CreateStockLocationDto {
   name: string;
 }
+export class JoinProductDto {
+  stayedProduct: string;
+  removedProduct: string;
+}
 export class CreateBrandDto {
   name: string;
 }
