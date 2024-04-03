@@ -10,6 +10,7 @@ import {
   CreateInvoiceDto,
   CreateProductDto,
   CreateStockDto,
+  CreateStockLocationDto,
   CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
@@ -19,6 +20,7 @@ import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { Product } from './product.schema';
 import { Stock } from './stock.schema';
+import { StockLocation } from './stockLocation.schema';
 import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
@@ -36,6 +38,8 @@ export class AccountingService {
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
+    @InjectModel(StockLocation.name)
+    private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
     private readonly MenuService: MenuService,
   ) {}
@@ -368,7 +372,23 @@ export class AccountingService {
   removeStock(id: string) {
     return this.stockModel.findByIdAndRemove(id);
   }
-
+  // stockLocation
+  findAllStockLocations() {
+    return this.stockLocationModel.find();
+  }
+  createStockLocation(createStockLocationDto: CreateStockLocationDto) {
+    const stockLocation = new this.stockLocationModel(createStockLocationDto);
+    stockLocation._id = usernamify(stockLocation.name);
+    return stockLocation.save();
+  }
+  updateStockLocation(id: string, updates: UpdateQuery<StockLocation>) {
+    return this.stockLocationModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeStockLocation(id: string) {
+    return this.stockLocationModel.findByIdAndRemove(id);
+  }
   // script
   readColumnFromExcel = (filePath: string, column: number) => {
     const workbook = xlsx.readFile(filePath);

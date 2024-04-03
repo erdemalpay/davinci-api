@@ -14,11 +14,13 @@ import {
   CreateInvoiceDto,
   CreateProductDto,
   CreateStockDto,
+  CreateStockLocationDto,
   CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
 } from './accounting.dto';
 import { Product } from './product.schema';
+import { StockLocation } from './stockLocation.schema';
 
 import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
@@ -188,7 +190,28 @@ export class AccountingController {
   deleteStockType(@Param('id') id: string) {
     return this.accountingService.removeStockType(id);
   }
+  // Stock Location
+  @Get('/stock-locations')
+  getStockLocations() {
+    return this.accountingService.findAllStockLocations();
+  }
+  @Post('/stock-locations')
+  createStockLocation(@Body() createStockLocationDto: CreateStockLocationDto) {
+    return this.accountingService.createStockLocation(createStockLocationDto);
+  }
 
+  @Patch('/stock-locations/:id')
+  updateStockLocation(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<StockLocation>,
+  ) {
+    return this.accountingService.updateStockLocation(id, updates);
+  }
+
+  @Delete('/stock-locations/:id')
+  deleteStockLocation(@Param('id') id: string) {
+    return this.accountingService.removeStockLocation(id);
+  }
   // Stocks
   @Get('/stocks')
   getStock() {
