@@ -6,6 +6,7 @@ import { Location } from '../location/location.schema';
 import { MenuService } from './../menu/menu.service';
 import {
   CreateBrandDto,
+  CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
@@ -17,6 +18,7 @@ import {
   JoinProductDto,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
+import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { Product } from './product.schema';
@@ -39,6 +41,7 @@ export class AccountingService {
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
+    @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
@@ -430,6 +433,23 @@ export class AccountingService {
   }
   removeStockLocation(id: string) {
     return this.stockLocationModel.findByIdAndRemove(id);
+  }
+  // countlist
+  createCountList(createCountListDto: CreateCountListDto) {
+    const countList = new this.countListModel(createCountListDto);
+    countList._id = usernamify(countList.name);
+    return countList.save();
+  }
+  findAllCountLists() {
+    return this.countListModel.find();
+  }
+  updateCountList(id: string, updates: UpdateQuery<CountList>) {
+    return this.countListModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeCountList(id: string) {
+    return this.countListModel.findByIdAndRemove(id);
   }
   // script
   readColumnFromExcel = (filePath: string, column: number) => {
