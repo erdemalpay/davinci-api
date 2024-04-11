@@ -82,14 +82,7 @@ export class MenuService {
 
   async createPopular(createPopularDto: CreatePopularDto) {
     const popularItems = await this.popularModel.find().populate('item');
-    const lastItem = popularItems[popularItems.length - 1];
-    if (
-      popularItems.filter(
-        (popularItem) => popularItem.item._id === createPopularDto.item,
-      ).length > 0
-    ) {
-      throw new Error('Item already exists in popular');
-    }
+    const lastItem = popularItems[popularItems?.length - 1];
 
     return this.popularModel.create({
       ...createPopularDto,
