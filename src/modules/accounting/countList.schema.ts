@@ -11,7 +11,7 @@ export class CountList extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
-  @Prop({ required: true, type: [{ type: String, ref: Product.name }] })
+  @Prop({ required: false, type: [{ type: String, ref: Product.name }] })
   products: Product[];
 }
 
