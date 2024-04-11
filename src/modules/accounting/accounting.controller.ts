@@ -10,6 +10,7 @@ import {
 import { UpdateQuery } from 'mongoose';
 import {
   CreateBrandDto,
+  CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreateProductDto,
@@ -20,6 +21,7 @@ import {
   CreateVendorDto,
   JoinProductDto,
 } from './accounting.dto';
+import { CountList } from './countList.schema';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 
@@ -236,6 +238,30 @@ export class AccountingController {
   deleteStock(@Param('id') id: string) {
     return this.accountingService.removeStock(id);
   }
+  // count list
+  @Get('/count-list')
+  getCountList() {
+    return this.accountingService.findAllCountLists();
+  }
+
+  @Post('/count-list')
+  createCountList(@Body() createCountListDto: CreateCountListDto) {
+    return this.accountingService.createCountList(createCountListDto);
+  }
+
+  @Patch('/count-list/:id')
+  updateCountList(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<CountList>,
+  ) {
+    return this.accountingService.updateCountList(id, updates);
+  }
+
+  @Delete('/count-list/:id')
+  deleteCountList(@Param('id') id: string) {
+    return this.accountingService.removeCountList(id);
+  }
+
   // script
   @Get('/script')
   script() {
