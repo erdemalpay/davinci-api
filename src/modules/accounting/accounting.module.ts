@@ -6,6 +6,7 @@ import { MenuModule } from '../menu/menu.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
+import { CountList, CountListSchema } from './countList.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { Product, ProductSchema } from './product.schema';
@@ -24,6 +25,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: StockType.name, useFactory: () => StockTypeSchema },
   { name: StockLocation.name, useFactory: () => StockLocationSchema },
   { name: Stock.name, useFactory: () => StockSchema },
+  { name: CountList.name, useFactory: () => CountListSchema },
   { name: Location.name, useFactory: () => LocationSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
 ]);
