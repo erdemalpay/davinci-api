@@ -27,6 +27,10 @@ export class CreateBrandDto {
 export class CreateVendorDto {
   name: string;
 }
+export class CreateCountListDto {
+  name: string;
+  products: string[];
+}
 
 export class CreateExpenseTypeDto {
   name: string;
