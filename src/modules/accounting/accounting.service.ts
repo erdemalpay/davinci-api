@@ -5,6 +5,7 @@ import * as xlsx from 'xlsx';
 import { Location } from '../location/location.schema';
 import { MenuService } from './../menu/menu.service';
 import {
+  ConsumptStockDto,
   CreateBrandDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
@@ -416,6 +417,26 @@ export class AccountingService {
   }
   removeStock(id: string) {
     return this.stockModel.findByIdAndRemove(id);
+  }
+  async consumptStock(consumptStockDto: ConsumptStockDto) {
+    const stock = await this.stockModel.find({
+      product: consumptStockDto.product,
+      location: consumptStockDto.location,
+    });
+    // if stock exist update quantity
+    if (stock.length > 0) {
+      await this.stockModel.findByIdAndUpdate(stock[0]._id, {
+        quantity: stock[0].quantity - consumptStockDto.quantity,
+      });
+      return stock[0];
+    } else {
+      const newStock = await this.createStock({
+        product: consumptStockDto.product,
+        location: consumptStockDto.location,
+        quantity: -consumptStockDto.quantity,
+      });
+      return newStock;
+    }
   }
   // stockLocation
   findAllStockLocations() {

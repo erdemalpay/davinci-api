@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import {
+  ConsumptStockDto,
   CreateBrandDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
@@ -238,6 +239,11 @@ export class AccountingController {
   deleteStock(@Param('id') id: string) {
     return this.accountingService.removeStock(id);
   }
+  @Post('/stocks/consumpt')
+  consumptStock(@Body() consumptStockDto: ConsumptStockDto) {
+    return this.accountingService.consumptStock(consumptStockDto);
+  }
+
   // count list
   @Get('/count-list')
   getCountList() {
