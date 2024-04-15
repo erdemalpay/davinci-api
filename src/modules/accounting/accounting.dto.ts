@@ -31,7 +31,17 @@ export class CreateCountListDto {
   name: string;
   products?: string[];
 }
-
+export class CreateCountDto {
+  user: string;
+  location: string;
+  status: string;
+  products: CountProductDto[];
+}
+export class CountProductDto {
+  product: string;
+  stockQuantity: number;
+  countQuantity: number;
+}
 export class CreateExpenseTypeDto {
   name: string;
   backgroundColor: string;

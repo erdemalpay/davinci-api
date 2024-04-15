@@ -22,10 +22,10 @@ export class Count extends Document {
   _id: string;
 
   @Prop({ required: true, type: String, ref: User.name })
-  user: User;
+  user: string;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: StockLocation;
+  location: string;
 
   @Prop({ required: true })
   date: string;
