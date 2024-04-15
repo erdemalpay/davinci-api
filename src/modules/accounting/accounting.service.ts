@@ -7,6 +7,7 @@ import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
   CreateBrandDto,
+  CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
@@ -19,6 +20,7 @@ import {
   JoinProductDto,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
+import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
@@ -43,6 +45,7 @@ export class AccountingService {
     @InjectModel(Location.name) private locationModel: Model<Location>,
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
+    @InjectModel(Count.name) private countModel: Model<Count>,
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
@@ -472,6 +475,24 @@ export class AccountingService {
   removeCountList(id: string) {
     return this.countListModel.findByIdAndRemove(id);
   }
+  // count
+  findAllCounts() {
+    return this.countModel.find();
+  }
+  createCount(createCountDto: CreateCountDto) {
+    const count = new this.countModel({
+      ...createCountDto,
+      date: new Date().toISOString(),
+    });
+    count._id = usernamify(count.user + count.location + count.date);
+    return count.save();
+  }
+  updateCount(id: string, updates: UpdateQuery<Count>) {
+    return this.countModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+
   // script
   readColumnFromExcel = (filePath: string, column: number) => {
     const workbook = xlsx.readFile(filePath);
