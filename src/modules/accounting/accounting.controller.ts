@@ -11,6 +11,7 @@ import { UpdateQuery } from 'mongoose';
 import {
   ConsumptStockDto,
   CreateBrandDto,
+  CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
@@ -22,15 +23,15 @@ import {
   CreateVendorDto,
   JoinProductDto,
 } from './accounting.dto';
-import { CountList } from './countList.schema';
-import { Product } from './product.schema';
-import { StockLocation } from './stockLocation.schema';
-
 import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
+import { Count } from './count.schema';
+import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
+import { Product } from './product.schema';
 import { Stock } from './stock.schema';
+import { StockLocation } from './stockLocation.schema';
 import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
@@ -266,6 +267,21 @@ export class AccountingController {
   @Delete('/count-list/:id')
   deleteCountList(@Param('id') id: string) {
     return this.accountingService.removeCountList(id);
+  }
+  // count
+  @Get('/counts')
+  getCounts() {
+    return this.accountingService.findAllCounts();
+  }
+
+  @Post('/counts')
+  createCount(@Body() createCountDto: CreateCountDto) {
+    return this.accountingService.createCount(createCountDto);
+  }
+
+  @Patch('/counts/:id')
+  updateCount(@Param('id') id: string, @Body() updates: UpdateQuery<Count>) {
+    return this.accountingService.updateCount(id, updates);
   }
 
   // script
