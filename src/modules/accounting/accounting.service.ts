@@ -491,20 +491,21 @@ export class AccountingService {
   findAllCounts() {
     return this.countModel.find().populate('user location');
   }
-  createCount(createCountDto: CreateCountDto) {
-    createCountDto.products.forEach(async (product) => {
+  async createCount(createCountDto: CreateCountDto) {
+    for (const item of createCountDto.products) {
       const stock = await this.stockModel.find({
-        product: product.product,
+        product: item.product,
         location: createCountDto.location,
       });
+
       if (stock.length > 0) {
-        product.stockQuantity = stock[0].quantity;
+        item.stockQuantity = stock[0].quantity;
       } else {
-        product.stockQuantity = 0;
+        item.stockQuantity = 0;
       }
-    });
+    }
     const count = new this.countModel(createCountDto);
-    count._id = usernamify(count.user + count.location + count.date);
+    count._id = usernamify(count.user + new Date().toISOString());
     return count.save();
   }
   updateCount(id: string, updates: UpdateQuery<Count>) {
