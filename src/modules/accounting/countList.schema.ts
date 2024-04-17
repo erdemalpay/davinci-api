@@ -12,7 +12,7 @@ export class CountList extends Document {
   name: string;
 
   @Prop({ required: false, type: [{ type: String, ref: Product.name }] })
-  products: Product[];
+  products: string[];
 }
 
 export const CountListSchema = SchemaFactory.createForClass(CountList);
