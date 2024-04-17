@@ -37,6 +37,7 @@ export class CreateCountDto {
   status: string;
   products: CountProductDto[];
   date: string;
+  countList: string;
 }
 export class CountProductDto {
   product: string;

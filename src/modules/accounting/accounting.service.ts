@@ -489,7 +489,7 @@ export class AccountingService {
   }
   // count
   findAllCounts() {
-    return this.countModel.find().populate('user location');
+    return this.countModel.find().populate('user location countList');
   }
   async createCount(createCountDto: CreateCountDto) {
     for (const item of createCountDto.products) {
