@@ -165,6 +165,9 @@ export class AccountingService {
   async removeProduct(id: string) {
     const invoices = await this.invoiceModel.find({ product: id });
     const menuItems = await this.MenuService.findAllItems();
+    const stocks = await this.stockModel.find({ product: id });
+    const countlists = await this.countListModel.find();
+
     if (
       menuItems.some((item) =>
         item.itemProduction.some((itemProduct) => itemProduct.product === id),
@@ -175,7 +178,16 @@ export class AccountingService {
     if (invoices.length > 0) {
       throw new Error('Cannot remove product with invoices');
     }
-
+    if (stocks.length > 0) {
+      throw new Error('Cannot remove product with stock');
+    }
+    if (
+      countlists.filter((countlist) =>
+        countlist.products.some((count) => count === id),
+      ).length > 0
+    ) {
+      throw new Error('Cannot remove product with countlists');
+    }
     return this.productModel.findByIdAndRemove(id);
   }
   //   Units
@@ -477,14 +489,23 @@ export class AccountingService {
   }
   // count
   findAllCounts() {
-    return this.countModel.find();
+    return this.countModel.find().populate('user location');
   }
-  createCount(createCountDto: CreateCountDto) {
-    const count = new this.countModel({
-      ...createCountDto,
-      date: new Date().toISOString(),
-    });
-    count._id = usernamify(count.user + count.location + count.date);
+  async createCount(createCountDto: CreateCountDto) {
+    for (const item of createCountDto.products) {
+      const stock = await this.stockModel.find({
+        product: item.product,
+        location: createCountDto.location,
+      });
+
+      if (stock.length > 0) {
+        item.stockQuantity = stock[0].quantity;
+      } else {
+        item.stockQuantity = 0;
+      }
+    }
+    const count = new this.countModel(createCountDto);
+    count._id = usernamify(count.user + new Date().toISOString());
     return count.save();
   }
   updateCount(id: string, updates: UpdateQuery<Count>) {
