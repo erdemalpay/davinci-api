@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { User } from '../user/user.schema';
+import { CountList } from './countList.schema';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 
@@ -26,6 +27,9 @@ export class Count extends Document {
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
   location: string;
+
+  @Prop({ required: true, type: String, ref: CountList.name })
+  countList: string;
 
   @Prop({ required: true })
   date: string;
