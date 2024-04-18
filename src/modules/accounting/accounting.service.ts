@@ -477,7 +477,7 @@ export class AccountingService {
     return countList.save();
   }
   findAllCountLists() {
-    return this.countListModel.find();
+    return this.countListModel.find().populate('location');
   }
   updateCountList(id: string, updates: UpdateQuery<CountList>) {
     return this.countListModel.findByIdAndUpdate(id, updates, {

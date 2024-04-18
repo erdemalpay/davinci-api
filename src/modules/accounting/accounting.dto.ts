@@ -29,6 +29,7 @@ export class CreateVendorDto {
 }
 export class CreateCountListDto {
   name: string;
+  location: string;
   products?: string[];
 }
 export class CreateCountDto {
