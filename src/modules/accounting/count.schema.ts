@@ -35,7 +35,7 @@ export class Count extends Document {
   date: string;
 
   @Prop({ required: true })
-  status: string;
+  status: boolean;
 
   @Prop([CountProduct])
   products: CountProduct[];

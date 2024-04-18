@@ -35,7 +35,7 @@ export class CreateCountListDto {
 export class CreateCountDto {
   user: string;
   location: string;
-  status: string;
+  status: boolean;
   products: CountProductDto[];
   date: string;
   countList: string;
