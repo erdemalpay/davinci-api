@@ -66,7 +66,23 @@ export class MenuService {
     });
   }
 
-  updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
+  async updateItem(id: number, updates: UpdateQuery<MenuCategory>) {
+    if (updates.hasOwnProperty('price')) {
+      const item = await this.itemModel.findById(id);
+      if (!item) {
+        throw new Error('Item not found');
+      }
+      updates.priceHistory =
+        item.price !== updates.price
+          ? [
+              ...item.priceHistory,
+              {
+                price: updates.price,
+                date: new Date().toISOString(),
+              },
+            ]
+          : item.priceHistory;
+    }
     return this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -120,6 +136,35 @@ export class MenuService {
           $set: { itemProduction: updatedItemProduction },
         });
       }
+    });
+  }
+
+  async updateNewMenuItem() {
+    const items = await this.itemModel.find();
+    items.forEach(async (item) => {
+      let locations: number[] = [];
+      let price = 0;
+      if (item.priceBahceli !== 0) {
+        locations = [...locations, 1];
+        price = item.priceBahceli;
+      }
+      if (item.priceNeorama !== 0) {
+        locations = [...locations, 2];
+        price = item.priceNeorama;
+      }
+      const priceHistory = [
+        {
+          price: price,
+          date: new Date().toISOString(),
+        },
+      ];
+      await this.itemModel.findByIdAndUpdate(item._id, {
+        $set: {
+          locations: locations,
+          price: price,
+          priceHistory: priceHistory,
+        },
+      });
     });
   }
 }
