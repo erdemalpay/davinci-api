@@ -10,6 +10,13 @@ class ItemProduction {
   @Prop({ required: true, type: Number, ref: Product.name })
   product: string;
 }
+class PriceHistory {
+  @Prop({ required: true, type: Number })
+  price: number;
+
+  @Prop({ required: true })
+  date: string;
+}
 @Schema({ _id: false })
 export class MenuItem extends Document {
   @Prop({ type: Number })
@@ -30,14 +37,23 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
   category: MenuCategory;
 
-  @Prop({ required: true, type: Number, default: 0 })
+  @Prop({ type: Number, default: 0 })
   priceBahceli: number;
 
-  @Prop({ required: true, type: Number, default: 0 })
+  @Prop({ type: Number, default: 0 })
   priceNeorama: number;
+
+  @Prop({ required: true, type: Number, default: 0 })
+  price: number;
+
+  @Prop({ required: true, default: [] })
+  locations: number[];
 
   @Prop([ItemProduction])
   itemProduction: ItemProduction[];
+
+  @Prop([PriceHistory])
+  priceHistory: PriceHistory[];
 }
 
 export const MenuItemSchema = SchemaFactory.createForClass(MenuItem);
