@@ -71,7 +71,35 @@ export class AccountingService {
     const { stayedProduct, removedProduct } = JoinProductDto;
     const product = await this.productModel.findById(stayedProduct);
     const removedProductDoc = await this.productModel.findById(removedProduct);
+    const removeProductInvoices = await this.invoiceModel.find({
+      product: removedProduct,
+    });
+    const menuItems = await this.MenuService.findAllItems();
+    const stocks = await this.stockModel.find({ product: removedProduct });
+    const countlists = await this.countListModel.find();
 
+    if (
+      menuItems.some((item) =>
+        item.itemProduction.some(
+          (itemProduct) => itemProduct.product === removedProduct,
+        ),
+      )
+    ) {
+      throw new Error('Cannot remove product with menu items');
+    }
+    if (removeProductInvoices.length > 0) {
+      throw new Error('Cannot remove product with invoices');
+    }
+    if (stocks.length > 0) {
+      throw new Error('Cannot remove product with stock');
+    }
+    if (
+      countlists.filter((countlist) =>
+        countlist.products.some((count) => count === removedProduct),
+      ).length > 0
+    ) {
+      throw new Error('Cannot remove product with countlists');
+    }
     //checking the units
     if (product.unit !== removedProductDoc.unit) {
       throw new Error('Unit must be the same');
