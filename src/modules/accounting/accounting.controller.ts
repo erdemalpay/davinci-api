@@ -15,6 +15,7 @@ import {
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
+  CreatePackageTypeDto,
   CreateProductDto,
   CreateStockDto,
   CreateStockLocationDto,
@@ -29,6 +30,7 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
+import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
@@ -150,6 +152,29 @@ export class AccountingController {
   @Delete('/vendors/:id')
   deleteVendor(@Param('id') id: string) {
     return this.accountingService.removeVendor(id);
+  }
+  // packageTypes
+  @Get('/package-types')
+  getPackageTypes() {
+    return this.accountingService.findAllPackageTypes();
+  }
+
+  @Post('/package-types')
+  createPackageType(@Body() createPackageTypeDto: CreatePackageTypeDto) {
+    return this.accountingService.createPackageType(createPackageTypeDto);
+  }
+
+  @Patch('/package-types/:id')
+  updatePackageType(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<PackageType>,
+  ) {
+    return this.accountingService.updatePackageType(id, updates);
+  }
+
+  @Delete('/package-types/:id')
+  deletePackageType(@Param('id') id: string) {
+    return this.accountingService.removePackageType(id);
   }
 
   // Invoices

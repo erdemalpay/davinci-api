@@ -49,7 +49,10 @@ export class CreateExpenseTypeDto {
   name: string;
   backgroundColor: string;
 }
-
+export class CreatePackageTypeDto {
+  name: string;
+  quantity: number;
+}
 export class CreateStockDto {
   product: string;
   location: string;

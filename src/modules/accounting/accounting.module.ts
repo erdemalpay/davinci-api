@@ -10,11 +10,13 @@ import { Count, CountSchema } from './count.schema';
 import { CountList, CountListSchema } from './countList.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
+import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { StockLocation, StockLocationSchema } from './stockLocation.schema';
 import { StockType, StockTypeSchema } from './stockType.schema';
 import { Unit, UnitSchema } from './unit.schema';
+
 import { Vendor, VendorSchema } from './vendor.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
@@ -29,6 +31,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: CountList.name, useFactory: () => CountListSchema },
   { name: Count.name, useFactory: () => CountSchema },
   { name: Location.name, useFactory: () => LocationSchema },
+  { name: PackageType.name, useFactory: () => PackageTypeSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
 ]);
 

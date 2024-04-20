@@ -11,6 +11,7 @@ import {
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
+  CreatePackageTypeDto,
   CreateProductDto,
   CreateStockDto,
   CreateStockLocationDto,
@@ -24,6 +25,7 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
+import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
@@ -46,6 +48,7 @@ export class AccountingService {
     @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
+    @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
@@ -307,7 +310,28 @@ export class AccountingService {
     }
     return this.vendorModel.findByIdAndRemove(id);
   }
-
+  // packageType
+  findAllPackageTypes() {
+    return this.packageTypeModel.find();
+  }
+  async createPackageType(createPackageTypeDto: CreatePackageTypeDto) {
+    const packageType = new this.packageTypeModel(createPackageTypeDto);
+    packageType._id = usernamify(packageType.name);
+    await packageType.save();
+  }
+  updatePackageType(id: string, updates: UpdateQuery<PackageType>) {
+    return this.packageTypeModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removePackageType(id: string) {
+    // TODO : check if there are products with this package type
+    // const products = await this.productModel.find();
+    // if (products.length > 0) {
+    //   throw new Error('Cannot remove package type with products');
+    // }
+    return this.packageTypeModel.findByIdAndRemove(id);
+  }
   // Invoices
   findAllInvoices() {
     return this.invoiceModel
