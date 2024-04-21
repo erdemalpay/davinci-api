@@ -7,13 +7,13 @@ import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
-// class PackageType {
-//   @Prop({ required: true, type: Number })
-//   packageUnitPrice: number;
+class PackageType {
+  @Prop({ required: true, type: Number })
+  packageUnitPrice: number;
 
-//   @Prop({ required: true, type: String, ref: PackageType.name })
-//   package: PackageType;
-// }
+  @Prop({ required: true, type: String, ref: PackageType.name })
+  package: string;
+}
 @Schema({ _id: false })
 export class Product extends Document {
   @Prop({ type: String })
@@ -40,8 +40,8 @@ export class Product extends Document {
   @Prop({ required: true, type: String, ref: Unit.name })
   unit: Unit;
 
-  // @Prop([PackageType])
-  // packages: PackageType[];
+  @Prop([PackageType])
+  packages: PackageType[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
