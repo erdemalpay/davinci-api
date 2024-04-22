@@ -57,7 +57,7 @@ export class CreateStockDto {
   product: string;
   location: string;
   quantity: number;
-  unitPrice?: number;
+  packageType?: string;
 }
 export class ConsumptStockDto {
   product: string;
@@ -74,5 +74,6 @@ export class CreateInvoiceDto {
   date: string;
   brand?: string;
   vendor?: string;
+  packageType?: string;
   note?: string;
 }
