@@ -336,7 +336,7 @@ export class AccountingService {
   findAllInvoices() {
     return this.invoiceModel
       .find()
-      .populate('product expenseType brand vendor location')
+      .populate('product expenseType brand vendor location packageType')
       .sort({ date: -1 });
   }
   async createInvoice(createInvoiceDto: CreateInvoiceDto) {
@@ -350,20 +350,87 @@ export class AccountingService {
         !ProductLastInvoice[0] ||
         ProductLastInvoice[0]?.date <= createInvoiceDto.date
       ) {
-        const updatedUnitPrice = parseFloat(
-          (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
-            4,
-          ),
-        );
+        let updatedUnitPrice: number;
+        if (createInvoiceDto?.packageType) {
+          const packageType = await this.packageTypeModel.findById(
+            createInvoiceDto.packageType,
+          );
+          const updatedPackageTypeUnitPrice = parseFloat(
+            (
+              createInvoiceDto.totalExpense /
+              (createInvoiceDto.quantity * packageType.quantity)
+            ).toFixed(4),
+          );
+          const product = await this.productModel.findById(
+            createInvoiceDto.product,
+          );
+          product.packages = product.packages.filter(
+            (p) => p.package !== createInvoiceDto.packageType,
+          );
+          product.packages = [
+            ...product.packages,
+            {
+              package: createInvoiceDto.packageType,
+              packageUnitPrice: updatedPackageTypeUnitPrice,
+            },
+          ];
+          await product.save();
+
+          const productStocks = await this.stockModel
+            .find({ product: createInvoiceDto.product })
+            .populate('packageType');
+
+          // calculation the stock overall
+          const { productStockOverallExpense, productStockOverallTotal } =
+            productStocks.reduce(
+              (acc, item) => {
+                const foundPackage = product.packages.find(
+                  (pckg) => pckg.package === item.packageType._id,
+                );
+
+                if (foundPackage) {
+                  const expense =
+                    item.quantity *
+                    item.packageType.quantity *
+                    foundPackage.packageUnitPrice;
+                  acc.productStockOverallExpense += expense;
+
+                  const total = item.quantity * item.packageType.quantity;
+                  acc.productStockOverallTotal += total;
+                }
+
+                return acc;
+              },
+              { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+            );
+          // adding invoice amount to total
+          const productExpense =
+            productStockOverallExpense +
+            product.packages.find(
+              (p) => p.package === createInvoiceDto.packageType,
+            ).packageUnitPrice *
+              packageType.quantity *
+              createInvoiceDto.quantity;
+          const productTotal =
+            productStockOverallTotal +
+            product.packages.find(
+              (p) => p.package === createInvoiceDto.packageType,
+            ).packageUnitPrice *
+              packageType.quantity;
+
+          updatedUnitPrice = parseFloat(
+            (productExpense / productTotal).toFixed(4),
+          );
+        } else {
+          updatedUnitPrice = parseFloat(
+            (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
+              4,
+            ),
+          );
+        }
 
         await this.productModel.findByIdAndUpdate(
           createInvoiceDto.product,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-
-        await this.stockModel.findOneAndUpdate(
-          { product: createInvoiceDto.product },
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
@@ -460,20 +527,25 @@ export class AccountingService {
   }
   // Stocks
   findAllStocks() {
-    return this.stockModel.find().populate('product location');
+    return this.stockModel
+      .find()
+      .populate({
+        path: 'product',
+        populate: {
+          path: 'stockType',
+        },
+      })
+      .populate('location')
+      .populate('packageType');
   }
 
   async createStock(createStockDto: CreateStockDto) {
     const stock = new this.stockModel(createStockDto);
-    stock._id = usernamify(createStockDto.product + createStockDto.location);
-    if (
-      stock.unitPrice === 0 ||
-      stock.unitPrice === undefined ||
-      stock.unitPrice === null
-    ) {
-      const product = await this.productModel.findById(createStockDto.product);
-      stock.unitPrice = product?.unitPrice ?? 0;
-    }
+    stock._id = usernamify(
+      createStockDto.product +
+        createStockDto?.packageType +
+        createStockDto?.location,
+    );
     await stock.save();
   }
 
