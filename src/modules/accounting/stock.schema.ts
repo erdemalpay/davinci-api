@@ -21,9 +21,6 @@ export class Stock extends Document {
 
   @Prop({ required: true, type: Number })
   quantity: number;
-
-  @Prop({ type: Number })
-  unitPrice: number;
 }
 
 export const StockSchema = SchemaFactory.createForClass(Stock);

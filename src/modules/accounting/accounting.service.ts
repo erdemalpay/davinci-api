@@ -405,18 +405,10 @@ export class AccountingService {
             );
           // adding invoice amount to total
           const productExpense =
-            productStockOverallExpense +
-            product.packages.find(
-              (p) => p.package === createInvoiceDto.packageType,
-            ).packageUnitPrice *
-              packageType.quantity *
-              createInvoiceDto.quantity;
+            productStockOverallExpense + createInvoiceDto.totalExpense;
           const productTotal =
             productStockOverallTotal +
-            product.packages.find(
-              (p) => p.package === createInvoiceDto.packageType,
-            ).packageUnitPrice *
-              packageType.quantity;
+            createInvoiceDto.quantity * packageType.quantity;
 
           updatedUnitPrice = parseFloat(
             (productExpense / productTotal).toFixed(4),
