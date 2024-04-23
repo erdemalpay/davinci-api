@@ -445,24 +445,81 @@ export class AccountingService {
         throw new Error('Invoice not found');
       }
       const ProductLastInvoice = await this.invoiceModel
-        .find({ product: invoice.product })
+        .find({ product: invoice.product, packageType: invoice?.packageType })
         .sort({ date: -1 })
         .limit(1);
-      updates.unitPrice = updates.totalExpense / updates.quantity;
-      if (ProductLastInvoice[0]._id == id) {
+
+      if (ProductLastInvoice[0].date <= updates.date) {
+        let updatedUnitPrice: number;
+        if (updates?.packageType) {
+          const packageType = await this.packageTypeModel.findById(
+            updates.packageType,
+          );
+          const updatedPackageTypeUnitPrice = parseFloat(
+            (
+              updates.totalExpense /
+              (updates.quantity * packageType.quantity)
+            ).toFixed(4),
+          );
+          const product = await this.productModel.findById(updates.product);
+          product.packages = product.packages.filter(
+            (p) => p.package !== updates.packageType,
+          );
+          product.packages = [
+            ...product.packages,
+            {
+              package: updates.packageType,
+              packageUnitPrice: updatedPackageTypeUnitPrice,
+            },
+          ];
+          await product.save();
+
+          const productStocks = await this.stockModel
+            .find({ product: updates.product })
+            .populate('packageType');
+
+          // calculation the stock overall
+          const { productStockOverallExpense, productStockOverallTotal } =
+            productStocks.reduce(
+              (acc, item) => {
+                const foundPackage = product.packages.find(
+                  (pckg) => pckg.package === item.packageType._id,
+                );
+
+                if (foundPackage) {
+                  const expense =
+                    item.quantity *
+                    item.packageType.quantity *
+                    foundPackage.packageUnitPrice;
+                  acc.productStockOverallExpense += expense;
+
+                  const total = item.quantity * item.packageType.quantity;
+                  acc.productStockOverallTotal += total;
+                }
+
+                return acc;
+              },
+              { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+            );
+          // adding invoice amount to total
+          const productExpense =
+            productStockOverallExpense + updates.totalExpense;
+          const productTotal =
+            productStockOverallTotal + updates.quantity * packageType.quantity;
+
+          updatedUnitPrice = parseFloat(
+            (productExpense / productTotal).toFixed(4),
+          );
+        } else {
+          updatedUnitPrice = parseFloat(
+            (updates.totalExpense / updates.quantity).toFixed(4),
+          );
+        }
+
         await this.productModel.findByIdAndUpdate(
           invoice.product,
-          { unitPrice: updates.unitPrice.toFixed(4) },
-          {
-            new: true,
-          },
-        );
-        await this.stockModel.findOneAndUpdate(
-          { product: invoice.product },
-          { unitPrice: updates.unitPrice.toFixed(4) },
-          {
-            new: true,
-          },
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
         );
       }
     }
@@ -479,20 +536,80 @@ export class AccountingService {
       .find({ product: invoice.product })
       .sort({ date: -1 });
 
-    if (ProductLastInvoice[0]?._id == id) {
+    if (ProductLastInvoice[0]?._id === id && !invoice.packageType) {
       await this.productModel.findByIdAndUpdate(
         invoice.product,
         {
           unitPrice:
-            (
-              ProductLastInvoice[1]?.totalExpense /
-              ProductLastInvoice[1]?.quantity
-            ).toFixed(4) ?? 0,
+            parseFloat(
+              (
+                ProductLastInvoice[1]?.totalExpense /
+                ProductLastInvoice[1]?.quantity
+              ).toFixed(4),
+            ) ?? 0,
         },
         {
           new: true,
         },
       );
+    } else {
+      const packageType = await this.packageTypeModel.findById(
+        invoice.packageType,
+      );
+      const productInvoices = await this.invoiceModel
+        .find({ product: invoice.product, packageType: invoice.packageType })
+        .sort({ date: -1 });
+      const updatedPackageTypeUnitPrice =
+        parseFloat(
+          (
+            productInvoices[1]?.totalExpense /
+            (productInvoices[1]?.quantity * packageType.quantity)
+          )?.toFixed(4),
+        ) ?? 0;
+      const product = await this.productModel.findById(invoice.product);
+      product.packages = product.packages.filter(
+        (p) => p.package !== invoice.packageType,
+      );
+      product.packages = [
+        ...product.packages,
+        {
+          package: invoice.packageType,
+          packageUnitPrice: updatedPackageTypeUnitPrice,
+        },
+      ];
+      const productStocks = await this.stockModel
+        .find({ product: invoice.product })
+        .populate('packageType');
+      // calculation the stock overall
+      const { productStockOverallExpense, productStockOverallTotal } =
+        productStocks.reduce(
+          (acc, item) => {
+            const foundPackage = product.packages.find(
+              (pckg) => pckg.package === item.packageType._id,
+            );
+
+            if (foundPackage) {
+              const expense =
+                item.quantity *
+                item.packageType.quantity *
+                foundPackage.packageUnitPrice;
+              acc.productStockOverallExpense += expense;
+
+              const total = item.quantity * item.packageType.quantity;
+              acc.productStockOverallTotal += total;
+            }
+
+            return acc;
+          },
+          { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+        );
+      product.unitPrice = parseFloat(
+        (
+          productStockOverallExpense /
+          (productStockOverallTotal !== 0 ? productStockOverallTotal : 1)
+        ).toFixed(4),
+      );
+      await product.save();
     }
     return this.invoiceModel.findByIdAndRemove(id);
   }
@@ -532,13 +649,21 @@ export class AccountingService {
   }
 
   async createStock(createStockDto: CreateStockDto) {
-    const stock = new this.stockModel(createStockDto);
-    stock._id = usernamify(
+    const stockId = usernamify(
       createStockDto.product +
         createStockDto?.packageType +
         createStockDto?.location,
     );
-    await stock.save();
+    const existStock = await this.stockModel.findById(stockId);
+    if (existStock) {
+      existStock.quantity =
+        Number(existStock.quantity) + Number(createStockDto.quantity);
+      await existStock.save();
+    } else {
+      const stock = new this.stockModel(createStockDto);
+      stock._id = stockId;
+      await stock.save();
+    }
   }
 
   updateStock(id: string, updates: UpdateQuery<Stock>) {
