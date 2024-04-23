@@ -8,6 +8,10 @@ import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
 import { Count, CountSchema } from './count.schema';
 import { CountList, CountListSchema } from './countList.schema';
+import {
+  ExpenseCategory,
+  ExpenseCategorySchema,
+} from './expenseCategory.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
@@ -23,6 +27,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Product.name, useFactory: () => ProductSchema },
   { name: Unit.name, useFactory: () => UnitSchema },
   { name: ExpenseType.name, useFactory: () => ExpenseTypeSchema },
+  { name: ExpenseCategory.name, useFactory: () => ExpenseCategorySchema },
   { name: Brand.name, useFactory: () => BrandSchema },
   { name: Vendor.name, useFactory: () => VendorSchema },
   { name: StockType.name, useFactory: () => StockTypeSchema },
