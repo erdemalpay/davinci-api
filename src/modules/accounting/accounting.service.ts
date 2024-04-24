@@ -9,6 +9,7 @@ import {
   CreateBrandDto,
   CreateCountDto,
   CreateCountListDto,
+  CreateExpenseCategoryDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
@@ -23,6 +24,7 @@ import {
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
+import { ExpenseCategory } from './expenseCategory.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
@@ -41,6 +43,8 @@ export class AccountingService {
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
+    @InjectModel(ExpenseCategory.name)
+    private expenseCategoryModel: Model<ExpenseCategory>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
@@ -242,6 +246,28 @@ export class AccountingService {
     }
     return this.unitModel.findByIdAndRemove(id);
   }
+  //   Expense Category
+  findAllExpenseCategories() {
+    return this.expenseCategoryModel.find();
+  }
+  async createExpenseCategory(
+    createExpenseCategoryDto: CreateExpenseCategoryDto,
+  ) {
+    const expenseCategory = new this.expenseCategoryModel(
+      createExpenseCategoryDto,
+    );
+    expenseCategory._id = usernamify(createExpenseCategoryDto.name);
+    await expenseCategory.save();
+  }
+  updateExpenseCategory(id: string, updates: UpdateQuery<ExpenseCategory>) {
+    return this.expenseCategoryModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeExpenseCategory(id: string) {
+    return this.expenseCategoryModel.findByIdAndRemove(id);
+  }
+
   //   Expense Types
   findAllExpenseTypes() {
     return this.expenseTypeModel.find();
