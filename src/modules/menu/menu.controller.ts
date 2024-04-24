@@ -44,11 +44,6 @@ export class MenuController {
     return this.menuService.setOrder();
   }
 
-  @Get('/items/newItem')
-  newItem() {
-    return this.menuService.updateNewMenuItem();
-  }
-
   @Patch('/categories/:id')
   updateCategory(
     @Param('id') id: number,

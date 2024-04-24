@@ -37,12 +37,6 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
   category: MenuCategory;
 
-  @Prop({ type: Number, default: 0 })
-  priceBahceli: number;
-
-  @Prop({ type: Number, default: 0 })
-  priceNeorama: number;
-
   @Prop({ required: true, type: Number, default: 0 })
   price: number;
 
