@@ -13,6 +13,7 @@ import {
   CreateBrandDto,
   CreateCountDto,
   CreateCountListDto,
+  CreateExpenseCategoryDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
@@ -28,6 +29,7 @@ import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
+import { ExpenseCategory } from './expenseCategory.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
@@ -112,6 +114,32 @@ export class AccountingController {
   deleteExpenseType(@Param('id') id: string) {
     return this.accountingService.removeExpenseType(id);
   }
+  // expense categories
+  @Get('/expense-categories')
+  getExpenseCategory() {
+    return this.accountingService.findAllExpenseCategories();
+  }
+  @Post('/expense-categories')
+  createExpenseCategory(
+    @Body() createExpenseCategoryDto: CreateExpenseCategoryDto,
+  ) {
+    return this.accountingService.createExpenseCategory(
+      createExpenseCategoryDto,
+    );
+  }
+  @Patch('/expense-categories/:id')
+  updateExpenseCategory(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<ExpenseCategory>,
+  ) {
+    return this.accountingService.updateExpenseCategory(id, updates);
+  }
+
+  @Delete('/expense-categories/:id')
+  deleteExpenseCategory(@Param('id') id: string) {
+    return this.accountingService.removeExpenseCategory(id);
+  }
+
   // Brands
   @Get('/brands')
   getBrands() {
@@ -164,7 +192,7 @@ export class AccountingController {
     return this.accountingService.createPackageType(createPackageTypeDto);
   }
 
-  @Patch('/package-types/:id')
+  @Patch('/c/:id')
   updatePackageType(
     @Param('id') id: string,
     @Body() updates: UpdateQuery<PackageType>,
