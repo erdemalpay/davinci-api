@@ -14,7 +14,6 @@ import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { StockLocation, StockLocationSchema } from './stockLocation.schema';
-import { StockType, StockTypeSchema } from './stockType.schema';
 import { Unit, UnitSchema } from './unit.schema';
 
 import { Vendor, VendorSchema } from './vendor.schema';
@@ -25,7 +24,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: ExpenseType.name, useFactory: () => ExpenseTypeSchema },
   { name: Brand.name, useFactory: () => BrandSchema },
   { name: Vendor.name, useFactory: () => VendorSchema },
-  { name: StockType.name, useFactory: () => StockTypeSchema },
   { name: StockLocation.name, useFactory: () => StockLocationSchema },
   { name: Stock.name, useFactory: () => StockSchema },
   { name: CountList.name, useFactory: () => CountListSchema },

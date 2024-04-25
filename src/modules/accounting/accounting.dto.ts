@@ -2,17 +2,12 @@ export class CreateProductDto {
   name: string;
   unit: string;
   expenseType: string[];
-  stockType: string;
   brand?: string[];
   vendor?: string[];
 }
 
 export class CreateUnitDto {
   name: string;
-}
-export class CreateStockTypeDto {
-  name: string;
-  backgroundColor: string;
 }
 export class CreateStockLocationDto {
   name: string;
