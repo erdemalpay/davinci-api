@@ -10,20 +10,20 @@ export class Fixture extends Document {
   @Prop({ type: String })
   _id: string;
 
+  @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
+  brand: Brand[];
+
   @Prop({ required: true, type: String })
   name: string;
 
   @Prop({ type: Number })
   unitPrice: number;
 
-  @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
-  expenseType: ExpenseType[];
-
-  @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
-  brand: Brand[];
-
   @Prop({ required: false, type: [{ type: String, ref: Vendor.name }] })
   vendor: Vendor[];
+
+  @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
+  expenseType: ExpenseType[];
 }
 
 export const FixtureSchema = SchemaFactory.createForClass(Fixture);
