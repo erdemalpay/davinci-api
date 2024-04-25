@@ -138,33 +138,4 @@ export class MenuService {
       }
     });
   }
-
-  async updateNewMenuItem() {
-    const items = await this.itemModel.find();
-    items.forEach(async (item) => {
-      let locations: number[] = [];
-      let price = 0;
-      if (item.priceBahceli !== 0) {
-        locations = [...locations, 1];
-        price = item.priceBahceli;
-      }
-      if (item.priceNeorama !== 0) {
-        locations = [...locations, 2];
-        price = item.priceNeorama;
-      }
-      const priceHistory = [
-        {
-          price: price,
-          date: new Date().toISOString(),
-        },
-      ];
-      await this.itemModel.findByIdAndUpdate(item._id, {
-        $set: {
-          locations: locations,
-          price: price,
-          priceHistory: priceHistory,
-        },
-      });
-    });
-  }
 }

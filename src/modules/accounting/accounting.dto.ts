@@ -5,6 +5,7 @@ export class CreateProductDto {
   stockType: string;
   brand?: string[];
   vendor?: string[];
+  expenseCategory: string;
 }
 
 export class CreateUnitDto {

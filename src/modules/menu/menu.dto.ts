@@ -5,8 +5,7 @@ export class CreateCategoryDto {
 export class CreateItemDto {
   name: string;
   category: number;
-  priceBahceli: number;
-  priceNeorama: number;
+  price: number;
 }
 
 export class CreatePopularDto {

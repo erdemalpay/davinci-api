@@ -1,7 +1,6 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
-import * as xlsx from 'xlsx';
 import { Location } from '../location/location.schema';
 import { MenuService } from './../menu/menu.service';
 import {
@@ -60,7 +59,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit stockType');
+    return this.productModel.find().populate('unit stockType expenseCategory');
   }
   async createProduct(createProductDto: CreateProductDto) {
     try {
@@ -781,186 +780,8 @@ export class AccountingService {
     });
   }
 
-  // script
-  readColumnFromExcel = (filePath: string, column: number) => {
-    const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const range = xlsx.utils.decode_range(sheet['!ref']);
-    let values = [];
-
-    for (let rowNum = range.s.r || 1; rowNum <= range.e.r; rowNum++) {
-      const cellAddress = { c: column, r: rowNum };
-      const cellRef = xlsx.utils.encode_cell(cellAddress);
-      const cell = sheet[cellRef];
-      values.push(cell?.v ?? '');
-    }
-    return values;
-  };
-  eliminateDuplicates = function eliminateDuplicates(strings: string[]) {
-    const unique = {};
-    strings.forEach((str) => {
-      const username = usernamify(str);
-      if (!unique.hasOwnProperty(username)) {
-        unique[username] = str;
-      }
-    });
-    return Object.values(unique);
-  };
-
-  async runScript() {
-    try {
-      // const filePath = './src/assets/InvoiceNew.xlsx';
-      const filePath = path.join(
-        __dirname,
-        '..',
-        '..',
-        'assets',
-        'InvoiceNew.xlsx',
-      );
-      const [
-        yearValues,
-        monthValues,
-        dayValues,
-        documentNoValues,
-        vendorValues,
-        brandValues,
-        locationValues,
-        expenseTypeValues,
-        productValues,
-        unitValues,
-        quantityValues,
-        totalExpenseValues,
-      ] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14].map((column) =>
-        this.readColumnFromExcel(filePath, column),
-      );
-
-      const uniqueUnits = this.eliminateDuplicates(unitValues);
-      const uniqueExpenseTypes = this.eliminateDuplicates(expenseTypeValues);
-      const uniqueVendors = this.eliminateDuplicates(vendorValues);
-      const uniqueBrands = this.eliminateDuplicates(brandValues);
-
-      const uniqueProducts = this.eliminateDuplicates(
-        productValues.filter(
-          (_, index) =>
-            typeof productValues[index] !== 'undefined' &&
-            productValues[index] !== '' &&
-            productValues[index] !== '?',
-        ),
-      );
-
-      // Create Units
-      for (const unit of uniqueUnits) {
-        try {
-          await this.createUnit({ name: unit as string });
-        } catch (error) {
-          console.error(`Error creating unit for ${unit}: ${error.message}`);
-        }
-      }
-
-      // Create Expense Types
-      for (const type of uniqueExpenseTypes) {
-        if (type) {
-          if (type === '?') {
-            continue;
-          }
-          try {
-            await this.createExpenseType({
-              name: type as string,
-              backgroundColor: '#FB6D48',
-            });
-          } catch (error) {
-            console.error(
-              `Error creating expense type for ${type}: ${error.message}`,
-            );
-          }
-        }
-      }
-
-      // Create Vendors
-      for (const vendor of uniqueVendors) {
-        try {
-          await this.createVendor({ name: vendor as string });
-        } catch (error) {
-          console.error(
-            `Error creating vendor for ${vendor}: ${error.message}`,
-          );
-        }
-      }
-
-      // Create Brands
-      for (const brand of uniqueBrands) {
-        try {
-          await this.createBrand({ name: brand as string });
-        } catch (error) {
-          console.error(`Error creating brand for ${brand}: ${error.message}`);
-        }
-      }
-
-      try {
-        await this.createStockType({ name: 'Gen', backgroundColor: '#FB6D48' });
-      } catch (error) {
-        console.error(`Error creating stock type for Gen: ${error.message}`);
-      }
-
-      // Create Products
-      for (let i = 0; i < productValues.length; i++) {
-        try {
-          const productBody = {
-            name: productValues[i],
-            unit: usernamify(unitValues[i] ?? ''),
-            brand: [usernamify(brandValues[i] ?? '')],
-            vendor: [usernamify(vendorValues[i] ?? '')],
-            expenseType: [usernamify(expenseTypeValues[i] ?? '')],
-            stockType: 'gen',
-          };
-          await this.createProductForScript(productBody);
-        } catch (error) {
-          console.error(
-            `Error creating product for ${productValues[i]}: ${error.message}`,
-          );
-        }
-
-        const invoiceBody = {
-          product: usernamify(productValues[i]),
-          brand: usernamify(brandValues[i]) ?? '',
-          vendor: usernamify(vendorValues[i]) ?? '',
-          expenseType: usernamify(expenseTypeValues[i] ?? ''),
-          quantity: quantityValues[i],
-          totalExpense: totalExpenseValues[i],
-          location: locationValues[i] === 'B' ? 1 : 2,
-          documentNo: documentNoValues[i] ?? '',
-          date: `${
-            yearValues[i] && monthValues[i] && dayValues[i]
-              ? `${yearValues[i]}-${monthValues[i]
-                  .toString()
-                  .padStart(2, '0')}-${dayValues[i]
-                  .toString()
-                  .padStart(2, '0')}`
-              : ''
-          }`,
-        };
-        try {
-          await this.createInvoice(invoiceBody);
-        } catch (error) {
-          console.error(
-            `Error creating invoice for ${productValues[i]}: ${error.message}`,
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`Error in runScript: ${error.message}`);
-    }
-  }
-
-  async removeAll() {
-    await this.brandModel.deleteMany({});
-    await this.expenseTypeModel.deleteMany({});
-    await this.invoiceModel.deleteMany({});
-    await this.productModel.deleteMany({});
-    await this.stockModel.deleteMany({});
-    await this.stockTypeModel.deleteMany({});
-    await this.unitModel.deleteMany({});
-    await this.vendorModel.deleteMany({});
+  async updateProductExpenseCategory() {
+    await this.createExpenseCategory({ name: 'Stok' });
+    await this.productModel.updateMany({ $set: { expenseCategory: 'stok' } });
   }
 }
