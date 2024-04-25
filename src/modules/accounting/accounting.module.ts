@@ -9,6 +9,7 @@ import { Brand, BrandSchema } from './brand.schema';
 import { Count, CountSchema } from './count.schema';
 import { CountList, CountListSchema } from './countList.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
+import { Fixture, FixtureSchema } from './fixture.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
@@ -20,6 +21,7 @@ import { Vendor, VendorSchema } from './vendor.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Product.name, useFactory: () => ProductSchema },
+  { name: Fixture.name, useFactory: () => FixtureSchema },
   { name: Unit.name, useFactory: () => UnitSchema },
   { name: ExpenseType.name, useFactory: () => ExpenseTypeSchema },
   { name: Brand.name, useFactory: () => BrandSchema },

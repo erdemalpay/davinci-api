@@ -14,6 +14,7 @@ import {
   CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
+  CreateFixtureDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -28,6 +29,7 @@ import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
+import { Fixture } from './fixture.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -86,7 +88,29 @@ export class AccountingController {
   deleteUnit(@Param('id') id: string) {
     return this.accountingService.removeUnit(id);
   }
+  // Fixtures
+  @Get('/fixtures')
+  getFixtures() {
+    return this.accountingService.findAllFixtures();
+  }
 
+  @Post('/fixtures')
+  createFixture(@Body() createFixtureDto: CreateFixtureDto) {
+    return this.accountingService.createFixture(createFixtureDto);
+  }
+
+  @Patch('/fixtures/:id')
+  updateFixture(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Fixture>,
+  ) {
+    return this.accountingService.updateFixture(id, updates);
+  }
+
+  @Delete('/fixtures/:id')
+  deleteFixture(@Param('id') id: string) {
+    return this.accountingService.removeFixture(id);
+  }
   // Expense Types
   @Get('/expense-types')
   getExpenseTypes() {
