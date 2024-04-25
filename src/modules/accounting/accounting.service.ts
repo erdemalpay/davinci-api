@@ -9,6 +9,7 @@ import {
   CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
+  CreateFixtureDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -22,6 +23,7 @@ import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
+import { Fixture } from './fixture.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -37,6 +39,7 @@ export class AccountingService {
     @InjectModel(Product.name)
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
+    @InjectModel(Fixture.name) private fixtureModel: Model<Fixture>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
@@ -237,6 +240,23 @@ export class AccountingService {
       throw new Error('Cannot remove unit with products');
     }
     return this.unitModel.findByIdAndRemove(id);
+  }
+  // Fixtures
+  findAllFixtures() {
+    return this.fixtureModel.find();
+  }
+  async createFixture(createFixtureDto: CreateFixtureDto) {
+    const fixture = new this.fixtureModel(createFixtureDto);
+    fixture._id = usernamify(fixture.name);
+    await fixture.save();
+  }
+  updateFixture(id: string, updates: UpdateQuery<Fixture>) {
+    return this.fixtureModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeFixture(id: string) {
+    return this.fixtureModel.findByIdAndRemove(id);
   }
 
   //   Expense Types

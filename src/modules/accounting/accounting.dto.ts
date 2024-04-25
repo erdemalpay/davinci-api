@@ -6,6 +6,13 @@ export class CreateProductDto {
   vendor?: string[];
 }
 
+export class CreateFixtureDto {
+  name: string;
+  expenseType: string[];
+  brand?: string[];
+  vendor?: string[];
+}
+
 export class CreateUnitDto {
   name: string;
 }
