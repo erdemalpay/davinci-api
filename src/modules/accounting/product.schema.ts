@@ -33,7 +33,7 @@ export class Product extends Document {
   stockType: StockType;
 
   @Prop({ required: true, type: String, ref: ExpenseCategory.name })
-  ExpenseCategory: ExpenseCategory;
+  expenseCategory: ExpenseCategory;
 
   @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
   brand: Brand[];

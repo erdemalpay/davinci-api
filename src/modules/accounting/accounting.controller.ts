@@ -337,14 +337,8 @@ export class AccountingController {
     return this.accountingService.updateCount(id, updates);
   }
 
-  // script
-  @Get('/script')
-  script() {
-    return this.accountingService.runScript();
-  }
-
-  @Get('/removeAll')
-  removeAll() {
-    return this.accountingService.removeAll();
+  @Get('/products/expenseCategory')
+  updateProductCategory() {
+    return this.accountingService.updateProductExpenseCategory();
   }
 }
