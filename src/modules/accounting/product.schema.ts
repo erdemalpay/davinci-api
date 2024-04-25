@@ -2,7 +2,6 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Brand } from './brand.schema';
-import { ExpenseCategory } from './expenseCategory.schema';
 import { ExpenseType } from './expenseType.schema';
 import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
@@ -31,9 +30,6 @@ export class Product extends Document {
 
   @Prop({ required: true, type: String, ref: StockType.name })
   stockType: StockType;
-
-  @Prop({ required: true, type: String, ref: ExpenseCategory.name })
-  expenseCategory: ExpenseCategory;
 
   @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
   brand: Brand[];
