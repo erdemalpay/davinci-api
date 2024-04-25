@@ -14,7 +14,6 @@ import {
   CreateProductDto,
   CreateStockDto,
   CreateStockLocationDto,
-  CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
   JoinProductDto,
@@ -28,7 +27,6 @@ import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
-import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
@@ -44,7 +42,6 @@ export class AccountingService {
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
-    @InjectModel(StockType.name) private stockTypeModel: Model<StockType>,
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
     @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
@@ -55,7 +52,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit stockType');
+    return this.productModel.find().populate('unit');
   }
   async createProduct(createProductDto: CreateProductDto) {
     try {
@@ -613,39 +610,9 @@ export class AccountingService {
     }
     return this.invoiceModel.findByIdAndRemove(id);
   }
-  // Stock Type
-  findAllStockTypes() {
-    return this.stockTypeModel.find();
-  }
-  async createStockType(createStockTypeDto: CreateStockTypeDto) {
-    const stockType = new this.stockTypeModel(createStockTypeDto);
-    stockType._id = usernamify(stockType.name);
-    await stockType.save();
-  }
-  updateStockType(id: string, updates: UpdateQuery<StockType>) {
-    return this.stockTypeModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-  }
-  async removeStockType(id: string) {
-    const stocks = await this.stockModel.find({ stockType: id });
-    if (stocks.length > 0) {
-      throw new Error('Cannot remove stock type with stocks');
-    }
-    return this.stockTypeModel.findByIdAndRemove(id);
-  }
   // Stocks
   findAllStocks() {
-    return this.stockModel
-      .find()
-      .populate({
-        path: 'product',
-        populate: {
-          path: 'stockType',
-        },
-      })
-      .populate('location')
-      .populate('packageType');
+    return this.stockModel.find().populate('product location packageType');
   }
 
   async createStock(createStockDto: CreateStockDto) {

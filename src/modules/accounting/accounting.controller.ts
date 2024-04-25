@@ -19,7 +19,6 @@ import {
   CreateProductDto,
   CreateStockDto,
   CreateStockLocationDto,
-  CreateStockTypeDto,
   CreateUnitDto,
   CreateVendorDto,
   JoinProductDto,
@@ -34,7 +33,6 @@ import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
-import { StockType } from './stockType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
@@ -200,29 +198,6 @@ export class AccountingController {
   @Delete('/invoices/:id')
   deleteInvoice(@Param('id') id: number) {
     return this.accountingService.removeInvoice(id);
-  }
-  // Stock Types
-  @Get('/stock-types')
-  getStockTypes() {
-    return this.accountingService.findAllStockTypes();
-  }
-
-  @Post('/stock-types')
-  createStockType(@Body() createStockTypeDto: CreateStockTypeDto) {
-    return this.accountingService.createStockType(createStockTypeDto);
-  }
-
-  @Patch('/stock-types/:id')
-  updateStockType(
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<StockType>,
-  ) {
-    return this.accountingService.updateStockType(id, updates);
-  }
-
-  @Delete('/stock-types/:id')
-  deleteStockType(@Param('id') id: string) {
-    return this.accountingService.removeStockType(id);
   }
   // Stock Location
   @Get('/stock-locations')
