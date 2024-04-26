@@ -15,6 +15,7 @@ import {
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateFixtureDto,
+  CreateFixtureInvoiceDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -30,6 +31,7 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
+import { FixtureInvoice } from './fixtureInvoice.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -111,6 +113,32 @@ export class AccountingController {
   deleteFixture(@Param('id') id: string) {
     return this.accountingService.removeFixture(id);
   }
+  // fixture invoices
+  @Get('/fixture-invoice')
+  getFixtureInvoice() {
+    return this.accountingService.findAllFixtureInvoices();
+  }
+
+  @Post('/fixture-invoice')
+  createFixtureInvoice(
+    @Body() createFixtureInvoiceDto: CreateFixtureInvoiceDto,
+  ) {
+    return this.accountingService.createFixtureInvoice(createFixtureInvoiceDto);
+  }
+
+  @Patch('fixture-invoice/:id')
+  updateFixtureInvoice(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<FixtureInvoice>,
+  ) {
+    return this.accountingService.updateFixtureInvoice(id, updates);
+  }
+
+  @Delete('/fixture-invoice/:id')
+  deleteFixtureInvoice(@Param('id') id: string) {
+    return this.accountingService.removeFixtureInvoice(id);
+  }
+
   // Expense Types
   @Get('/expense-types')
   getExpenseTypes() {
