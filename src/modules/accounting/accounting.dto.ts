@@ -80,3 +80,15 @@ export class CreateInvoiceDto {
   packageType?: string;
   note?: string;
 }
+
+export class CreateFixtureInvoiceDto {
+  fixture: string;
+  expenseType: string;
+  quantity: number;
+  totalExpense: number;
+  location: number;
+  date: string;
+  brand?: string;
+  vendor?: string;
+  note?: string;
+}

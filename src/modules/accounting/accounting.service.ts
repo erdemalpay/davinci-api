@@ -10,6 +10,7 @@ import {
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateFixtureDto,
+  CreateFixtureInvoiceDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -24,6 +25,7 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
+import { FixtureInvoice } from './fixtureInvoice.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -40,6 +42,8 @@ export class AccountingService {
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
     @InjectModel(Fixture.name) private fixtureModel: Model<Fixture>,
+    @InjectModel(FixtureInvoice.name)
+    private fixtureInvoiceModel: Model<FixtureInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
@@ -257,6 +261,23 @@ export class AccountingService {
   }
   async removeFixture(id: string) {
     return this.fixtureModel.findByIdAndRemove(id);
+  }
+  // Fixture Invoice
+  findAllFixtureInvoices() {
+    return this.fixtureInvoiceModel
+      .find()
+      .populate('fixture expenseType brand vendor location');
+  }
+  createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
+    return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
+  }
+  updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
+    return this.fixtureInvoiceModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeFixtureInvoice(id: string) {
+    return this.fixtureInvoiceModel.findByIdAndRemove(id);
   }
 
   //   Expense Types
