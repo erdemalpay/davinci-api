@@ -285,13 +285,58 @@ export class AccountingService {
       throw new Error('Invoice creation failed.');
     }
   }
-  updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
+  async updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
+    if (updates.quantity || updates.totalExpense) {
+      const invoice = await this.fixtureInvoiceModel.findById(id);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
+      const FixtureLastInvoice = await this.fixtureInvoiceModel
+        .find({ fixture: invoice.fixture })
+        .sort({ date: -1 })
+        .limit(1);
+
+      if (FixtureLastInvoice[0].date <= updates.date) {
+        const updatedUnitPrice = parseFloat(
+          (updates.totalExpense / updates.quantity).toFixed(4),
+        );
+        await this.fixtureModel.findByIdAndUpdate(
+          invoice.fixture,
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+      }
+    }
     return this.fixtureInvoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
   }
-  removeFixtureInvoice(id: string) {
-    return this.fixtureInvoiceModel.findByIdAndRemove(id);
+  async removeFixtureInvoice(id: number) {
+    const invoice = await this.fixtureInvoiceModel.findById(id);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+    const FixtureLastInvoice = await this.invoiceModel
+      .find({ fixture: invoice.fixture })
+      .sort({ date: -1 });
+    if (FixtureLastInvoice[0]?._id === id) {
+      await this.fixtureModel.findByIdAndUpdate(
+        invoice.fixture,
+        {
+          unitPrice:
+            parseFloat(
+              (
+                FixtureLastInvoice[1]?.totalExpense /
+                FixtureLastInvoice[1]?.quantity
+              ).toFixed(4),
+            ) ?? 0,
+        },
+        {
+          new: true,
+        },
+      );
+    }
+    return this.invoiceModel.findByIdAndRemove(id);
   }
   // Service Invoice
   findAllServiceInvoices() {
@@ -307,7 +352,7 @@ export class AccountingService {
       new: true,
     });
   }
-  removeServiceInvoice(id: string) {
+  removeServiceInvoice(id: number) {
     return this.serviceInvoiceModel.findByIdAndRemove(id);
   }
 
