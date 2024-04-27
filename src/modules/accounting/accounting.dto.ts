@@ -12,6 +12,11 @@ export class CreateFixtureDto {
   brand?: string[];
   vendor?: string[];
 }
+export class CreateServiceDto {
+  name: string;
+  expenseType: string[];
+  vendor?: string[];
+}
 
 export class CreateUnitDto {
   name: string;

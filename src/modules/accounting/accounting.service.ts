@@ -14,6 +14,7 @@ import {
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
+  CreateServiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateUnitDto,
@@ -29,6 +30,7 @@ import { FixtureInvoice } from './fixtureInvoice.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
+import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Unit } from './unit.schema';
@@ -42,6 +44,7 @@ export class AccountingService {
     private productModel: Model<Product>,
     @InjectModel(Unit.name) private unitModel: Model<Unit>,
     @InjectModel(Fixture.name) private fixtureModel: Model<Fixture>,
+    @InjectModel(Service.name) private serviceModel: Model<Service>,
     @InjectModel(FixtureInvoice.name)
     private fixtureInvoiceModel: Model<FixtureInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
@@ -261,6 +264,24 @@ export class AccountingService {
   }
   async removeFixture(id: string) {
     return this.fixtureModel.findByIdAndRemove(id);
+  }
+  // Services
+  findAllServices() {
+    return this.serviceModel.find();
+  }
+  async createService(createServiceDto: CreateServiceDto) {
+    const service = new this.serviceModel(createServiceDto);
+    service._id = usernamify(service.name);
+    await service.save();
+  }
+
+  updateService(id: string, updates: UpdateQuery<Service>) {
+    return this.serviceModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeService(id: string) {
+    return this.serviceModel.findByIdAndRemove(id);
   }
   // Fixture Invoice
   findAllFixtureInvoices() {

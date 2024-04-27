@@ -14,6 +14,7 @@ import { FixtureInvoice, FixtureInvoiceSchema } from './fixtureInvoice.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
+import { Service, ServiceSchema } from './service.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { StockLocation, StockLocationSchema } from './stockLocation.schema';
 import { Unit, UnitSchema } from './unit.schema';
@@ -22,6 +23,7 @@ import { Vendor, VendorSchema } from './vendor.schema';
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Product.name, useFactory: () => ProductSchema },
   { name: Fixture.name, useFactory: () => FixtureSchema },
+  { name: Service.name, useFactory: () => ServiceSchema },
   { name: Unit.name, useFactory: () => UnitSchema },
   { name: ExpenseType.name, useFactory: () => ExpenseTypeSchema },
   { name: Brand.name, useFactory: () => BrandSchema },
