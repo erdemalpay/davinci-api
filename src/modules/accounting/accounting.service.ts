@@ -253,8 +253,37 @@ export class AccountingService {
       .find()
       .populate('fixture expenseType brand vendor location');
   }
-  createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
-    return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
+  async createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
+    try {
+      const FixtureLastInvoice = await this.fixtureInvoiceModel
+        .find({ fixture: createFixtureInvoiceDto.fixture })
+        .sort({ date: -1 })
+        .limit(1);
+      if (
+        !FixtureLastInvoice[0] ||
+        FixtureLastInvoice[0]?.date <= createFixtureInvoiceDto.date
+      ) {
+        const updatedUnitPrice = parseFloat(
+          (
+            createFixtureInvoiceDto.totalExpense /
+            createFixtureInvoiceDto.quantity
+          ).toFixed(4),
+        );
+
+        await this.fixtureModel.findByIdAndUpdate(
+          createFixtureInvoiceDto.fixture,
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+      }
+      return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
+    } catch (error) {
+      console.error(
+        `Failed to create invoice: ${createFixtureInvoiceDto.fixture}`,
+        error,
+      );
+      throw new Error('Invoice creation failed.');
+    }
   }
   updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
     return this.fixtureInvoiceModel.findByIdAndUpdate(id, updates, {
