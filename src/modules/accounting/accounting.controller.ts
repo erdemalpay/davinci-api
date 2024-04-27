@@ -19,6 +19,7 @@ import {
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
+  CreateServiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateUnitDto,
@@ -35,6 +36,7 @@ import { FixtureInvoice } from './fixtureInvoice.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
+import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Unit } from './unit.schema';
@@ -113,6 +115,30 @@ export class AccountingController {
   deleteFixture(@Param('id') id: string) {
     return this.accountingService.removeFixture(id);
   }
+  // Services
+  @Get('/services')
+  getServices() {
+    return this.accountingService.findAllServices();
+  }
+
+  @Post('/services')
+  createService(@Body() createServiceDto: CreateServiceDto) {
+    return this.accountingService.createService(createServiceDto);
+  }
+
+  @Patch('/services/:id')
+  updateService(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Service>,
+  ) {
+    return this.accountingService.updateService(id, updates);
+  }
+
+  @Delete('/services/:id')
+  deleteService(@Param('id') id: string) {
+    return this.accountingService.removeService(id);
+  }
+
   // fixture invoices
   @Get('/fixture-invoice')
   getFixtureInvoice() {
