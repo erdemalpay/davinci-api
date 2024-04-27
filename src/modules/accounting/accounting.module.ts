@@ -15,6 +15,7 @@ import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
 import { Service, ServiceSchema } from './service.schema';
+import { ServiceInvoice, ServiceInvoiceSchema } from './serviceInvoice.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { StockLocation, StockLocationSchema } from './stockLocation.schema';
 import { Unit, UnitSchema } from './unit.schema';
@@ -36,6 +37,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: PackageType.name, useFactory: () => PackageTypeSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
   createAutoIncrementConfig(FixtureInvoice.name, FixtureInvoiceSchema),
+  createAutoIncrementConfig(ServiceInvoice.name, ServiceInvoiceSchema),
 ]);
 
 @Module({

@@ -20,6 +20,7 @@ import {
   CreatePackageTypeDto,
   CreateProductDto,
   CreateServiceDto,
+  CreateServiceInvoiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateUnitDto,
@@ -37,6 +38,7 @@ import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Service } from './service.schema';
+import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Unit } from './unit.schema';
@@ -165,6 +167,31 @@ export class AccountingController {
     return this.accountingService.removeFixtureInvoice(id);
   }
 
+  // service invoices
+  @Get('/service-invoice')
+  getServiceInvoice() {
+    return this.accountingService.findAllServiceInvoices();
+  }
+
+  @Post('/service-invoice')
+  createServiceInvoice(
+    @Body() createServiceInvoiceDto: CreateServiceInvoiceDto,
+  ) {
+    return this.accountingService.createServiceInvoice(createServiceInvoiceDto);
+  }
+
+  @Patch('service-invoice/:id')
+  updateServiceInvoice(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<ServiceInvoice>,
+  ) {
+    return this.accountingService.updateServiceInvoice(id, updates);
+  }
+
+  @Delete('/service-invoice/:id')
+  deleteServiceInvoice(@Param('id') id: string) {
+    return this.accountingService.removeServiceInvoice(id);
+  }
   // Expense Types
   @Get('/expense-types')
   getExpenseTypes() {
