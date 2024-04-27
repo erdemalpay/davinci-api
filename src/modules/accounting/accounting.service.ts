@@ -308,7 +308,7 @@ export class AccountingService {
   findAllServiceInvoices() {
     return this.serviceInvoiceModel
       .find()
-      .populate('service expenseType  vendor location');
+      .populate('service expenseType vendor location');
   }
   createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
     return this.serviceInvoiceModel.create(createServiceInvoiceDto);
