@@ -215,7 +215,7 @@ export class AccountingController {
     return this.accountingService.createPackageType(createPackageTypeDto);
   }
 
-  @Patch('/c/:id')
+  @Patch('/package-types/:id')
   updatePackageType(
     @Param('id') id: string,
     @Body() updates: UpdateQuery<PackageType>,
