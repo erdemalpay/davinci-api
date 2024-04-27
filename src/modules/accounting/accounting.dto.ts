@@ -97,3 +97,14 @@ export class CreateFixtureInvoiceDto {
   vendor?: string;
   note?: string;
 }
+
+export class CreateServiceInvoiceDto {
+  service: string;
+  expenseType: string;
+  quantity: number;
+  totalExpense: number;
+  location: number;
+  date: string;
+  vendor?: string;
+  note?: string;
+}

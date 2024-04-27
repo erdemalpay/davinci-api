@@ -15,6 +15,7 @@ import {
   CreatePackageTypeDto,
   CreateProductDto,
   CreateServiceDto,
+  CreateServiceInvoiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateUnitDto,
@@ -31,6 +32,7 @@ import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { Service } from './service.schema';
+import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Unit } from './unit.schema';
@@ -47,6 +49,8 @@ export class AccountingService {
     @InjectModel(Service.name) private serviceModel: Model<Service>,
     @InjectModel(FixtureInvoice.name)
     private fixtureInvoiceModel: Model<FixtureInvoice>,
+    @InjectModel(ServiceInvoice.name)
+    private serviceInvoiceModel: Model<ServiceInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
@@ -299,6 +303,23 @@ export class AccountingService {
   }
   removeFixtureInvoice(id: string) {
     return this.fixtureInvoiceModel.findByIdAndRemove(id);
+  }
+  // Service Invoice
+  findAllServiceInvoices() {
+    return this.serviceInvoiceModel
+      .find()
+      .populate('service expenseType  vendor location');
+  }
+  createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
+    return this.serviceInvoiceModel.create(createServiceInvoiceDto);
+  }
+  updateServiceInvoice(id: string, updates: UpdateQuery<ServiceInvoice>) {
+    return this.serviceInvoiceModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeServiceInvoice(id: string) {
+    return this.serviceInvoiceModel.findByIdAndRemove(id);
   }
 
   //   Expense Types
