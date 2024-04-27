@@ -150,54 +150,6 @@ export class AccountingService {
     return product;
   }
 
-  async createProductForScript(createProductDto: CreateProductDto) {
-    const foundProduct = await this.productModel.findOne({
-      name: createProductDto.name,
-    });
-    if (foundProduct) {
-      const updatedBrand = [
-        ...new Set(
-          [...foundProduct.brand, ...createProductDto.brand].filter(
-            (item) => item !== '',
-          ),
-        ),
-      ];
-      const updatedVendor = [
-        ...new Set(
-          [...foundProduct.vendor, ...createProductDto.vendor].filter(
-            (item) => item !== '',
-          ),
-        ),
-      ];
-      const updatedExpenseType = [
-        ...new Set(
-          [...foundProduct.expenseType, ...createProductDto.expenseType].filter(
-            (item) => item !== '',
-          ),
-        ),
-      ];
-      await this.productModel.findByIdAndUpdate(
-        foundProduct._id,
-        {
-          brand: updatedBrand,
-          vendor: updatedVendor,
-          expenseType: updatedExpenseType,
-        },
-        {
-          new: true,
-        },
-      );
-    } else {
-      try {
-        const product = new this.productModel(createProductDto);
-        product._id = usernamify(product.name);
-        await product.save();
-      } catch (error) {
-        console.error('Failed to create product:', error);
-        throw new Error('Failed to create product');
-      }
-    }
-  }
   updateProduct(id: string, updates: UpdateQuery<Product>) {
     return this.productModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -267,6 +219,10 @@ export class AccountingService {
     });
   }
   async removeFixture(id: string) {
+    const invoices = await this.fixtureInvoiceModel.find({ fixture: id });
+    if (invoices.length > 0) {
+      throw new Error('Cannot remove fixture with invoices');
+    }
     return this.fixtureModel.findByIdAndRemove(id);
   }
   // Services
@@ -285,6 +241,10 @@ export class AccountingService {
     });
   }
   async removeService(id: string) {
+    const invoices = await this.serviceInvoiceModel.find({ service: id });
+    if (invoices.length > 0) {
+      throw new Error('Cannot remove service with invoices');
+    }
     return this.serviceModel.findByIdAndRemove(id);
   }
   // Fixture Invoice
