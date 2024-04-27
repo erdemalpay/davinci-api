@@ -316,7 +316,7 @@ export class AccountingService {
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    const FixtureLastInvoice = await this.invoiceModel
+    const FixtureLastInvoice = await this.fixtureInvoiceModel
       .find({ fixture: invoice.fixture })
       .sort({ date: -1 });
     if (FixtureLastInvoice[0]?._id === id) {
@@ -336,7 +336,7 @@ export class AccountingService {
         },
       );
     }
-    return this.invoiceModel.findByIdAndRemove(id);
+    return this.fixtureInvoiceModel.findByIdAndRemove(id);
   }
   // Service Invoice
   findAllServiceInvoices() {
@@ -344,15 +344,89 @@ export class AccountingService {
       .find()
       .populate('service expenseType vendor location');
   }
-  createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
-    return this.serviceInvoiceModel.create(createServiceInvoiceDto);
+  async createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
+    try {
+      const ServiceLastInvoice = await this.serviceInvoiceModel
+        .find({ service: createServiceInvoiceDto.service })
+        .sort({ date: -1 })
+        .limit(1);
+      if (
+        !ServiceLastInvoice[0] ||
+        ServiceLastInvoice[0]?.date <= createServiceInvoiceDto.date
+      ) {
+        const updatedUnitPrice = parseFloat(
+          (
+            createServiceInvoiceDto.totalExpense /
+            createServiceInvoiceDto.quantity
+          ).toFixed(4),
+        );
+
+        await this.serviceModel.findByIdAndUpdate(
+          createServiceInvoiceDto.service,
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+      }
+      return this.serviceInvoiceModel.create(createServiceInvoiceDto);
+    } catch (error) {
+      console.error(
+        `Failed to create invoice: ${createServiceInvoiceDto.service}`,
+        error,
+      );
+      throw new Error('Invoice creation failed.');
+    }
   }
-  updateServiceInvoice(id: string, updates: UpdateQuery<ServiceInvoice>) {
+  async updateServiceInvoice(id: string, updates: UpdateQuery<ServiceInvoice>) {
+    if (updates.quantity || updates.totalExpense) {
+      const invoice = await this.serviceInvoiceModel.findById(id);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
+      const ServiceLastInvoice = await this.serviceInvoiceModel
+        .find({ service: invoice.service })
+        .sort({ date: -1 })
+        .limit(1);
+
+      if (ServiceLastInvoice[0].date <= updates.date) {
+        const updatedUnitPrice = parseFloat(
+          (updates.totalExpense / updates.quantity).toFixed(4),
+        );
+        await this.serviceModel.findByIdAndUpdate(
+          invoice.service,
+          { $set: { unitPrice: updatedUnitPrice } },
+          { new: true },
+        );
+      }
+    }
     return this.serviceInvoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
   }
-  removeServiceInvoice(id: number) {
+  async removeServiceInvoice(id: number) {
+    const invoice = await this.serviceInvoiceModel.findById(id);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+    const ServiceLastInvoice = await this.serviceInvoiceModel
+      .find({ service: invoice.service })
+      .sort({ date: -1 });
+    if (ServiceLastInvoice[0]?._id === id) {
+      await this.serviceModel.findByIdAndUpdate(
+        invoice.service,
+        {
+          unitPrice:
+            parseFloat(
+              (
+                ServiceLastInvoice[1]?.totalExpense /
+                ServiceLastInvoice[1]?.quantity
+              ).toFixed(4),
+            ) ?? 0,
+        },
+        {
+          new: true,
+        },
+      );
+    }
     return this.serviceInvoiceModel.findByIdAndRemove(id);
   }
 
