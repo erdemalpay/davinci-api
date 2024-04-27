@@ -163,7 +163,7 @@ export class AccountingController {
   }
 
   @Delete('/fixture-invoice/:id')
-  deleteFixtureInvoice(@Param('id') id: string) {
+  deleteFixtureInvoice(@Param('id') id: number) {
     return this.accountingService.removeFixtureInvoice(id);
   }
 
@@ -189,7 +189,7 @@ export class AccountingController {
   }
 
   @Delete('/service-invoice/:id')
-  deleteServiceInvoice(@Param('id') id: string) {
+  deleteServiceInvoice(@Param('id') id: number) {
     return this.accountingService.removeServiceInvoice(id);
   }
   // Expense Types
