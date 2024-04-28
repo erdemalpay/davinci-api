@@ -74,6 +74,12 @@ export class AccountingController {
   deleteCategory(@Param('id') id: string) {
     return this.accountingService.removeProduct(id);
   }
+
+  @Get('/products/packages')
+  updateProductPackages() {
+    return this.accountingService.updateProductPackages();
+  }
+
   // Units
   @Get('/units')
   getUnits() {

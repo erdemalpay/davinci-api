@@ -513,11 +513,12 @@ export class AccountingService {
     });
   }
   async removePackageType(id: string) {
-    // TODO : check if there are products with this package type
-    // const products = await this.productModel.find();
-    // if (products.length > 0) {
-    //   throw new Error('Cannot remove package type with products');
-    // }
+    const products = (await this.productModel.find()).map((product) =>
+      product.packages.find((p) => p.package === id),
+    );
+    if (products.length > 0) {
+      throw new Error('Cannot remove package type with products');
+    }
     return this.packageTypeModel.findByIdAndRemove(id);
   }
   // Invoices
@@ -883,7 +884,11 @@ export class AccountingService {
       new: true,
     });
   }
-  removeCountList(id: string) {
+  async removeCountList(id: string) {
+    const counts = await this.countModel.find({ countList: id });
+    if (counts.length > 0) {
+      throw new Error('Cannot remove a count list');
+    }
     return this.countListModel.findByIdAndRemove(id);
   }
   // count
@@ -910,6 +915,12 @@ export class AccountingService {
   updateCount(id: string, updates: UpdateQuery<Count>) {
     return this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
+    });
+  }
+  async updateProductPackages() {
+    await this.createPackageType({ name: 'Birim', quantity: 1 });
+    await this.productModel.updateMany({
+      packages: [{ package: 'birim', unitPrice: 0 }],
     });
   }
 }
