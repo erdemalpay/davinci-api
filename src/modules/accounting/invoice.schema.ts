@@ -14,10 +14,10 @@ export class Invoice extends Document {
   _id: number;
 
   @Prop({ required: true, type: String, ref: Product.name })
-  product: Product;
+  product: string;
 
   @Prop({ required: true, type: String, ref: ExpenseType.name })
-  expenseType: ExpenseType;
+  expenseType: string;
 
   @Prop({ required: true, type: Number })
   quantity: number;
@@ -29,16 +29,16 @@ export class Invoice extends Document {
   date: string;
 
   @Prop({ required: false, type: String, ref: Brand.name })
-  brand: Brand;
+  brand: string;
 
   @Prop({ required: false, type: String, ref: Vendor.name })
-  vendor: Vendor;
+  vendor: string;
 
   @Prop({ required: false, type: String, ref: PackageType.name })
   packageType: string;
 
   @Prop({ required: true, type: Number, ref: Location.name })
-  location: Location;
+  location: number;
 
   @Prop({ required: false })
   note: string;

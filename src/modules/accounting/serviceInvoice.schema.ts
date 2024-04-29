@@ -12,19 +12,19 @@ export class ServiceInvoice extends Document {
   _id: number;
 
   @Prop({ required: true, type: String, ref: ExpenseType.name })
-  expenseType: ExpenseType;
+  expenseType: string;
 
   @Prop({ required: true, type: String, ref: Service.name })
-  service: Service;
+  service: string;
 
   @Prop({ required: true, type: Number })
   quantity: number;
 
   @Prop({ required: true, type: Number, ref: Location.name })
-  location: Location;
+  location: number;
 
   @Prop({ required: false, type: String, ref: Vendor.name })
-  vendor: Vendor;
+  vendor: string;
 
   @Prop({ required: true, type: Number })
   totalExpense: number;
