@@ -25,13 +25,13 @@ export class Product extends Document {
   unitPrice: number;
 
   @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
-  expenseType: ExpenseType[];
+  expenseType: string[];
 
   @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
-  brand: Brand[];
+  brand: string[];
 
   @Prop({ required: false, type: [{ type: String, ref: Vendor.name }] })
-  vendor: Vendor[];
+  vendor: string[];
 
   @Prop({ required: true, type: String, ref: Unit.name })
   unit: Unit;

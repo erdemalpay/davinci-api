@@ -212,6 +212,7 @@ export class AccountingService {
     const fixture = new this.fixtureModel(createFixtureDto);
     fixture._id = usernamify(fixture.name);
     await fixture.save();
+    return fixture;
   }
   updateFixture(id: string, updates: UpdateQuery<Fixture>) {
     return this.fixtureModel.findByIdAndUpdate(id, updates, {
@@ -233,6 +234,7 @@ export class AccountingService {
     const service = new this.serviceModel(createServiceDto);
     service._id = usernamify(service.name);
     await service.save();
+    return service;
   }
 
   updateService(id: string, updates: UpdateQuery<Service>) {
@@ -801,6 +803,84 @@ export class AccountingService {
       await product.save();
     }
     return this.invoiceModel.findByIdAndRemove(id);
+  }
+  async transferToFixtureInvoice(id: number) {
+    const foundInvoice = await this.invoiceModel.findById(id);
+    if (!foundInvoice) {
+      throw new Error('Invoice not found');
+    }
+    const product = await this.productModel.findById(foundInvoice.product);
+    let fixture = await this.fixtureModel.findById(usernamify(product.name));
+    //  create a new fixture
+    if (!fixture) {
+      fixture = await this.createFixture({
+        name: product.name,
+        unitPrice: product?.unitPrice ?? 0,
+        expenseType: product?.expenseType,
+        vendor: product?.vendor,
+        brand: product?.brand,
+      });
+    }
+    // finding all the invoices with same product
+    const invoices = await this.invoiceModel.find({
+      product: foundInvoice.product,
+    });
+    // transferring all invoices to fixture invoice
+    for (const invoice of invoices) {
+      await this.createFixtureInvoice({
+        fixture: fixture._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        brand: invoice?.brand,
+        vendor: invoice?.vendor,
+        note: invoice?.note,
+      });
+      // removing transferred invoice
+      await this.invoiceModel.findByIdAndDelete(invoice._id);
+    }
+    // removing the product
+    this.removeProduct(foundInvoice.product);
+  }
+  async transferToServiceInvoice(id: number) {
+    const foundInvoice = await this.invoiceModel.findById(id);
+    if (!foundInvoice) {
+      throw new Error('Invoice not found');
+    }
+    const product = await this.productModel.findById(foundInvoice.product);
+    let service = await this.serviceModel.findById(usernamify(product.name));
+    //  create a new service
+    if (!service) {
+      service = await this.createService({
+        name: product.name,
+        unitPrice: product?.unitPrice ?? 0,
+        expenseType: product?.expenseType,
+        vendor: product?.vendor,
+      });
+    }
+    // finding all the invoices with same product
+    const invoices = await this.invoiceModel.find({
+      product: foundInvoice.product,
+    });
+    // transferring all invoices to service invoice
+    for (const invoice of invoices) {
+      await this.createServiceInvoice({
+        service: service._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        vendor: invoice?.vendor,
+        note: invoice?.note,
+      });
+      // removing transferred invoice
+      await this.invoiceModel.findByIdAndDelete(invoice._id);
+    }
+    // removing the product
+    this.removeProduct(foundInvoice.product);
   }
   // Stocks
   findAllStocks() {

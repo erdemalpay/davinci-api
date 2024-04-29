@@ -298,6 +298,16 @@ export class AccountingController {
     return this.accountingService.createInvoice(createInvoiceDto);
   }
 
+  @Patch('/invoices/transfer_to_fixture_invoice/:id')
+  updateInvoiceToFixtureInvoice(@Param('id') id: number) {
+    return this.accountingService.transferToFixtureInvoice(id);
+  }
+
+  @Patch('/invoices/transfer_to_service_invoice/:id')
+  updateInvoiceToServiceInvoice(@Param('id') id: number) {
+    return this.accountingService.transferToServiceInvoice(id);
+  }
+
   @Patch('/invoices/:id')
   updateInvoice(
     @Param('id') id: number,
@@ -310,6 +320,7 @@ export class AccountingController {
   deleteInvoice(@Param('id') id: number) {
     return this.accountingService.removeInvoice(id);
   }
+
   // Stock Location
   @Get('/stock-locations')
   getStockLocations() {

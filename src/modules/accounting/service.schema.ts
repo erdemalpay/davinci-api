@@ -16,10 +16,10 @@ export class Service extends Document {
   unitPrice: number;
 
   @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
-  expenseType: ExpenseType[];
+  expenseType: string[];
 
   @Prop({ required: false, type: [{ type: String, ref: Vendor.name }] })
-  vendor: Vendor[];
+  vendor: string[];
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);
