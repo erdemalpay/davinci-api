@@ -69,6 +69,11 @@ export class CreateStockDto {
   quantity: number;
   packageType?: string;
 }
+export class CreateFixtureStockDto {
+  fixture: string;
+  location: string;
+  quantity: number;
+}
 export class ConsumptStockDto {
   product: string;
   location: string;

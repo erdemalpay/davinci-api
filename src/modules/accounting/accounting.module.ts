@@ -11,6 +11,7 @@ import { CountList, CountListSchema } from './countList.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Fixture, FixtureSchema } from './fixture.schema';
 import { FixtureInvoice, FixtureInvoiceSchema } from './fixtureInvoice.schema';
+import { FixtureStock, FixtureStockSchema } from './fixtureStock.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
@@ -31,6 +32,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Vendor.name, useFactory: () => VendorSchema },
   { name: StockLocation.name, useFactory: () => StockLocationSchema },
   { name: Stock.name, useFactory: () => StockSchema },
+  { name: FixtureStock.name, useFactory: () => FixtureStockSchema },
   { name: CountList.name, useFactory: () => CountListSchema },
   { name: Count.name, useFactory: () => CountSchema },
   { name: Location.name, useFactory: () => LocationSchema },
