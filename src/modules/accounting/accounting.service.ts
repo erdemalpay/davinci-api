@@ -11,6 +11,7 @@ import {
   CreateExpenseTypeDto,
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
+  CreateFixtureStockDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -28,6 +29,7 @@ import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
 import { FixtureInvoice } from './fixtureInvoice.schema';
+import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -62,6 +64,8 @@ export class AccountingService {
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
+    @InjectModel(FixtureStock.name)
+    private fixtureStockModel: Model<FixtureStock>,
     private readonly MenuService: MenuService,
   ) {}
   //   Products
@@ -913,6 +917,7 @@ export class AccountingService {
   removeStock(id: string) {
     return this.stockModel.findByIdAndRemove(id);
   }
+
   async consumptStock(consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
       product: consumptStockDto.product,
@@ -932,6 +937,35 @@ export class AccountingService {
       });
       return newStock;
     }
+  }
+  // Fixture Stocks
+  findAllFixtureStocks() {
+    return this.fixtureStockModel.find().populate('fixture location');
+  }
+
+  async createFixtureStock(createFixtureStockDto: CreateFixtureStockDto) {
+    const stockId = usernamify(
+      createFixtureStockDto.fixture + createFixtureStockDto?.location,
+    );
+    const existStock = await this.fixtureStockModel.findById(stockId);
+    if (existStock) {
+      existStock.quantity =
+        Number(existStock.quantity) + Number(createFixtureStockDto.quantity);
+      await existStock.save();
+    } else {
+      const stock = new this.fixtureStockModel(createFixtureStockDto);
+      stock._id = stockId;
+      await stock.save();
+    }
+  }
+
+  updateFixtureStock(id: string, updates: UpdateQuery<FixtureStock>) {
+    return this.fixtureStockModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeFixtureStock(id: string) {
+    return this.fixtureStockModel.findByIdAndRemove(id);
   }
   // stockLocation
   findAllStockLocations() {
