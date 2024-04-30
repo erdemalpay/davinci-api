@@ -16,6 +16,7 @@ import {
   CreateExpenseTypeDto,
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
+  CreateFixtureStockDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -34,6 +35,7 @@ import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
 import { FixtureInvoice } from './fixtureInvoice.schema';
+import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -366,6 +368,29 @@ export class AccountingController {
   @Post('/stocks/consumpt')
   consumptStock(@Body() consumptStockDto: ConsumptStockDto) {
     return this.accountingService.consumptStock(consumptStockDto);
+  }
+  // Fixture Stocks
+  @Get('/fixture-stocks')
+  getFixtureStocks() {
+    return this.accountingService.findAllFixtureStocks();
+  }
+
+  @Post('/fixture-stocks')
+  createFixtureStock(@Body() createFixtureStockDto: CreateFixtureStockDto) {
+    return this.accountingService.createFixtureStock(createFixtureStockDto);
+  }
+
+  @Patch('/fixture-stocks/:id')
+  updateFixtureStock(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<FixtureStock>,
+  ) {
+    return this.accountingService.updateFixtureStock(id, updates);
+  }
+
+  @Delete('/fixture-stocks/:id')
+  deleteFixtureStock(@Param('id') id: string) {
+    return this.accountingService.removeFixtureStock(id);
   }
 
   // count list
