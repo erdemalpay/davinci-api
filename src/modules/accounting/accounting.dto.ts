@@ -74,13 +74,13 @@ export class CreatePackageTypeDto {
 }
 export class CreateStockDto {
   product: string;
-  location: string;
+  location: string | number;
   quantity: number;
   packageType?: string;
 }
 export class CreateFixtureStockDto {
   fixture: string;
-  location: string;
+  location: string | number;
   quantity: number;
 }
 export class ConsumptStockDto {
