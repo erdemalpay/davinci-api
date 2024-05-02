@@ -813,9 +813,13 @@ export class AccountingService {
     if (!foundInvoice) {
       throw new Error('Invoice not found');
     }
+
     const product = await this.productModel.findById(foundInvoice.product);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
     let fixture = await this.fixtureModel.findById(usernamify(product.name));
-    //  create a new fixture
     if (!fixture) {
       fixture = await this.createFixture({
         name: product.name,
@@ -827,11 +831,14 @@ export class AccountingService {
         packages: product?.packages,
       });
     }
-    // finding all the invoices with same product
+
     const invoices = await this.invoiceModel.find({
       product: foundInvoice.product,
     });
-    // transferring all invoices to fixture invoice
+    if (invoices.length === 0) {
+      throw new Error('No invoices found for the product');
+    }
+
     for (const invoice of invoices) {
       await this.createFixtureInvoice({
         fixture: fixture._id,
@@ -840,33 +847,40 @@ export class AccountingService {
         totalExpense: invoice?.totalExpense,
         location: invoice?.location,
         date: invoice.date,
-        brand: invoice?.brand,
         vendor: invoice?.vendor,
+        brand: invoice?.brand,
         note: invoice?.note,
         packageType: invoice?.packageType,
       });
-      // removing transferred invoice
+
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        throw new Error('Failed to remove invoice');
+        console.error(
+          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        );
       }
     }
-    // removing the product
+
     try {
-      this.removeProduct(foundInvoice.product);
+      await this.removeProduct(foundInvoice.product);
     } catch (error) {
-      throw new Error('Failed to remove the product');
+      throw new Error(`Failed to remove the product: ${error.message}`);
     }
   }
+
   async transferInvoiceToServiceInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
       throw new Error('Invoice not found');
     }
+
     const product = await this.productModel.findById(foundInvoice.product);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
     let service = await this.serviceModel.findById(usernamify(product.name));
-    //  create a new service
     if (!service) {
       service = await this.createService({
         name: product.name,
@@ -878,11 +892,14 @@ export class AccountingService {
         packages: product?.packages,
       });
     }
-    // finding all the invoices with same product
+
     const invoices = await this.invoiceModel.find({
       product: foundInvoice.product,
     });
-    // transferring all invoices to service invoice
+    if (invoices.length === 0) {
+      throw new Error('No invoices found for the product');
+    }
+
     for (const invoice of invoices) {
       await this.createServiceInvoice({
         service: service._id,
@@ -896,30 +913,38 @@ export class AccountingService {
         note: invoice?.note,
         packageType: invoice?.packageType,
       });
-      // removing the invoice
+
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        throw new Error('Failed to remove invoice');
+        console.error(
+          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        );
       }
     }
-    // removing the product
+
     try {
-      this.removeProduct(foundInvoice.product);
+      await this.removeProduct(foundInvoice.product);
     } catch (error) {
-      throw new Error('Failed to remove the product');
+      throw new Error(`Failed to remove the product: ${error.message}`);
     }
   }
+
   async transferFixtureInvoiceToInvoice(id: number) {
     const foundInvoice = await this.fixtureInvoiceModel.findById(id);
     if (!foundInvoice) {
       throw new Error('Invoice not found');
     }
+
     const fixture = await this.fixtureModel.findById(foundInvoice.fixture);
+    if (!fixture) {
+      throw new Error('Fixture not found');
+    }
+
     let product = await this.productModel.findById(
       usernamify(fixture.name) + usernamify(fixture?.unit ?? ''),
     );
-    //  create a new product
+
     if (!product) {
       product = await this.createProduct({
         name: fixture.name,
@@ -931,11 +956,14 @@ export class AccountingService {
         packages: fixture?.packages,
       });
     }
-    // finding all the invoices with same fixture
+
     const invoices = await this.fixtureInvoiceModel.find({
       fixture: foundInvoice.fixture,
     });
-    // transferring all fixture invoices to  invoice
+    if (invoices.length === 0) {
+      throw new Error('No invoices found for the fixture');
+    }
+
     for (const invoice of invoices) {
       await this.createInvoice({
         product: product._id,
@@ -949,30 +977,38 @@ export class AccountingService {
         note: invoice?.note,
         packageType: invoice?.packageType,
       });
-      // removing transferred invoice
+
       try {
         await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        throw new Error('Failed to remove invoice');
+        console.error(
+          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        );
       }
     }
-    // removing the fixture
+
     try {
-      this.removeFixture(foundInvoice.fixture);
+      await this.removeFixture(foundInvoice.fixture);
     } catch (error) {
-      throw new Error('Failed to remove the fixture');
+      throw new Error(`Failed to remove the fixture: ${error.message}`);
     }
   }
+
   async transferServiceInvoiceToInvoice(id: number) {
     const foundInvoice = await this.serviceInvoiceModel.findById(id);
     if (!foundInvoice) {
       throw new Error('Invoice not found');
     }
+
     const service = await this.serviceModel.findById(foundInvoice.service);
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
     let product = await this.productModel.findById(
       usernamify(service.name) + usernamify(service?.unit),
     );
-    //  create a new product
+
     if (!product) {
       product = await this.createProduct({
         name: service.name,
@@ -984,11 +1020,14 @@ export class AccountingService {
         packages: service?.packages,
       });
     }
-    // finding all the invoices with same service
+
     const invoices = await this.serviceInvoiceModel.find({
       service: foundInvoice.service,
     });
-    // transferring all service invoices to  invoice
+    if (!invoices.length) {
+      throw new Error('No invoices found for the service');
+    }
+
     for (const invoice of invoices) {
       await this.createInvoice({
         product: product._id,
@@ -1002,20 +1041,25 @@ export class AccountingService {
         note: invoice?.note,
         packageType: invoice?.packageType,
       });
-      // removing transferred invoice
+
       try {
         await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        throw new Error('Failed to remove invoice');
+        console.error(
+          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        );
       }
     }
-    // removing the fixture
+
     try {
-      this.removeFixture(foundInvoice.service);
+      await this.removeFixture(foundInvoice.service);
     } catch (error) {
-      throw new Error('Failed to remove the service');
+      throw new Error(
+        `Failed to remove the service associated with the invoice: ${error.message}`,
+      );
     }
   }
+
   // Stocks
   findAllStocks() {
     return this.stockModel.find().populate('product location packageType');
