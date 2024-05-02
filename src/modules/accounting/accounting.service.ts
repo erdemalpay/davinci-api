@@ -622,7 +622,6 @@ export class AccountingService {
           { new: true },
         );
       }
-
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
       console.error(
@@ -1210,5 +1209,66 @@ export class AccountingService {
     await this.productModel.updateMany({
       packages: [{ package: 'birim', unitPrice: 0 }],
     });
+  }
+  async updateInvoicesLocation() {
+    // Assuming the creation of stock locations is handled elsewhere or checked if already exists
+    try {
+      await this.createStockLocation({ name: 'Bahçeli' });
+    } catch (error) {
+      console.log(error);
+    }
+    try {
+      await this.createStockLocation({ name: 'Neorama' });
+    } catch (error) {
+      console.log(error);
+    }
+    const invoices = await this.invoiceModel.find({});
+    for (const invoice of invoices) {
+      // Update the location based on the previous number value
+      switch (invoice.location) {
+        case 1:
+          invoice.location = 'bahceli';
+          break;
+        case 2:
+          invoice.location = 'neorama';
+          break;
+      }
+      // Save the invoice if the location was updated
+      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
+        await invoice.save();
+      }
+    }
+    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
+    for (const invoice of fixtureInvoices) {
+      // Update the location based on the previous number value
+      switch (invoice.location) {
+        case 1:
+          invoice.location = 'bahceli';
+          break;
+        case 2:
+          invoice.location = 'neorama';
+          break;
+      }
+      // Save the invoice if the location was updated
+      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
+        await invoice.save();
+      }
+    }
+    const serviceInvoices = await this.serviceInvoiceModel.find({});
+    for (const invoice of serviceInvoices) {
+      // Update the location based on the previous number value
+      switch (invoice.location) {
+        case 1:
+          invoice.location = 'bahceli';
+          break;
+        case 2:
+          invoice.location = 'neorama';
+          break;
+      }
+      // Save the invoice if the location was updated
+      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
+        await invoice.save();
+      }
+    }
   }
 }
