@@ -282,6 +282,12 @@ export class AccountingService {
           { new: true },
         );
       }
+      // adding invoice amount to fixture stock
+      await this.createFixtureStock({
+        fixture: createFixtureInvoiceDto.fixture,
+        location: createFixtureInvoiceDto.location,
+        quantity: createFixtureInvoiceDto.quantity,
+      });
       return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
     } catch (error) {
       console.error(
@@ -292,11 +298,11 @@ export class AccountingService {
     }
   }
   async updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
+    const invoice = await this.fixtureInvoiceModel.findById(id);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
     if (updates.quantity || updates.totalExpense) {
-      const invoice = await this.fixtureInvoiceModel.findById(id);
-      if (!invoice) {
-        throw new Error('Invoice not found');
-      }
       const FixtureLastInvoice = await this.fixtureInvoiceModel
         .find({ fixture: invoice.fixture })
         .sort({ date: -1 })
@@ -312,6 +318,14 @@ export class AccountingService {
           { new: true },
         );
       }
+    }
+    // updating the fixture stock quantity
+    if (updates.quantity) {
+      await this.createFixtureStock({
+        fixture: invoice.fixture,
+        location: invoice.location,
+        quantity: updates.quantity - invoice.quantity,
+      });
     }
     return this.fixtureInvoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -342,6 +356,12 @@ export class AccountingService {
         },
       );
     }
+    // updating the stock quantity
+    await this.createFixtureStock({
+      fixture: invoice.fixture,
+      location: invoice.location,
+      quantity: -1 * invoice.quantity,
+    });
     return this.fixtureInvoiceModel.findByIdAndRemove(id);
   }
   // Service Invoice
@@ -615,13 +635,19 @@ export class AccountingService {
             ),
           );
         }
-
         await this.productModel.findByIdAndUpdate(
           createInvoiceDto.product,
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
       }
+      // adding invoice amount to stock
+      await this.createStock({
+        product: createInvoiceDto.product,
+        location: createInvoiceDto.location,
+        quantity: createInvoiceDto.quantity,
+        packageType: createInvoiceDto?.packageType,
+      });
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
       console.error(
@@ -633,11 +659,11 @@ export class AccountingService {
   }
 
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
+    const invoice = await this.invoiceModel.findById(id);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
     if (updates.quantity || updates.totalExpense) {
-      const invoice = await this.invoiceModel.findById(id);
-      if (!invoice) {
-        throw new Error('Invoice not found');
-      }
       const ProductLastInvoice = await this.invoiceModel
         .find({ product: invoice.product, packageType: invoice?.packageType })
         .sort({ date: -1 })
@@ -686,7 +712,6 @@ export class AccountingService {
                     item.packageType.quantity *
                     foundPackage.packageUnitPrice;
                   acc.productStockOverallExpense += expense;
-
                   const total = item.quantity * item.packageType.quantity;
                   acc.productStockOverallTotal += total;
                 }
@@ -716,6 +741,15 @@ export class AccountingService {
           { new: true },
         );
       }
+    }
+    // updating the stock quantity
+    if (updates.quantity) {
+      await this.createStock({
+        product: invoice.product,
+        location: invoice.location,
+        quantity: updates.quantity - invoice.quantity,
+        packageType: invoice?.packageType,
+      });
     }
     return this.invoiceModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -779,7 +813,7 @@ export class AccountingService {
         productStocks.reduce(
           (acc, item) => {
             const foundPackage = product.packages.find(
-              (pckg) => pckg.package === item.packageType._id,
+              (pckg) => pckg.package === item?.packageType?._id,
             );
 
             if (foundPackage) {
@@ -805,6 +839,13 @@ export class AccountingService {
       );
       await product.save();
     }
+    // updating the stock quantity
+    await this.createStock({
+      product: invoice.product,
+      location: invoice.location,
+      quantity: -1 * invoice.quantity,
+      packageType: invoice?.packageType,
+    });
     return this.invoiceModel.findByIdAndRemove(id);
   }
   async transferInvoiceToFixtureInvoice(id: number) {

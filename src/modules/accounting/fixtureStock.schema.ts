@@ -13,7 +13,7 @@ export class FixtureStock extends Document {
   fixture: string;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  location: string | number;
 
   @Prop({ required: true, type: Number })
   quantity: number;

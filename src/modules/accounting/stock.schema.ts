@@ -14,7 +14,7 @@ export class Stock extends Document {
   product: Product;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: StockLocation;
+  location: string | number;
 
   @Prop({ required: false, type: String, ref: PackageType.name })
   packageType: PackageType;
