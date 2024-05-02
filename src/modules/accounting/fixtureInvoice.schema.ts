@@ -5,6 +5,7 @@ import { Location } from '../location/location.schema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
+import { PackageType } from './packageType.schema';
 import { Vendor } from './vendor.schema';
 
 @Schema({ _id: false })
@@ -32,6 +33,9 @@ export class FixtureInvoice extends Document {
 
   @Prop({ required: true, type: Number })
   totalExpense: number;
+
+  @Prop({ required: false, type: String, ref: PackageType.name })
+  packageType: string;
 
   @Prop({ required: true })
   date: string;

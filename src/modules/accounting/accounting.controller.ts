@@ -302,12 +302,20 @@ export class AccountingController {
 
   @Patch('/invoices/transfer_to_fixture_invoice/:id')
   updateInvoiceToFixtureInvoice(@Param('id') id: number) {
-    return this.accountingService.transferToFixtureInvoice(id);
+    return this.accountingService.transferInvoiceToFixtureInvoice(id);
   }
 
   @Patch('/invoices/transfer_to_service_invoice/:id')
   updateInvoiceToServiceInvoice(@Param('id') id: number) {
-    return this.accountingService.transferToServiceInvoice(id);
+    return this.accountingService.transferInvoiceToServiceInvoice(id);
+  }
+  @Patch('/invoices/transfer_service_invoice_to_invoice/:id')
+  updateServiceInvoiceToInvoice(@Param('id') id: number) {
+    return this.accountingService.transferServiceInvoiceToInvoice(id);
+  }
+  @Patch('/invoices/transfer_fixture_invoice_to_invoice/:id')
+  updateFixtureInvoiceToInvoice(@Param('id') id: number) {
+    return this.accountingService.transferFixtureInvoiceToInvoice(id);
   }
 
   @Patch('/invoices/:id')

@@ -808,7 +808,7 @@ export class AccountingService {
     }
     return this.invoiceModel.findByIdAndRemove(id);
   }
-  async transferToFixtureInvoice(id: number) {
+  async transferInvoiceToFixtureInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
       throw new Error('Invoice not found');
@@ -823,6 +823,8 @@ export class AccountingService {
         expenseType: product?.expenseType,
         vendor: product?.vendor,
         brand: product?.brand,
+        unit: product?.unit,
+        packages: product?.packages,
       });
     }
     // finding all the invoices with same product
@@ -841,14 +843,23 @@ export class AccountingService {
         brand: invoice?.brand,
         vendor: invoice?.vendor,
         note: invoice?.note,
+        packageType: invoice?.packageType,
       });
       // removing transferred invoice
-      await this.invoiceModel.findByIdAndDelete(invoice._id);
+      try {
+        await this.invoiceModel.findByIdAndDelete(invoice._id);
+      } catch (error) {
+        throw new Error('Failed to remove invoice');
+      }
     }
     // removing the product
-    this.removeProduct(foundInvoice.product);
+    try {
+      this.removeProduct(foundInvoice.product);
+    } catch (error) {
+      throw new Error('Failed to remove the product');
+    }
   }
-  async transferToServiceInvoice(id: number) {
+  async transferInvoiceToServiceInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
       throw new Error('Invoice not found');
@@ -862,6 +873,9 @@ export class AccountingService {
         unitPrice: product?.unitPrice ?? 0,
         expenseType: product?.expenseType,
         vendor: product?.vendor,
+        brand: product?.brand,
+        unit: product?.unit,
+        packages: product?.packages,
       });
     }
     // finding all the invoices with same product
@@ -878,13 +892,129 @@ export class AccountingService {
         location: invoice?.location,
         date: invoice.date,
         vendor: invoice?.vendor,
+        brand: invoice?.brand,
         note: invoice?.note,
+        packageType: invoice?.packageType,
       });
-      // removing transferred invoice
-      await this.invoiceModel.findByIdAndDelete(invoice._id);
+      // removing the invoice
+      try {
+        await this.invoiceModel.findByIdAndDelete(invoice._id);
+      } catch (error) {
+        throw new Error('Failed to remove invoice');
+      }
     }
     // removing the product
-    this.removeProduct(foundInvoice.product);
+    try {
+      this.removeProduct(foundInvoice.product);
+    } catch (error) {
+      throw new Error('Failed to remove the product');
+    }
+  }
+  async transferFixtureInvoiceToInvoice(id: number) {
+    const foundInvoice = await this.fixtureInvoiceModel.findById(id);
+    if (!foundInvoice) {
+      throw new Error('Invoice not found');
+    }
+    const fixture = await this.fixtureModel.findById(foundInvoice.fixture);
+    let product = await this.productModel.findById(
+      usernamify(fixture.name) + usernamify(fixture?.unit ?? ''),
+    );
+    //  create a new product
+    if (!product) {
+      product = await this.createProduct({
+        name: fixture.name,
+        unitPrice: fixture?.unitPrice ?? 0,
+        expenseType: fixture?.expenseType,
+        vendor: fixture?.vendor,
+        brand: fixture?.brand,
+        unit: fixture?.unit,
+        packages: fixture?.packages,
+      });
+    }
+    // finding all the invoices with same fixture
+    const invoices = await this.fixtureInvoiceModel.find({
+      fixture: foundInvoice.fixture,
+    });
+    // transferring all fixture invoices to  invoice
+    for (const invoice of invoices) {
+      await this.createInvoice({
+        product: product._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        brand: invoice?.brand,
+        vendor: invoice?.vendor,
+        note: invoice?.note,
+        packageType: invoice?.packageType,
+      });
+      // removing transferred invoice
+      try {
+        await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
+      } catch (error) {
+        throw new Error('Failed to remove invoice');
+      }
+    }
+    // removing the fixture
+    try {
+      this.removeFixture(foundInvoice.fixture);
+    } catch (error) {
+      throw new Error('Failed to remove the fixture');
+    }
+  }
+  async transferServiceInvoiceToInvoice(id: number) {
+    const foundInvoice = await this.serviceInvoiceModel.findById(id);
+    if (!foundInvoice) {
+      throw new Error('Invoice not found');
+    }
+    const service = await this.serviceModel.findById(foundInvoice.service);
+    let product = await this.productModel.findById(
+      usernamify(service.name) + usernamify(service?.unit),
+    );
+    //  create a new product
+    if (!product) {
+      product = await this.createProduct({
+        name: service.name,
+        unitPrice: service?.unitPrice ?? 0,
+        expenseType: service?.expenseType,
+        vendor: service?.vendor,
+        brand: service?.brand,
+        unit: service?.unit,
+        packages: service?.packages,
+      });
+    }
+    // finding all the invoices with same service
+    const invoices = await this.serviceInvoiceModel.find({
+      service: foundInvoice.service,
+    });
+    // transferring all service invoices to  invoice
+    for (const invoice of invoices) {
+      await this.createInvoice({
+        product: product._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        brand: invoice?.brand,
+        vendor: invoice?.vendor,
+        note: invoice?.note,
+        packageType: invoice?.packageType,
+      });
+      // removing transferred invoice
+      try {
+        await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
+      } catch (error) {
+        throw new Error('Failed to remove invoice');
+      }
+    }
+    // removing the fixture
+    try {
+      this.removeFixture(foundInvoice.service);
+    } catch (error) {
+      throw new Error('Failed to remove the service');
+    }
   }
   // Stocks
   findAllStocks() {
