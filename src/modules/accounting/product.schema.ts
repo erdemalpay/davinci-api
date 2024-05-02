@@ -6,7 +6,7 @@ import { ExpenseType } from './expenseType.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
 
-class PackageType {
+export class PackageType {
   @Prop({ required: true, type: Number })
   packageUnitPrice: number;
 
@@ -34,7 +34,7 @@ export class Product extends Document {
   vendor: string[];
 
   @Prop({ required: true, type: String, ref: Unit.name })
-  unit: Unit;
+  unit: string;
 
   @Prop([PackageType])
   packages: PackageType[];

@@ -1,9 +1,13 @@
+import { PackageType } from './product.schema';
+
 export class CreateProductDto {
   name: string;
   unit: string;
   expenseType: string[];
   brand?: string[];
   vendor?: string[];
+  unitPrice?: number;
+  packages?: PackageType[];
 }
 
 export class CreateFixtureDto {
@@ -12,12 +16,17 @@ export class CreateFixtureDto {
   brand?: string[];
   vendor?: string[];
   unitPrice?: number;
+  unit?: string;
+  packages?: PackageType[];
 }
 export class CreateServiceDto {
   name: string;
   expenseType: string[];
   vendor?: string[];
+  brand?: string[];
   unitPrice?: number;
+  unit?: string;
+  packages?: PackageType[];
 }
 
 export class CreateUnitDto {
@@ -103,6 +112,7 @@ export class CreateFixtureInvoiceDto {
   brand?: string;
   vendor?: string;
   note?: string;
+  packageType?: string;
 }
 
 export class CreateServiceInvoiceDto {
@@ -113,5 +123,7 @@ export class CreateServiceInvoiceDto {
   location: number;
   date: string;
   vendor?: string;
+  brand?: string;
   note?: string;
+  packageType?: string;
 }
