@@ -317,6 +317,10 @@ export class AccountingController {
   updateFixtureInvoiceToInvoice(@Param('id') id: number) {
     return this.accountingService.transferFixtureInvoiceToInvoice(id);
   }
+  @Patch('/invoices/update_location')
+  updateInvoiceLocation() {
+    return this.accountingService.updateInvoicesLocation();
+  }
 
   @Patch('/invoices/:id')
   updateInvoice(

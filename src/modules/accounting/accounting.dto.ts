@@ -94,7 +94,7 @@ export class CreateInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
-  location: string;
+  location: string | number;
   date: string;
   brand?: string;
   vendor?: string;
@@ -107,7 +107,7 @@ export class CreateFixtureInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
-  location: string;
+  location: string | number;
   date: string;
   brand?: string;
   vendor?: string;
@@ -120,7 +120,7 @@ export class CreateServiceInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
-  location: string;
+  location: string | number;
   date: string;
   vendor?: string;
   brand?: string;

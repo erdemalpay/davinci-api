@@ -23,7 +23,7 @@ export class ServiceInvoice extends Document {
   quantity: number;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  location: string | number;
 
   @Prop({ required: false, type: String, ref: Vendor.name })
   vendor: string;

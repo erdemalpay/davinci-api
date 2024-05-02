@@ -25,7 +25,7 @@ export class FixtureInvoice extends Document {
   brand: string;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  location: string | number;
 
   @Prop({ required: false, type: String, ref: Vendor.name })
   vendor: string;

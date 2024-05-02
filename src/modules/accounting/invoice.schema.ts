@@ -38,7 +38,7 @@ export class Invoice extends Document {
   packageType: string;
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  location: string | number;
 
   @Prop({ required: false })
   note: string;
