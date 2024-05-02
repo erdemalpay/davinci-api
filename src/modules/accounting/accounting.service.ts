@@ -622,7 +622,6 @@ export class AccountingService {
           { new: true },
         );
       }
-
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
       console.error(
