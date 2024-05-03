@@ -867,8 +867,10 @@ export class AccountingService {
         expenseType: product?.expenseType,
         vendor: product?.vendor,
         brand: product?.brand,
-        unit: product?.unit,
-        packages: product?.packages,
+        unit: product?.unit ?? 'birim',
+        packages: product?.packages ?? [
+          { package: 'birim', packageUnitPrice: 0 },
+        ],
       });
     }
 
@@ -951,7 +953,7 @@ export class AccountingService {
         vendor: invoice?.vendor,
         brand: invoice?.brand,
         note: invoice?.note,
-        packageType: invoice?.packageType,
+        packageType: invoice?.packageType ?? 'birim',
       });
 
       try {
@@ -992,8 +994,10 @@ export class AccountingService {
         expenseType: fixture?.expenseType,
         vendor: fixture?.vendor,
         brand: fixture?.brand,
-        unit: fixture?.unit,
-        packages: fixture?.packages,
+        unit: fixture?.unit ?? 'birim',
+        packages: fixture?.packages ?? [
+          { package: 'birim', packageUnitPrice: 0 },
+        ],
       });
     }
 
@@ -1015,7 +1019,7 @@ export class AccountingService {
         brand: invoice?.brand,
         vendor: invoice?.vendor,
         note: invoice?.note,
-        packageType: invoice?.packageType,
+        packageType: invoice?.packageType ?? 'birim',
       });
 
       try {
@@ -1056,8 +1060,10 @@ export class AccountingService {
         expenseType: service?.expenseType,
         vendor: service?.vendor,
         brand: service?.brand,
-        unit: service?.unit,
-        packages: service?.packages,
+        unit: service?.unit ?? 'birim',
+        packages: service?.packages ?? [
+          { package: 'birim', packageUnitPrice: 0 },
+        ],
       });
     }
 
@@ -1079,7 +1085,7 @@ export class AccountingService {
         brand: invoice?.brand,
         vendor: invoice?.vendor,
         note: invoice?.note,
-        packageType: invoice?.packageType,
+        packageType: invoice?.packageType ?? 'birim',
       });
 
       try {
