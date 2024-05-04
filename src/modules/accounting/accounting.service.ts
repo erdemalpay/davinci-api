@@ -1142,6 +1142,7 @@ export class AccountingService {
     const stock = await this.stockModel.find({
       product: consumptStockDto.product,
       location: consumptStockDto.location,
+      packageType: consumptStockDto.packageType,
     });
     // if stock exist update quantity
     if (stock.length > 0) {
@@ -1153,6 +1154,7 @@ export class AccountingService {
       const newStock = await this.createStock({
         product: consumptStockDto.product,
         location: consumptStockDto.location,
+        packageType: consumptStockDto.packageType,
         quantity: -consumptStockDto.quantity,
       });
       return newStock;
