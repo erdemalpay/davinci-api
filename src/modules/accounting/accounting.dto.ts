@@ -87,6 +87,7 @@ export class ConsumptStockDto {
   product: string;
   location: string;
   quantity: number;
+  packageType: string;
 }
 
 export class CreateInvoiceDto {
