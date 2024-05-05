@@ -791,7 +791,7 @@ export class AccountingService {
         parseFloat(
           (
             productInvoices[1]?.totalExpense /
-            (productInvoices[1]?.quantity * packageType.quantity)
+            (productInvoices[1]?.quantity * (packageType?.quantity ?? 1))
           )?.toFixed(4),
         ) ?? 0;
       const product = await this.productModel.findById(invoice.product);
@@ -819,7 +819,7 @@ export class AccountingService {
             if (foundPackage) {
               const expense =
                 item.quantity *
-                item.packageType.quantity *
+                (item.packageType?.quantity ?? 1) *
                 foundPackage.packageUnitPrice;
               acc.productStockOverallExpense += expense;
 
