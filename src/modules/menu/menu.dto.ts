@@ -1,5 +1,6 @@
 export class CreateCategoryDto {
   name: string;
+  locations: number[];
 }
 
 export class CreateItemDto {

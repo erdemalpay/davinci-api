@@ -13,6 +13,9 @@ export class MenuCategory extends Document {
   @Prop({ required: true, type: Number })
   order: number;
 
+  @Prop({ required: true, default: [] })
+  locations: number[];
+
   @Prop({ type: String })
   imageUrl: string;
 }
