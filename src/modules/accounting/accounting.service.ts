@@ -972,8 +972,8 @@ export class AccountingService {
     }
 
     try {
-      await this.removeProduct(foundInvoice.product);
       await this.removeProductStocks(foundInvoice.product);
+      await this.removeProduct(foundInvoice.product);
     } catch (error) {
       throw new Error(`Failed to remove the product: ${error.message}`);
     }
@@ -1039,8 +1039,8 @@ export class AccountingService {
     }
 
     try {
-      await this.removeFixture(foundInvoice.fixture);
       await this.removeFixtureFixtureStocks(foundInvoice.fixture);
+      await this.removeFixture(foundInvoice.fixture);
     } catch (error) {
       throw new Error(`Failed to remove the fixture: ${error.message}`);
     }
