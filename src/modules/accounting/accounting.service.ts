@@ -873,7 +873,7 @@ export class AccountingService {
         expenseType: product?.expenseType,
         vendor: product?.vendor,
         brand: product?.brand,
-        unit: product?.unit ?? 'birim',
+        unit: product?.unit ?? 'adet',
         packages: product?.packages ?? [
           { package: 'birim', packageUnitPrice: 0 },
         ],
@@ -1000,7 +1000,7 @@ export class AccountingService {
         expenseType: fixture?.expenseType,
         vendor: fixture?.vendor,
         brand: fixture?.brand,
-        unit: fixture?.unit ?? 'birim',
+        unit: fixture?.unit ?? 'adet',
         packages: fixture?.packages ?? [
           { package: 'birim', packageUnitPrice: 0 },
         ],
@@ -1066,7 +1066,7 @@ export class AccountingService {
         expenseType: service?.expenseType,
         vendor: service?.vendor,
         brand: service?.brand,
-        unit: service?.unit ?? 'birim',
+        unit: service?.unit ?? 'adet',
         packages: service?.packages ?? [
           { package: 'birim', packageUnitPrice: 0 },
         ],
