@@ -114,6 +114,11 @@ export class MenuService {
       new: true,
     });
   }
+  async updateCategoryLocations() {
+    await this.categoryModel.updateMany({
+      $set: { locations: [1, 2] },
+    });
+  }
   async updateMenuItemProduct(stayedProduct: string, removedProduct: string) {
     const items = await this.itemModel.find();
 

@@ -44,6 +44,11 @@ export class MenuController {
     return this.menuService.setOrder();
   }
 
+  @Get('/categories/setLocation')
+  setLocation() {
+    return this.menuService.updateCategoryLocations();
+  }
+
   @Patch('/categories/:id')
   updateCategory(
     @Param('id') id: number,
