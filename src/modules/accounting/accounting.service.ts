@@ -810,36 +810,39 @@ export class AccountingService {
       const productStocks = await this.stockModel
         .find({ product: invoice.product })
         .populate('packageType');
-      // calculation the stock overall
-      const { productStockOverallExpense, productStockOverallTotal } =
-        productStocks.reduce(
-          (acc, item) => {
-            const foundPackage = product.packages.find(
-              (pckg) => pckg.package === item?.packageType?._id,
-            );
+      if (productStocks.length > 0) {
+        // calculation the stock overall
+        const { productStockOverallExpense, productStockOverallTotal } =
+          productStocks.reduce(
+            (acc, item) => {
+              const foundPackage = product.packages.find(
+                (pckg) => pckg.package === item?.packageType?._id,
+              );
 
-            if (foundPackage) {
-              const expense =
-                item.quantity *
-                (item.packageType?.quantity ?? 1) *
-                foundPackage?.packageUnitPrice;
+              if (foundPackage) {
+                const expense =
+                  (item?.quantity > 0 ? item?.quantity : 0) *
+                  (item.packageType?.quantity ?? 1) *
+                  foundPackage?.packageUnitPrice;
 
-              acc.productStockOverallExpense += expense;
+                acc.productStockOverallExpense += expense;
 
-              const total = item?.quantity * item.packageType?.quantity;
-              acc.productStockOverallTotal += total;
-            }
-
-            return acc;
-          },
-          { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+                const total =
+                  (item?.quantity > 0 ? item?.quantity : 0) *
+                  (item.packageType?.quantity ?? 1);
+                acc.productStockOverallTotal += total;
+              }
+              return acc;
+            },
+            { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+          );
+        product.unitPrice = parseFloat(
+          (
+            (productStockOverallExpense > 0 ? productStockOverallExpense : 0) /
+            (productStockOverallTotal > 0 ? productStockOverallTotal : 1)
+          ).toFixed(4),
         );
-      product.unitPrice = parseFloat(
-        (
-          productStockOverallExpense /
-          (productStockOverallTotal !== 0 ? productStockOverallTotal : 1)
-        ).toFixed(4),
-      );
+      }
       await product.save();
     }
     // updating the stock quantity
