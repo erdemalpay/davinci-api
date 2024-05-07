@@ -911,6 +911,8 @@ export class AccountingService {
     }
 
     try {
+      await this.removeProductStocks(foundInvoice.product);
+      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(foundInvoice.product);
     } catch (error) {
       throw new Error(`Failed to remove the product: ${error.message}`);
@@ -973,6 +975,7 @@ export class AccountingService {
 
     try {
       await this.removeProductStocks(foundInvoice.product);
+      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(foundInvoice.product);
     } catch (error) {
       throw new Error(`Failed to remove the product: ${error.message}`);
@@ -1148,7 +1151,7 @@ export class AccountingService {
   async removeProductStocks(id: string) {
     const productStocks = await this.stockModel.find({ product: id });
     for (const stock of productStocks) {
-      await this.removeStock(stock.id);
+      await this.stockModel.findByIdAndRemove(stock.id);
     }
   }
 
@@ -1208,7 +1211,7 @@ export class AccountingService {
       fixture: id,
     });
     for (const stock of fixtureFixtureStocks) {
-      await this.removeFixtureStock(stock.id);
+      await this.fixtureStockModel.findByIdAndRemove(stock.id);
     }
   }
   // stockLocation
