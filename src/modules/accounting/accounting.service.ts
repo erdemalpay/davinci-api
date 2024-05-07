@@ -973,6 +973,7 @@ export class AccountingService {
 
     try {
       await this.removeProduct(foundInvoice.product);
+      await this.removeProductStocks(foundInvoice.product);
     } catch (error) {
       throw new Error(`Failed to remove the product: ${error.message}`);
     }
@@ -1039,6 +1040,7 @@ export class AccountingService {
 
     try {
       await this.removeFixture(foundInvoice.fixture);
+      await this.removeFixtureFixtureStocks(foundInvoice.fixture);
     } catch (error) {
       throw new Error(`Failed to remove the fixture: ${error.message}`);
     }
@@ -1143,6 +1145,12 @@ export class AccountingService {
   removeStock(id: string) {
     return this.stockModel.findByIdAndRemove(id);
   }
+  async removeProductStocks(id: string) {
+    const productStocks = await this.stockModel.find({ product: id });
+    for (const stock of productStocks) {
+      await this.removeStock(stock.id);
+    }
+  }
 
   async consumptStock(consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
@@ -1194,6 +1202,14 @@ export class AccountingService {
   }
   removeFixtureStock(id: string) {
     return this.fixtureStockModel.findByIdAndRemove(id);
+  }
+  async removeFixtureFixtureStocks(id: string) {
+    const fixtureFixtureStocks = await this.fixtureStockModel.find({
+      fixture: id,
+    });
+    for (const stock of fixtureFixtureStocks) {
+      await this.removeFixtureStock(stock.id);
+    }
   }
   // stockLocation
   findAllStockLocations() {
