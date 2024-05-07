@@ -257,7 +257,8 @@ export class AccountingService {
   findAllFixtureInvoices() {
     return this.fixtureInvoiceModel
       .find()
-      .populate('fixture expenseType brand vendor location');
+      .populate('fixture expenseType brand vendor location')
+      .sort({ date: -1 });
   }
   async createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
     try {
@@ -368,7 +369,8 @@ export class AccountingService {
   findAllServiceInvoices() {
     return this.serviceInvoiceModel
       .find()
-      .populate('service expenseType vendor location');
+      .populate('service expenseType vendor location')
+      .sort({ date: -1 });
   }
   async createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
     try {
@@ -791,7 +793,7 @@ export class AccountingService {
         parseFloat(
           (
             productInvoices[1]?.totalExpense /
-            (productInvoices[1]?.quantity * packageType.quantity)
+            (productInvoices[1]?.quantity * packageType?.quantity)
           )?.toFixed(4),
         ) ?? 0;
       const product = await this.productModel.findById(invoice.product);
@@ -819,11 +821,11 @@ export class AccountingService {
             if (foundPackage) {
               const expense =
                 item.quantity *
-                item.packageType.quantity *
-                foundPackage.packageUnitPrice;
+                item.packageType?.quantity *
+                foundPackage?.packageUnitPrice;
               acc.productStockOverallExpense += expense;
 
-              const total = item.quantity * item.packageType.quantity;
+              const total = item?.quantity * item.packageType?.quantity;
               acc.productStockOverallTotal += total;
             }
 
