@@ -160,6 +160,10 @@ export class AccountingService {
     });
   }
   async removeProduct(id: string) {
+    await this.checkIsProductRemovable(id);
+    return this.productModel.findByIdAndRemove(id);
+  }
+  async checkIsProductRemovable(id: string) {
     const invoices = await this.invoiceModel.find({ product: id });
     const menuItems = await this.MenuService.findAllItems();
     const stocks = await this.stockModel.find({ product: id });
@@ -178,14 +182,9 @@ export class AccountingService {
     if (stocks.length > 0) {
       throw new Error('Cannot remove product with stock');
     }
-    if (
-      countlists.filter((countlist) =>
-        countlist.products.some((count) => count === id),
-      ).length > 0
-    ) {
+    if (countlists.some((countlist) => countlist.products.includes(id))) {
       throw new Error('Cannot remove product with countlists');
     }
-    return this.productModel.findByIdAndRemove(id);
   }
   //   Units
   findAllUnits() {
@@ -224,11 +223,14 @@ export class AccountingService {
     });
   }
   async removeFixture(id: string) {
+    await this.checkIsFixtureRemovable(id);
+    return this.fixtureModel.findByIdAndRemove(id);
+  }
+  async checkIsFixtureRemovable(id: string) {
     const invoices = await this.fixtureInvoiceModel.find({ fixture: id });
     if (invoices.length > 0) {
       throw new Error('Cannot remove fixture with invoices');
     }
-    return this.fixtureModel.findByIdAndRemove(id);
   }
   // Services
   findAllServices() {
@@ -929,7 +931,6 @@ export class AccountingService {
     if (!product) {
       throw new Error('Product not found');
     }
-
     let service = await this.serviceModel.findById(usernamify(product.name));
     if (!service) {
       service = await this.createService({
