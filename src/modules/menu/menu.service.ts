@@ -35,6 +35,7 @@ export class MenuService {
     return this.categoryModel.create({
       ...createCategoryDto,
       order: lastCategory ? lastCategory.order + 1 : 1,
+      locations: [1, 2],
     });
   }
 
@@ -44,17 +45,21 @@ export class MenuService {
     });
   }
   async removeCategory(id: number) {
-    const categories = await this.categoryModel.find();
-    const deletedCategory = categories.find(
-      (category) => category._id.toString() === id.toString(),
-    );
-    categories.forEach(async (category) => {
-      if (category.order > deletedCategory.order) {
-        await this.categoryModel.findByIdAndUpdate(category._id, {
-          order: category.order - 1,
-        });
-      }
-    });
+    try {
+      const categories = await this.categoryModel.find();
+      const deletedCategory = categories.find(
+        (category) => category._id.toString() === id.toString(),
+      );
+      categories?.forEach(async (category) => {
+        if (category?.order > deletedCategory?.order) {
+          await this.categoryModel.findByIdAndUpdate(category._id, {
+            order: category?.order - 1,
+          });
+        }
+      });
+    } catch (error) {
+      throw new Error('Problem occured while deleting category');
+    }
     return this.categoryModel.findByIdAndRemove(id);
   }
 

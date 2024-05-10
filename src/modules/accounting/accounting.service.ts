@@ -112,7 +112,7 @@ export class AccountingService {
     }
     if (
       countlists.filter((countlist) =>
-        countlist.products.some((count) => count === removedProduct),
+        countlist.products.some((count) => count.product === removedProduct),
       ).length > 0
     ) {
       throw new Error('Cannot remove product with countlists');
@@ -182,7 +182,11 @@ export class AccountingService {
     if (stocks.length > 0) {
       throw new Error('Cannot remove product with stock');
     }
-    if (countlists.some((countlist) => countlist.products.includes(id))) {
+    if (
+      countlists.some((item) =>
+        item.products.some((itemProduct) => itemProduct.product === id),
+      )
+    ) {
       throw new Error('Cannot remove product with countlists');
     }
   }
@@ -1236,10 +1240,11 @@ export class AccountingService {
   createCountList(createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);
+    countList.locations = ['bahceli', 'neorama'];
     return countList.save();
   }
   findAllCountLists() {
-    return this.countListModel.find().populate('location');
+    return this.countListModel.find();
   }
   updateCountList(id: string, updates: UpdateQuery<CountList>) {
     return this.countListModel.findByIdAndUpdate(id, updates, {

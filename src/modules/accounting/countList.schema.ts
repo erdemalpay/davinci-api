@@ -3,6 +3,15 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
+
+export class CountListsProduct {
+  @Prop({ required: true, type: Number, ref: Product.name })
+  product: string;
+
+  @Prop({ required: true, type: [{ type: String, ref: StockLocation.name }] })
+  locations: string[];
+}
+
 @Schema({ _id: false })
 export class CountList extends Document {
   @Prop({ type: String })
@@ -11,11 +20,11 @@ export class CountList extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
-  @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  @Prop({ required: true, type: [{ type: String, ref: StockLocation.name }] })
+  locations: string[];
 
-  @Prop({ required: false, type: [{ type: String, ref: Product.name }] })
-  products: string[];
+  @Prop([CountListsProduct])
+  products: CountListsProduct[];
 }
 
 export const CountListSchema = SchemaFactory.createForClass(CountList);

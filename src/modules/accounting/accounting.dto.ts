@@ -1,3 +1,4 @@
+import { CountListsProduct } from './countList.schema';
 import { PackageType } from './product.schema';
 
 export class CreateProductDto {
@@ -48,8 +49,7 @@ export class CreateVendorDto {
 
 export class CreateCountListDto {
   name: string;
-  location: string;
-  products?: string[];
+  products?: CountListsProduct[];
 }
 export class CreateCountDto {
   user: string;
