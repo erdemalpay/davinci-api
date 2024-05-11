@@ -161,6 +161,7 @@ export class AccountingService {
   }
   async removeProduct(id: string) {
     await this.checkIsProductRemovable(id);
+    await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
     return this.productModel.findByIdAndRemove(id);
   }
   async checkIsProductRemovable(id: string) {
@@ -180,7 +181,12 @@ export class AccountingService {
       throw new Error('Cannot remove product with invoices');
     }
     if (stocks.length > 0) {
-      throw new Error('Cannot remove product with stock');
+      const stockQuantity = stocks.reduce((acc, stock) => {
+        return acc + stock.quantity;
+      }, 0);
+      if (stockQuantity > 0) {
+        throw new Error('Cannot remove product with stock');
+      }
     }
     if (
       countlists.some((item) =>
@@ -228,12 +234,22 @@ export class AccountingService {
   }
   async removeFixture(id: string) {
     await this.checkIsFixtureRemovable(id);
+    await this.fixtureStockModel.deleteMany({ fixture: id }); //removing the 0 amount stocks of the fixture
     return this.fixtureModel.findByIdAndRemove(id);
   }
   async checkIsFixtureRemovable(id: string) {
     const invoices = await this.fixtureInvoiceModel.find({ fixture: id });
+    const stocks = await this.fixtureStockModel.find({ fixture: id });
     if (invoices.length > 0) {
       throw new Error('Cannot remove fixture with invoices');
+    }
+    if (stocks.length > 0) {
+      const stockQuantity = stocks.reduce((acc, stock) => {
+        return acc + stock.quantity;
+      }, 0);
+      if (stockQuantity > 0) {
+        throw new Error('Cannot remove product with stock');
+      }
     }
   }
   // Services
