@@ -50,7 +50,12 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findById(id);
     return user.active;
   }
-
+  async resetUserPassword(id: string) {
+    const hashedNewPassword = await hash('dv', 10);
+    return this.update(id, {
+      password: hashedNewPassword,
+    });
+  }
   async updateUserGames(
     user: User,
     gameId: number,
