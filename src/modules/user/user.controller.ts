@@ -39,6 +39,10 @@ export class UserController {
   ) {
     return this.userService.updatePassword(user, oldPassword, newPassword);
   }
+  @Post('/resetPassword')
+  resetUserPassword(@Body('id') id: string) {
+    return this.userService.resetUserPassword(id);
+  }
 
   @Patch('/games')
   updateUserGames(
