@@ -264,7 +264,7 @@ export class AccountingService {
     return this.fixtureInvoiceModel
       .find()
       .populate('fixture expenseType brand vendor location')
-      .sort({ date: -1 });
+      .sort({ _id: -1 });
   }
   async createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
     try {
@@ -376,7 +376,7 @@ export class AccountingService {
     return this.serviceInvoiceModel
       .find()
       .populate('service expenseType vendor location')
-      .sort({ date: -1 });
+      .sort({ _id: -1 });
   }
   async createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
     try {
@@ -560,7 +560,7 @@ export class AccountingService {
     return this.invoiceModel
       .find()
       .populate('product expenseType brand vendor location packageType')
-      .sort({ date: -1 });
+      .sort({ _id: -1 });
   }
   async createInvoice(createInvoiceDto: CreateInvoiceDto) {
     try {
@@ -608,7 +608,7 @@ export class AccountingService {
             productStocks.reduce(
               (acc, item) => {
                 const foundPackage = product.packages.find(
-                  (pckg) => pckg.package === item.packageType._id,
+                  (pckg) => pckg.package === item?.packageType?._id,
                 );
 
                 if (foundPackage) {
@@ -671,7 +671,7 @@ export class AccountingService {
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    if (updates.quantity || updates.totalExpense) {
+    if (updates.quantity && updates.totalExpense) {
       const ProductLastInvoice = await this.invoiceModel
         .find({ product: invoice.product, packageType: invoice?.packageType })
         .sort({ date: -1 })
@@ -711,7 +711,7 @@ export class AccountingService {
             productStocks.reduce(
               (acc, item) => {
                 const foundPackage = product.packages.find(
-                  (pckg) => pckg.package === item.packageType._id,
+                  (pckg) => pckg.package === item?.packageType?._id,
                 );
 
                 if (foundPackage) {
