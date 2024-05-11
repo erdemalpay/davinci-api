@@ -46,6 +46,10 @@ export class UserService implements OnModuleInit {
       password: hashedNewPassword,
     });
   }
+  async checkUserActive(id: string) {
+    const user = await this.userModel.findById(id);
+    return user.active;
+  }
 
   async updateUserGames(
     user: User,

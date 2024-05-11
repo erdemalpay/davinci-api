@@ -21,9 +21,11 @@ export class AuthService {
     const payload = {
       username: user._id,
     };
-
+    const isUserActive = await this.userService.checkUserActive(user._id);
+    if (!isUserActive) {
+      throw new Error(`User ${user._id} is not active`);
+    }
     this.activityService.addActivity(user, ActivityType.LOGIN, null);
-
     return {
       access_token: this.jwtService.sign(payload),
     };
