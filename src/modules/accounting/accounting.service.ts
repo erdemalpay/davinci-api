@@ -1,3 +1,4 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
@@ -80,8 +81,10 @@ export class AccountingService {
       await product.save();
       return product;
     } catch (error) {
-      console.error('Failed to create product:', error);
-      throw new Error('Failed to create product');
+      throw new HttpException(
+        'Failed to create product',
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
   async joinProducts(JoinProductDto: JoinProductDto) {
@@ -91,7 +94,7 @@ export class AccountingService {
 
     //checking the units
     if (product.unit !== removedProductDoc.unit) {
-      throw new Error('Unit must be the same');
+      throw new HttpException('Unit must be the same', HttpStatus.BAD_REQUEST);
     }
     // updating countLists
     const countLists = await this.countListModel.find({
@@ -192,17 +195,26 @@ export class AccountingService {
         item.itemProduction.some((itemProduct) => itemProduct.product === id),
       )
     ) {
-      throw new Error('Cannot remove product with menu items');
+      throw new HttpException(
+        'Cannot remove product with menu items',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     if (invoices.length > 0) {
-      throw new Error('Cannot remove product with invoices');
+      throw new HttpException(
+        'Cannot remove product with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     if (stocks.length > 0) {
       const stockQuantity = stocks.reduce((acc, stock) => {
         return acc + stock.quantity;
       }, 0);
       if (stockQuantity > 0) {
-        throw new Error('Cannot remove product with stock');
+        throw new HttpException(
+          'Cannot remove product with stock',
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
     if (
@@ -210,7 +222,10 @@ export class AccountingService {
         item.products.some((itemProduct) => itemProduct.product === id),
       )
     ) {
-      throw new Error('Cannot remove product with countlists');
+      throw new HttpException(
+        'Cannot remove product with countlists',
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
   //   Units
@@ -230,7 +245,10 @@ export class AccountingService {
   async removeUnit(id: string) {
     const products = await this.productModel.find({ unit: id });
     if (products.length > 0) {
-      throw new Error('Cannot remove unit with products');
+      throw new HttpException(
+        'Cannot remove unit with products',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.unitModel.findByIdAndRemove(id);
   }
@@ -258,14 +276,20 @@ export class AccountingService {
     const invoices = await this.fixtureInvoiceModel.find({ fixture: id });
     const stocks = await this.fixtureStockModel.find({ fixture: id });
     if (invoices.length > 0) {
-      throw new Error('Cannot remove fixture with invoices');
+      throw new HttpException(
+        'Cannot remove fixture with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     if (stocks.length > 0) {
       const stockQuantity = stocks.reduce((acc, stock) => {
         return acc + stock.quantity;
       }, 0);
       if (stockQuantity > 0) {
-        throw new Error('Cannot remove product with stock');
+        throw new HttpException(
+          'Cannot remove product with stock',
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
   }
@@ -288,7 +312,10 @@ export class AccountingService {
   async removeService(id: string) {
     const invoices = await this.serviceInvoiceModel.find({ service: id });
     if (invoices.length > 0) {
-      throw new Error('Cannot remove service with invoices');
+      throw new HttpException(
+        'Cannot remove service with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.serviceModel.findByIdAndRemove(id);
   }
@@ -330,17 +357,16 @@ export class AccountingService {
       });
       return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
     } catch (error) {
-      console.error(
-        `Failed to create invoice: ${createFixtureInvoiceDto.fixture}`,
-        error,
+      throw new HttpException(
+        'Invoice creation failed.',
+        HttpStatus.BAD_REQUEST,
       );
-      throw new Error('Invoice creation failed.');
     }
   }
   async updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
     const invoice = await this.fixtureInvoiceModel.findById(id);
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     if (updates.quantity || updates.totalExpense) {
       const FixtureLastInvoice = await this.fixtureInvoiceModel
@@ -374,7 +400,7 @@ export class AccountingService {
   async removeFixtureInvoice(id: number) {
     const invoice = await this.fixtureInvoiceModel.findById(id);
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     const FixtureLastInvoice = await this.fixtureInvoiceModel
       .find({ fixture: invoice.fixture })
@@ -436,18 +462,17 @@ export class AccountingService {
       }
       return this.serviceInvoiceModel.create(createServiceInvoiceDto);
     } catch (error) {
-      console.error(
-        `Failed to create invoice: ${createServiceInvoiceDto.service}`,
-        error,
+      throw new HttpException(
+        'Invoice creation failed.',
+        HttpStatus.BAD_REQUEST,
       );
-      throw new Error('Invoice creation failed.');
     }
   }
   async updateServiceInvoice(id: string, updates: UpdateQuery<ServiceInvoice>) {
     if (updates.quantity || updates.totalExpense) {
       const invoice = await this.serviceInvoiceModel.findById(id);
       if (!invoice) {
-        throw new Error('Invoice not found');
+        throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
       }
       const ServiceLastInvoice = await this.serviceInvoiceModel
         .find({ service: invoice.service })
@@ -472,7 +497,7 @@ export class AccountingService {
   async removeServiceInvoice(id: number) {
     const invoice = await this.serviceInvoiceModel.findById(id);
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     const ServiceLastInvoice = await this.serviceInvoiceModel
       .find({ service: invoice.service })
@@ -514,7 +539,10 @@ export class AccountingService {
   async removeExpenseType(id: string) {
     const invoices = await this.invoiceModel.find({ expenseType: id });
     if (invoices.length > 0) {
-      throw new Error('Cannot remove expense type with invoices');
+      throw new HttpException(
+        'Cannot remove expense type with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.expenseTypeModel.findByIdAndRemove(id);
   }
@@ -537,7 +565,10 @@ export class AccountingService {
       brand: id,
     });
     if (products.length > 0) {
-      throw new Error('Cannot remove brand with products');
+      throw new HttpException(
+        'Cannot remove brand with products',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.brandModel.findByIdAndRemove(id);
   }
@@ -561,7 +592,10 @@ export class AccountingService {
       vendor: id,
     });
     if (products.length > 0) {
-      throw new Error('Cannot remove vendor with products');
+      throw new HttpException(
+        'Cannot remove vendor with products',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.vendorModel.findByIdAndRemove(id);
   }
@@ -584,7 +618,10 @@ export class AccountingService {
       product.packages.find((p) => p.package === id),
     );
     if (products.length > 0) {
-      throw new Error('Cannot remove package type with products');
+      throw new HttpException(
+        'Cannot remove package type with products',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.packageTypeModel.findByIdAndRemove(id);
   }
@@ -691,18 +728,17 @@ export class AccountingService {
       });
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
-      console.error(
-        `Failed to create invoice: ${createInvoiceDto.product}`,
-        error,
+      throw new HttpException(
+        'Invoice creation failed.',
+        HttpStatus.BAD_REQUEST,
       );
-      throw new Error('Invoice creation failed.');
     }
   }
 
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
     const invoice = await this.invoiceModel.findById(id);
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     if (updates.quantity && updates.totalExpense) {
       const ProductLastInvoice = await this.invoiceModel
@@ -799,7 +835,7 @@ export class AccountingService {
   async removeInvoice(id: number) {
     const invoice = await this.invoiceModel.findById(id);
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     const ProductLastInvoice = await this.invoiceModel
       .find({ product: invoice.product })
@@ -896,12 +932,12 @@ export class AccountingService {
   async transferInvoiceToFixtureInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
 
     const product = await this.productModel.findById(foundInvoice.product);
     if (!product) {
-      throw new Error('Product not found');
+      throw new HttpException('Product not found', HttpStatus.BAD_REQUEST);
     }
 
     let fixture = await this.fixtureModel.findById(usernamify(product.name));
@@ -923,7 +959,10 @@ export class AccountingService {
       product: foundInvoice.product,
     });
     if (invoices.length === 0) {
-      throw new Error('No invoices found for the product');
+      throw new HttpException(
+        'No invoices found for the product',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     for (const invoice of invoices) {
@@ -943,8 +982,9 @@ export class AccountingService {
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        console.error(
-          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
         );
       }
     }
@@ -954,19 +994,22 @@ export class AccountingService {
       await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(foundInvoice.product);
     } catch (error) {
-      throw new Error(`Failed to remove the product: ${error.message}`);
+      throw new HttpException(
+        `Failed to remove the product`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
   async transferInvoiceToServiceInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
 
     const product = await this.productModel.findById(foundInvoice.product);
     if (!product) {
-      throw new Error('Product not found');
+      throw new HttpException('Product not found', HttpStatus.BAD_REQUEST);
     }
     let service = await this.serviceModel.findById(usernamify(product.name));
     if (!service) {
@@ -985,7 +1028,10 @@ export class AccountingService {
       product: foundInvoice.product,
     });
     if (invoices.length === 0) {
-      throw new Error('No invoices found for the product');
+      throw new HttpException(
+        'No invoices found for the product',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     for (const invoice of invoices) {
@@ -1005,8 +1051,9 @@ export class AccountingService {
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        console.error(
-          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
         );
       }
     }
@@ -1016,19 +1063,22 @@ export class AccountingService {
       await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(foundInvoice.product);
     } catch (error) {
-      throw new Error(`Failed to remove the product: ${error.message}`);
+      throw new HttpException(
+        `Failed to remove the product`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
   async transferFixtureInvoiceToInvoice(id: number) {
     const foundInvoice = await this.fixtureInvoiceModel.findById(id);
     if (!foundInvoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
 
     const fixture = await this.fixtureModel.findById(foundInvoice.fixture);
     if (!fixture) {
-      throw new Error('Fixture not found');
+      throw new HttpException('Fixture not found', HttpStatus.BAD_REQUEST);
     }
 
     let product = await this.productModel.findById(
@@ -1053,7 +1103,10 @@ export class AccountingService {
       fixture: foundInvoice.fixture,
     });
     if (invoices.length === 0) {
-      throw new Error('No invoices found for the fixture');
+      throw new HttpException(
+        'No invoices found for the fixture',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     for (const invoice of invoices) {
@@ -1073,8 +1126,9 @@ export class AccountingService {
       try {
         await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        console.error(
-          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
         );
       }
     }
@@ -1083,19 +1137,22 @@ export class AccountingService {
       await this.removeFixtureFixtureStocks(foundInvoice.fixture);
       await this.removeFixture(foundInvoice.fixture);
     } catch (error) {
-      throw new Error(`Failed to remove the fixture: ${error.message}`);
+      throw new HttpException(
+        `Failed to remove the fixture`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
   async transferServiceInvoiceToInvoice(id: number) {
     const foundInvoice = await this.serviceInvoiceModel.findById(id);
     if (!foundInvoice) {
-      throw new Error('Invoice not found');
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
 
     const service = await this.serviceModel.findById(foundInvoice.service);
     if (!service) {
-      throw new Error('Service not found');
+      throw new HttpException('Service not found', HttpStatus.BAD_REQUEST);
     }
 
     let product = await this.productModel.findById(
@@ -1120,7 +1177,10 @@ export class AccountingService {
       service: foundInvoice.service,
     });
     if (!invoices.length) {
-      throw new Error('No invoices found for the service');
+      throw new HttpException(
+        'No invoices found for the service',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     for (const invoice of invoices) {
@@ -1149,8 +1209,9 @@ export class AccountingService {
     try {
       await this.removeFixture(foundInvoice.service);
     } catch (error) {
-      throw new Error(
-        `Failed to remove the service associated with the invoice: ${error.message}`,
+      throw new HttpException(
+        `Failed to remove the service associated with the invoice`,
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -1287,7 +1348,10 @@ export class AccountingService {
   async removeCountList(id: string) {
     const counts = await this.countModel.find({ countList: id });
     if (counts.length > 0) {
-      throw new Error('Cannot remove a count list');
+      throw new HttpException(
+        'Cannot remove a count list',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return this.countListModel.findByIdAndRemove(id);
   }
