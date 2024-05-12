@@ -125,33 +125,33 @@ export class AccountingService {
 
     product.brand = [
       ...new Set([
-        ...product?.brand,
-        ...removedProductDoc?.brand?.filter(
-          (item) => !product?.brand.includes(item),
+        ...product.brand,
+        ...removedProductDoc.brand.filter(
+          (item) => !product.brand.includes(item),
         ),
       ]),
     ];
     product.vendor = [
       ...new Set([
-        ...product?.vendor,
-        ...removedProductDoc?.vendor?.filter(
-          (item) => !product?.vendor.includes(item),
+        ...product.vendor,
+        ...removedProductDoc.vendor.filter(
+          (item) => !product.vendor.includes(item),
         ),
       ]),
     ];
     product.expenseType = [
       ...new Set([
-        ...product?.expenseType,
-        ...removedProductDoc?.expenseType?.filter(
-          (item) => !product?.expenseType.includes(item),
+        ...product.expenseType,
+        ...removedProductDoc.expenseType.filter(
+          (item) => !product.expenseType.includes(item),
         ),
       ]),
     ];
     product.packages = [
       ...new Set([
         ...product.packages,
-        ...removedProductDoc?.packages?.filter(
-          (item) => !product?.packages.some((p) => p.package === item.package),
+        ...removedProductDoc.packages.filter(
+          (item) => !product.packages.some((p) => p.package === item.package),
         ),
       ]),
     ];
