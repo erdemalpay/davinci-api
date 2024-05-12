@@ -120,18 +120,40 @@ export class AccountingService {
     );
     //update menu items
     await this.MenuService.updateMenuItemProduct(stayedProduct, removedProduct);
+
     // update product
+
     product.brand = [
-      ...new Set([...product.brand, ...removedProductDoc.brand]),
+      ...new Set([
+        ...product?.brand,
+        ...removedProductDoc?.brand?.filter(
+          (item) => !product?.brand.includes(item),
+        ),
+      ]),
     ];
     product.vendor = [
-      ...new Set([...product.vendor, ...removedProductDoc.vendor]),
+      ...new Set([
+        ...product?.vendor,
+        ...removedProductDoc?.vendor?.filter(
+          (item) => !product?.vendor.includes(item),
+        ),
+      ]),
     ];
     product.expenseType = [
-      ...new Set([...product.expenseType, ...removedProductDoc.expenseType]),
+      ...new Set([
+        ...product?.expenseType,
+        ...removedProductDoc?.expenseType?.filter(
+          (item) => !product?.expenseType.includes(item),
+        ),
+      ]),
     ];
     product.packages = [
-      ...new Set([...product.packages, ...removedProductDoc.packages]),
+      ...new Set([
+        ...product.packages,
+        ...removedProductDoc?.packages?.filter(
+          (item) => !product?.packages.some((p) => p.package === item.package),
+        ),
+      ]),
     ];
 
     // updating the unit price
