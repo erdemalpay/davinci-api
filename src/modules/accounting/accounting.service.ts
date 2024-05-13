@@ -657,11 +657,10 @@ export class AccountingService {
           const product = await this.productModel.findById(
             createInvoiceDto.product,
           );
-          product.packages = product.packages.filter(
-            (p) => p.package !== createInvoiceDto.packageType,
-          );
           product.packages = [
-            ...product.packages,
+            ...product.packages.filter(
+              (p) => p.package !== createInvoiceDto.packageType,
+            ),
             {
               package: createInvoiceDto.packageType,
               packageUnitPrice: updatedPackageTypeUnitPrice,
@@ -736,100 +735,18 @@ export class AccountingService {
   }
 
   async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
-    const invoice = await this.invoiceModel.findById(id);
-    if (!invoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-    }
-    if (updates.quantity && updates.totalExpense) {
-      const ProductLastInvoice = await this.invoiceModel
-        .find({ product: invoice.product, packageType: invoice?.packageType })
-        .sort({ date: -1 })
-        .limit(1);
-
-      if (ProductLastInvoice[0].date <= updates.date) {
-        let updatedUnitPrice: number;
-        if (updates?.packageType) {
-          const packageType = await this.packageTypeModel.findById(
-            updates.packageType,
-          );
-          const updatedPackageTypeUnitPrice = parseFloat(
-            (
-              updates.totalExpense /
-              (updates.quantity * packageType.quantity)
-            ).toFixed(4),
-          );
-          const product = await this.productModel.findById(updates.product);
-          product.packages = product.packages.filter(
-            (p) => p.package !== updates.packageType,
-          );
-          product.packages = [
-            ...product.packages,
-            {
-              package: updates.packageType,
-              packageUnitPrice: updatedPackageTypeUnitPrice,
-            },
-          ];
-          await product.save();
-
-          const productStocks = await this.stockModel
-            .find({ product: updates.product })
-            .populate('packageType');
-
-          // calculation the stock overall
-          const { productStockOverallExpense, productStockOverallTotal } =
-            productStocks.reduce(
-              (acc, item) => {
-                const foundPackage = product.packages.find(
-                  (pckg) => pckg.package === item?.packageType?._id,
-                );
-
-                if (foundPackage) {
-                  const expense =
-                    item.quantity *
-                    item.packageType.quantity *
-                    foundPackage.packageUnitPrice;
-                  acc.productStockOverallExpense += expense;
-                  const total = item.quantity * item.packageType.quantity;
-                  acc.productStockOverallTotal += total;
-                }
-
-                return acc;
-              },
-              { productStockOverallExpense: 0, productStockOverallTotal: 0 },
-            );
-          // adding invoice amount to total
-          const productExpense =
-            productStockOverallExpense + updates.totalExpense;
-          const productTotal =
-            productStockOverallTotal + updates.quantity * packageType.quantity;
-
-          updatedUnitPrice = parseFloat(
-            (productExpense / productTotal).toFixed(4),
-          );
-        } else {
-          updatedUnitPrice = parseFloat(
-            (updates.totalExpense / updates.quantity).toFixed(4),
-          );
-        }
-
-        await this.productModel.findByIdAndUpdate(
-          invoice.product,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-      }
-    }
-    // updating the stock quantity
-    if (updates.quantity) {
-      await this.createStock({
-        product: invoice.product,
-        location: invoice.location,
-        quantity: updates.quantity - invoice.quantity,
-        packageType: invoice?.packageType,
-      });
-    }
-    return this.invoiceModel.findByIdAndUpdate(id, updates, {
-      new: true,
+    await this.removeInvoice(id);
+    await this.createInvoice({
+      product: updates.product,
+      expenseType: updates.expenseType,
+      quantity: updates.quantity,
+      totalExpense: updates.totalExpense,
+      location: updates.location,
+      date: updates.date,
+      brand: updates?.brand,
+      vendor: updates?.vendor,
+      packageType: updates?.packageType,
+      note: updates?.note,
     });
   }
   async removeInvoice(id: number) {
@@ -837,97 +754,126 @@ export class AccountingService {
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
-    const ProductLastInvoice = await this.invoiceModel
-      .find({ product: invoice.product })
-      .sort({ date: -1 });
-
-    if (ProductLastInvoice[0]?._id === id && !invoice.packageType) {
-      await this.productModel.findByIdAndUpdate(
-        invoice.product,
-        {
-          unitPrice:
-            parseFloat(
-              (
-                ProductLastInvoice[1]?.totalExpense /
-                ProductLastInvoice[1]?.quantity
-              ).toFixed(4),
-            ) ?? 0,
-        },
-        {
-          new: true,
-        },
-      );
-    } else {
-      const packageType = await this.packageTypeModel.findById(
-        invoice.packageType,
-      );
-      const productInvoices = await this.invoiceModel
-        .find({ product: invoice.product, packageType: invoice.packageType })
-        .sort({ date: -1 });
-      const updatedPackageTypeUnitPrice =
-        parseFloat(
-          (
-            productInvoices[1]?.totalExpense /
-            (productInvoices[1]?.quantity * (packageType?.quantity ?? 1))
-          )?.toFixed(4),
-        ) ?? 0;
-      const product = await this.productModel.findById(invoice.product);
-      product.packages = product.packages.filter(
-        (p) => p.package !== invoice.packageType,
-      );
-      product.packages = [
-        ...product.packages,
-        {
-          package: invoice.packageType,
-          packageUnitPrice: updatedPackageTypeUnitPrice,
-        },
-      ];
-      const productStocks = await this.stockModel
-        .find({ product: invoice.product })
-        .populate('packageType');
-      if (productStocks.length > 0) {
-        // calculation the stock overall
-        const { productStockOverallExpense, productStockOverallTotal } =
-          productStocks.reduce(
-            (acc, item) => {
-              const foundPackage = product.packages.find(
-                (pckg) => pckg.package === item?.packageType?._id,
-              );
-
-              if (foundPackage) {
-                const expense =
-                  (item?.quantity > 0 ? item?.quantity : 0) *
-                  (item.packageType?.quantity ?? 1) *
-                  foundPackage?.packageUnitPrice;
-
-                acc.productStockOverallExpense += expense;
-
-                const total =
-                  (item?.quantity > 0 ? item?.quantity : 0) *
-                  (item.packageType?.quantity ?? 1);
-                acc.productStockOverallTotal += total;
-              }
-              return acc;
-            },
-            { productStockOverallExpense: 0, productStockOverallTotal: 0 },
-          );
-        product.unitPrice = parseFloat(
-          (
-            (productStockOverallExpense > 0 ? productStockOverallExpense : 0) /
-            (productStockOverallTotal > 0 ? productStockOverallTotal : 1)
-          ).toFixed(4),
-        );
-      }
-      await product.save();
-    }
-    // updating the stock quantity
+    // removing from the stock
     await this.createStock({
       product: invoice.product,
       location: invoice.location,
       quantity: -1 * invoice.quantity,
       packageType: invoice?.packageType,
     });
-    return this.invoiceModel.findByIdAndRemove(id);
+
+    //remove from the invoices
+    await this.invoiceModel.findByIdAndDelete(id);
+
+    // updating the packagetype unit price
+    const product = await this.productModel.findById(invoice.product);
+    const invoicePackageType = await this.packageTypeModel.findById(
+      invoice?.packageType,
+    );
+    //  if we have the invoice package type then we will update the unitPrice of that package type
+    if (invoicePackageType) {
+      const productLastInvoice = await this.invoiceModel
+        .find({
+          product: invoice.product,
+          packageType: invoice.packageType,
+        })
+        .sort({ date: -1 })
+        .limit(1);
+
+      const foundPackageType = await this.packageTypeModel.findById(
+        invoice.packageType,
+      );
+      // if product last invoice exists we will update the unit price or the unit price will be 0
+
+      product.packages =
+        productLastInvoice.length > 0
+          ? [
+              ...product.packages.filter(
+                (p) => p.package !== invoice.packageType,
+              ),
+              {
+                package: invoice.packageType,
+                packageUnitPrice: parseFloat(
+                  (
+                    productLastInvoice[0].totalExpense /
+                    (productLastInvoice[0].quantity * foundPackageType.quantity)
+                  ).toFixed(4),
+                ),
+              },
+            ]
+          : [
+              ...product.packages.filter(
+                (p) => p.package !== invoice.packageType,
+              ),
+              {
+                package: invoice.packageType,
+                packageUnitPrice: 0,
+              },
+            ];
+    }
+    // updating product overall unit price
+    const productStocks = await this.stockModel
+      .find({ product: invoice.product })
+      .populate('packageType');
+    const lastInvoice = await this.invoiceModel
+      .find({ product: invoice.product })
+      .sort({ date: -1 })
+      .limit(1);
+    if (invoicePackageType && productStocks.length > 0) {
+      // calculation the stock overall
+      const { productStockOverallExpense, productStockOverallTotal } =
+        productStocks.reduce(
+          (acc, item) => {
+            const foundPackage = product.packages.find(
+              (pckg) => pckg.package === item?.packageType?._id,
+            );
+
+            if (foundPackage) {
+              const expense =
+                (item.quantity > 0 ? item.quantity : 0) *
+                (item?.packageType?.quantity ?? 1) *
+                foundPackage?.packageUnitPrice;
+
+              acc.productStockOverallExpense += expense;
+
+              const total =
+                (item.quantity > 0 ? item.quantity : 0) *
+                (item?.packageType?.quantity ?? 1);
+              acc.productStockOverallTotal += total;
+            }
+            return acc;
+          },
+          { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+        );
+      product.unitPrice =
+        productStockOverallExpense > 0
+          ? parseFloat(
+              (
+                (productStockOverallExpense > 0
+                  ? productStockOverallExpense
+                  : 0) /
+                (productStockOverallTotal > 0 ? productStockOverallTotal : 1)
+              ).toFixed(4),
+            )
+          : lastInvoice.length > 0
+          ? parseFloat(
+              (lastInvoice[0].totalExpense / lastInvoice[0].quantity).toFixed(
+                4,
+              ),
+            )
+          : 0;
+    } else {
+      product.unitPrice =
+        lastInvoice.length > 0
+          ? parseFloat(
+              (lastInvoice[0].totalExpense / lastInvoice[0].quantity).toFixed(
+                4,
+              ),
+            )
+          : 0;
+    }
+
+    await product.save();
   }
   async transferInvoiceToFixtureInvoice(id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
