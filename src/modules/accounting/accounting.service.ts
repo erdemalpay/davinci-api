@@ -586,10 +586,11 @@ export class AccountingService {
     });
   }
   async removePackageType(id: string) {
-    const products = (await this.productModel.find()).map((product) =>
-      product.packages.find((p) => p.package === id),
+    const products = await this.productModel.find();
+    const isPackageTypeUsed = products.some((product) =>
+      product.packages.some((p) => p.package === id),
     );
-    if (products.length > 0) {
+    if (isPackageTypeUsed) {
       throw new HttpException(
         'Cannot remove package type with products',
         HttpStatus.BAD_REQUEST,
@@ -597,6 +598,7 @@ export class AccountingService {
     }
     return this.packageTypeModel.findByIdAndRemove(id);
   }
+
   // Invoices
   findAllInvoices() {
     return this.invoiceModel
