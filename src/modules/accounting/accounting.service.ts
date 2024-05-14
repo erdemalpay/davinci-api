@@ -1118,8 +1118,9 @@ export class AccountingService {
       try {
         await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
       } catch (error) {
-        console.error(
-          `Failed to remove invoice ${invoice._id}: ${error.message}`,
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
         );
       }
     }
@@ -1310,12 +1311,18 @@ export class AccountingService {
     try {
       await this.createStockLocation({ name: 'Bahçeli' });
     } catch (error) {
-      console.log(error);
+      throw new HttpException(
+        'Error creating stock location',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     try {
       await this.createStockLocation({ name: 'Neorama' });
     } catch (error) {
-      console.log(error);
+      throw new HttpException(
+        'Error creating stock location',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const invoices = await this.invoiceModel.find({});
     for (const invoice of invoices) {
