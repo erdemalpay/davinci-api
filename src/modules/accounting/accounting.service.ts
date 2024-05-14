@@ -363,38 +363,19 @@ export class AccountingService {
       );
     }
   }
-  async updateFixtureInvoice(id: string, updates: UpdateQuery<FixtureInvoice>) {
-    const invoice = await this.fixtureInvoiceModel.findById(id);
-    if (!invoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-    }
-    if (updates.quantity || updates.totalExpense) {
-      const FixtureLastInvoice = await this.fixtureInvoiceModel
-        .find({ fixture: invoice.fixture })
-        .sort({ date: -1 })
-        .limit(1);
-
-      if (FixtureLastInvoice[0].date <= updates.date) {
-        const updatedUnitPrice = parseFloat(
-          (updates.totalExpense / updates.quantity).toFixed(4),
-        );
-        await this.fixtureModel.findByIdAndUpdate(
-          invoice.fixture,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-      }
-    }
-    // updating the fixture stock quantity
-    if (updates.quantity) {
-      await this.createFixtureStock({
-        fixture: invoice.fixture,
-        location: invoice.location,
-        quantity: updates.quantity - invoice.quantity,
-      });
-    }
-    return this.fixtureInvoiceModel.findByIdAndUpdate(id, updates, {
-      new: true,
+  async updateFixtureInvoice(id: number, updates: UpdateQuery<FixtureInvoice>) {
+    await this.removeFixtureInvoice(id);
+    await this.createFixtureInvoice({
+      fixture: updates.fixture,
+      expenseType: updates?.expenseType,
+      quantity: updates?.quantity,
+      totalExpense: updates?.totalExpense,
+      location: updates?.location,
+      date: updates.date,
+      vendor: updates?.vendor,
+      brand: updates?.brand,
+      note: updates?.note,
+      packageType: updates?.packageType,
     });
   }
   async removeFixtureInvoice(id: number) {
@@ -402,20 +383,21 @@ export class AccountingService {
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
-    const FixtureLastInvoice = await this.fixtureInvoiceModel
+    const fixtureLastInvoice = await this.fixtureInvoiceModel
       .find({ fixture: invoice.fixture })
       .sort({ date: -1 });
-    if (FixtureLastInvoice[0]?._id === id) {
+    if (fixtureLastInvoice[0]?._id === id) {
       await this.fixtureModel.findByIdAndUpdate(
         invoice.fixture,
         {
-          unitPrice:
-            parseFloat(
-              (
-                FixtureLastInvoice[1]?.totalExpense /
-                FixtureLastInvoice[1]?.quantity
-              ).toFixed(4),
-            ) ?? 0,
+          unitPrice: fixtureLastInvoice[1]
+            ? parseFloat(
+                (
+                  fixtureLastInvoice[1].totalExpense /
+                  fixtureLastInvoice[1].quantity
+                ).toFixed(4),
+              )
+            : 0,
         },
         {
           new: true,
@@ -468,30 +450,19 @@ export class AccountingService {
       );
     }
   }
-  async updateServiceInvoice(id: string, updates: UpdateQuery<ServiceInvoice>) {
-    if (updates.quantity || updates.totalExpense) {
-      const invoice = await this.serviceInvoiceModel.findById(id);
-      if (!invoice) {
-        throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-      }
-      const ServiceLastInvoice = await this.serviceInvoiceModel
-        .find({ service: invoice.service })
-        .sort({ date: -1 })
-        .limit(1);
-
-      if (ServiceLastInvoice[0].date <= updates.date) {
-        const updatedUnitPrice = parseFloat(
-          (updates.totalExpense / updates.quantity).toFixed(4),
-        );
-        await this.serviceModel.findByIdAndUpdate(
-          invoice.service,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-      }
-    }
-    return this.serviceInvoiceModel.findByIdAndUpdate(id, updates, {
-      new: true,
+  async updateServiceInvoice(id: number, updates: UpdateQuery<ServiceInvoice>) {
+    await this.removeServiceInvoice(id);
+    await this.createServiceInvoice({
+      service: updates.service,
+      expenseType: updates?.expenseType,
+      quantity: updates?.quantity,
+      totalExpense: updates?.totalExpense,
+      location: updates?.location,
+      date: updates.date,
+      vendor: updates?.vendor,
+      brand: updates?.brand,
+      note: updates?.note,
+      packageType: updates?.packageType,
     });
   }
   async removeServiceInvoice(id: number) {
@@ -499,20 +470,21 @@ export class AccountingService {
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
-    const ServiceLastInvoice = await this.serviceInvoiceModel
+    const serviceLastInvoice = await this.serviceInvoiceModel
       .find({ service: invoice.service })
       .sort({ date: -1 });
-    if (ServiceLastInvoice[0]?._id === id) {
+    if (serviceLastInvoice[0]?._id === id) {
       await this.serviceModel.findByIdAndUpdate(
         invoice.service,
         {
-          unitPrice:
-            parseFloat(
-              (
-                ServiceLastInvoice[1]?.totalExpense /
-                ServiceLastInvoice[1]?.quantity
-              ).toFixed(4),
-            ) ?? 0,
+          unitPrice: serviceLastInvoice[1]
+            ? parseFloat(
+                (
+                  serviceLastInvoice[1].totalExpense /
+                  serviceLastInvoice[1].quantity
+                ).toFixed(4),
+              )
+            : 0,
         },
         {
           new: true,
