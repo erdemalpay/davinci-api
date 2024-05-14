@@ -164,7 +164,7 @@ export class AccountingController {
 
   @Patch('fixture-invoice/:id')
   updateFixtureInvoice(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() updates: UpdateQuery<FixtureInvoice>,
   ) {
     return this.accountingService.updateFixtureInvoice(id, updates);
@@ -190,7 +190,7 @@ export class AccountingController {
 
   @Patch('service-invoice/:id')
   updateServiceInvoice(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() updates: UpdateQuery<ServiceInvoice>,
   ) {
     return this.accountingService.updateServiceInvoice(id, updates);
