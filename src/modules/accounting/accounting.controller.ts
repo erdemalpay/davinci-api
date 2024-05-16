@@ -20,6 +20,7 @@ import {
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
+  CreateProductStockHistoryDto,
   CreateServiceDto,
   CreateServiceInvoiceDto,
   CreateStockDto,
@@ -381,6 +382,21 @@ export class AccountingController {
   consumptStock(@Body() consumptStockDto: ConsumptStockDto) {
     return this.accountingService.consumptStock(consumptStockDto);
   }
+  // Product Stock History
+  @Get('/product-stock-histories')
+  getProductStockHistories() {
+    return this.accountingService.findAllProductStockHistories();
+  }
+
+  @Post('/product-stock-histories')
+  createProductStockHistory(
+    @Body() createProductStockHistoryDto: CreateProductStockHistoryDto,
+  ) {
+    return this.accountingService.createProductStockHistory(
+      createProductStockHistoryDto,
+    );
+  }
+
   // Fixture Stocks
   @Get('/fixture-stocks')
   getFixtureStocks() {

@@ -16,6 +16,7 @@ import {
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
+  CreateProductStockHistoryDto,
   CreateServiceDto,
   CreateServiceInvoiceDto,
   CreateStockDto,
@@ -34,6 +35,7 @@ import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
+import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
 import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
@@ -62,6 +64,8 @@ export class AccountingService {
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
     @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
+    @InjectModel(ProductStockHistory.name)
+    private productStockHistoryModel: Model<ProductStockHistory>,
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
@@ -1196,6 +1200,20 @@ export class AccountingService {
       });
       return newStock;
     }
+  }
+  // Product Stock History
+  findAllProductStockHistories() {
+    return this.productStockHistoryModel
+      .find()
+      .populate('product user packageType');
+  }
+  createProductStockHistory(
+    createProductStockHistoryDto: CreateProductStockHistoryDto,
+  ) {
+    const productStockHistory = new this.productStockHistoryModel(
+      createProductStockHistoryDto,
+    );
+    return productStockHistory.save();
   }
   // Fixture Stocks
   findAllFixtureStocks() {
