@@ -8,8 +8,8 @@ import { StockLocation } from './stockLocation.schema';
 
 @Schema({ _id: false })
 export class ProductStockHistory extends Document {
-  @Prop({ type: String })
-  _id: string;
+  @Prop({ type: Number })
+  _id: number;
 
   @Prop({ required: true, type: String, ref: Product.name })
   product: string;

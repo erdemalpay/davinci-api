@@ -15,6 +15,10 @@ import { FixtureStock, FixtureStockSchema } from './fixtureStock.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
+import {
+  ProductStockHistory,
+  ProductStockHistorySchema,
+} from './productStockHistory.schema';
 import { Service, ServiceSchema } from './service.schema';
 import { ServiceInvoice, ServiceInvoiceSchema } from './serviceInvoice.schema';
 import { Stock, StockSchema } from './stock.schema';
@@ -40,6 +44,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
   createAutoIncrementConfig(FixtureInvoice.name, FixtureInvoiceSchema),
   createAutoIncrementConfig(ServiceInvoice.name, ServiceInvoiceSchema),
+  createAutoIncrementConfig(
+    ProductStockHistory.name,
+    ProductStockHistorySchema,
+  ),
 ]);
 
 @Module({
