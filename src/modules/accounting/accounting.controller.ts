@@ -8,6 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import {
   ConsumptStockDto,
   CreateBrandDto,
@@ -297,8 +299,11 @@ export class AccountingController {
   }
 
   @Post('/invoices')
-  createInvoice(@Body() createInvoiceDto: CreateInvoiceDto) {
-    return this.accountingService.createInvoice(createInvoiceDto);
+  createInvoice(
+    @ReqUser() user: User,
+    @Body() createInvoiceDto: CreateInvoiceDto,
+  ) {
+    return this.accountingService.createInvoice(user, createInvoiceDto);
   }
 
   @Patch('/invoices/transfer_to_fixture_invoice/:id')
@@ -311,12 +316,18 @@ export class AccountingController {
     return this.accountingService.transferInvoiceToServiceInvoice(id);
   }
   @Patch('/invoices/transfer_service_invoice_to_invoice/:id')
-  updateServiceInvoiceToInvoice(@Param('id') id: number) {
-    return this.accountingService.transferServiceInvoiceToInvoice(id);
+  updateServiceInvoiceToInvoice(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+  ) {
+    return this.accountingService.transferServiceInvoiceToInvoice(user, id);
   }
   @Patch('/invoices/transfer_fixture_invoice_to_invoice/:id')
-  updateFixtureInvoiceToInvoice(@Param('id') id: number) {
-    return this.accountingService.transferFixtureInvoiceToInvoice(id);
+  updateFixtureInvoiceToInvoice(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+  ) {
+    return this.accountingService.transferFixtureInvoiceToInvoice(user, id);
   }
   @Get('/invoices/update_location')
   updateInvoiceLocation() {
@@ -325,15 +336,16 @@ export class AccountingController {
 
   @Patch('/invoices/:id')
   updateInvoice(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Invoice>,
   ) {
-    return this.accountingService.updateInvoice(id, updates);
+    return this.accountingService.updateInvoice(user, id, updates);
   }
 
   @Delete('/invoices/:id')
-  deleteInvoice(@Param('id') id: number) {
-    return this.accountingService.removeInvoice(id);
+  deleteInvoice(@ReqUser() user: User, @Param('id') id: number) {
+    return this.accountingService.removeInvoice(user, id);
   }
 
   // Stock Location
@@ -365,22 +377,30 @@ export class AccountingController {
   }
 
   @Post('/stocks')
-  createStock(@Body() createStockDto: CreateStockDto) {
-    return this.accountingService.createStock(createStockDto);
-  }
-
-  @Patch('/stocks/:id')
-  updateStock(@Param('id') id: string, @Body() updates: UpdateQuery<Stock>) {
-    return this.accountingService.updateStock(id, updates);
+  createStock(@ReqUser() user: User, @Body() createStockDto: CreateStockDto) {
+    return this.accountingService.createStock(user, createStockDto);
   }
 
   @Delete('/stocks/:id')
-  deleteStock(@Param('id') id: string) {
-    return this.accountingService.removeStock(id);
+  deleteStock(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeStock(user, id, 'stock delete');
   }
+
+  @Patch('/stocks/:id')
+  updateStock(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Stock>,
+  ) {
+    return this.accountingService.updateStock(user, id, updates);
+  }
+
   @Post('/stocks/consumpt')
-  consumptStock(@Body() consumptStockDto: ConsumptStockDto) {
-    return this.accountingService.consumptStock(consumptStockDto);
+  consumptStock(
+    @ReqUser() user: User,
+    @Body() consumptStockDto: ConsumptStockDto,
+  ) {
+    return this.accountingService.consumptStock(user, consumptStockDto);
   }
   // Product Stock History
   @Get('/product-stock-histories')

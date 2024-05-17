@@ -21,7 +21,10 @@ export class ProductStockHistory extends Document {
   packageType: PackageType;
 
   @Prop({ required: true, type: Number })
-  quantity: number;
+  change: number;
+
+  @Prop({ required: true, type: Number })
+  currentAmount: number;
 
   @Prop({ required: true, type: String })
   status: string;
