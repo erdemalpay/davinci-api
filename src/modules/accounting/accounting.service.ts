@@ -1263,7 +1263,8 @@ export class AccountingService {
   findAllProductStockHistories() {
     return this.productStockHistoryModel
       .find()
-      .populate('product user packageType');
+      .populate('product user packageType location')
+      .sort({ createdAt: -1 });
   }
   createProductStockHistory(
     createProductStockHistoryDto: CreateProductStockHistoryDto,
