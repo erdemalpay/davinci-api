@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { Location } from '../location/location.schema';
+import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
@@ -610,7 +611,7 @@ export class AccountingService {
       .populate('product expenseType brand vendor location packageType')
       .sort({ _id: -1 });
   }
-  async createInvoice(createInvoiceDto: CreateInvoiceDto) {
+  async createInvoice(user: User, createInvoiceDto: CreateInvoiceDto) {
     try {
       const ProductLastInvoice = await this.invoiceModel
         .find({ product: createInvoiceDto.product })
@@ -697,11 +698,12 @@ export class AccountingService {
         );
       }
       // adding invoice amount to stock
-      await this.createStock({
+      await this.createStock(user, {
         product: createInvoiceDto.product,
         location: createInvoiceDto.location,
         quantity: createInvoiceDto.quantity,
         packageType: createInvoiceDto?.packageType,
+        status: 'expense entry',
       });
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
@@ -712,9 +714,9 @@ export class AccountingService {
     }
   }
 
-  async updateInvoice(id: number, updates: UpdateQuery<Invoice>) {
-    await this.removeInvoice(id);
-    await this.createInvoice({
+  async updateInvoice(user: User, id: number, updates: UpdateQuery<Invoice>) {
+    await this.removeInvoice(user, id);
+    await this.createInvoice(user, {
       product: updates.product,
       expenseType: updates.expenseType,
       quantity: updates.quantity,
@@ -727,17 +729,18 @@ export class AccountingService {
       note: updates?.note,
     });
   }
-  async removeInvoice(id: number) {
+  async removeInvoice(user: User, id: number) {
     const invoice = await this.invoiceModel.findById(id);
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
     }
     // removing from the stock
-    await this.createStock({
+    await this.createStock(user, {
       product: invoice.product,
       location: invoice.location,
       quantity: -1 * invoice.quantity,
       packageType: invoice?.packageType,
+      status: 'expense delete',
     });
 
     //remove from the invoices
@@ -994,7 +997,7 @@ export class AccountingService {
     }
   }
 
-  async transferFixtureInvoiceToInvoice(id: number) {
+  async transferFixtureInvoiceToInvoice(user: User, id: number) {
     const foundInvoice = await this.fixtureInvoiceModel.findById(id);
     if (!foundInvoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -1034,7 +1037,7 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createInvoice({
+      await this.createInvoice(user, {
         product: product._id,
         expenseType: invoice?.expenseType,
         quantity: invoice?.quantity,
@@ -1068,7 +1071,7 @@ export class AccountingService {
     }
   }
 
-  async transferServiceInvoiceToInvoice(id: number) {
+  async transferServiceInvoiceToInvoice(user: User, id: number) {
     const foundInvoice = await this.serviceInvoiceModel.findById(id);
     if (!foundInvoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -1108,7 +1111,7 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createInvoice({
+      await this.createInvoice(user, {
         product: product._id,
         expenseType: invoice?.expenseType,
         quantity: invoice?.quantity,
@@ -1146,32 +1149,86 @@ export class AccountingService {
     return this.stockModel.find().populate('product location packageType');
   }
 
-  async createStock(createStockDto: CreateStockDto) {
+  async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product +
         createStockDto?.packageType +
         createStockDto?.location,
     );
+    const { status, ...stockData } = createStockDto;
     const existStock = await this.stockModel.findById(stockId);
     if (existStock) {
+      const oldQuantity = existStock.quantity;
       existStock.quantity =
         Number(existStock.quantity) + Number(createStockDto.quantity);
       await existStock.save();
+      // create stock history with currentAmount
+      await this.createProductStockHistory({
+        user: user._id,
+        product: createStockDto.product,
+        location: createStockDto.location,
+        packageType: createStockDto.packageType,
+        change: createStockDto.quantity,
+        status,
+        currentAmount: oldQuantity,
+      });
     } else {
-      const stock = new this.stockModel(createStockDto);
+      const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
+      // create stock history with currentAmount 0
+      await this.createProductStockHistory({
+        user: user._id,
+        product: createStockDto.product,
+        location: createStockDto.location,
+        packageType: createStockDto.packageType,
+        change: createStockDto.quantity,
+        status,
+        currentAmount: 0,
+      });
+    }
+  }
+  async updateStock(user: User, id: string, updates: UpdateQuery<Stock>) {
+    await this.removeStock(user, id, 'update delete');
+    await this.createStock(user, {
+      product: updates.product,
+      location: updates.location,
+      packageType: updates.packageType,
+      quantity: updates.quantity,
+      status: 'update create',
+    });
+  }
+  async removeStock(user: User, id: string, status: string) {
+    const stock = await this.stockModel
+      .findById(id)
+      .populate('product packageType');
+
+    if (!stock) {
+      throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      // Create stock history with status delete
+      await this.createProductStockHistory({
+        product: stock.product?._id,
+        location: stock.location,
+        packageType: stock.packageType?._id,
+        currentAmount: stock.quantity,
+        change: -1 * stock.quantity,
+        status: status,
+        user: user._id,
+      });
+
+      // Remove the stock item
+      return await this.stockModel.findByIdAndRemove(id);
+    } catch (error) {
+      throw new HttpException(
+        'Failed to remove stock',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
-  updateStock(id: string, updates: UpdateQuery<Stock>) {
-    return this.stockModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-  }
-  removeStock(id: string) {
-    return this.stockModel.findByIdAndRemove(id);
-  }
   async removeProductStocks(id: string) {
     const productStocks = await this.stockModel.find({ product: id });
     for (const stock of productStocks) {
@@ -1179,7 +1236,7 @@ export class AccountingService {
     }
   }
 
-  async consumptStock(consumptStockDto: ConsumptStockDto) {
+  async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
       product: consumptStockDto.product,
       location: consumptStockDto.location,
@@ -1192,11 +1249,12 @@ export class AccountingService {
       });
       return stock[0];
     } else {
-      const newStock = await this.createStock({
+      const newStock = await this.createStock(user, {
         product: consumptStockDto.product,
         location: consumptStockDto.location,
         packageType: consumptStockDto.packageType,
         quantity: -consumptStockDto.quantity,
+        status: 'consumpt',
       });
       return newStock;
     }
@@ -1210,9 +1268,10 @@ export class AccountingService {
   createProductStockHistory(
     createProductStockHistoryDto: CreateProductStockHistoryDto,
   ) {
-    const productStockHistory = new this.productStockHistoryModel(
-      createProductStockHistoryDto,
-    );
+    const productStockHistory = new this.productStockHistoryModel({
+      ...createProductStockHistoryDto,
+      createdAt: new Date(),
+    });
     return productStockHistory.save();
   }
   // Fixture Stocks
