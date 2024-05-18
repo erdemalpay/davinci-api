@@ -1289,7 +1289,7 @@ export class AccountingService {
   }
   // Fixture Stock History
   findAllFixtureStockHistories() {
-    return this.productStockHistoryModel
+    return this.fixtureStockHistoryModel
       .find()
       .populate('fixture user location')
       .sort({ createdAt: -1 });
