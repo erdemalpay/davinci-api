@@ -19,6 +19,7 @@ import {
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
   CreateFixtureStockDto,
+  CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -422,6 +423,20 @@ export class AccountingController {
   ) {
     return this.accountingService.createProductStockHistory(
       createProductStockHistoryDto,
+    );
+  }
+  // Fixture Stock History
+  @Get('/fixture-stock-histories')
+  getFixtureStockHistories() {
+    return this.accountingService.findAllFixtureStockHistories();
+  }
+
+  @Post('/fixture-stock-histories')
+  createFixtureStockHistory(
+    @Body() createFixtureStockHistoryDto: CreateFixtureStockHistoryDto,
+  ) {
+    return this.accountingService.createFixtureStockHistory(
+      createFixtureStockHistoryDto,
     );
   }
 
