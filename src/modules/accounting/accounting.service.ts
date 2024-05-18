@@ -14,6 +14,7 @@ import {
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
   CreateFixtureStockDto,
+  CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreateProductDto,
@@ -33,6 +34,7 @@ import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
 import { FixtureInvoice } from './fixtureInvoice.schema';
 import { FixtureStock } from './fixtureStock.schema';
+import { FixtureStockHistory } from './fixtureStockHistory.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
@@ -67,6 +69,8 @@ export class AccountingService {
     @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
     @InjectModel(ProductStockHistory.name)
     private productStockHistoryModel: Model<ProductStockHistory>,
+    @InjectModel(FixtureStockHistory.name)
+    private fixtureStockHistoryModel: Model<FixtureStockHistory>,
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
@@ -331,7 +335,10 @@ export class AccountingService {
       .populate('fixture expenseType brand vendor location')
       .sort({ _id: -1 });
   }
-  async createFixtureInvoice(createFixtureInvoiceDto: CreateFixtureInvoiceDto) {
+  async createFixtureInvoice(
+    user: User,
+    createFixtureInvoiceDto: CreateFixtureInvoiceDto,
+  ) {
     try {
       const FixtureLastInvoice = await this.fixtureInvoiceModel
         .find({ fixture: createFixtureInvoiceDto.fixture })
@@ -355,10 +362,11 @@ export class AccountingService {
         );
       }
       // adding invoice amount to fixture stock
-      await this.createFixtureStock({
+      await this.createFixtureStock(user, {
         fixture: createFixtureInvoiceDto.fixture,
         location: createFixtureInvoiceDto.location,
         quantity: createFixtureInvoiceDto.quantity,
+        status: 'expense entry',
       });
       return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
     } catch (error) {
@@ -368,9 +376,13 @@ export class AccountingService {
       );
     }
   }
-  async updateFixtureInvoice(id: number, updates: UpdateQuery<FixtureInvoice>) {
-    await this.removeFixtureInvoice(id);
-    await this.createFixtureInvoice({
+  async updateFixtureInvoice(
+    user: User,
+    id: number,
+    updates: UpdateQuery<FixtureInvoice>,
+  ) {
+    await this.removeFixtureInvoice(user, id);
+    await this.createFixtureInvoice(user, {
       fixture: updates.fixture,
       expenseType: updates?.expenseType,
       quantity: updates?.quantity,
@@ -383,7 +395,7 @@ export class AccountingService {
       packageType: updates?.packageType,
     });
   }
-  async removeFixtureInvoice(id: number) {
+  async removeFixtureInvoice(user: User, id: number) {
     const invoice = await this.fixtureInvoiceModel.findById(id);
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -410,10 +422,11 @@ export class AccountingService {
       );
     }
     // updating the stock quantity
-    await this.createFixtureStock({
+    await this.createFixtureStock(user, {
       fixture: invoice.fixture,
       location: invoice.location,
       quantity: -1 * invoice.quantity,
+      status: 'expense delete',
     });
     return this.fixtureInvoiceModel.findByIdAndRemove(id);
   }
@@ -856,7 +869,7 @@ export class AccountingService {
 
     await product.save();
   }
-  async transferInvoiceToFixtureInvoice(id: number) {
+  async transferInvoiceToFixtureInvoice(user: User, id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -893,7 +906,7 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createFixtureInvoice({
+      await this.createFixtureInvoice(user, {
         fixture: fixture._id,
         expenseType: invoice?.expenseType,
         quantity: invoice?.quantity,
@@ -1235,7 +1248,6 @@ export class AccountingService {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
   }
-
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
       product: consumptStockDto.product,
@@ -1275,34 +1287,105 @@ export class AccountingService {
     });
     return productStockHistory.save();
   }
+  // Fixture Stock History
+  findAllFixtureStockHistories() {
+    return this.productStockHistoryModel
+      .find()
+      .populate('fixture user location')
+      .sort({ createdAt: -1 });
+  }
+  createFixtureStockHistory(
+    createFixtureStockHistoryDto: CreateFixtureStockHistoryDto,
+  ) {
+    const fixtureStockHistory = new this.fixtureStockHistoryModel({
+      ...createFixtureStockHistoryDto,
+      createdAt: new Date(),
+    });
+    return fixtureStockHistory.save();
+  }
   // Fixture Stocks
   findAllFixtureStocks() {
     return this.fixtureStockModel.find().populate('fixture location');
   }
 
-  async createFixtureStock(createFixtureStockDto: CreateFixtureStockDto) {
+  async createFixtureStock(
+    user: User,
+    createFixtureStockDto: CreateFixtureStockDto,
+  ) {
     const stockId = usernamify(
       createFixtureStockDto.fixture + createFixtureStockDto?.location,
     );
+    const { status, ...stockData } = createFixtureStockDto;
     const existStock = await this.fixtureStockModel.findById(stockId);
     if (existStock) {
+      const oldQuantity = existStock.quantity;
       existStock.quantity =
         Number(existStock.quantity) + Number(createFixtureStockDto.quantity);
       await existStock.save();
+      // create stock history with currentAmount
+      await this.createFixtureStockHistory({
+        user: user._id,
+        fixture: createFixtureStockDto.fixture,
+        location: createFixtureStockDto.location,
+        change: createFixtureStockDto.quantity,
+        status,
+        currentAmount: oldQuantity,
+      });
     } else {
-      const stock = new this.fixtureStockModel(createFixtureStockDto);
+      const stock = new this.fixtureStockModel(stockData);
       stock._id = stockId;
       await stock.save();
+      // create stock history with currentAmount
+      await this.createFixtureStockHistory({
+        user: user._id,
+        fixture: createFixtureStockDto.fixture,
+        location: createFixtureStockDto.location,
+        change: createFixtureStockDto.quantity,
+        status,
+        currentAmount: 0,
+      });
     }
   }
 
-  updateFixtureStock(id: string, updates: UpdateQuery<FixtureStock>) {
-    return this.fixtureStockModel.findByIdAndUpdate(id, updates, {
-      new: true,
+  async updateFixtureStock(
+    user: User,
+    id: string,
+    updates: UpdateQuery<FixtureStock>,
+  ) {
+    await this.removeFixtureStock(user, id, 'update delete');
+    await this.createFixtureStock(user, {
+      fixture: updates.fixture,
+      location: updates.location,
+      quantity: updates.quantity,
+      status: 'update create',
     });
   }
-  removeFixtureStock(id: string) {
-    return this.fixtureStockModel.findByIdAndRemove(id);
+  async removeFixtureStock(user: User, id: string, status: string) {
+    const stock = await this.fixtureStockModel.findById(id);
+
+    if (!stock) {
+      throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      // Create stock history with status delete
+      await this.createFixtureStockHistory({
+        fixture: stock.fixture,
+        location: stock.location,
+        currentAmount: stock.quantity,
+        change: -1 * stock.quantity,
+        status: status,
+        user: user._id,
+      });
+
+      // Remove the stock item
+      return await this.fixtureStockModel.findByIdAndRemove(id);
+    } catch (error) {
+      throw new HttpException(
+        'Failed to remove stock',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
   async removeFixtureFixtureStocks(id: string) {
     const fixtureFixtureStocks = await this.fixtureStockModel.find({

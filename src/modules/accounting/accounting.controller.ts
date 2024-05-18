@@ -160,22 +160,27 @@ export class AccountingController {
 
   @Post('/fixture-invoice')
   createFixtureInvoice(
+    @ReqUser() user: User,
     @Body() createFixtureInvoiceDto: CreateFixtureInvoiceDto,
   ) {
-    return this.accountingService.createFixtureInvoice(createFixtureInvoiceDto);
+    return this.accountingService.createFixtureInvoice(
+      user,
+      createFixtureInvoiceDto,
+    );
   }
 
   @Patch('fixture-invoice/:id')
   updateFixtureInvoice(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<FixtureInvoice>,
   ) {
-    return this.accountingService.updateFixtureInvoice(id, updates);
+    return this.accountingService.updateFixtureInvoice(user, id, updates);
   }
 
   @Delete('/fixture-invoice/:id')
-  deleteFixtureInvoice(@Param('id') id: number) {
-    return this.accountingService.removeFixtureInvoice(id);
+  deleteFixtureInvoice(@ReqUser() user: User, @Param('id') id: number) {
+    return this.accountingService.removeFixtureInvoice(user, id);
   }
 
   // service invoices
@@ -307,8 +312,11 @@ export class AccountingController {
   }
 
   @Patch('/invoices/transfer_to_fixture_invoice/:id')
-  updateInvoiceToFixtureInvoice(@Param('id') id: number) {
-    return this.accountingService.transferInvoiceToFixtureInvoice(id);
+  updateInvoiceToFixtureInvoice(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+  ) {
+    return this.accountingService.transferInvoiceToFixtureInvoice(user, id);
   }
 
   @Patch('/invoices/transfer_to_service_invoice/:id')
@@ -424,21 +432,28 @@ export class AccountingController {
   }
 
   @Post('/fixture-stocks')
-  createFixtureStock(@Body() createFixtureStockDto: CreateFixtureStockDto) {
-    return this.accountingService.createFixtureStock(createFixtureStockDto);
+  createFixtureStock(
+    @ReqUser() user: User,
+    @Body() createFixtureStockDto: CreateFixtureStockDto,
+  ) {
+    return this.accountingService.createFixtureStock(
+      user,
+      createFixtureStockDto,
+    );
   }
 
   @Patch('/fixture-stocks/:id')
   updateFixtureStock(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<FixtureStock>,
   ) {
-    return this.accountingService.updateFixtureStock(id, updates);
+    return this.accountingService.updateFixtureStock(user, id, updates);
   }
 
   @Delete('/fixture-stocks/:id')
-  deleteFixtureStock(@Param('id') id: string) {
-    return this.accountingService.removeFixtureStock(id);
+  deleteFixtureStock(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeFixtureStock(user, id, 'stock delete');
   }
 
   // count list

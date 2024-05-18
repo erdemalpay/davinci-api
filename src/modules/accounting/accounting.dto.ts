@@ -83,6 +83,7 @@ export class CreateFixtureStockDto {
   fixture: string;
   location: string | number;
   quantity: number;
+  status: string;
 }
 export class CreateProductStockHistoryDto {
   product: string;
@@ -90,6 +91,14 @@ export class CreateProductStockHistoryDto {
   change: number;
   currentAmount: number;
   packageType?: string;
+  status: string;
+  user: string;
+}
+export class CreateFixtureStockHistoryDto {
+  fixture: string;
+  location: string | number;
+  change: number;
+  currentAmount: number;
   status: string;
   user: string;
 }

@@ -12,6 +12,10 @@ import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Fixture, FixtureSchema } from './fixture.schema';
 import { FixtureInvoice, FixtureInvoiceSchema } from './fixtureInvoice.schema';
 import { FixtureStock, FixtureStockSchema } from './fixtureStock.schema';
+import {
+  FixtureStockHistory,
+  FixtureStockHistorySchema,
+} from './fixtureStockHistory.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
 import { Product, ProductSchema } from './product.schema';
@@ -47,6 +51,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(
     ProductStockHistory.name,
     ProductStockHistorySchema,
+  ),
+  createAutoIncrementConfig(
+    FixtureStockHistory.name,
+    FixtureStockHistorySchema,
   ),
 ]);
 
