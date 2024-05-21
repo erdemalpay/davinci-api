@@ -3,12 +3,15 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { User } from '../user/user.schema';
 import { CountList } from './countList.schema';
-import { Product } from './product.schema';
+import { PackageType, Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 
 class CountProduct {
   @Prop({ required: true, type: Number, ref: Product.name })
   product: Product;
+
+  @Prop({ required: true, type: Number, ref: PackageType.name })
+  packageType: PackageType;
 
   @Prop({ required: true, type: Number })
   stockQuantity: number;
@@ -31,11 +34,14 @@ export class Count extends Document {
   @Prop({ required: true, type: String, ref: CountList.name })
   countList: string;
 
-  @Prop({ required: true })
-  date: string;
+  @Prop({ required: true, type: Date })
+  createdAt: Date;
+
+  @Prop({ required: false, type: Date })
+  completedAt: Date;
 
   @Prop({ required: true })
-  status: boolean;
+  isCompleted: boolean;
 
   @Prop([CountProduct])
   products: CountProduct[];

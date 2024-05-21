@@ -54,13 +54,14 @@ export class CreateCountListDto {
 export class CreateCountDto {
   user: string;
   location: string;
-  status: boolean;
+  isCompleted: boolean;
+  createdAt: Date;
   products: CountProductDto[];
-  date: string;
   countList: string;
 }
 export class CountProductDto {
   product: string;
+  packageType: string;
   stockQuantity: number;
   countQuantity: number;
 }
