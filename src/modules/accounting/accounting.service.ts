@@ -1442,17 +1442,17 @@ export class AccountingService {
     return this.countModel.find().populate('user location countList');
   }
   async createCount(createCountDto: CreateCountDto) {
-    for (const item of createCountDto.products) {
-      const stock = await this.stockModel.find({
-        product: item.product,
-        location: createCountDto.location,
-      });
-
-      if (stock.length > 0) {
-        item.stockQuantity = stock[0].quantity;
-      } else {
-        item.stockQuantity = 0;
-      }
+    const counts = await this.countModel.find({
+      isCompleted: false,
+      user: createCountDto.user,
+      location: createCountDto.location,
+      countList: createCountDto.countList,
+    });
+    if (counts.length > 0) {
+      throw new HttpException(
+        'Count already exists and not finished',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const count = new this.countModel(createCountDto);
     count._id = usernamify(count.user + new Date().toISOString());
