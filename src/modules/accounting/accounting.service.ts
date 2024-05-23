@@ -1439,7 +1439,10 @@ export class AccountingService {
   }
   // count
   findAllCounts() {
-    return this.countModel.find().populate('user location countList');
+    return this.countModel
+      .find()
+      .populate('user location countList')
+      .sort({ createdAt: -1 });
   }
   async createCount(createCountDto: CreateCountDto) {
     const counts = await this.countModel.find({
