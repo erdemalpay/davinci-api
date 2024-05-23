@@ -71,6 +71,7 @@ export class CreateExpenseTypeDto {
 }
 export class CreatePackageTypeDto {
   name: string;
+  unit: string;
   quantity: number;
 }
 export class CreateStockDto {

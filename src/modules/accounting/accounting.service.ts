@@ -591,7 +591,7 @@ export class AccountingService {
   }
   // packageType
   findAllPackageTypes() {
-    return this.packageTypeModel.find();
+    return this.packageTypeModel.find().populate('unit');
   }
   async createPackageType(createPackageTypeDto: CreatePackageTypeDto) {
     const packageType = new this.packageTypeModel(createPackageTypeDto);
@@ -1466,12 +1466,12 @@ export class AccountingService {
       new: true,
     });
   }
-  async updateProductPackages() {
-    await this.createPackageType({ name: 'Birim', quantity: 1 });
-    await this.productModel.updateMany({
-      packages: [{ package: 'birim', unitPrice: 0 }],
+  async updatePackages() {
+    await this.packageTypeModel.updateMany({
+      $set: { unit: 'adet' },
     });
   }
+
   async updateInvoicesLocation() {
     // Assuming the creation of stock locations is handled elsewhere or checked if already exists
     try {
