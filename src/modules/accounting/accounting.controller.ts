@@ -81,9 +81,9 @@ export class AccountingController {
     return this.accountingService.removeProduct(id);
   }
 
-  @Get('/products/packages')
+  @Get('/update/packages')
   updateProductPackages() {
-    return this.accountingService.updateProductPackages();
+    return this.accountingService.updatePackages();
   }
 
   // Units
