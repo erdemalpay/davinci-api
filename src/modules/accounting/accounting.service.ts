@@ -26,6 +26,7 @@ import {
   CreateUnitDto,
   CreateVendorDto,
   JoinProductDto,
+  StockHistoryStatusEnum,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -338,6 +339,7 @@ export class AccountingService {
   async createFixtureInvoice(
     user: User,
     createFixtureInvoiceDto: CreateFixtureInvoiceDto,
+    status: string,
   ) {
     try {
       const FixtureLastInvoice = await this.fixtureInvoiceModel
@@ -366,7 +368,7 @@ export class AccountingService {
         fixture: createFixtureInvoiceDto.fixture,
         location: createFixtureInvoiceDto.location,
         quantity: createFixtureInvoiceDto.quantity,
-        status: 'expense entry',
+        status: status,
       });
       return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
     } catch (error) {
@@ -381,21 +383,79 @@ export class AccountingService {
     id: number,
     updates: UpdateQuery<FixtureInvoice>,
   ) {
-    await this.removeFixtureInvoice(user, id);
-    await this.createFixtureInvoice(user, {
-      fixture: updates.fixture,
-      expenseType: updates?.expenseType,
-      quantity: updates?.quantity,
-      totalExpense: updates?.totalExpense,
-      location: updates?.location,
-      date: updates.date,
-      vendor: updates?.vendor,
-      brand: updates?.brand,
-      note: updates?.note,
-      packageType: updates?.packageType,
-    });
+    const invoice = await this.fixtureInvoiceModel.findById(id);
+    if (!invoice) {
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
+    }
+    if (
+      invoice.fixture === updates.fixture &&
+      invoice.quantity === updates.quantity &&
+      invoice.location === updates.location &&
+      invoice.date === updates.date &&
+      invoice.brand === updates.brand &&
+      invoice.vendor === updates.vendor &&
+      invoice.packageType === updates.packageType &&
+      (invoice.note === updates.note ||
+        invoice.totalExpense !== updates.totalExpense)
+    ) {
+      await this.fixtureInvoiceModel.findByIdAndUpdate(
+        id,
+        { $set: { totalExpense: updates.totalExpense, note: updates.note } },
+        { new: true },
+      );
+    } else if (
+      invoice.fixture === updates.fixture &&
+      invoice.location === updates.location &&
+      invoice.date === updates.date &&
+      invoice.brand === updates.brand &&
+      invoice.vendor === updates.vendor &&
+      invoice.packageType === updates.packageType &&
+      (invoice.note === updates.note ||
+        invoice.totalExpense !== updates.totalExpense ||
+        invoice.quantity !== updates.quantity)
+    ) {
+      await this.fixtureInvoiceModel.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            totalExpense: updates.totalExpense,
+            note: updates.note,
+            quantity: updates.quantity,
+          },
+        },
+        { new: true },
+      );
+      await this.createFixtureStock(user, {
+        fixture: updates.fixture,
+        location: updates.location,
+        quantity: updates.quantity - invoice.quantity,
+        status: StockHistoryStatusEnum.EXPENSEUPDATE,
+      });
+    } else {
+      await this.removeFixtureInvoice(
+        user,
+        id,
+        StockHistoryStatusEnum.EXPENSEUPDATEDELETE,
+      );
+      await this.createFixtureInvoice(
+        user,
+        {
+          fixture: updates.fixture,
+          expenseType: updates?.expenseType,
+          quantity: updates?.quantity,
+          totalExpense: updates?.totalExpense,
+          location: updates?.location,
+          date: updates.date,
+          vendor: updates?.vendor,
+          brand: updates?.brand,
+          note: updates?.note,
+          packageType: updates?.packageType,
+        },
+        StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
+      );
+    }
   }
-  async removeFixtureInvoice(user: User, id: number) {
+  async removeFixtureInvoice(user: User, id: number, status: string) {
     const invoice = await this.fixtureInvoiceModel.findById(id);
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -426,7 +486,7 @@ export class AccountingService {
       fixture: invoice.fixture,
       location: invoice.location,
       quantity: -1 * invoice.quantity,
-      status: 'expense delete',
+      status: status,
     });
     return this.fixtureInvoiceModel.findByIdAndRemove(id);
   }
@@ -624,7 +684,11 @@ export class AccountingService {
       .populate('product expenseType brand vendor location packageType')
       .sort({ _id: -1 });
   }
-  async createInvoice(user: User, createInvoiceDto: CreateInvoiceDto) {
+  async createInvoice(
+    user: User,
+    createInvoiceDto: CreateInvoiceDto,
+    status: string,
+  ) {
     try {
       const ProductLastInvoice = await this.invoiceModel
         .find({ product: createInvoiceDto.product })
@@ -716,7 +780,7 @@ export class AccountingService {
         location: createInvoiceDto.location,
         quantity: createInvoiceDto.quantity,
         packageType: createInvoiceDto?.packageType,
-        status: 'expense entry',
+        status: status,
       });
       return await this.invoiceModel.create(createInvoiceDto);
     } catch (error) {
@@ -728,21 +792,80 @@ export class AccountingService {
   }
 
   async updateInvoice(user: User, id: number, updates: UpdateQuery<Invoice>) {
-    await this.removeInvoice(user, id);
-    await this.createInvoice(user, {
-      product: updates.product,
-      expenseType: updates.expenseType,
-      quantity: updates.quantity,
-      totalExpense: updates.totalExpense,
-      location: updates.location,
-      date: updates.date,
-      brand: updates?.brand,
-      vendor: updates?.vendor,
-      packageType: updates?.packageType,
-      note: updates?.note,
-    });
+    const invoice = await this.invoiceModel.findById(id);
+    if (!invoice) {
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
+    }
+    if (
+      invoice.product === updates.product &&
+      invoice.quantity === updates.quantity &&
+      invoice.location === updates.location &&
+      invoice.date === updates.date &&
+      invoice.brand === updates.brand &&
+      invoice.vendor === updates.vendor &&
+      invoice.packageType === updates.packageType &&
+      (invoice.note === updates.note ||
+        invoice.totalExpense !== updates.totalExpense)
+    ) {
+      await this.invoiceModel.findByIdAndUpdate(
+        id,
+        { $set: { totalExpense: updates.totalExpense, note: updates.note } },
+        { new: true },
+      );
+    } else if (
+      invoice.product === updates.product &&
+      invoice.location === updates.location &&
+      invoice.date === updates.date &&
+      invoice.brand === updates.brand &&
+      invoice.vendor === updates.vendor &&
+      invoice.packageType === updates.packageType &&
+      (invoice.note === updates.note ||
+        invoice.totalExpense !== updates.totalExpense ||
+        invoice.quantity !== updates.quantity)
+    ) {
+      await this.invoiceModel.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            totalExpense: updates.totalExpense,
+            note: updates.note,
+            quantity: updates.quantity,
+          },
+        },
+        { new: true },
+      );
+      await this.createStock(user, {
+        product: updates.product,
+        location: updates.location,
+        quantity: updates.quantity - invoice.quantity,
+        packageType: updates?.packageType,
+        status: StockHistoryStatusEnum.EXPENSEUPDATE,
+      });
+    } else {
+      await this.removeInvoice(
+        user,
+        id,
+        StockHistoryStatusEnum.EXPENSEUPDATEDELETE,
+      );
+      await this.createInvoice(
+        user,
+        {
+          product: updates.product,
+          expenseType: updates.expenseType,
+          quantity: updates.quantity,
+          totalExpense: updates.totalExpense,
+          location: updates.location,
+          date: updates.date,
+          brand: updates?.brand,
+          vendor: updates?.vendor,
+          packageType: updates?.packageType,
+          note: updates?.note,
+        },
+        StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
+      );
+    }
   }
-  async removeInvoice(user: User, id: number) {
+  async removeInvoice(user: User, id: number, status: string) {
     const invoice = await this.invoiceModel.findById(id);
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -753,7 +876,7 @@ export class AccountingService {
       location: invoice.location,
       quantity: -1 * invoice.quantity,
       packageType: invoice?.packageType,
-      status: 'expense delete',
+      status: status,
     });
 
     //remove from the invoices
@@ -906,18 +1029,22 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createFixtureInvoice(user, {
-        fixture: fixture._id,
-        expenseType: invoice?.expenseType,
-        quantity: invoice?.quantity,
-        totalExpense: invoice?.totalExpense,
-        location: invoice?.location,
-        date: invoice.date,
-        vendor: invoice?.vendor,
-        brand: invoice?.brand,
-        note: invoice?.note,
-        packageType: invoice?.packageType,
-      });
+      await this.createFixtureInvoice(
+        user,
+        {
+          fixture: fixture._id,
+          expenseType: invoice?.expenseType,
+          quantity: invoice?.quantity,
+          totalExpense: invoice?.totalExpense,
+          location: invoice?.location,
+          date: invoice.date,
+          vendor: invoice?.vendor,
+          brand: invoice?.brand,
+          note: invoice?.note,
+          packageType: invoice?.packageType,
+        },
+        StockHistoryStatusEnum.TRANSFERINVOICETOFIXTURE,
+      );
 
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
@@ -1050,18 +1177,22 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createInvoice(user, {
-        product: product._id,
-        expenseType: invoice?.expenseType,
-        quantity: invoice?.quantity,
-        totalExpense: invoice?.totalExpense,
-        location: invoice?.location,
-        date: invoice.date,
-        brand: invoice?.brand,
-        vendor: invoice?.vendor,
-        note: invoice?.note,
-        packageType: invoice?.packageType ?? 'birim',
-      });
+      await this.createInvoice(
+        user,
+        {
+          product: product._id,
+          expenseType: invoice?.expenseType,
+          quantity: invoice?.quantity,
+          totalExpense: invoice?.totalExpense,
+          location: invoice?.location,
+          date: invoice.date,
+          brand: invoice?.brand,
+          vendor: invoice?.vendor,
+          note: invoice?.note,
+          packageType: invoice?.packageType ?? 'birim',
+        },
+        StockHistoryStatusEnum.TRANSFERFIXTURETOINVOICE,
+      );
 
       try {
         await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
@@ -1124,18 +1255,22 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createInvoice(user, {
-        product: product._id,
-        expenseType: invoice?.expenseType,
-        quantity: invoice?.quantity,
-        totalExpense: invoice?.totalExpense,
-        location: invoice?.location,
-        date: invoice.date,
-        brand: invoice?.brand,
-        vendor: invoice?.vendor,
-        note: invoice?.note,
-        packageType: invoice?.packageType ?? 'birim',
-      });
+      await this.createInvoice(
+        user,
+        {
+          product: product._id,
+          expenseType: invoice?.expenseType,
+          quantity: invoice?.quantity,
+          totalExpense: invoice?.totalExpense,
+          location: invoice?.location,
+          date: invoice.date,
+          brand: invoice?.brand,
+          vendor: invoice?.vendor,
+          note: invoice?.note,
+          packageType: invoice?.packageType ?? 'birim',
+        },
+        StockHistoryStatusEnum.TRANSFERSERVICETOINVOICE,
+      );
 
       try {
         await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
@@ -1202,14 +1337,37 @@ export class AccountingService {
     }
   }
   async updateStock(user: User, id: string, updates: UpdateQuery<Stock>) {
-    await this.removeStock(user, id, 'update delete');
-    await this.createStock(user, {
-      product: updates.product,
-      location: updates.location,
-      packageType: updates.packageType,
-      quantity: updates.quantity,
-      status: 'update create',
-    });
+    const stock = await this.stockModel.findById(id);
+    if (!stock) {
+      throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
+    }
+    if (
+      stock.product === updates.product &&
+      stock.location === updates.location &&
+      stock.packageType === updates.packageType &&
+      stock.quantity !== updates.quantity
+    ) {
+      await this.createStock(user, {
+        product: updates.product,
+        location: updates.location,
+        packageType: updates.packageType,
+        quantity: updates.quantity - stock.quantity,
+        status: StockHistoryStatusEnum.STOCKUPDATE,
+      });
+    } else {
+      await this.removeStock(
+        user,
+        id,
+        StockHistoryStatusEnum.STOCKUPDATEDELETE,
+      );
+      await this.createStock(user, {
+        product: updates.product,
+        location: updates.location,
+        packageType: updates.packageType,
+        quantity: updates.quantity,
+        status: StockHistoryStatusEnum.STOCKUPDATEENTRY,
+      });
+    }
   }
   async removeStock(user: User, id: string, status: string) {
     const stock = await this.stockModel
@@ -1244,6 +1402,12 @@ export class AccountingService {
 
   async removeProductStocks(id: string) {
     const productStocks = await this.stockModel.find({ product: id });
+    const ProductStockHistory = await this.productStockHistoryModel.find({
+      product: id,
+    });
+    for (const stockHistory of ProductStockHistory) {
+      await this.productStockHistoryModel.findByIdAndRemove(stockHistory.id);
+    }
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
@@ -1266,7 +1430,7 @@ export class AccountingService {
         location: consumptStockDto.location,
         packageType: consumptStockDto.packageType,
         quantity: -consumptStockDto.quantity,
-        status: 'consumpt',
+        status: StockHistoryStatusEnum.CONSUMPTION,
       });
       return newStock;
     }
@@ -1352,13 +1516,34 @@ export class AccountingService {
     id: string,
     updates: UpdateQuery<FixtureStock>,
   ) {
-    await this.removeFixtureStock(user, id, 'update delete');
-    await this.createFixtureStock(user, {
-      fixture: updates.fixture,
-      location: updates.location,
-      quantity: updates.quantity,
-      status: 'update create',
-    });
+    const stock = await this.fixtureStockModel.findById(id);
+    if (!stock) {
+      throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
+    }
+    if (
+      stock.fixture === updates.fixture &&
+      stock.location === updates.location &&
+      stock.quantity !== updates.quantity
+    ) {
+      await this.createFixtureStock(user, {
+        fixture: updates.fixture,
+        location: updates.location,
+        quantity: updates.quantity - stock.quantity,
+        status: StockHistoryStatusEnum.STOCKUPDATE,
+      });
+    } else {
+      await this.removeFixtureStock(
+        user,
+        id,
+        StockHistoryStatusEnum.STOCKUPDATEDELETE,
+      );
+      await this.createFixtureStock(user, {
+        fixture: updates.fixture,
+        location: updates.location,
+        quantity: updates.quantity,
+        status: StockHistoryStatusEnum.STOCKUPDATEENTRY,
+      });
+    }
   }
   async removeFixtureStock(user: User, id: string, status: string) {
     const stock = await this.fixtureStockModel.findById(id);
@@ -1391,6 +1576,12 @@ export class AccountingService {
     const fixtureFixtureStocks = await this.fixtureStockModel.find({
       fixture: id,
     });
+    const fixtureStockHistory = await this.fixtureStockHistoryModel.find({
+      fixture: id,
+    });
+    for (const history of fixtureStockHistory) {
+      await this.fixtureStockHistoryModel.findByIdAndRemove(history.id);
+    }
     for (const stock of fixtureFixtureStocks) {
       await this.fixtureStockModel.findByIdAndRemove(stock.id);
     }
