@@ -406,7 +406,11 @@ export class AccountingController {
 
   @Delete('/stocks/:id')
   deleteStock(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeStock(user, id, 'stock delete');
+    return this.accountingService.removeStock(
+      user,
+      id,
+      StockHistoryStatusEnum.STOCKDELETE,
+    );
   }
 
   @Patch('/stocks/:id')
@@ -482,7 +486,11 @@ export class AccountingController {
 
   @Delete('/fixture-stocks/:id')
   deleteFixtureStock(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeFixtureStock(user, id, 'stock delete');
+    return this.accountingService.removeFixtureStock(
+      user,
+      id,
+      StockHistoryStatusEnum.STOCKDELETE,
+    );
   }
 
   // count list
