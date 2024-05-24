@@ -1423,6 +1423,15 @@ export class AccountingService {
       await this.stockModel.findByIdAndUpdate(stock[0]._id, {
         quantity: stock[0].quantity - consumptStockDto.quantity,
       });
+      await this.createProductStockHistory({
+        user: user._id,
+        product: consumptStockDto.product,
+        location: consumptStockDto.location,
+        packageType: consumptStockDto.packageType,
+        change: -consumptStockDto.quantity,
+        status: StockHistoryStatusEnum.CONSUMPTION,
+        currentAmount: stock[0].quantity,
+      });
       return stock[0];
     } else {
       const newStock = await this.createStock(user, {
