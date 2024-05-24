@@ -31,6 +31,7 @@ import {
   CreateUnitDto,
   CreateVendorDto,
   JoinProductDto,
+  StockHistoryStatusEnum,
 } from './accounting.dto';
 import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
@@ -167,6 +168,7 @@ export class AccountingController {
     return this.accountingService.createFixtureInvoice(
       user,
       createFixtureInvoiceDto,
+      StockHistoryStatusEnum.EXPENSEENTRY,
     );
   }
 
@@ -181,7 +183,11 @@ export class AccountingController {
 
   @Delete('/fixture-invoice/:id')
   deleteFixtureInvoice(@ReqUser() user: User, @Param('id') id: number) {
-    return this.accountingService.removeFixtureInvoice(user, id);
+    return this.accountingService.removeFixtureInvoice(
+      user,
+      id,
+      StockHistoryStatusEnum.EXPENSEDELETE,
+    );
   }
 
   // service invoices
@@ -309,7 +315,11 @@ export class AccountingController {
     @ReqUser() user: User,
     @Body() createInvoiceDto: CreateInvoiceDto,
   ) {
-    return this.accountingService.createInvoice(user, createInvoiceDto);
+    return this.accountingService.createInvoice(
+      user,
+      createInvoiceDto,
+      StockHistoryStatusEnum.EXPENSEENTRY,
+    );
   }
 
   @Patch('/invoices/transfer_to_fixture_invoice/:id')
@@ -354,7 +364,11 @@ export class AccountingController {
 
   @Delete('/invoices/:id')
   deleteInvoice(@ReqUser() user: User, @Param('id') id: number) {
-    return this.accountingService.removeInvoice(user, id);
+    return this.accountingService.removeInvoice(
+      user,
+      id,
+      StockHistoryStatusEnum.EXPENSEDELETE,
+    );
   }
 
   // Stock Location
