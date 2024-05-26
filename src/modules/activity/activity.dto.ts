@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
+import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Table } from '../table/table.schema';
@@ -23,6 +24,9 @@ export enum ActivityType {
   DELETE_GAMEPLAY = 'DELETE_GAMEPLAY',
   LOGIN = 'LOGIN',
   LOGOUT = 'LOGOUT',
+  CREATE_STOCK = 'CREATE_STOCK',
+  DELETE_STOCK = 'DELETE_STOCK',
+  UPDATE_STOCK = 'UPDATE_STOCK',
 }
 
 export type ActivityTypePayload = {
@@ -38,4 +42,7 @@ export type ActivityTypePayload = {
   [ActivityType.DELETE_GAMEPLAY]: Gameplay;
   [ActivityType.LOGIN]: void;
   [ActivityType.LOGOUT]: void;
+  [ActivityType.CREATE_STOCK]: Stock;
+  [ActivityType.DELETE_STOCK]: Stock;
+  [ActivityType.UPDATE_STOCK]: { currentStock: Stock; newStock: Stock };
 };
