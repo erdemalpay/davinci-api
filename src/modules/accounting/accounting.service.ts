@@ -804,15 +804,22 @@ export class AccountingService {
       invoice.quantity === updates.quantity &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
-        invoice.totalExpense !== updates.totalExpense)
+      (invoice.note !== updates.note ||
+        invoice.totalExpense !== updates.totalExpense ||
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor)
     ) {
       await this.invoiceModel.findByIdAndUpdate(
         id,
-        { $set: { totalExpense: updates.totalExpense, note: updates.note } },
+        {
+          $set: {
+            totalExpense: updates.totalExpense,
+            note: updates.note,
+            brand: updates.brand,
+            vendor: updates.vendor,
+          },
+        },
         { new: true },
       );
     } else if (
@@ -822,8 +829,10 @@ export class AccountingService {
       invoice.brand === updates.brand &&
       invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
+      (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor ||
         invoice.quantity !== updates.quantity)
     ) {
       await this.invoiceModel.findByIdAndUpdate(
@@ -832,6 +841,8 @@ export class AccountingService {
           $set: {
             totalExpense: updates.totalExpense,
             note: updates.note,
+            brand: updates.brand,
+            vendor: updates.vendor,
             quantity: updates.quantity,
           },
         },
