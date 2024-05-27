@@ -2,8 +2,10 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { ActivityType } from '../activity/activity.dto';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
+import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
@@ -78,6 +80,7 @@ export class AccountingService {
     @InjectModel(FixtureStock.name)
     private fixtureStockModel: Model<FixtureStock>,
     private readonly MenuService: MenuService,
+    private readonly activityService: ActivityService,
   ) {}
   //   Products
   findAllProducts() {
@@ -392,27 +395,37 @@ export class AccountingService {
       invoice.quantity === updates.quantity &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
-        invoice.totalExpense !== updates.totalExpense)
+      (invoice.note !== updates.note ||
+        invoice.totalExpense !== updates.totalExpense ||
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
-        { $set: { totalExpense: updates.totalExpense, note: updates.note } },
+        {
+          $set: {
+            totalExpense: updates.totalExpense,
+            note: updates.note,
+            brand: updates.brand,
+            vendor: updates.vendor,
+            expenseType: updates.expenseType,
+          },
+        },
         { new: true },
       );
     } else if (
       invoice.fixture === updates.fixture &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
+      (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
-        invoice.quantity !== updates.quantity)
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor ||
+        invoice.quantity !== updates.quantity ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
@@ -421,6 +434,9 @@ export class AccountingService {
             totalExpense: updates.totalExpense,
             note: updates.note,
             quantity: updates.quantity,
+            brand: updates.brand,
+            vendor: updates.vendor,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
@@ -801,27 +817,12 @@ export class AccountingService {
       invoice.quantity === updates.quantity &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
-        invoice.totalExpense !== updates.totalExpense)
-    ) {
-      await this.invoiceModel.findByIdAndUpdate(
-        id,
-        { $set: { totalExpense: updates.totalExpense, note: updates.note } },
-        { new: true },
-      );
-    } else if (
-      invoice.product === updates.product &&
-      invoice.location === updates.location &&
-      invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
-      invoice.packageType === updates.packageType &&
-      (invoice.note === updates.note ||
+      (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
-        invoice.quantity !== updates.quantity)
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -829,7 +830,35 @@ export class AccountingService {
           $set: {
             totalExpense: updates.totalExpense,
             note: updates.note,
+            brand: updates.brand,
+            vendor: updates.vendor,
+            expenseType: updates.expenseType,
+          },
+        },
+        { new: true },
+      );
+    } else if (
+      invoice.product === updates.product &&
+      invoice.location === updates.location &&
+      invoice.date === updates.date &&
+      invoice.packageType === updates.packageType &&
+      (invoice.note !== updates.note ||
+        invoice.totalExpense !== updates.totalExpense ||
+        invoice.brand !== updates.brand ||
+        invoice.vendor !== updates.vendor ||
+        invoice.quantity !== updates.quantity ||
+        invoice.expenseType !== updates.expenseType)
+    ) {
+      await this.invoiceModel.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            totalExpense: updates.totalExpense,
+            note: updates.note,
+            brand: updates.brand,
+            vendor: updates.vendor,
             quantity: updates.quantity,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
@@ -1304,12 +1333,16 @@ export class AccountingService {
         createStockDto?.location,
     );
     const { status, ...stockData } = createStockDto;
-    const existStock = await this.stockModel.findById(stockId);
-    if (existStock) {
-      const oldQuantity = existStock.quantity;
-      existStock.quantity =
-        Number(existStock.quantity) + Number(createStockDto.quantity);
-      await existStock.save();
+    const existingStock = await this.stockModel.findById(stockId);
+    if (existingStock) {
+      const oldQuantity = existingStock.quantity;
+      const newStock = await this.stockModel.findByIdAndUpdate(
+        stockId,
+        {
+          quantity: Number(oldQuantity) + Number(createStockDto.quantity),
+        },
+        { new: true },
+      );
       // create stock history with currentAmount
       await this.createProductStockHistory({
         user: user._id,
@@ -1320,10 +1353,22 @@ export class AccountingService {
         status,
         currentAmount: oldQuantity,
       });
+      console.log('here');
+      console.log(newStock);
+      console.log(existingStock);
+      // create Activity
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_STOCK,
+        existingStock,
+        newStock,
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
+      // create Activity
+      this.activityService.addActivity(user, ActivityType.CREATE_STOCK, stock);
       // create stock history with currentAmount 0
       await this.createProductStockHistory({
         user: user._id,
@@ -1389,9 +1434,14 @@ export class AccountingService {
         status: status,
         user: user._id,
       });
-
+      const deletedStock = await this.stockModel.findByIdAndRemove(id);
+      this.activityService.addActivity(
+        user,
+        ActivityType.DELETE_STOCK,
+        deletedStock,
+      );
       // Remove the stock item
-      return await this.stockModel.findByIdAndRemove(id);
+      return deletedStock;
     } catch (error) {
       throw new HttpException(
         'Failed to remove stock',
@@ -1420,9 +1470,22 @@ export class AccountingService {
     });
     // if stock exist update quantity
     if (stock.length > 0) {
-      await this.stockModel.findByIdAndUpdate(stock[0]._id, {
-        quantity: stock[0].quantity - consumptStockDto.quantity,
-      });
+      const existingStock = stock[0];
+      const newStock = await this.stockModel.findByIdAndUpdate(
+        stock[0]._id,
+        {
+          quantity: stock[0].quantity - consumptStockDto.quantity,
+        },
+        { new: true },
+      );
+      //create Activity
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_STOCK,
+        existingStock,
+        newStock,
+      );
+      // create stock history with currentAmount
       await this.createProductStockHistory({
         user: user._id,
         product: consumptStockDto.product,
@@ -1489,12 +1552,12 @@ export class AccountingService {
       createFixtureStockDto.fixture + createFixtureStockDto?.location,
     );
     const { status, ...stockData } = createFixtureStockDto;
-    const existStock = await this.fixtureStockModel.findById(stockId);
-    if (existStock) {
-      const oldQuantity = existStock.quantity;
-      existStock.quantity =
-        Number(existStock.quantity) + Number(createFixtureStockDto.quantity);
-      await existStock.save();
+    const existingStock = await this.fixtureStockModel.findById(stockId);
+    if (existingStock) {
+      const oldQuantity = existingStock.quantity;
+      existingStock.quantity =
+        Number(existingStock.quantity) + Number(createFixtureStockDto.quantity);
+      await existingStock.save();
       // create stock history with currentAmount
       await this.createFixtureStockHistory({
         user: user._id,
