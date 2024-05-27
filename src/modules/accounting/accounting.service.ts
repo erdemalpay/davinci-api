@@ -399,7 +399,8 @@ export class AccountingService {
       (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
-        invoice.vendor !== updates.vendor)
+        invoice.vendor !== updates.vendor ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
@@ -409,6 +410,7 @@ export class AccountingService {
             note: updates.note,
             brand: updates.brand,
             vendor: updates.vendor,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
@@ -417,14 +419,13 @@ export class AccountingService {
       invoice.fixture === updates.fixture &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
       (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
-        invoice.quantity !== updates.quantity)
+        invoice.quantity !== updates.quantity ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
@@ -435,6 +436,7 @@ export class AccountingService {
             quantity: updates.quantity,
             brand: updates.brand,
             vendor: updates.vendor,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
@@ -819,7 +821,8 @@ export class AccountingService {
       (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
-        invoice.vendor !== updates.vendor)
+        invoice.vendor !== updates.vendor ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -829,6 +832,7 @@ export class AccountingService {
             note: updates.note,
             brand: updates.brand,
             vendor: updates.vendor,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
@@ -837,14 +841,13 @@ export class AccountingService {
       invoice.product === updates.product &&
       invoice.location === updates.location &&
       invoice.date === updates.date &&
-      invoice.brand === updates.brand &&
-      invoice.vendor === updates.vendor &&
       invoice.packageType === updates.packageType &&
       (invoice.note !== updates.note ||
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
-        invoice.quantity !== updates.quantity)
+        invoice.quantity !== updates.quantity ||
+        invoice.expenseType !== updates.expenseType)
     ) {
       await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -855,6 +858,7 @@ export class AccountingService {
             brand: updates.brand,
             vendor: updates.vendor,
             quantity: updates.quantity,
+            expenseType: updates.expenseType,
           },
         },
         { new: true },
