@@ -25,7 +25,9 @@ export class UserService implements OnModuleInit {
   }
 
   async create(userProps: CreateUserDto) {
-    const user = new this.userModel(userProps);
+    const user = new this.userModel(
+      userProps.imageUrl !== '' ? userProps : { ...userProps, imageUrl: null },
+    );
     user.password = await hash('dv' /* temporary dummy password*/, 10);
     user._id = usernamify(user.name);
     user.active = true;
