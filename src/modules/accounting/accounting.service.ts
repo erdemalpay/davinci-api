@@ -610,6 +610,15 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const products = await this.productModel.find({ expenseType: id });
+    const fixtures = await this.fixtureModel.find({ expenseType: id });
+    const services = await this.serviceModel.find({ expenseType: id });
+    if (products.length > 0 || fixtures.length > 0 || services.length > 0) {
+      throw new HttpException(
+        'Cannot remove expense type with products, fixtures or services',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     return this.expenseTypeModel.findByIdAndRemove(id);
   }
   //   Brands
@@ -630,7 +639,10 @@ export class AccountingService {
     const products = await this.productModel.find({
       brand: id,
     });
-    if (products.length > 0) {
+    const fixtures = await this.fixtureModel.find({
+      brand: id,
+    });
+    if (products.length > 0 || fixtures.length > 0) {
       throw new HttpException(
         'Cannot remove brand with products',
         HttpStatus.BAD_REQUEST,
@@ -657,7 +669,13 @@ export class AccountingService {
     const products = await this.productModel.find({
       vendor: id,
     });
-    if (products.length > 0) {
+    const fixtures = await this.fixtureModel.find({
+      vendor: id,
+    });
+    const services = await this.serviceModel.find({
+      vendor: id,
+    });
+    if (products.length > 0 || fixtures.length > 0 || services.length > 0) {
       throw new HttpException(
         'Cannot remove vendor with products',
         HttpStatus.BAD_REQUEST,
