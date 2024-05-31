@@ -1,8 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
+import { StockLocation } from './../accounting/stockLocation.schema';
 
 @Schema({ _id: false })
 export class Income extends Document {
@@ -15,7 +15,7 @@ export class Income extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   user: string;
 
-  @Prop({ required: true, type: String, ref: Location.name })
+  @Prop({ required: true, type: String, ref: StockLocation.name })
   location: string;
 
   @Prop({ required: true, type: Number })
