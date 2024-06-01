@@ -4,6 +4,14 @@ import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Table } from '../table/table.schema';
+import { Brand } from './../accounting/brand.schema';
+import { ExpenseType } from './../accounting/expenseType.schema';
+import { FixtureInvoice } from './../accounting/fixtureInvoice.schema';
+import { Invoice } from './../accounting/invoice.schema';
+import { PackageType } from './../accounting/packageType.schema';
+import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
+import { Unit } from './../accounting/unit.schema';
+import { Vendor } from './../accounting/vendor.schema';
 
 export class ActivityDto {
   @IsNumber()
@@ -27,6 +35,30 @@ export enum ActivityType {
   CREATE_STOCK = 'CREATE_STOCK',
   DELETE_STOCK = 'DELETE_STOCK',
   UPDATE_STOCK = 'UPDATE_STOCK',
+  CREATE_EXPENSE = 'CREATE_EXPENSE',
+  DELETE_EXPENSE = 'DELETE_EXPENSE',
+  UPDATE_EXPENSE = 'UPDATE_EXPENSE',
+  CREATE_FIXTUREEXPENSE = 'CREATE_FIXTUREEXPENSE',
+  DELETE_FIXTUREEXPENSE = 'DELETE_FIXTUREEXPENSE',
+  UPDATE_FIXTUREEXPENSE = 'UPDATE_FIXTUREEXPENSE',
+  CREATE_SERVICEEXPENSE = 'CREATE_SERVICEEXPENSE',
+  DELETE_SERVICEEXPENSE = 'DELETE_SERVICEEXPENSE',
+  UPDATE_SERVICEEXPENSE = 'UPDATE_SERVICEEXPENSE',
+  CREATE_UNIT = 'CREATE_UNIT',
+  DELETE_UNIT = 'DELETE_UNIT',
+  UPDATE_UNIT = 'UPDATE_UNIT',
+  CREATE_EXPENSETYPE = 'CREATE_EXPENSETYPE',
+  DELETE_EXPENSETYPE = 'DELETE_EXPENSETYPE',
+  UPDATE_EXPENSETYPE = 'UPDATE_EXPENSETYPE',
+  CREATE_VENDOR = 'CREATE_VENDOR',
+  DELETE_VENDOR = 'DELETE_VENDOR',
+  UPDATE_VENDOR = 'UPDATE_VENDOR',
+  CREATE_BRAND = 'CREATE_BRAND',
+  DELETE_BRAND = 'DELETE_BRAND',
+  UPDATE_BRAND = 'UPDATE_BRAND',
+  CREATE_PACKAGETYPE = 'CREATE_PACKAGETYPE',
+  DELETE_PACKAGETYPE = 'DELETE_PACKAGETYPE',
+  UPDATE_PACKAGETYPE = 'UPDATE_PACKAGETYPE',
 }
 
 export type ActivityTypePayload = {
@@ -45,4 +77,52 @@ export type ActivityTypePayload = {
   [ActivityType.CREATE_STOCK]: Stock;
   [ActivityType.DELETE_STOCK]: Stock;
   [ActivityType.UPDATE_STOCK]: { currentStock: Stock; newStock: Stock };
+  [ActivityType.CREATE_EXPENSE]: Invoice;
+  [ActivityType.DELETE_EXPENSE]: Invoice;
+  [ActivityType.UPDATE_EXPENSE]: {
+    currentExpense: Invoice;
+    newExpense: Invoice;
+  };
+  [ActivityType.CREATE_FIXTUREEXPENSE]: FixtureInvoice;
+  [ActivityType.DELETE_FIXTUREEXPENSE]: FixtureInvoice;
+  [ActivityType.UPDATE_FIXTUREEXPENSE]: {
+    currentExpense: FixtureInvoice;
+    newExpense: FixtureInvoice;
+  };
+  [ActivityType.CREATE_SERVICEEXPENSE]: ServiceInvoice;
+  [ActivityType.DELETE_SERVICEEXPENSE]: ServiceInvoice;
+  [ActivityType.UPDATE_SERVICEEXPENSE]: {
+    currentExpense: ServiceInvoice;
+    newExpense: ServiceInvoice;
+  };
+  [ActivityType.CREATE_UNIT]: Unit;
+  [ActivityType.DELETE_UNIT]: Unit;
+  [ActivityType.UPDATE_UNIT]: {
+    currentUnit: Unit;
+    newUnit: Unit;
+  };
+  [ActivityType.CREATE_EXPENSETYPE]: ExpenseType;
+  [ActivityType.DELETE_EXPENSETYPE]: ExpenseType;
+  [ActivityType.UPDATE_EXPENSETYPE]: {
+    currentExpenseType: ExpenseType;
+    newExpenseType: ExpenseType;
+  };
+  [ActivityType.CREATE_VENDOR]: Vendor;
+  [ActivityType.DELETE_VENDOR]: Vendor;
+  [ActivityType.UPDATE_VENDOR]: {
+    currentVendor: Vendor;
+    newVendor: Vendor;
+  };
+  [ActivityType.CREATE_BRAND]: Brand;
+  [ActivityType.DELETE_BRAND]: Brand;
+  [ActivityType.UPDATE_BRAND]: {
+    currentBrand: Brand;
+    newBrand: Brand;
+  };
+  [ActivityType.CREATE_PACKAGETYPE]: PackageType;
+  [ActivityType.DELETE_PACKAGETYPE]: PackageType;
+  [ActivityType.UPDATE_PACKAGETYPE]: {
+    currentPackageType: PackageType;
+    newPackageType: PackageType;
+  };
 };

@@ -245,17 +245,27 @@ export class AccountingService {
   findAllUnits() {
     return this.unitModel.find();
   }
-  async createUnit(createUnitDto: CreateUnitDto) {
+  async createUnit(user: User, createUnitDto: CreateUnitDto) {
     const unit = new this.unitModel(createUnitDto);
     unit._id = usernamify(unit.name);
     await unit.save();
+    this.activityService.addActivity(user, ActivityType.CREATE_UNIT, unit);
+    return unit;
   }
-  updateUnit(id: string, updates: UpdateQuery<Unit>) {
-    return this.unitModel.findByIdAndUpdate(id, updates, {
+  async updateUnit(user: User, id: string, updates: UpdateQuery<Unit>) {
+    const oldUnit = await this.unitModel.findById(id);
+    const newUnit = await this.unitModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_UNIT,
+      oldUnit,
+      newUnit,
+    );
+    return newUnit;
   }
-  async removeUnit(id: string) {
+  async removeUnit(user: User, id: string) {
     const products = await this.productModel.find({ unit: id });
     if (products.length > 0) {
       throw new HttpException(
@@ -263,7 +273,9 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.unitModel.findByIdAndRemove(id);
+    const unit = await this.unitModel.findByIdAndRemove(id);
+    this.activityService.addActivity(user, ActivityType.DELETE_UNIT, unit);
+    return unit;
   }
   // Fixtures
   findAllFixtures() {
@@ -373,7 +385,15 @@ export class AccountingService {
         quantity: createFixtureInvoiceDto.quantity,
         status: status,
       });
-      return this.fixtureInvoiceModel.create(createFixtureInvoiceDto);
+      const invoice = await this.fixtureInvoiceModel.create(
+        createFixtureInvoiceDto,
+      );
+      this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_FIXTUREEXPENSE,
+        invoice,
+      );
+      return invoice;
     } catch (error) {
       throw new HttpException(
         'Invoice creation failed.',
@@ -402,7 +422,7 @@ export class AccountingService {
         invoice.vendor !== updates.vendor ||
         invoice.expenseType !== updates.expenseType)
     ) {
-      await this.fixtureInvoiceModel.findByIdAndUpdate(
+      const newInvoice = await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
         {
           $set: {
@@ -414,6 +434,12 @@ export class AccountingService {
           },
         },
         { new: true },
+      );
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_FIXTUREEXPENSE,
+        invoice,
+        newInvoice,
       );
     } else if (
       invoice.fixture === updates.fixture &&
@@ -427,7 +453,7 @@ export class AccountingService {
         invoice.quantity !== updates.quantity ||
         invoice.expenseType !== updates.expenseType)
     ) {
-      await this.fixtureInvoiceModel.findByIdAndUpdate(
+      const newInvoice = await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
         {
           $set: {
@@ -440,6 +466,12 @@ export class AccountingService {
           },
         },
         { new: true },
+      );
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_FIXTUREEXPENSE,
+        invoice,
+        newInvoice,
       );
       await this.createFixtureStock(user, {
         fixture: updates.fixture,
@@ -504,7 +536,13 @@ export class AccountingService {
       quantity: -1 * invoice.quantity,
       status: status,
     });
-    return this.fixtureInvoiceModel.findByIdAndRemove(id);
+    await this.fixtureInvoiceModel.findByIdAndRemove(id);
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_FIXTUREEXPENSE,
+      invoice,
+    );
+    return invoice;
   }
   // Service Invoice
   findAllServiceInvoices() {
@@ -513,7 +551,10 @@ export class AccountingService {
       .populate('service expenseType vendor location')
       .sort({ _id: -1 });
   }
-  async createServiceInvoice(createServiceInvoiceDto: CreateServiceInvoiceDto) {
+  async createServiceInvoice(
+    user: User,
+    createServiceInvoiceDto: CreateServiceInvoiceDto,
+  ) {
     try {
       const ServiceLastInvoice = await this.serviceInvoiceModel
         .find({ service: createServiceInvoiceDto.service })
@@ -536,7 +577,15 @@ export class AccountingService {
           { new: true },
         );
       }
-      return this.serviceInvoiceModel.create(createServiceInvoiceDto);
+      const invoice = await this.serviceInvoiceModel.create(
+        createServiceInvoiceDto,
+      );
+      this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_SERVICEEXPENSE,
+        invoice,
+      );
+      return invoice;
     } catch (error) {
       throw new HttpException(
         'Invoice creation failed.',
@@ -544,9 +593,13 @@ export class AccountingService {
       );
     }
   }
-  async updateServiceInvoice(id: number, updates: UpdateQuery<ServiceInvoice>) {
-    await this.removeServiceInvoice(id);
-    await this.createServiceInvoice({
+  async updateServiceInvoice(
+    user: User,
+    id: number,
+    updates: UpdateQuery<ServiceInvoice>,
+  ) {
+    await this.removeServiceInvoice(user, id);
+    await this.createServiceInvoice(user, {
       service: updates.service,
       expenseType: updates?.expenseType,
       quantity: updates?.quantity,
@@ -559,7 +612,7 @@ export class AccountingService {
       packageType: updates?.packageType,
     });
   }
-  async removeServiceInvoice(id: number) {
+  async removeServiceInvoice(user: User, id: number) {
     const invoice = await this.serviceInvoiceModel.findById(id);
     if (!invoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -585,24 +638,55 @@ export class AccountingService {
         },
       );
     }
-    return this.serviceInvoiceModel.findByIdAndRemove(id);
+    await this.serviceInvoiceModel.findByIdAndRemove(id);
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_SERVICEEXPENSE,
+      invoice,
+    );
+    return invoice;
   }
 
   //   Expense Types
   findAllExpenseTypes() {
     return this.expenseTypeModel.find();
   }
-  async createExpenseType(createExpenseTypeDto: CreateExpenseTypeDto) {
+  async createExpenseType(
+    user: User,
+    createExpenseTypeDto: CreateExpenseTypeDto,
+  ) {
     const expenseType = new this.expenseTypeModel(createExpenseTypeDto);
     expenseType._id = usernamify(expenseType.name);
     await expenseType.save();
+    this.activityService.addActivity(
+      user,
+      ActivityType.CREATE_EXPENSETYPE,
+      expenseType,
+    );
+    return expenseType;
   }
-  updateExpenseType(id: string, updates: UpdateQuery<ExpenseType>) {
-    return this.expenseTypeModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+  async updateExpenseType(
+    user: User,
+    id: string,
+    updates: UpdateQuery<ExpenseType>,
+  ) {
+    const oldExpenseType = await this.expenseTypeModel.findById(id);
+    const newExpenseType = await this.expenseTypeModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_EXPENSETYPE,
+      oldExpenseType,
+      newExpenseType,
+    );
+    return newExpenseType;
   }
-  async removeExpenseType(id: string) {
+  async removeExpenseType(user: User, id: string) {
     const invoices = await this.invoiceModel.find({ expenseType: id });
     if (invoices.length > 0) {
       throw new HttpException(
@@ -619,23 +703,39 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.expenseTypeModel.findByIdAndRemove(id);
+    const expenseType = await this.expenseTypeModel.findByIdAndRemove(id);
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_EXPENSETYPE,
+      expenseType,
+    );
+    return expenseType;
   }
   //   Brands
   findAllBrands() {
     return this.brandModel.find();
   }
-  async createBrand(createBrandDto: CreateBrandDto) {
+  async createBrand(user: User, createBrandDto: CreateBrandDto) {
     const brand = new this.brandModel(createBrandDto);
     brand._id = usernamify(brand.name);
     await brand.save();
+    this.activityService.addActivity(user, ActivityType.CREATE_BRAND, brand);
+    return brand;
   }
-  updateBrand(id: string, updates: UpdateQuery<Brand>) {
-    return this.brandModel.findByIdAndUpdate(id, updates, {
+  async updateBrand(user: User, id: string, updates: UpdateQuery<Brand>) {
+    const oldBrand = await this.brandModel.findById(id);
+    const newBrand = await this.brandModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_BRAND,
+      oldBrand,
+      newBrand,
+    );
+    return newBrand;
   }
-  async removeBrand(id: string) {
+  async removeBrand(user: User, id: string) {
     const products = await this.productModel.find({
       brand: id,
     });
@@ -648,24 +748,36 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.brandModel.findByIdAndRemove(id);
+    const brand = await this.brandModel.findByIdAndRemove(id);
+    this.activityService.addActivity(user, ActivityType.DELETE_BRAND, brand);
+    return brand;
   }
 
   //   Vendors
   findAllVendors() {
     return this.vendorModel.find();
   }
-  async createVendor(createVendorDto: CreateVendorDto) {
+  async createVendor(user: User, createVendorDto: CreateVendorDto) {
     const vendor = new this.vendorModel(createVendorDto);
     vendor._id = usernamify(vendor.name);
     await vendor.save();
+    this.activityService.addActivity(user, ActivityType.CREATE_VENDOR, vendor);
+    return vendor;
   }
-  updateVendor(id: string, updates: UpdateQuery<Vendor>) {
-    return this.vendorModel.findByIdAndUpdate(id, updates, {
+  async updateVendor(user: User, id: string, updates: UpdateQuery<Vendor>) {
+    const oldVendor = await this.vendorModel.findById(id);
+    const newVendor = await this.vendorModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_VENDOR,
+      oldVendor,
+      newVendor,
+    );
+    return newVendor;
   }
-  async removeVendor(id: string) {
+  async removeVendor(user: User, id: string) {
     const products = await this.productModel.find({
       vendor: id,
     });
@@ -681,23 +793,51 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.vendorModel.findByIdAndRemove(id);
+    const vendor = await this.vendorModel.findByIdAndRemove(id);
+    this.activityService.addActivity(user, ActivityType.DELETE_VENDOR, vendor);
+    return vendor;
   }
   // packageType
   findAllPackageTypes() {
     return this.packageTypeModel.find().populate('unit');
   }
-  async createPackageType(createPackageTypeDto: CreatePackageTypeDto) {
+  async createPackageType(
+    user: User,
+    createPackageTypeDto: CreatePackageTypeDto,
+  ) {
     const packageType = new this.packageTypeModel(createPackageTypeDto);
     packageType._id = usernamify(packageType.name);
     await packageType.save();
+
+    this.activityService.addActivity(
+      user,
+      ActivityType.CREATE_PACKAGETYPE,
+      packageType,
+    );
+    return packageType;
   }
-  updatePackageType(id: string, updates: UpdateQuery<PackageType>) {
-    return this.packageTypeModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+  async updatePackageType(
+    user: User,
+    id: string,
+    updates: UpdateQuery<PackageType>,
+  ) {
+    const oldPackageType = await this.packageTypeModel.findById(id);
+    const newPackageType = await this.packageTypeModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_PACKAGETYPE,
+      oldPackageType,
+      newPackageType,
+    );
+    return newPackageType;
   }
-  async removePackageType(id: string) {
+  async removePackageType(user: User, id: string) {
     const products = await this.productModel.find();
     const isPackageTypeUsed = products.some((product) =>
       product.packages.some((p) => p.package === id),
@@ -708,7 +848,13 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.packageTypeModel.findByIdAndRemove(id);
+    const packageType = await this.packageTypeModel.findByIdAndRemove(id);
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_PACKAGETYPE,
+      packageType,
+    );
+    return packageType;
   }
 
   // Invoices
@@ -816,7 +962,13 @@ export class AccountingService {
         packageType: createInvoiceDto?.packageType,
         status: status,
       });
-      return await this.invoiceModel.create(createInvoiceDto);
+      const invoice = await this.invoiceModel.create(createInvoiceDto);
+      this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_EXPENSE,
+        invoice,
+      );
+      return invoice;
     } catch (error) {
       throw new HttpException(
         'Invoice creation failed.',
@@ -842,7 +994,7 @@ export class AccountingService {
         invoice.vendor !== updates.vendor ||
         invoice.expenseType !== updates.expenseType)
     ) {
-      await this.invoiceModel.findByIdAndUpdate(
+      const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
         {
           $set: {
@@ -854,6 +1006,12 @@ export class AccountingService {
           },
         },
         { new: true },
+      );
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_EXPENSE,
+        invoice,
+        newInvoice,
       );
     } else if (
       invoice.product === updates.product &&
@@ -867,7 +1025,7 @@ export class AccountingService {
         invoice.quantity !== updates.quantity ||
         invoice.expenseType !== updates.expenseType)
     ) {
-      await this.invoiceModel.findByIdAndUpdate(
+      const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
         {
           $set: {
@@ -880,6 +1038,12 @@ export class AccountingService {
           },
         },
         { new: true },
+      );
+      this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_EXPENSE,
+        invoice,
+        newInvoice,
       );
       await this.createStock(user, {
         product: updates.product,
@@ -926,9 +1090,13 @@ export class AccountingService {
       status: status,
     });
 
-    //remove from the invoices
+    //remove from the invoice
     await this.invoiceModel.findByIdAndDelete(id);
-
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_EXPENSE,
+      invoice,
+    );
     // updating the packagetype unit price
     const product = await this.productModel.findById(invoice.product);
     const invoicePackageType = await this.packageTypeModel.findById(
@@ -1115,7 +1283,7 @@ export class AccountingService {
     }
   }
 
-  async transferInvoiceToServiceInvoice(id: number) {
+  async transferInvoiceToServiceInvoice(user: User, id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
       throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
@@ -1149,7 +1317,7 @@ export class AccountingService {
     }
 
     for (const invoice of invoices) {
-      await this.createServiceInvoice({
+      await this.createServiceInvoice(user, {
         service: service._id,
         expenseType: invoice?.expenseType,
         quantity: invoice?.quantity,
@@ -1371,9 +1539,6 @@ export class AccountingService {
         status,
         currentAmount: oldQuantity,
       });
-      console.log('here');
-      console.log(newStock);
-      console.log(existingStock);
       // create Activity
       this.activityService.addUpdateActivity(
         user,
