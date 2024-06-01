@@ -94,18 +94,22 @@ export class AccountingController {
   }
 
   @Post('/units')
-  createUnit(@Body() createUnitDto: CreateUnitDto) {
-    return this.accountingService.createUnit(createUnitDto);
+  createUnit(@ReqUser() user: User, @Body() createUnitDto: CreateUnitDto) {
+    return this.accountingService.createUnit(user, createUnitDto);
   }
 
   @Patch('/units/:id')
-  updateUnit(@Param('id') id: string, @Body() updates: UpdateQuery<Unit>) {
-    return this.accountingService.updateUnit(id, updates);
+  updateUnit(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Unit>,
+  ) {
+    return this.accountingService.updateUnit(user, id, updates);
   }
 
   @Delete('/units/:id')
-  deleteUnit(@Param('id') id: string) {
-    return this.accountingService.removeUnit(id);
+  deleteUnit(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeUnit(user, id);
   }
   // Fixtures
   @Get('/fixtures')
@@ -198,22 +202,27 @@ export class AccountingController {
 
   @Post('/service-invoice')
   createServiceInvoice(
+    @ReqUser() user: User,
     @Body() createServiceInvoiceDto: CreateServiceInvoiceDto,
   ) {
-    return this.accountingService.createServiceInvoice(createServiceInvoiceDto);
+    return this.accountingService.createServiceInvoice(
+      user,
+      createServiceInvoiceDto,
+    );
   }
 
   @Patch('service-invoice/:id')
   updateServiceInvoice(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<ServiceInvoice>,
   ) {
-    return this.accountingService.updateServiceInvoice(id, updates);
+    return this.accountingService.updateServiceInvoice(user, id, updates);
   }
 
   @Delete('/service-invoice/:id')
-  deleteServiceInvoice(@Param('id') id: number) {
-    return this.accountingService.removeServiceInvoice(id);
+  deleteServiceInvoice(@ReqUser() user: User, @Param('id') id: number) {
+    return this.accountingService.removeServiceInvoice(user, id);
   }
   // Expense Types
   @Get('/expense-types')
@@ -222,21 +231,25 @@ export class AccountingController {
   }
 
   @Post('/expense-types')
-  createExpenseType(@Body() createExpenseTypeDto: CreateExpenseTypeDto) {
-    return this.accountingService.createExpenseType(createExpenseTypeDto);
+  createExpenseType(
+    @ReqUser() user: User,
+    @Body() createExpenseTypeDto: CreateExpenseTypeDto,
+  ) {
+    return this.accountingService.createExpenseType(user, createExpenseTypeDto);
   }
 
   @Patch('/expense-types/:id')
   updateExpenseType(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<ExpenseType>,
   ) {
-    return this.accountingService.updateExpenseType(id, updates);
+    return this.accountingService.updateExpenseType(user, id, updates);
   }
 
   @Delete('/expense-types/:id')
-  deleteExpenseType(@Param('id') id: string) {
-    return this.accountingService.removeExpenseType(id);
+  deleteExpenseType(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeExpenseType(user, id);
   }
 
   // Brands
@@ -246,18 +259,22 @@ export class AccountingController {
   }
 
   @Post('/brands')
-  createBrand(@Body() createBrandDto: CreateBrandDto) {
-    return this.accountingService.createBrand(createBrandDto);
+  createBrand(@ReqUser() user: User, @Body() createBrandDto: CreateBrandDto) {
+    return this.accountingService.createBrand(user, createBrandDto);
   }
 
   @Patch('/brands/:id')
-  updateBrand(@Param('id') id: string, @Body() updates: UpdateQuery<Brand>) {
-    return this.accountingService.updateBrand(id, updates);
+  updateBrand(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Brand>,
+  ) {
+    return this.accountingService.updateBrand(user, id, updates);
   }
 
   @Delete('/brands/:id')
-  deleteBrand(@Param('id') id: string) {
-    return this.accountingService.removeBrand(id);
+  deleteBrand(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeBrand(user, id);
   }
 
   // Vendors
@@ -267,18 +284,25 @@ export class AccountingController {
   }
 
   @Post('/vendors')
-  createVendor(@Body() createVendorDto: CreateVendorDto) {
-    return this.accountingService.createVendor(createVendorDto);
+  createVendor(
+    @ReqUser() user: User,
+    @Body() createVendorDto: CreateVendorDto,
+  ) {
+    return this.accountingService.createVendor(user, createVendorDto);
   }
 
   @Patch('/vendors/:id')
-  updateVendor(@Param('id') id: string, @Body() updates: UpdateQuery<Vendor>) {
-    return this.accountingService.updateVendor(id, updates);
+  updateVendor(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Vendor>,
+  ) {
+    return this.accountingService.updateVendor(user, id, updates);
   }
 
   @Delete('/vendors/:id')
-  deleteVendor(@Param('id') id: string) {
-    return this.accountingService.removeVendor(id);
+  deleteVendor(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeVendor(user, id);
   }
   // packageTypes
   @Get('/package-types')
@@ -287,21 +311,25 @@ export class AccountingController {
   }
 
   @Post('/package-types')
-  createPackageType(@Body() createPackageTypeDto: CreatePackageTypeDto) {
-    return this.accountingService.createPackageType(createPackageTypeDto);
+  createPackageType(
+    @ReqUser() user: User,
+    @Body() createPackageTypeDto: CreatePackageTypeDto,
+  ) {
+    return this.accountingService.createPackageType(user, createPackageTypeDto);
   }
 
   @Patch('/package-types/:id')
   updatePackageType(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<PackageType>,
   ) {
-    return this.accountingService.updatePackageType(id, updates);
+    return this.accountingService.updatePackageType(user, id, updates);
   }
 
   @Delete('/package-types/:id')
-  deletePackageType(@Param('id') id: string) {
-    return this.accountingService.removePackageType(id);
+  deletePackageType(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removePackageType(user, id);
   }
 
   // Invoices
@@ -331,8 +359,11 @@ export class AccountingController {
   }
 
   @Patch('/invoices/transfer_to_service_invoice/:id')
-  updateInvoiceToServiceInvoice(@Param('id') id: number) {
-    return this.accountingService.transferInvoiceToServiceInvoice(id);
+  updateInvoiceToServiceInvoice(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+  ) {
+    return this.accountingService.transferInvoiceToServiceInvoice(user, id);
   }
   @Patch('/invoices/transfer_service_invoice_to_invoice/:id')
   updateServiceInvoiceToInvoice(
