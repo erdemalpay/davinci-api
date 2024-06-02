@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { GameModule } from 'src/modules/game/game.module';
 import { ActivityModule } from '../activity/activity.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
@@ -60,7 +61,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, MenuModule, ActivityModule],
+  imports: [mongooseModule, MenuModule, ActivityModule, GameModule],
   providers: [AccountingService],
   exports: [AccountingService],
   controllers: [AccountingController],

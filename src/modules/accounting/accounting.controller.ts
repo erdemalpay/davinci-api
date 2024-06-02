@@ -116,6 +116,10 @@ export class AccountingController {
   getFixtures() {
     return this.accountingService.findAllFixtures();
   }
+  @Get('/fixture/games')
+  getGamesFixtures(@ReqUser() user: User) {
+    return this.accountingService.gamesFixtures(user);
+  }
 
   @Post('/fixtures')
   createFixture(@Body() createFixtureDto: CreateFixtureDto) {
