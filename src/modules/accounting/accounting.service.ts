@@ -6,6 +6,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { ActivityService } from './../activity/activity.service';
+import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
@@ -81,6 +82,7 @@ export class AccountingService {
     private fixtureStockModel: Model<FixtureStock>,
     private readonly MenuService: MenuService,
     private readonly activityService: ActivityService,
+    private readonly gameService: GameService,
   ) {}
   //   Products
   findAllProducts() {
@@ -315,6 +317,32 @@ export class AccountingService {
           'Cannot remove product with stock',
           HttpStatus.BAD_REQUEST,
         );
+      }
+    }
+  }
+  async gamesFixtures(user: User) {
+    const games = await this.gameService.getGames();
+    for (const game of games) {
+      await this.createFixture({
+        name: game.name,
+        expenseType: ['kutuphane'],
+      });
+      for (const location of game.locations) {
+        if (location === 1) {
+          await this.createFixtureStock(user, {
+            fixture: usernamify(game.name),
+            location: 'bahceli',
+            quantity: 1,
+            status: StockHistoryStatusEnum.STOCKENTRY,
+          });
+        } else if (location === 2) {
+          await this.createFixtureStock(user, {
+            fixture: usernamify(game.name),
+            location: 'neorama',
+            quantity: 1,
+            status: StockHistoryStatusEnum.STOCKENTRY,
+          });
+        }
       }
     }
   }
