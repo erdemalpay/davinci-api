@@ -40,6 +40,12 @@ export class Invoice extends Document {
   @Prop({ required: true, type: String, ref: StockLocation.name })
   location: string | number;
 
+  @Prop({ required: true, type: Boolean })
+  isPaid: boolean;
+
+  @Prop({ required: true, type: String })
+  paymentMethod: string;
+
   @Prop({ required: false })
   note: string;
 }

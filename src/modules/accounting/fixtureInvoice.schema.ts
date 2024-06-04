@@ -5,6 +5,7 @@ import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
 import { PackageType } from './packageType.schema';
+import { PaymentMethod } from './paymentMethod.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
 @Schema({ _id: false })
@@ -38,6 +39,12 @@ export class FixtureInvoice extends Document {
 
   @Prop({ required: true })
   date: string;
+
+  @Prop({ required: true, type: Boolean })
+  isPaid: boolean;
+
+  @Prop({ required: true, type: String, ref: PaymentMethod.name })
+  paymentMethod: string;
 
   @Prop({ required: false })
   note: string;

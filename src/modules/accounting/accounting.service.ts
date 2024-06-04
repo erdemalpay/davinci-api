@@ -20,6 +20,7 @@ import {
   CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
+  CreatePaymentMethodDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
   CreateServiceDto,
@@ -41,6 +42,7 @@ import { FixtureStock } from './fixtureStock.schema';
 import { FixtureStockHistory } from './fixtureStockHistory.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
+import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
@@ -71,6 +73,8 @@ export class AccountingService {
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
     @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
+    @InjectModel(PaymentMethod.name)
+    private paymentMethodModel: Model<PaymentMethod>,
     @InjectModel(ProductStockHistory.name)
     private productStockHistoryModel: Model<ProductStockHistory>,
     @InjectModel(FixtureStockHistory.name)
@@ -526,6 +530,8 @@ export class AccountingService {
           brand: updates?.brand,
           note: updates?.note,
           packageType: updates?.packageType,
+          isPaid: updates?.isPaid,
+          paymentMethod: updates?.paymentMethod,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
@@ -638,6 +644,8 @@ export class AccountingService {
       brand: updates?.brand,
       note: updates?.note,
       packageType: updates?.packageType,
+      isPaid: updates?.isPaid,
+      paymentMethod: updates?.paymentMethod,
     });
   }
   async removeServiceInvoice(user: User, id: number) {
@@ -884,6 +892,71 @@ export class AccountingService {
     );
     return packageType;
   }
+  // payment methods
+  findAllPaymentMethods() {
+    return this.paymentMethodModel.find();
+  }
+  async createPaymentMethod(
+    user: User,
+    createPaymentMethodDto: CreatePaymentMethodDto,
+  ) {
+    const paymentMethod = new this.paymentMethodModel(createPaymentMethodDto);
+    paymentMethod._id = usernamify(paymentMethod.name);
+    await paymentMethod.save();
+    this.activityService.addActivity(
+      user,
+      ActivityType.CREATE_PAYMENTMETHOD,
+      paymentMethod,
+    );
+    return paymentMethod;
+  }
+  async updatePaymentMethod(
+    user: User,
+    id: string,
+    updates: UpdateQuery<PaymentMethod>,
+  ) {
+    const oldPaymentMethod = await this.paymentMethodModel.findById(id);
+    const newPaymentMethod = await this.paymentMethodModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_PAYMENTMETHOD,
+      oldPaymentMethod,
+      newPaymentMethod,
+    );
+    return newPaymentMethod;
+  }
+  async removePaymentMethod(user: User, id: string) {
+    const invoices = await this.invoiceModel.find({ paymentMethod: id });
+    const fixtureInvoices = await this.fixtureInvoiceModel.find({
+      paymentMethod: id,
+    });
+    const ServiceInvoice = await this.serviceInvoiceModel.find({
+      paymentMethod: id,
+    });
+    if (
+      invoices.length > 0 ||
+      fixtureInvoices.length > 0 ||
+      ServiceInvoice.length > 0
+    ) {
+      throw new HttpException(
+        'Cannot remove payment method with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const paymentMethod = await this.paymentMethodModel.findByIdAndRemove(id);
+    this.activityService.addActivity(
+      user,
+      ActivityType.DELETE_PAYMENTMETHOD,
+      paymentMethod,
+    );
+    return paymentMethod;
+  }
 
   // Invoices
   findAllInvoices() {
@@ -1099,6 +1172,8 @@ export class AccountingService {
           vendor: updates?.vendor,
           packageType: updates?.packageType,
           note: updates?.note,
+          isPaid: updates?.isPaid,
+          paymentMethod: updates?.paymentMethod,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
@@ -1285,6 +1360,8 @@ export class AccountingService {
           brand: invoice?.brand,
           note: invoice?.note,
           packageType: invoice?.packageType,
+          isPaid: invoice?.isPaid,
+          paymentMethod: invoice?.paymentMethod,
         },
         StockHistoryStatusEnum.TRANSFERINVOICETOFIXTURE,
       );
@@ -1356,6 +1433,8 @@ export class AccountingService {
         brand: invoice?.brand,
         note: invoice?.note,
         packageType: invoice?.packageType ?? 'birim',
+        isPaid: invoice?.isPaid,
+        paymentMethod: invoice?.paymentMethod,
       });
 
       try {
@@ -1433,6 +1512,8 @@ export class AccountingService {
           vendor: invoice?.vendor,
           note: invoice?.note,
           packageType: invoice?.packageType ?? 'birim',
+          isPaid: invoice?.isPaid,
+          paymentMethod: invoice?.paymentMethod,
         },
         StockHistoryStatusEnum.TRANSFERFIXTURETOINVOICE,
       );
@@ -1511,6 +1592,8 @@ export class AccountingService {
           vendor: invoice?.vendor,
           note: invoice?.note,
           packageType: invoice?.packageType ?? 'birim',
+          isPaid: invoice?.isPaid,
+          paymentMethod: invoice?.paymentMethod,
         },
         StockHistoryStatusEnum.TRANSFERSERVICETOINVOICE,
       );
@@ -2011,6 +2094,28 @@ export class AccountingService {
       if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
         await invoice.save();
       }
+    }
+  }
+  async updateInvoicesPayments(user: User) {
+    await this.createPaymentMethod(user, { name: 'Nakit' });
+
+    const invoices = await this.invoiceModel.find({});
+    for (const invoice of invoices) {
+      invoice.isPaid = true;
+      invoice.paymentMethod = 'nakit';
+      await invoice.save();
+    }
+    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
+    for (const invoice of fixtureInvoices) {
+      invoice.isPaid = true;
+      invoice.paymentMethod = 'nakit';
+      await invoice.save();
+    }
+    const serviceInvoices = await this.serviceInvoiceModel.find({});
+    for (const invoice of serviceInvoices) {
+      invoice.isPaid = true;
+      invoice.paymentMethod = 'nakit';
+      await invoice.save();
     }
   }
 }
