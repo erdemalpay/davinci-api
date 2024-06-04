@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
+import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
@@ -59,6 +60,9 @@ export enum ActivityType {
   CREATE_PACKAGETYPE = 'CREATE_PACKAGETYPE',
   DELETE_PACKAGETYPE = 'DELETE_PACKAGETYPE',
   UPDATE_PACKAGETYPE = 'UPDATE_PACKAGETYPE',
+  CREATE_PAYMENTMETHOD = 'CREATE_PAYMENTMETHOD',
+  DELETE_PAYMENTMETHOD = 'DELETE_PAYMENTMETHOD',
+  UPDATE_PAYMENTMETHOD = 'UPDATE_PAYMENTMETHOD',
 }
 
 export type ActivityTypePayload = {
@@ -124,5 +128,11 @@ export type ActivityTypePayload = {
   [ActivityType.UPDATE_PACKAGETYPE]: {
     currentPackageType: PackageType;
     newPackageType: PackageType;
+  };
+  [ActivityType.CREATE_PAYMENTMETHOD]: PaymentMethod;
+  [ActivityType.DELETE_PAYMENTMETHOD]: PaymentMethod;
+  [ActivityType.UPDATE_PAYMENTMETHOD]: {
+    currentPaymentMethod: PaymentMethod;
+    newPaymentMethod: PaymentMethod;
   };
 };

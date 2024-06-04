@@ -20,6 +20,7 @@ import {
 } from './fixtureStockHistory.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
+import { PaymentMethod, PaymentMethodSchema } from './paymentMethod.schema';
 import { Product, ProductSchema } from './product.schema';
 import {
   ProductStockHistory,
@@ -47,6 +48,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Count.name, useFactory: () => CountSchema },
   { name: Location.name, useFactory: () => LocationSchema },
   { name: PackageType.name, useFactory: () => PackageTypeSchema },
+  { name: PaymentMethod.name, useFactory: () => PaymentMethodSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
   createAutoIncrementConfig(FixtureInvoice.name, FixtureInvoiceSchema),
   createAutoIncrementConfig(ServiceInvoice.name, ServiceInvoiceSchema),

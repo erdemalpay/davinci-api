@@ -69,6 +69,9 @@ export class CreateExpenseTypeDto {
   name: string;
   backgroundColor: string;
 }
+export class CreatePaymentMethodDto {
+  name: string;
+}
 export class CreatePackageTypeDto {
   name: string;
   unit: string;
@@ -122,6 +125,8 @@ export class CreateInvoiceDto {
   vendor?: string;
   packageType?: string;
   note?: string;
+  isPaid: boolean;
+  paymentMethod: string;
 }
 
 export class CreateFixtureInvoiceDto {
@@ -135,6 +140,8 @@ export class CreateFixtureInvoiceDto {
   vendor?: string;
   note?: string;
   packageType?: string;
+  isPaid: boolean;
+  paymentMethod: string;
 }
 
 export class CreateServiceInvoiceDto {
@@ -148,6 +155,8 @@ export class CreateServiceInvoiceDto {
   brand?: string;
   note?: string;
   packageType?: string;
+  isPaid: boolean;
+  paymentMethod: string;
 }
 
 export enum StockHistoryStatusEnum {
