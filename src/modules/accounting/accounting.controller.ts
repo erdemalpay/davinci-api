@@ -22,6 +22,7 @@ import {
   CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
+  CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
@@ -44,6 +45,7 @@ import { FixtureInvoice } from './fixtureInvoice.schema';
 import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
+import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { Service } from './service.schema';
@@ -366,6 +368,32 @@ export class AccountingController {
   @Delete('/payment-methods/:id')
   deletePaymentMethod(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removePaymentMethod(user, id);
+  }
+  // payments
+  @Get('/payments')
+  getPayments() {
+    return this.accountingService.findAllPayments();
+  }
+
+  @Post('/payments')
+  createPayment(
+    @ReqUser() user: User,
+    @Body() createPaymentDto: CreatePaymentDto,
+  ) {
+    return this.accountingService.createPayment(user, createPaymentDto);
+  }
+
+  @Patch('/payments/:id')
+  updatePayment(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Payment>,
+  ) {
+    return this.accountingService.updatePayment(id, updates);
+  }
+
+  @Delete('/payments/:id')
+  deletePayment(@Param('id') id: string) {
+    return this.accountingService.removePayment(id);
   }
 
   // Invoices

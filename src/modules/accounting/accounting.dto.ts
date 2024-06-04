@@ -30,6 +30,16 @@ export class CreateServiceDto {
   packages?: PackageType[];
 }
 
+export class CreatePaymentDto {
+  vendor: string;
+  invoice?: string;
+  fixtureInvoice?: string;
+  serviceInvoice?: string;
+  user: string;
+  paymentMethod: string;
+  date: string;
+  amount: number;
+}
 export class CreateUnitDto {
   name: string;
 }
