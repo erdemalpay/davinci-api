@@ -20,6 +20,7 @@ import {
 } from './fixtureStockHistory.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { PackageType, PackageTypeSchema } from './packageType.schema';
+import { Payment, PaymentSchema } from './payment.schema';
 import { PaymentMethod, PaymentMethodSchema } from './paymentMethod.schema';
 import { Product, ProductSchema } from './product.schema';
 import {
@@ -60,6 +61,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     FixtureStockHistory.name,
     FixtureStockHistorySchema,
   ),
+  createAutoIncrementConfig(Payment.name, PaymentSchema),
 ]);
 
 @Module({

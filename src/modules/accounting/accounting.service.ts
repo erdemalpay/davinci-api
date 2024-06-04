@@ -20,6 +20,7 @@ import {
   CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
+  CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
@@ -42,6 +43,7 @@ import { FixtureStock } from './fixtureStock.schema';
 import { FixtureStockHistory } from './fixtureStockHistory.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
+import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { ProductStockHistory } from './productStockHistory.schema';
@@ -67,6 +69,7 @@ export class AccountingService {
     private serviceInvoiceModel: Model<ServiceInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
@@ -957,7 +960,36 @@ export class AccountingService {
     );
     return paymentMethod;
   }
+  // payment
+  findAllPayments() {
+    return this.paymentModel
+      .find()
+      .populate('paymentMethod vendor')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
+      .sort({ _id: -1 });
+  }
 
+  createPayment(user: User, createPaymentDto: CreatePaymentDto) {
+    const payment = this.paymentModel.create({
+      ...createPaymentDto,
+      user: user,
+    });
+    return payment;
+  }
+  updatePayment(id: string, updates: UpdateQuery<Payment>) {
+    const newPayment = this.paymentModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    return newPayment;
+  }
+
+  removePayment(id: string) {
+    const payment = this.paymentModel.findByIdAndRemove(id);
+    return payment;
+  }
   // Invoices
   findAllInvoices() {
     return this.invoiceModel
@@ -1998,7 +2030,11 @@ export class AccountingService {
   findAllCounts() {
     return this.countModel
       .find()
-      .populate('user location countList')
+      .populate('location countList')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ createdAt: -1 });
   }
   async createCount(createCountDto: CreateCountDto) {

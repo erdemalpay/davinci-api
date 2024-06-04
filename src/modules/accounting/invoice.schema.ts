@@ -4,6 +4,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { PackageType } from './packageType.schema';
+import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
@@ -43,7 +44,7 @@ export class Invoice extends Document {
   @Prop({ required: true, type: Boolean })
   isPaid: boolean;
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: true, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
 
   @Prop({ required: false })
