@@ -17,13 +17,13 @@ export class Payment extends Document {
   vendor: string;
 
   @Prop({ required: false, type: String, ref: Invoice.name })
-  invoice: string;
+  invoice: number;
 
   @Prop({ required: false, type: String, ref: FixtureInvoice.name })
-  fixtureInvoice: string;
+  fixtureInvoice: number;
 
   @Prop({ required: false, type: String, ref: ServiceInvoice.name })
-  serviceInvoice: string;
+  serviceInvoice: number;
 
   @Prop({ required: true, type: String, ref: User.name })
   user: string;

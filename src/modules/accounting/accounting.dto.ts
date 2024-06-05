@@ -32,10 +32,9 @@ export class CreateServiceDto {
 
 export class CreatePaymentDto {
   vendor: string;
-  invoice?: string;
-  fixtureInvoice?: string;
-  serviceInvoice?: string;
-  user: string;
+  invoice?: number;
+  fixtureInvoice?: number;
+  serviceInvoice?: number;
   paymentMethod: string;
   date: string;
   amount: number;
@@ -136,7 +135,7 @@ export class CreateInvoiceDto {
   packageType?: string;
   note?: string;
   isPaid: boolean;
-  paymentMethod: string;
+  paymentMethod?: string;
 }
 
 export class CreateFixtureInvoiceDto {
@@ -151,7 +150,7 @@ export class CreateFixtureInvoiceDto {
   note?: string;
   packageType?: string;
   isPaid: boolean;
-  paymentMethod: string;
+  paymentMethod?: string;
 }
 
 export class CreateServiceInvoiceDto {
@@ -166,7 +165,7 @@ export class CreateServiceInvoiceDto {
   note?: string;
   packageType?: string;
   isPaid: boolean;
-  paymentMethod: string;
+  paymentMethod?: string;
 }
 
 export enum StockHistoryStatusEnum {
