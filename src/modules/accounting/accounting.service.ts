@@ -384,6 +384,10 @@ export class AccountingService {
     return this.fixtureInvoiceModel
       .find()
       .populate('fixture expenseType brand vendor location paymentMethod')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ _id: -1 });
   }
   async createFixtureInvoice(
@@ -420,9 +424,10 @@ export class AccountingService {
         quantity: createFixtureInvoiceDto.quantity,
         status: status,
       });
-      const invoice = await this.fixtureInvoiceModel.create(
-        createFixtureInvoiceDto,
-      );
+      const invoice = await this.fixtureInvoiceModel.create({
+        ...createFixtureInvoiceDto,
+        user: user._id,
+      });
       if (createFixtureInvoiceDto.isPaid) {
         await this.createPayment(user, {
           amount: createFixtureInvoiceDto.totalExpense,
@@ -597,6 +602,10 @@ export class AccountingService {
     return this.serviceInvoiceModel
       .find()
       .populate('service expenseType vendor location paymentMethod')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ _id: -1 });
   }
   async createServiceInvoice(
@@ -625,9 +634,10 @@ export class AccountingService {
           { new: true },
         );
       }
-      const invoice = await this.serviceInvoiceModel.create(
-        createServiceInvoiceDto,
-      );
+      const invoice = await this.serviceInvoiceModel.create({
+        ...createServiceInvoiceDto,
+        user: user._id,
+      });
 
       if (createServiceInvoiceDto.isPaid) {
         await this.createPayment(user, {
@@ -1021,6 +1031,10 @@ export class AccountingService {
       .populate(
         'product expenseType brand vendor location packageType paymentMethod',
       )
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ _id: -1 });
   }
   async createInvoice(
@@ -1121,7 +1135,10 @@ export class AccountingService {
         packageType: createInvoiceDto?.packageType,
         status: status,
       });
-      const invoice = await this.invoiceModel.create(createInvoiceDto);
+      const invoice = await this.invoiceModel.create({
+        ...createInvoiceDto,
+        user: user._id,
+      });
       if (createInvoiceDto.isPaid) {
         await this.createPayment(user, {
           amount: createInvoiceDto.totalExpense,
@@ -2197,6 +2214,23 @@ export class AccountingService {
     for (const invoice of serviceInvoices) {
       invoice.isPaid = true;
       invoice.paymentMethod = 'nakit';
+      await invoice.save();
+    }
+  }
+  async updateInvoicesUser() {
+    const invoices = await this.invoiceModel.find({});
+    for (const invoice of invoices) {
+      invoice.user = 'cem';
+      await invoice.save();
+    }
+    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
+    for (const invoice of fixtureInvoices) {
+      invoice.user = 'cem';
+      await invoice.save();
+    }
+    const serviceInvoices = await this.serviceInvoiceModel.find({});
+    for (const invoice of serviceInvoices) {
+      invoice.user = 'cem';
       await invoice.save();
     }
   }

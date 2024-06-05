@@ -11,13 +11,8 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Cashout } from './cashout.schema';
-import {
-  CreateCashoutDto,
-  CreateExpenseDto,
-  CreateIncomeDto,
-} from './checkout.dto';
+import { CreateCashoutDto, CreateIncomeDto } from './checkout.dto';
 import { CheckoutService } from './checkout.service';
-import { Expense } from './expense.schema';
 import { Income } from './income.schema';
 
 @Controller('checkout')
@@ -45,32 +40,6 @@ export class CheckoutController {
   @Delete('/income/:id')
   deleteIncome(@Param('id') id: string) {
     return this.checkoutService.removeIncome(id);
-  }
-  // Expense
-  @Get('/expense')
-  getExpense() {
-    return this.checkoutService.findAllExpense();
-  }
-
-  @Post('/expense')
-  createExpense(
-    @ReqUser() user: User,
-    @Body() createExpenseDto: CreateExpenseDto,
-  ) {
-    return this.checkoutService.createExpense(user, createExpenseDto);
-  }
-
-  @Patch('/expense/:id')
-  updateExpense(
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Expense>,
-  ) {
-    return this.checkoutService.updateExpense(id, updates);
-  }
-
-  @Delete('/expense/:id')
-  deleteExpense(@Param('id') id: string) {
-    return this.checkoutService.removeExpense(id);
   }
   // Cashout
   @Get('/cashout')

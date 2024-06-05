@@ -406,6 +406,11 @@ export class AccountingController {
     return this.accountingService.updateInvoicesPayments(user);
   }
 
+  @Get('/invoices/updateUser')
+  getUpdateInvoicesUser() {
+    return this.accountingService.updateInvoicesUser();
+  }
+
   @Post('/invoices')
   createInvoice(
     @ReqUser() user: User,

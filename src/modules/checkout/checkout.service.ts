@@ -3,19 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import { Cashout } from './cashout.schema';
-import {
-  CreateCashoutDto,
-  CreateExpenseDto,
-  CreateIncomeDto,
-} from './checkout.dto';
-import { Expense } from './expense.schema';
+import { CreateCashoutDto, CreateIncomeDto } from './checkout.dto';
 import { Income } from './income.schema';
 
 @Injectable()
 export class CheckoutService {
   constructor(
     @InjectModel(Income.name) private incomeModel: Model<Income>,
-    @InjectModel(Expense.name) private expenseModel: Model<Expense>,
     @InjectModel(Cashout.name) private cashoutModel: Model<Cashout>,
   ) {}
   // income
@@ -39,27 +33,7 @@ export class CheckoutService {
   removeIncome(id: string) {
     return this.incomeModel.findByIdAndRemove(id);
   }
-  // Expense
-  findAllExpense() {
-    return this.expenseModel
-      .find()
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .populate('location');
-  }
-  createExpense(user: User, createExpenseDto: CreateExpenseDto) {
-    return this.expenseModel.create({ ...createExpenseDto, user: user._id });
-  }
-  updateExpense(id: string, updates: UpdateQuery<Expense>) {
-    return this.expenseModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-  }
-  removeExpense(id: string) {
-    return this.expenseModel.findByIdAndRemove(id);
-  }
+
   // Cashout
   findAllCashout() {
     return this.cashoutModel
