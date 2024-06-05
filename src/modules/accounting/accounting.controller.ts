@@ -58,7 +58,6 @@ import { Vendor } from './vendor.schema';
 @Controller('/accounting')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
-
   // Products
   @Get('/products')
   getCategories() {
