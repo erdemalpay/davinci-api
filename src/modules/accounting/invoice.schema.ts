@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { User } from '../user/user.schema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { PackageType } from './packageType.schema';
@@ -49,6 +50,9 @@ export class Invoice extends Document {
 
   @Prop({ required: false })
   note: string;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  user: string;
 }
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);

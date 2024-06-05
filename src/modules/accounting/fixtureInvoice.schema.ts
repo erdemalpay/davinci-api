@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { User } from '../user/user.schema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
@@ -8,6 +9,7 @@ import { PackageType } from './packageType.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
+
 @Schema({ _id: false })
 export class FixtureInvoice extends Document {
   @Prop({ type: Number })
@@ -48,6 +50,9 @@ export class FixtureInvoice extends Document {
 
   @Prop({ required: false })
   note: string;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  user: string;
 }
 
 export const FixtureInvoiceSchema =
