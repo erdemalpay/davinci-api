@@ -383,7 +383,7 @@ export class AccountingService {
   findAllFixtureInvoices() {
     return this.fixtureInvoiceModel
       .find()
-      .populate('fixture expenseType brand vendor location')
+      .populate('fixture expenseType brand vendor location paymentMethod')
       .sort({ _id: -1 });
   }
   async createFixtureInvoice(
@@ -423,6 +423,15 @@ export class AccountingService {
       const invoice = await this.fixtureInvoiceModel.create(
         createFixtureInvoiceDto,
       );
+      if (createFixtureInvoiceDto.isPaid) {
+        await this.createPayment(user, {
+          amount: createFixtureInvoiceDto.totalExpense,
+          date: createFixtureInvoiceDto.date,
+          paymentMethod: createFixtureInvoiceDto?.paymentMethod,
+          vendor: createFixtureInvoiceDto.vendor,
+          fixtureInvoice: invoice._id,
+        });
+      }
       this.activityService.addActivity(
         user,
         ActivityType.CREATE_FIXTUREEXPENSE,
@@ -579,13 +588,15 @@ export class AccountingService {
       ActivityType.DELETE_FIXTUREEXPENSE,
       invoice,
     );
+    // remove payments
+    await this.paymentModel.deleteMany({ fixtureInvoice: id });
     return invoice;
   }
   // Service Invoice
   findAllServiceInvoices() {
     return this.serviceInvoiceModel
       .find()
-      .populate('service expenseType vendor location')
+      .populate('service expenseType vendor location paymentMethod')
       .sort({ _id: -1 });
   }
   async createServiceInvoice(
@@ -617,6 +628,16 @@ export class AccountingService {
       const invoice = await this.serviceInvoiceModel.create(
         createServiceInvoiceDto,
       );
+
+      if (createServiceInvoiceDto.isPaid) {
+        await this.createPayment(user, {
+          amount: createServiceInvoiceDto.totalExpense,
+          date: createServiceInvoiceDto.date,
+          paymentMethod: createServiceInvoiceDto?.paymentMethod,
+          vendor: createServiceInvoiceDto.vendor,
+          serviceInvoice: invoice._id,
+        });
+      }
       this.activityService.addActivity(
         user,
         ActivityType.CREATE_SERVICEEXPENSE,
@@ -624,6 +645,7 @@ export class AccountingService {
       );
       return invoice;
     } catch (error) {
+      console.log(error);
       throw new HttpException(
         'Invoice creation failed.',
         HttpStatus.BAD_REQUEST,
@@ -683,6 +705,8 @@ export class AccountingService {
       ActivityType.DELETE_SERVICEEXPENSE,
       invoice,
     );
+    // remove payments
+    await this.paymentModel.deleteMany({ serviceInvoice: id });
     return invoice;
   }
 
@@ -994,7 +1018,9 @@ export class AccountingService {
   findAllInvoices() {
     return this.invoiceModel
       .find()
-      .populate('product expenseType brand vendor location packageType')
+      .populate(
+        'product expenseType brand vendor location packageType paymentMethod',
+      )
       .sort({ _id: -1 });
   }
   async createInvoice(
@@ -1096,6 +1122,15 @@ export class AccountingService {
         status: status,
       });
       const invoice = await this.invoiceModel.create(createInvoiceDto);
+      if (createInvoiceDto.isPaid) {
+        await this.createPayment(user, {
+          amount: createInvoiceDto.totalExpense,
+          date: createInvoiceDto.date,
+          paymentMethod: createInvoiceDto?.paymentMethod,
+          vendor: createInvoiceDto.vendor,
+          invoice: invoice._id,
+        });
+      }
       this.activityService.addActivity(
         user,
         ActivityType.CREATE_EXPENSE,
@@ -1103,6 +1138,7 @@ export class AccountingService {
       );
       return invoice;
     } catch (error) {
+      console.log(error);
       throw new HttpException(
         'Invoice creation failed.',
         HttpStatus.BAD_REQUEST,
@@ -1232,6 +1268,8 @@ export class AccountingService {
       ActivityType.DELETE_EXPENSE,
       invoice,
     );
+    // remove from payments
+    await this.paymentModel.deleteMany({ invoice: id });
     // updating the packagetype unit price
     const product = await this.productModel.findById(invoice.product);
     const invoicePackageType = await this.packageTypeModel.findById(
@@ -1837,7 +1875,11 @@ export class AccountingService {
   findAllProductStockHistories() {
     return this.productStockHistoryModel
       .find()
-      .populate('product user packageType location')
+      .populate('product packageType location')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ createdAt: -1 });
   }
   createProductStockHistory(
@@ -1853,7 +1895,11 @@ export class AccountingService {
   findAllFixtureStockHistories() {
     return this.fixtureStockHistoryModel
       .find()
-      .populate('fixture user location')
+      .populate('fixture location')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ createdAt: -1 });
   }
   createFixtureStockHistory(

@@ -47,7 +47,7 @@ export class ServiceInvoice extends Document {
   @Prop({ required: true, type: Boolean })
   isPaid: boolean;
 
-  @Prop({ required: true, type: String, ref: PaymentMethod.name })
+  @Prop({ required: false, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
 }
 
