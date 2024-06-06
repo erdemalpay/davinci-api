@@ -2198,19 +2198,19 @@ export class AccountingService {
   async updateInvoicesPayments(user: User) {
     await this.createPaymentMethod(user, { name: 'Nakit' });
 
-    const invoices = await this.invoiceModel.find({});
+    const invoices = await this.invoiceModel.find();
     for (const invoice of invoices) {
       invoice.isPaid = true;
       invoice.paymentMethod = 'nakit';
       await invoice.save();
     }
-    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
+    const fixtureInvoices = await this.fixtureInvoiceModel.find();
     for (const invoice of fixtureInvoices) {
       invoice.isPaid = true;
       invoice.paymentMethod = 'nakit';
       await invoice.save();
     }
-    const serviceInvoices = await this.serviceInvoiceModel.find({});
+    const serviceInvoices = await this.serviceInvoiceModel.find();
     for (const invoice of serviceInvoices) {
       invoice.isPaid = true;
       invoice.paymentMethod = 'nakit';
@@ -2218,17 +2218,17 @@ export class AccountingService {
     }
   }
   async updateInvoicesUser() {
-    const invoices = await this.invoiceModel.find({});
+    const invoices = await this.invoiceModel.find();
     for (const invoice of invoices) {
       invoice.user = 'cem';
       await invoice.save();
     }
-    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
+    const fixtureInvoices = await this.fixtureInvoiceModel.find();
     for (const invoice of fixtureInvoices) {
       invoice.user = 'cem';
       await invoice.save();
     }
-    const serviceInvoices = await this.serviceInvoiceModel.find({});
+    const serviceInvoices = await this.serviceInvoiceModel.find();
     for (const invoice of serviceInvoices) {
       invoice.user = 'cem';
       await invoice.save();
