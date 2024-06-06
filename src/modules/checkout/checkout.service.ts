@@ -3,7 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import { Cashout } from './cashout.schema';
-import { CreateCashoutDto, CreateIncomeDto } from './checkout.dto';
+import {
+  CreateCashoutDto,
+  CreateCheckoutControlDto,
+  CreateIncomeDto,
+} from './checkout.dto';
+import { CheckoutControl } from './checkoutControl.schema';
 import { Income } from './income.schema';
 
 @Injectable()
@@ -11,6 +16,8 @@ export class CheckoutService {
   constructor(
     @InjectModel(Income.name) private incomeModel: Model<Income>,
     @InjectModel(Cashout.name) private cashoutModel: Model<Cashout>,
+    @InjectModel(CheckoutControl.name)
+    private checkoutControlModel: Model<CheckoutControl>,
   ) {}
   // income
   findAllIncome() {
@@ -54,5 +61,33 @@ export class CheckoutService {
   }
   removeCashout(id: string) {
     return this.cashoutModel.findByIdAndRemove(id);
+  }
+
+  // CheckoutControl
+  findAllCheckoutControl() {
+    return this.checkoutControlModel
+      .find()
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
+      .populate('location');
+  }
+  createCheckoutControl(
+    user: User,
+    createCheckoutControlDto: CreateCheckoutControlDto,
+  ) {
+    return this.checkoutControlModel.create({
+      ...createCheckoutControlDto,
+      user: user._id,
+    });
+  }
+  updateCheckoutControl(id: string, updates: UpdateQuery<CheckoutControl>) {
+    return this.checkoutControlModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeCheckoutControl(id: string) {
+    return this.checkoutControlModel.findByIdAndRemove(id);
   }
 }
