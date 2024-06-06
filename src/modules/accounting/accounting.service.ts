@@ -2195,8 +2195,10 @@ export class AccountingService {
       }
     }
   }
-  async updateInvoicesPayments(user: User) {
-    await this.createPaymentMethod(user, { name: 'Nakit' });
+  async updateInvoicesPayments() {
+    const paymentMethod = new this.paymentMethodModel({ name: 'nakit' });
+    paymentMethod._id = usernamify(paymentMethod.name);
+    await paymentMethod.save();
 
     const invoices = await this.invoiceModel.find();
     for (const invoice of invoices) {

@@ -401,8 +401,8 @@ export class AccountingController {
     return this.accountingService.findAllInvoices();
   }
   @Get('/invoices/updatePayment')
-  getUpdateInvoicesPayments(@ReqUser() user: User) {
-    return this.accountingService.updateInvoicesPayments(user);
+  getUpdateInvoicesPayments() {
+    return this.accountingService.updateInvoicesPayments();
   }
 
   @Get('/invoices/updateUser')
