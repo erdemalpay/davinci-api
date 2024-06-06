@@ -10,3 +10,9 @@ export class CreateCashoutDto {
   amount: number;
   description: string;
 }
+
+export class CreateCheckoutControlDto {
+  location: string;
+  date: string;
+  amount: number;
+}

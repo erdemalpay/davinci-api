@@ -11,8 +11,13 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Cashout } from './cashout.schema';
-import { CreateCashoutDto, CreateIncomeDto } from './checkout.dto';
+import {
+  CreateCashoutDto,
+  CreateCheckoutControlDto,
+  CreateIncomeDto,
+} from './checkout.dto';
 import { CheckoutService } from './checkout.service';
+import { CheckoutControl } from './checkoutControl.schema';
 import { Income } from './income.schema';
 
 @Controller('checkout')
@@ -66,5 +71,35 @@ export class CheckoutController {
   @Delete('/cashout/:id')
   deleteCashout(@Param('id') id: string) {
     return this.checkoutService.removeCashout(id);
+  }
+
+  // CheckoutControl
+  @Get('/checkout-control')
+  getCheckoutControl() {
+    return this.checkoutService.findAllCheckoutControl();
+  }
+
+  @Post('/checkout-control')
+  createCheckoutControl(
+    @ReqUser() user: User,
+    @Body() createCheckoutControlDto: CreateCheckoutControlDto,
+  ) {
+    return this.checkoutService.createCheckoutControl(
+      user,
+      createCheckoutControlDto,
+    );
+  }
+
+  @Patch('/checkout-control/:id')
+  updateCheckoutControl(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<CheckoutControl>,
+  ) {
+    return this.checkoutService.updateCheckoutControl(id, updates);
+  }
+
+  @Delete('/checkout-control/:id')
+  deleteCheckoutControl(@Param('id') id: string) {
+    return this.checkoutService.removeCheckoutControl(id);
   }
 }
