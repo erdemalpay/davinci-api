@@ -435,6 +435,7 @@ export class AccountingService {
           paymentMethod: createFixtureInvoiceDto?.paymentMethod,
           vendor: createFixtureInvoiceDto.vendor,
           fixtureInvoice: invoice._id,
+          location: createFixtureInvoiceDto.location as string,
         });
       }
       this.activityService.addActivity(
@@ -646,6 +647,7 @@ export class AccountingService {
           paymentMethod: createServiceInvoiceDto?.paymentMethod,
           vendor: createServiceInvoiceDto.vendor,
           serviceInvoice: invoice._id,
+          location: createServiceInvoiceDto.location as string,
         });
       }
       this.activityService.addActivity(
@@ -1146,6 +1148,7 @@ export class AccountingService {
           paymentMethod: createInvoiceDto?.paymentMethod,
           vendor: createInvoiceDto.vendor,
           invoice: invoice._id,
+          location: createInvoiceDto.location as string,
         });
       }
       this.activityService.addActivity(

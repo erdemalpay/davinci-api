@@ -37,6 +37,7 @@ export class CreatePaymentDto {
   serviceInvoice?: number;
   paymentMethod: string;
   date: string;
+  location: string;
   amount: number;
 }
 export class CreateUnitDto {
