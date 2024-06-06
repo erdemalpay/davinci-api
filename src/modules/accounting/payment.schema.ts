@@ -6,6 +6,7 @@ import { FixtureInvoice } from './fixtureInvoice.schema';
 import { Invoice } from './invoice.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { ServiceInvoice } from './serviceInvoice.schema';
+import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
 
 @Schema({ _id: false })
@@ -18,6 +19,9 @@ export class Payment extends Document {
 
   @Prop({ required: false, type: String, ref: Invoice.name })
   invoice: number;
+
+  @Prop({ required: true, type: String, ref: StockLocation.name })
+  location: string;
 
   @Prop({ required: false, type: String, ref: FixtureInvoice.name })
   fixtureInvoice: number;
