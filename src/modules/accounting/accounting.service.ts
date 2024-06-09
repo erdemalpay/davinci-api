@@ -14,6 +14,8 @@ import {
   CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
+  CreateFixtureCountDto,
+  CreateFixtureCountListDto,
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
   CreateFixtureStockDto,
@@ -38,6 +40,8 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
+import { FixtureCount } from './fixtureCount.schema';
+import { FixtureCountList } from './fixtureCountList.schema';
 import { FixtureInvoice } from './fixtureInvoice.schema';
 import { FixtureStock } from './fixtureStock.schema';
 import { FixtureStockHistory } from './fixtureStockHistory.schema';
@@ -74,7 +78,11 @@ export class AccountingService {
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
+    @InjectModel(FixtureCountList.name)
+    private fixtureCountListModel: Model<FixtureCountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
+    @InjectModel(FixtureCount.name)
+    private fixtureCountModel: Model<FixtureCount>,
     @InjectModel(PackageType.name) private packageTypeModel: Model<PackageType>,
     @InjectModel(PaymentMethod.name)
     private paymentMethodModel: Model<PaymentMethod>,
@@ -123,10 +131,10 @@ export class AccountingService {
       products: removedProduct,
     });
     for (const countList of countLists) {
-      const updatedProducts = countList.products.map((product) =>
-        product.product === removedProduct
-          ? { ...product, product: stayedProduct }
-          : product,
+      const updatedProducts = countList?.products?.map((countListProduct) =>
+        countListProduct.product === removedProduct
+          ? { ...countListProduct, product: stayedProduct }
+          : countListProduct,
       );
       countList.products = updatedProducts;
       await countList.save();
@@ -2092,6 +2100,31 @@ export class AccountingService {
     }
     return this.countListModel.findByIdAndRemove(id);
   }
+  //fixture Count list
+  createFixtureCountList(createFixtureCountListDto: CreateFixtureCountListDto) {
+    const countList = new this.fixtureCountListModel(createFixtureCountListDto);
+    countList._id = usernamify(countList.name);
+    countList.locations = ['bahceli', 'neorama'];
+    return countList.save();
+  }
+  findAllFixtureCountLists() {
+    return this.fixtureCountListModel.find();
+  }
+  updateFixtureCountList(id: string, updates: UpdateQuery<FixtureCountList>) {
+    return this.fixtureCountListModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeFixtureCountList(id: string) {
+    const counts = await this.fixtureCountModel.find({ countList: id });
+    if (counts.length > 0) {
+      throw new HttpException(
+        'Cannot remove a count list',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.fixtureCountListModel.findByIdAndRemove(id);
+  }
   // count
   findAllCounts() {
     return this.countModel
@@ -2130,7 +2163,39 @@ export class AccountingService {
       $set: { unit: 'adet' },
     });
   }
-
+  // fixtureCount
+  findAllFixtureCounts() {
+    return this.fixtureCountModel
+      .find()
+      .populate('location countList')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
+      .sort({ createdAt: -1 });
+  }
+  async createFixtureCount(createFixtureCountDto: CreateFixtureCountDto) {
+    const counts = await this.fixtureCountModel.find({
+      isCompleted: false,
+      user: createFixtureCountDto.user,
+      location: createFixtureCountDto.location,
+      countList: createFixtureCountDto.countList,
+    });
+    if (counts.length > 0) {
+      throw new HttpException(
+        'Count already exists and not finished',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const count = new this.fixtureCountModel(createFixtureCountDto);
+    count._id = usernamify(count.user + new Date().toISOString());
+    return count.save();
+  }
+  updateFixtureCount(id: string, updates: UpdateQuery<FixtureCount>) {
+    return this.fixtureCountModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
   async updateInvoicesLocation() {
     // Assuming the creation of stock locations is handled elsewhere or checked if already exists
     try {

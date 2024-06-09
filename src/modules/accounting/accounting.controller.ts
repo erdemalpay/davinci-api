@@ -16,6 +16,8 @@ import {
   CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
+  CreateFixtureCountDto,
+  CreateFixtureCountListDto,
   CreateFixtureDto,
   CreateFixtureInvoiceDto,
   CreateFixtureStockDto,
@@ -41,6 +43,8 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Fixture } from './fixture.schema';
+import { FixtureCount } from './fixtureCount.schema';
+import { FixtureCountList } from './fixtureCountList.schema';
 import { FixtureInvoice } from './fixtureInvoice.schema';
 import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
@@ -54,7 +58,6 @@ import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
-
 @Controller('/accounting')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
@@ -619,6 +622,35 @@ export class AccountingController {
   deleteCountList(@Param('id') id: string) {
     return this.accountingService.removeCountList(id);
   }
+
+  // Fixture Count List
+  @Get('/fixture-count-list')
+  getFixtureCountList() {
+    return this.accountingService.findAllFixtureCountLists();
+  }
+
+  @Post('/fixture-count-list')
+  createFixtureCountList(
+    @Body() createFixtureCountListDto: CreateFixtureCountListDto,
+  ) {
+    return this.accountingService.createFixtureCountList(
+      createFixtureCountListDto,
+    );
+  }
+
+  @Patch('/fixture-count-list/:id')
+  updateFixtureCountList(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<FixtureCountList>,
+  ) {
+    return this.accountingService.updateFixtureCountList(id, updates);
+  }
+
+  @Delete('/fixture-count-list/:id')
+  deleteFixtureCountList(@Param('id') id: string) {
+    return this.accountingService.removeFixtureCountList(id);
+  }
+
   // count
   @Get('/counts')
   getCounts() {
@@ -633,5 +665,24 @@ export class AccountingController {
   @Patch('/counts/:id')
   updateCount(@Param('id') id: string, @Body() updates: UpdateQuery<Count>) {
     return this.accountingService.updateCount(id, updates);
+  }
+
+  //fixture count
+  @Get('/fixture-counts')
+  getFixtureCounts() {
+    return this.accountingService.findAllFixtureCounts();
+  }
+
+  @Post('/fixture-counts')
+  createFixtureCount(@Body() createFixtureCountDto: CreateFixtureCountDto) {
+    return this.accountingService.createFixtureCount(createFixtureCountDto);
+  }
+
+  @Patch('/fixture-counts/:id')
+  updateFixtureCount(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<FixtureCount>,
+  ) {
+    return this.accountingService.updateFixtureCount(id, updates);
   }
 }

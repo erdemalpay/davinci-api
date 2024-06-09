@@ -1,4 +1,5 @@
 import { CountListsProduct } from './countList.schema';
+import { CountListsFixture } from './fixtureCountList.schema';
 import { PackageType } from './product.schema';
 
 export class CreateProductDto {
@@ -61,6 +62,10 @@ export class CreateCountListDto {
   name: string;
   products?: CountListsProduct[];
 }
+export class CreateFixtureCountListDto {
+  name: string;
+  fixtures?: CountListsFixture[];
+}
 export class CreateCountDto {
   user: string;
   location: string;
@@ -69,9 +74,22 @@ export class CreateCountDto {
   products: CountProductDto[];
   countList: string;
 }
+export class CreateFixtureCountDto {
+  user: string;
+  location: string;
+  isCompleted: boolean;
+  createdAt: Date;
+  fixtures: CountFixtureDto[];
+  countList: string;
+}
 export class CountProductDto {
   product: string;
   packageType: string;
+  stockQuantity: number;
+  countQuantity: number;
+}
+export class CountFixtureDto {
+  product: string;
   stockQuantity: number;
   countQuantity: number;
 }
