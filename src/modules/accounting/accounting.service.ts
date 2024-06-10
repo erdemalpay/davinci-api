@@ -2158,11 +2158,7 @@ export class AccountingService {
       new: true,
     });
   }
-  async updatePackages() {
-    await this.packageTypeModel.updateMany({
-      $set: { unit: 'adet' },
-    });
-  }
+
   // fixtureCount
   findAllFixtureCounts() {
     return this.fixtureCountModel
@@ -2194,6 +2190,12 @@ export class AccountingService {
   updateFixtureCount(id: string, updates: UpdateQuery<FixtureCount>) {
     return this.fixtureCountModel.findByIdAndUpdate(id, updates, {
       new: true,
+    });
+  }
+
+  async updatePackages() {
+    await this.packageTypeModel.updateMany({
+      $set: { unit: 'adet' },
     });
   }
   async updateInvoicesLocation() {
