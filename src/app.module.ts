@@ -13,6 +13,7 @@ import { LocationModule } from './modules/location/location.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
+import { PanelControlModule } from './modules/panelControl/panelControl.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
 import { RewardModule } from './modules/reward/reward.module';
 import { ShiftModule } from './modules/shift/shift.module';
@@ -45,6 +46,7 @@ const modules = [
   VisitModule,
   AccountingModule,
   CheckoutModule,
+  PanelControlModule,
 ];
 
 if (config.get('migrationEnabled')) {
