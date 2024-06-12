@@ -347,6 +347,11 @@ export class AccountingController {
     return this.accountingService.findAllPaymentMethods();
   }
 
+  @Get('/payment-methods/fixPaymentMethods')
+  getFixPaymentMethods() {
+    return this.accountingService.createFixedPaymentMethods();
+  }
+
   @Post('/payment-methods')
   createPaymentMethod(
     @ReqUser() user: User,

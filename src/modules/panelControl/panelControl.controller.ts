@@ -27,6 +27,11 @@ export class PanelControlController {
     return this.panelControlService.createPage(createPageDto);
   }
 
+  @Post('/pages/multiple')
+  createMultiplePages(@Body() createPageDto: CreatePageDto[]) {
+    return this.panelControlService.createMultiplePages(createPageDto);
+  }
+
   @Patch('/pages/:id')
   updatePage(@Param('id') id: string, @Body() updates: UpdateQuery<Page>) {
     return this.panelControlService.updatePage(id, updates);

@@ -949,6 +949,7 @@ export class AccountingService {
   ) {
     const paymentMethod = new this.paymentMethodModel(createPaymentMethodDto);
     paymentMethod._id = usernamify(paymentMethod.name);
+    paymentMethod.isConstant = false;
     await paymentMethod.save();
     this.activityService.addActivity(
       user,
@@ -1003,6 +1004,26 @@ export class AccountingService {
       paymentMethod,
     );
     return paymentMethod;
+  }
+  async createFixedPaymentMethods() {
+    const paymentMethod1 = new this.paymentMethodModel({
+      name: 'Cash',
+      isConstant: true,
+    });
+    paymentMethod1._id = usernamify(paymentMethod1.name);
+    await paymentMethod1.save();
+    const paymentMethod2 = new this.paymentMethodModel({
+      name: 'Credit Card',
+      isConstant: true,
+    });
+    paymentMethod2._id = usernamify(paymentMethod2.name);
+    await paymentMethod2.save();
+    const paymentMethod3 = new this.paymentMethodModel({
+      name: 'Bank Transfer',
+      isConstant: true,
+    });
+    paymentMethod3._id = usernamify(paymentMethod3.name);
+    await paymentMethod3.save();
   }
   // payment
   findAllPayments() {
@@ -2266,28 +2287,34 @@ export class AccountingService {
     }
   }
   async updateInvoicesPayments() {
-    const paymentMethod = new this.paymentMethodModel({ name: 'nakit' });
-    paymentMethod._id = usernamify(paymentMethod.name);
-    await paymentMethod.save();
+    await this.invoiceModel.updateMany(
+      {},
+      {
+        $set: {
+          isPaid: true,
+          paymentMethod: 'credit_card',
+        },
+      },
+    );
 
-    const invoices = await this.invoiceModel.find();
-    for (const invoice of invoices) {
-      invoice.isPaid = true;
-      invoice.paymentMethod = 'nakit';
-      await invoice.save();
-    }
-    const fixtureInvoices = await this.fixtureInvoiceModel.find();
-    for (const invoice of fixtureInvoices) {
-      invoice.isPaid = true;
-      invoice.paymentMethod = 'nakit';
-      await invoice.save();
-    }
-    const serviceInvoices = await this.serviceInvoiceModel.find();
-    for (const invoice of serviceInvoices) {
-      invoice.isPaid = true;
-      invoice.paymentMethod = 'nakit';
-      await invoice.save();
-    }
+    await this.fixtureInvoiceModel.updateMany(
+      {},
+      {
+        $set: {
+          isPaid: true,
+          paymentMethod: 'credit_card',
+        },
+      },
+    );
+    await this.serviceInvoiceModel.updateMany(
+      {},
+      {
+        $set: {
+          isPaid: true,
+          paymentMethod: 'credit_card',
+        },
+      },
+    );
   }
   async updateInvoicesUser() {
     const invoices = await this.invoiceModel.find();

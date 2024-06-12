@@ -33,4 +33,13 @@ export class PanelControlService {
     const page = await this.pageModel.findByIdAndRemove(id);
     return page;
   }
+
+  async createMultiplePages(createPageDto: CreatePageDto[]) {
+    const pages = createPageDto.map((page) => ({
+      ...page,
+      _id: usernamify(page.name),
+    }));
+    await this.pageModel.insertMany(pages);
+    return pages;
+  }
 }
