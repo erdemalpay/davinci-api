@@ -9,6 +9,9 @@ export class PaymentMethod extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+
+  @Prop({ required: true, type: Boolean })
+  isConstant: boolean;
 }
 
 export const PaymentMethodSchema = SchemaFactory.createForClass(PaymentMethod);
