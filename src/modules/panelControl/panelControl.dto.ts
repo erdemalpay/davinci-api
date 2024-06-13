@@ -5,3 +5,10 @@ export class CreatePageDto {
   tabs?: PageTab[];
   permissionRoles?: string[] = [];
 }
+
+export class CreateCheckoutCashDto {
+  description?: string;
+  amount: number;
+  date: string;
+  location: string;
+}
