@@ -41,12 +41,17 @@ export class PanelControlService {
   }
 
   async createMultiplePages(createPageDto: CreatePageDto[]) {
-    const pages = createPageDto.map((page) => ({
+    const pagesWithIds = createPageDto.map((page) => ({
       ...page,
       _id: usernamify(page.name),
     }));
-    await this.pageModel.insertMany(pages);
-    return pages;
+    const idsToRemove = pagesWithIds.map((page) => page._id);
+    const page = await this.pageModel.find({ _id: { $in: idsToRemove } });
+    if (page) {
+      await this.pageModel.deleteMany({ _id: { $in: idsToRemove } });
+    }
+    await this.pageModel.insertMany(pagesWithIds);
+    return pagesWithIds;
   }
 
   //checkout cash
