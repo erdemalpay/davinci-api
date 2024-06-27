@@ -2,7 +2,6 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
-import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 import { MenuItem } from './../menu/item.schema';
 
@@ -17,11 +16,14 @@ export class Order extends Document {
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
 
-  @Prop({ required: true, type: Number, ref: Table.name })
-  table: number;
+  //   @Prop({ required: true, type: Number, ref: Table.name })
+  //   table: number;
 
   @Prop({ required: true, type: Number })
   quantity: number;
+
+  @Prop({ required: true, type: String })
+  status: string;
 
   @Prop({ required: true, type: Number })
   unitPrice: number;
