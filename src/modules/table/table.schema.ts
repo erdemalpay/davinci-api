@@ -1,8 +1,9 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
+import { Order } from '../order/order.schema';
 
 @Schema({ _id: false })
 export class Table extends Document {
@@ -20,6 +21,9 @@ export class Table extends Document {
 
   @Prop({ required: true })
   name: string;
+
+  @Prop({ required: false, type: [{ type: Number, ref: Order.name }] })
+  orders: number[];
 
   @Prop({ required: true })
   date: string;

@@ -2,6 +2,8 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
+import { Table } from '../table/table.schema';
+import { User } from '../user/user.schema';
 import { MenuItem } from './../menu/item.schema';
 
 @Schema({ _id: false })
@@ -15,6 +17,9 @@ export class Order extends Document {
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
 
+  @Prop({ required: true, type: Number, ref: Table.name })
+  table: number;
+
   @Prop({ required: true, type: Number })
   quantity: number;
 
@@ -26,6 +31,24 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Number })
   discount: number;
+
+  @Prop({ required: true, type: Date })
+  createdAt: Date;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  createdBy: string;
+
+  @Prop({ required: true, type: Date })
+  preparedAt: Date;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  preparedBy: string;
+
+  @Prop({ required: true, type: Date })
+  deliveredAt: Date;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  deliveredBy: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
