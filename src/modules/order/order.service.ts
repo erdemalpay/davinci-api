@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './order.dto';
@@ -13,7 +13,7 @@ export class OrderService {
     private readonly tableService: TableService,
   ) {}
 
-  async findAll() {
+  async findAllOrders() {
     try {
       const orders = await this.orderModel
         .find()
@@ -70,5 +70,15 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  updateOrder(id: string, updates: UpdateQuery<Order>) {
+    return this.orderModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+
+  removeOrder(id: string) {
+    return this.orderModel.findByIdAndRemove(id);
   }
 }
