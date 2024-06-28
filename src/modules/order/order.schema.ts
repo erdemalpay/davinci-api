@@ -2,8 +2,8 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
+import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
-import { MenuItem } from './../menu/item.schema';
 
 @Schema({ _id: false })
 export class Order extends Document {
@@ -16,14 +16,17 @@ export class Order extends Document {
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
 
-  //   @Prop({ required: true, type: Number, ref: Table.name })
-  //   table: number;
+  @Prop({ required: true, type: Number, ref: 'Table' })
+  table: number;
 
   @Prop({ required: true, type: Number })
   quantity: number;
 
   @Prop({ required: true, type: String })
   status: string;
+
+  @Prop({ required: false, type: String })
+  note: string;
 
   @Prop({ required: true, type: Number })
   unitPrice: number;
@@ -40,19 +43,18 @@ export class Order extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
-  @Prop({ required: true, type: Date })
+  @Prop({ required: false, type: Date })
   preparedAt: Date;
 
-  @Prop({ required: true, type: String, ref: User.name })
+  @Prop({ required: false, type: String, ref: User.name })
   preparedBy: string;
 
-  @Prop({ required: true, type: Date })
+  @Prop({ required: false, type: Date })
   deliveredAt: Date;
 
-  @Prop({ required: true, type: String, ref: User.name })
+  @Prop({ required: false, type: String, ref: User.name })
   deliveredBy: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
-
 purifySchema(OrderSchema);
