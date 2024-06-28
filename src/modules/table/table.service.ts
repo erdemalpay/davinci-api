@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
@@ -9,7 +9,6 @@ import { GameplayService } from '../gameplay/gameplay.service';
 import { User } from '../user/user.schema';
 import { CloseAllDto, TableDto } from './table.dto';
 import { Table } from './table.schema';
-
 @Injectable()
 export class TableService {
   constructor(
@@ -41,7 +40,49 @@ export class TableService {
     );
     return updatedTable;
   }
+  async updateTableOrders(user: User, id: number, order: number) {
+    const existingTable = await this.tableModel.findById(id);
+    if (!existingTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
 
+    let updatedTable;
+    try {
+      updatedTable = await this.tableModel.findByIdAndUpdate(
+        id,
+        { $push: { orders: order } },
+        { new: true },
+      );
+    } catch (error) {
+      throw new HttpException(
+        'Failed to update table orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    if (!updatedTable) {
+      throw new HttpException(
+        'Table not found after update',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    try {
+      await this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_TABLE,
+        existingTable,
+        updatedTable,
+      );
+    } catch (error) {
+      throw new HttpException(
+        'Failed to log activity',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    return updatedTable;
+  }
   async close(id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
     // Close the previous gameplay

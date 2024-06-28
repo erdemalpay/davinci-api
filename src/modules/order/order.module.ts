@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { TableModule } from 'src/modules/table/table.module';
+import { DatabaseModule } from '../database/database.module';
+import { TableSchema } from '../table/table.schema';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
@@ -10,7 +13,15 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [
+    mongooseModule,
+    DatabaseModule,
+    TableModule,
+    MongooseModule.forFeature([
+      { name: 'Order', schema: OrderSchema },
+      { name: 'Table', schema: TableSchema },
+    ]),
+  ],
   controllers: [OrderController],
   providers: [OrderService],
 })

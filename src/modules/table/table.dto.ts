@@ -24,6 +24,9 @@ export class TableDto {
 
   @IsArray()
   gameplays?: number[];
+
+  @IsArray()
+  orders?: number[];
 }
 
 export class TableResponse {
