@@ -29,12 +29,12 @@ export class OrderController {
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
   }
-  @Patch('/order/:id')
+  @Patch('/:id')
   updateOrder(@Param('id') id: string, @Body() updates: UpdateQuery<Order>) {
     return this.orderService.updateOrder(id, updates);
   }
 
-  @Delete('/order/:id')
+  @Delete('/:id')
   deleteOrder(@Param('id') id: string) {
     return this.orderService.removeOrder(id);
   }
