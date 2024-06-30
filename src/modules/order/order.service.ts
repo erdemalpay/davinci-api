@@ -36,6 +36,7 @@ export class OrderService {
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const order = new this.orderModel({
       ...createOrderDto,
+      status: 'pending',
       createdBy: user._id,
       createdAt: new Date(),
     });
@@ -72,13 +73,28 @@ export class OrderService {
     return order;
   }
 
-  updateOrder(id: string, updates: UpdateQuery<Order>) {
+  updateOrder(id: number, updates: UpdateQuery<Order>) {
     return this.orderModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
   }
 
-  removeOrder(id: string) {
+  removeOrder(id: number) {
     return this.orderModel.findByIdAndRemove(id);
+  }
+  async removeMultipleOrders(ids: number[]): Promise<void> {
+    try {
+      await Promise.all(
+        ids.map(async (id) => {
+          await this.orderModel.findByIdAndRemove(id);
+        }),
+      );
+    } catch (error) {
+      console.error('Error removing orders:', error);
+      throw new HttpException(
+        'Failed to remove some orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

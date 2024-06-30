@@ -10,8 +10,14 @@ import { TableService } from './table.service';
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Table.name, TableSchema),
 ]);
+
 @Module({
-  imports: [mongooseModule, GameplayModule, ActivityModule],
+  imports: [
+    mongooseModule,
+    GameplayModule,
+    ActivityModule,
+    MongooseModule.forFeature([{ name: 'Table', schema: TableSchema }]),
+  ],
   providers: [TableService],
   exports: [TableService],
   controllers: [TableController],

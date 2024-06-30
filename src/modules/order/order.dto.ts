@@ -3,7 +3,7 @@ export class CreateOrderDto {
   item: number;
   table: number;
   quantity: number;
-  status: string;
+  //   status: string;
   note?: string;
   unitPrice: number;
   totalPrice: number;

@@ -29,13 +29,19 @@ export class OrderController {
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
   }
+
+  @Patch('/multiple')
+  deleteMultipleOrders(@Body('ids') ids: number[]) {
+    return this.orderService.removeMultipleOrders(ids);
+  }
+
   @Patch('/:id')
-  updateOrder(@Param('id') id: string, @Body() updates: UpdateQuery<Order>) {
+  updateOrder(@Param('id') id: number, @Body() updates: UpdateQuery<Order>) {
     return this.orderService.updateOrder(id, updates);
   }
 
   @Delete('/:id')
-  deleteOrder(@Param('id') id: string) {
+  deleteOrder(@Param('id') id: number) {
     return this.orderService.removeOrder(id);
   }
 }
