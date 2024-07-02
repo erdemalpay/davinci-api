@@ -8,7 +8,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './order.dto';
@@ -20,9 +19,13 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Get()
-  @Public()
   findAllOrders() {
     return this.orderService.findAllOrders();
+  }
+
+  @Get('/today')
+  findTodayOrders() {
+    return this.orderService.findTodayOrders();
   }
 
   @Post()
