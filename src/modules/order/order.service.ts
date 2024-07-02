@@ -1,11 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { endOfDay, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './order.dto';
 import { Order } from './order.schema';
-
 @Injectable()
 export class OrderService {
   constructor(
@@ -23,7 +23,6 @@ export class OrderService {
           select: '-password',
         })
         .exec();
-
       return orders;
     } catch (error) {
       throw new HttpException(
@@ -33,6 +32,29 @@ export class OrderService {
     }
   }
 
+  async findTodayOrders() {
+    const start = startOfDay(new Date());
+    const end = endOfDay(new Date());
+
+    try {
+      const orders = await this.orderModel
+        .find({
+          createdAt: { $gte: start, $lte: end },
+        })
+        .populate('location table item')
+        .populate({
+          path: 'createdBy preparedBy deliveredBy',
+          select: '-password',
+        })
+        .exec();
+      return orders;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch today's orders",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const order = new this.orderModel({
       ...createOrderDto,
