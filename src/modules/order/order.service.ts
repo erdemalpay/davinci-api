@@ -100,7 +100,21 @@ export class OrderService {
       new: true,
     });
   }
-
+  async updateMultipleOrders(user: User, ids: number[], status: string) {
+    try {
+      const result = await this.orderModel.updateMany(
+        { _id: { $in: ids } },
+        { status: status, preparedBy: user._id, preparedAt: new Date() },
+        { new: true },
+      );
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to update multiple orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   removeOrder(id: number) {
     return this.orderModel.findByIdAndRemove(id);
   }

@@ -33,7 +33,16 @@ export class OrderController {
     return this.orderService.createOrder(user, createOrderDto);
   }
 
-  @Patch('/multiple')
+  @Patch('/update_multiple')
+  updateMultipleOrders(
+    @ReqUser() user: User,
+    @Body('ids') ids: number[],
+    @Body('status') status: string,
+  ) {
+    return this.orderService.updateMultipleOrders(user, ids, status);
+  }
+
+  @Patch('/delete_multiple')
   deleteMultipleOrders(@Body('ids') ids: number[]) {
     return this.orderService.removeMultipleOrders(ids);
   }
