@@ -18,7 +18,7 @@ import {
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
-import { Payment } from './payment.schema';
+import { OrderPayment } from './orderPayment';
 
 @Controller('order')
 export class OrderController {
@@ -111,7 +111,7 @@ export class OrderController {
   @Patch('/payment/:id')
   updatePayment(
     @Param('id') id: number,
-    @Body() updates: UpdateQuery<Payment>,
+    @Body() updates: UpdateQuery<OrderPayment>,
   ) {
     return this.orderService.updatePayment(id, updates);
   }

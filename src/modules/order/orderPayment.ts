@@ -6,7 +6,7 @@ import { Collection } from './collection.schema';
 import { Order } from './order.schema';
 
 @Schema({ _id: false })
-export class Payment extends Document {
+export class OrderPayment extends Document {
   @Prop({ type: Number })
   _id: number;
 
@@ -32,5 +32,5 @@ export class Payment extends Document {
   totalAmount: number;
 }
 
-export const PaymentSchema = SchemaFactory.createForClass(Payment);
-purifySchema(PaymentSchema);
+export const OrderPaymentSchema = SchemaFactory.createForClass(OrderPayment);
+purifySchema(OrderPaymentSchema);

@@ -11,14 +11,14 @@ import {
   CreatePaymentDto,
 } from './order.dto';
 import { Order } from './order.schema';
-import { Payment } from './payment.schema';
+import { OrderPayment } from './orderPayment';
 
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
-    @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    @InjectModel(OrderPayment.name) private paymentModel: Model<OrderPayment>,
     private readonly tableService: TableService,
   ) {}
   // Orders
@@ -260,7 +260,7 @@ export class OrderService {
     return payment;
   }
 
-  updatePayment(id: number, updates: UpdateQuery<Payment>) {
+  updatePayment(id: number, updates: UpdateQuery<OrderPayment>) {
     return this.paymentModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
