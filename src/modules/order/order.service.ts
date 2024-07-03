@@ -138,7 +138,7 @@ export class OrderService {
   // Collections
   async findAllCollections() {
     try {
-      const collections = await this.orderModel
+      const collections = await this.collectionModel
         .find()
         .populate('location paymentMethod')
         .populate({
@@ -157,7 +157,7 @@ export class OrderService {
   async findGivenDateCollections(date: string) {
     const parsedDate = parseISO(date);
     try {
-      const collections = await this.orderModel
+      const collections = await this.collectionModel
         .find({
           createdAt: {
             $gte: startOfDay(parsedDate),
