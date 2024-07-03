@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { endOfDay, startOfDay } from 'date-fns';
+import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
@@ -32,14 +32,15 @@ export class OrderService {
     }
   }
 
-  async findTodayOrders() {
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
-
+  async findGivenDateOrders(date: string) {
+    const parsedDate = parseISO(date);
     try {
       const orders = await this.orderModel
         .find({
-          createdAt: { $gte: start, $lte: end },
+          createdAt: {
+            $gte: startOfDay(parsedDate),
+            $lte: endOfDay(parsedDate),
+          },
         })
         .populate('location table item')
         .populate({
@@ -50,7 +51,7 @@ export class OrderService {
       return orders;
     } catch (error) {
       throw new HttpException(
-        "Failed to fetch today's orders",
+        "Failed to fetch given day's orders",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
