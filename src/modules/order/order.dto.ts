@@ -18,3 +18,13 @@ export class CreateCollectionDto {
   isCancelled: boolean;
   paymentMethod: string;
 }
+
+export class CreatePaymentDto {
+  location: number;
+  totalAmount: number;
+  discount?: number;
+  paidOrders?: number[];
+  unpaidOrders?: number[];
+  collections?: number[];
+  table: number;
+}

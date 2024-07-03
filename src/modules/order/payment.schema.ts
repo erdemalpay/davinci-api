@@ -16,16 +16,16 @@ export class Payment extends Document {
   @Prop({ required: true, type: Number, ref: 'Table' })
   table: number;
 
-  @Prop({ required: true, type: [{ type: Number, ref: Collection.name }] })
+  @Prop({ required: false, type: [{ type: Number, ref: Collection.name }] })
   collections: number[];
 
-  @Prop({ required: true, type: [{ type: Number, ref: Order.name }] })
+  @Prop({ required: false, type: [{ type: Number, ref: Order.name }] })
   unpaidOrders: number[];
 
-  @Prop({ required: true, type: [{ type: Number, ref: Order.name }] })
+  @Prop({ required: false, type: [{ type: Number, ref: Order.name }] })
   paidOrders: number[];
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   discount: number;
 
   @Prop({ required: true, type: Number })

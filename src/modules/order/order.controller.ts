@@ -11,9 +11,14 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
-import { CreateCollectionDto, CreateOrderDto } from './order.dto';
+import {
+  CreateCollectionDto,
+  CreateOrderDto,
+  CreatePaymentDto,
+} from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
+import { Payment } from './payment.schema';
 
 @Controller('order')
 export class OrderController {
@@ -85,5 +90,34 @@ export class OrderController {
   @Delete('/collection/:id')
   deleteCollection(@Param('id') id: number) {
     return this.orderService.removeCollection(id);
+  }
+
+  // payments
+  @Get('/payment')
+  findAllPayments() {
+    return this.orderService.findAllPayments();
+  }
+
+  @Post('/payment')
+  createPayment(@Body() createPaymentDto: CreatePaymentDto) {
+    return this.orderService.createPayment(createPaymentDto);
+  }
+
+  @Get('/payment/:date')
+  findGivenDatePayments(@Param('date') date: string) {
+    return this.orderService.findGivenDatePayments(date);
+  }
+
+  @Patch('/payment/:id')
+  updatePayment(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Payment>,
+  ) {
+    return this.orderService.updatePayment(id, updates);
+  }
+
+  @Delete('/payment/:id')
+  deletePayment(@Param('id') id: number) {
+    return this.orderService.removePayment(id);
   }
 }

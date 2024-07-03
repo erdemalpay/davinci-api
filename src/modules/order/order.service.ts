@@ -5,13 +5,20 @@ import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
-import { CreateCollectionDto, CreateOrderDto } from './order.dto';
+import {
+  CreateCollectionDto,
+  CreateOrderDto,
+  CreatePaymentDto,
+} from './order.dto';
 import { Order } from './order.schema';
+import { Payment } from './payment.schema';
+
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
+    @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     private readonly tableService: TableService,
   ) {}
   // Orders
@@ -203,5 +210,63 @@ export class OrderService {
   }
   removeCollection(id: number) {
     return this.collectionModel.findByIdAndRemove(id);
+  }
+  // Paymenys
+  async findAllPayments() {
+    try {
+      const payments = await this.paymentModel
+        .find()
+        .populate('location table');
+
+      return payments;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch payments',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async findGivenDatePayments(date: string) {
+    const parsedDate = parseISO(date);
+    try {
+      const payments = await this.paymentModel
+        .find({
+          createdAt: {
+            $gte: startOfDay(parsedDate),
+            $lte: endOfDay(parsedDate),
+          },
+        })
+        .populate('location table')
+        .exec();
+      return payments;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's payments",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createPayment(createPaymentDto: CreatePaymentDto) {
+    const payment = new this.paymentModel(createPaymentDto);
+    try {
+      await payment.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create payment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return payment;
+  }
+
+  updatePayment(id: number, updates: UpdateQuery<Payment>) {
+    return this.paymentModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+
+  removePayment(id: number) {
+    return this.paymentModel.findByIdAndRemove(id);
   }
 }
