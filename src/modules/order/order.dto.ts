@@ -3,15 +3,28 @@ export class CreateOrderDto {
   item: number;
   table: number;
   quantity: number;
-  //   status: string;
   note?: string;
   unitPrice: number;
   totalPrice: number;
-  discount?: number;
-  //   createdAt: Date;//this will be taken from the user
-  //   createdBy: string; //this will be taken from the user
   preparedAt?: Date;
   preparedBy?: string;
   deliveredAt?: Date;
   deliveredBy?: string;
+}
+
+export class CreateCollectionDto {
+  location: number;
+  amount: number;
+  isCancelled: boolean;
+  paymentMethod: string;
+}
+
+export class CreatePaymentDto {
+  location: number;
+  totalAmount: number;
+  discount?: number;
+  paidOrders?: number[];
+  unpaidOrders?: number[];
+  collections?: number[];
+  table: number;
 }

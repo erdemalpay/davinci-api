@@ -4,15 +4,24 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
-import { CreateOrderDto } from './order.dto';
+import { Collection } from './collection.schema';
+import {
+  CreateCollectionDto,
+  CreateOrderDto,
+  CreatePaymentDto,
+} from './order.dto';
 import { Order } from './order.schema';
+import { Payment } from './payment.schema';
+
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
+    @InjectModel(Collection.name) private collectionModel: Model<Collection>,
+    @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     private readonly tableService: TableService,
   ) {}
-
+  // Orders
   async findAllOrders() {
     try {
       const orders = await this.orderModel
@@ -95,7 +104,6 @@ export class OrderService {
 
     return order;
   }
-
   updateOrder(id: number, updates: UpdateQuery<Order>) {
     return this.orderModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -133,5 +141,131 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  // Collections
+  async findAllCollections() {
+    try {
+      const collections = await this.collectionModel
+        .find()
+        .populate('location paymentMethod')
+        .populate({
+          path: 'createdBy',
+          select: '-password',
+        })
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch collections',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findGivenDateCollections(date: string) {
+    const parsedDate = parseISO(date);
+    try {
+      const collections = await this.collectionModel
+        .find({
+          createdAt: {
+            $gte: startOfDay(parsedDate),
+            $lte: endOfDay(parsedDate),
+          },
+        })
+        .populate('location paymentMethod')
+        .populate({
+          path: 'createdBy',
+          select: '-password',
+        })
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's collections",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
+    const collection = new this.collectionModel({
+      ...createCollectionDto,
+      createdBy: user._id,
+      createdAt: new Date(),
+    });
+
+    try {
+      await collection.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create collection',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    return collection;
+  }
+  updateCollection(id: number, updates: UpdateQuery<Collection>) {
+    return this.collectionModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeCollection(id: number) {
+    return this.collectionModel.findByIdAndRemove(id);
+  }
+  // Paymenys
+  async findAllPayments() {
+    try {
+      const payments = await this.paymentModel
+        .find()
+        .populate('location table');
+
+      return payments;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch payments',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async findGivenDatePayments(date: string) {
+    const parsedDate = parseISO(date);
+    try {
+      const payments = await this.paymentModel
+        .find({
+          createdAt: {
+            $gte: startOfDay(parsedDate),
+            $lte: endOfDay(parsedDate),
+          },
+        })
+        .populate('location table')
+        .exec();
+      return payments;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's payments",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createPayment(createPaymentDto: CreatePaymentDto) {
+    const payment = new this.paymentModel(createPaymentDto);
+    try {
+      await payment.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create payment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return payment;
+  }
+
+  updatePayment(id: number, updates: UpdateQuery<Payment>) {
+    return this.paymentModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removePayment(id: number) {
+    return this.paymentModel.findByIdAndRemove(id);
   }
 }
