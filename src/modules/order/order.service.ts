@@ -265,7 +265,6 @@ export class OrderService {
       new: true,
     });
   }
-
   removePayment(id: number) {
     return this.paymentModel.findByIdAndRemove(id);
   }
