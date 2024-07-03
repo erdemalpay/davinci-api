@@ -2,6 +2,8 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
+import { Collection } from './collection.schema';
+import { Order } from './order.schema';
 
 @Schema({ _id: false })
 export class Payment extends Document {
@@ -13,6 +15,15 @@ export class Payment extends Document {
 
   @Prop({ required: true, type: Number, ref: 'Table' })
   table: number;
+
+  @Prop({ required: true, type: [{ type: Number, ref: Collection.name }] })
+  collections: number[];
+
+  @Prop({ required: true, type: [{ type: Number, ref: Order.name }] })
+  unpaidOrders: number[];
+
+  @Prop({ required: true, type: [{ type: Number, ref: Order.name }] })
+  paidOrders: number[];
 
   @Prop({ required: true, type: Number })
   discount: number;
