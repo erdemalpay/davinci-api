@@ -11,3 +11,10 @@ export class CreateOrderDto {
   deliveredAt?: Date;
   deliveredBy?: string;
 }
+
+export class CreateCollectionDto {
+  location: number;
+  amount: number;
+  isCancelled: boolean;
+  paymentMethod: string;
+}

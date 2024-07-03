@@ -4,12 +4,14 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
 import { DatabaseModule } from '../database/database.module';
 import { TableSchema } from '../table/table.schema';
+import { Collection, CollectionSchema } from './collection.schema';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
+  createAutoIncrementConfig(Collection.name, CollectionSchema),
 ]);
 
 @Module({

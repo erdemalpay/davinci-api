@@ -4,15 +4,17 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
-import { CreateOrderDto } from './order.dto';
+import { Collection } from './collection.schema';
+import { CreateCollectionDto, CreateOrderDto } from './order.dto';
 import { Order } from './order.schema';
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
+    @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     private readonly tableService: TableService,
   ) {}
-
+  // Orders
   async findAllOrders() {
     try {
       const orders = await this.orderModel
@@ -95,7 +97,6 @@ export class OrderService {
 
     return order;
   }
-
   updateOrder(id: number, updates: UpdateQuery<Order>) {
     return this.orderModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -133,5 +134,74 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  // Collections
+  async findAllCollections() {
+    try {
+      const collections = await this.orderModel
+        .find()
+        .populate('location paymentMethod')
+        .populate({
+          path: 'createdBy',
+          select: '-password',
+        })
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch collections',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findGivenDateCollections(date: string) {
+    const parsedDate = parseISO(date);
+    try {
+      const collections = await this.orderModel
+        .find({
+          createdAt: {
+            $gte: startOfDay(parsedDate),
+            $lte: endOfDay(parsedDate),
+          },
+        })
+        .populate('location paymentMethod')
+        .populate({
+          path: 'createdBy',
+          select: '-password',
+        })
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's collections",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
+    const collection = new this.collectionModel({
+      ...createCollectionDto,
+      createdBy: user._id,
+      createdAt: new Date(),
+    });
+
+    try {
+      await collection.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create collection',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    return collection;
+  }
+  updateCollection(id: number, updates: UpdateQuery<Collection>) {
+    return this.collectionModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeCollection(id: number) {
+    return this.collectionModel.findByIdAndRemove(id);
   }
 }
