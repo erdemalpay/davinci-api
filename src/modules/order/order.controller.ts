@@ -23,11 +23,6 @@ export class OrderController {
     return this.orderService.findAllOrders();
   }
 
-  @Get('/today')
-  findTodayOrders() {
-    return this.orderService.findTodayOrders();
-  }
-
   @Post()
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
@@ -46,7 +41,10 @@ export class OrderController {
   deleteMultipleOrders(@Body('ids') ids: number[]) {
     return this.orderService.removeMultipleOrders(ids);
   }
-
+  @Get('/:date')
+  findGivenDateOrders(@Param('date') date: string) {
+    return this.orderService.findGivenDateOrders(date);
+  }
   @Patch('/:id')
   updateOrder(@Param('id') id: number, @Body() updates: UpdateQuery<Order>) {
     return this.orderService.updateOrder(id, updates);
