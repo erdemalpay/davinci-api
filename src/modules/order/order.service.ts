@@ -40,7 +40,29 @@ export class OrderService {
       );
     }
   }
+  async findTodayOrders() {
+    const start = startOfDay(new Date());
+    const end = endOfDay(new Date());
 
+    try {
+      const orders = await this.orderModel
+        .find({
+          createdAt: { $gte: start, $lte: end },
+        })
+        .populate('location table item')
+        .populate({
+          path: 'createdBy preparedBy deliveredBy',
+          select: '-password',
+        })
+        .exec();
+      return orders;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch today's orders",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async findGivenDateOrders(date: string) {
     const parsedDate = parseISO(date);
     try {

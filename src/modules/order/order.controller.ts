@@ -43,14 +43,21 @@ export class OrderController {
     return this.orderService.updateMultipleOrders(user, ids, status);
   }
 
+  @Get('/today')
+  findTodayOrders() {
+    return this.orderService.findTodayOrders();
+  }
+
   @Patch('/delete_multiple')
   deleteMultipleOrders(@Body('ids') ids: number[]) {
     return this.orderService.removeMultipleOrders(ids);
   }
+
   @Get('/:date')
   findGivenDateOrders(@Param('date') date: string) {
     return this.orderService.findGivenDateOrders(date);
   }
+
   @Patch('/:id')
   updateOrder(@Param('id') id: number, @Body() updates: UpdateQuery<Order>) {
     return this.orderService.updateOrder(id, updates);
