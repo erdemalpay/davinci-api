@@ -27,6 +27,7 @@ export class AuthController {
 
     res.send({
       token: access_token,
+      user: user,
     });
   }
 
