@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';
 import { Model, UpdateQuery } from 'mongoose';
@@ -42,7 +47,9 @@ export class UserService implements OnModuleInit {
 
   async updatePassword(user: User, oldPassword: string, newPassword: string) {
     const isValid = await this.validateCredentials(user._id, oldPassword);
-    if (!isValid) throw new Error('Password not correct');
+    if (!isValid) {
+      throw new HttpException('Invalid password', HttpStatus.BAD_REQUEST);
+    }
     const hashedNewPassword = await hash(newPassword, 10);
     return this.update(user._id, {
       password: hashedNewPassword,
