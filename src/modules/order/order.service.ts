@@ -11,7 +11,7 @@ import {
   CreatePaymentDto,
 } from './order.dto';
 import { Order } from './order.schema';
-import { OrderPayment } from './orderPayment';
+import { OrderPayment } from './orderPayment.schema';
 
 @Injectable()
 export class OrderService {
@@ -28,7 +28,7 @@ export class OrderService {
         .find()
         .populate('location table item')
         .populate({
-          path: 'createdBy preparedBy deliveredBy',
+          path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
         })
         .exec();
@@ -51,7 +51,7 @@ export class OrderService {
         })
         .populate('location table item')
         .populate({
-          path: 'createdBy preparedBy deliveredBy',
+          path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
         })
         .exec();
@@ -75,7 +75,7 @@ export class OrderService {
         })
         .populate('location table item')
         .populate({
-          path: 'createdBy preparedBy deliveredBy',
+          path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
         })
         .exec();
@@ -222,7 +222,18 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
+    // add the collection under orderpayment
+    const orderPayment = await this.paymentModel.findOne({
+      _id: createCollectionDto.orderPayment,
+    });
+    if (!orderPayment) {
+      throw new HttpException(
+        'Order Payment not found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    orderPayment.collections = [...orderPayment.collections, collection._id];
+    await orderPayment.save();
     return collection;
   }
   updateCollection(id: number, updates: UpdateQuery<Collection>) {
@@ -270,7 +281,9 @@ export class OrderService {
     }
   }
   async createPayment(createPaymentDto: CreatePaymentDto) {
-    const payment = new this.paymentModel(createPaymentDto);
+    const payment = new this.paymentModel({
+      ...createPaymentDto,
+    });
     try {
       await payment.save();
     } catch (error) {

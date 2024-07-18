@@ -18,7 +18,7 @@ import {
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment } from './orderPayment';
+import { OrderPayment } from './orderPayment.schema';
 
 @Controller('order')
 export class OrderController {
@@ -53,7 +53,7 @@ export class OrderController {
     return this.orderService.removeMultipleOrders(ids);
   }
 
-  @Get('/:date')
+  @Get('/date/:date')
   findGivenDateOrders(@Param('date') date: string) {
     return this.orderService.findGivenDateOrders(date);
   }
@@ -110,17 +110,16 @@ export class OrderController {
     return this.orderService.createPayment(createPaymentDto);
   }
 
-  @Get('/payment/:date')
-  findGivenDatePayments(@Param('date') date: string) {
-    return this.orderService.findGivenDatePayments(date);
-  }
-
   @Patch('/payment/:id')
   updatePayment(
     @Param('id') id: number,
     @Body() updates: UpdateQuery<OrderPayment>,
   ) {
     return this.orderService.updatePayment(id, updates);
+  }
+  @Get('/payment/:date')
+  findGivenDatePayments(@Param('date') date: string) {
+    return this.orderService.findGivenDatePayments(date);
   }
 
   @Delete('/payment/:id')

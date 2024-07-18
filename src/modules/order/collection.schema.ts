@@ -19,14 +19,26 @@ export class Collection extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
+  @Prop({ required: false, type: Date })
+  cancelledAt: Date;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  cancelledBy: string;
+
   @Prop({ required: true, type: Number })
   amount: number;
 
-  @Prop({ required: true, type: Boolean })
-  isCancelled: boolean;
+  @Prop({ required: false, type: Number })
+  refund: number;
+
+  @Prop({ required: true, type: String })
+  status: string;
 
   @Prop({ required: true, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
+
+  @Prop({ required: true, type: Number, ref: 'OrderPayment' })
+  orderPayment: number;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);

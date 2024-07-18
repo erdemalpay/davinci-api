@@ -27,6 +27,9 @@ export class TableDto {
 
   @IsArray()
   orders?: number[];
+
+  @IsArray()
+  payments?: number[];
 }
 
 export class TableResponse {
