@@ -1,3 +1,4 @@
+import { OrderCollectionItem } from './collection.schema';
 import { OrderPaymentItem } from './orderPayment.schema';
 
 export class CreateOrderDto {
@@ -21,14 +22,14 @@ export class CreateCollectionDto {
   amount: number;
   status: string;
   paymentMethod: string;
-  orderPayment: number;
-  refund?: number;
+  orderPayment: number[];
+  orders?: OrderCollectionItem[];
+  cancelNote?: string;
 }
 
 export class CreatePaymentDto {
   location: number;
   totalAmount: number;
-  discount?: number;
   orders?: OrderPaymentItem[];
   collections?: number[];
   table: number;

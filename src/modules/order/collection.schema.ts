@@ -4,7 +4,15 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { PaymentMethod } from './../accounting/paymentMethod.schema';
+import { Order } from './order.schema';
 
+export class OrderCollectionItem {
+  @Prop({ required: true, type: Number, ref: Order.name })
+  order: number;
+
+  @Prop({ required: true, type: Number })
+  paidQuantity: number;
+}
 @Schema({ _id: false })
 export class Collection extends Document {
   @Prop({ type: Number })
@@ -28,17 +36,20 @@ export class Collection extends Document {
   @Prop({ required: true, type: Number })
   amount: number;
 
-  @Prop({ required: false, type: Number })
-  refund: number;
-
   @Prop({ required: true, type: String })
   status: string;
+
+  @Prop({ required: false, type: String })
+  cancelNote: string;
 
   @Prop({ required: true, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
 
   @Prop({ required: true, type: Number, ref: 'OrderPayment' })
   orderPayment: number;
+
+  @Prop([OrderCollectionItem])
+  orders: OrderCollectionItem[];
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
