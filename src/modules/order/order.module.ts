@@ -8,7 +8,7 @@ import { Collection, CollectionSchema } from './collection.schema';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment, OrderPaymentSchema } from './orderPayment';
+import { OrderPayment, OrderPaymentSchema } from './orderPayment.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),

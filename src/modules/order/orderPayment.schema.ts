@@ -5,6 +5,16 @@ import { Location } from '../location/location.schema';
 import { Collection } from './collection.schema';
 import { Order } from './order.schema';
 
+export class OrderPaymentItem {
+  @Prop({ required: true, type: Number, ref: Order.name })
+  order: number;
+
+  @Prop({ required: true, type: Number })
+  paidQuantity: number;
+
+  @Prop({ required: true, type: Number })
+  totalQuantity: number;
+}
 @Schema({ _id: false })
 export class OrderPayment extends Document {
   @Prop({ type: Number })
@@ -19,11 +29,8 @@ export class OrderPayment extends Document {
   @Prop({ required: false, type: [{ type: Number, ref: Collection.name }] })
   collections: number[];
 
-  @Prop({ required: false, type: [{ type: Number, ref: Order.name }] })
-  unpaidOrders: number[];
-
-  @Prop({ required: false, type: [{ type: Number, ref: Order.name }] })
-  paidOrders: number[];
+  @Prop([OrderPaymentItem])
+  orders: OrderPaymentItem[];
 
   @Prop({ required: false, type: Number })
   discount: number;

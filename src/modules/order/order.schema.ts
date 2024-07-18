@@ -51,6 +51,12 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String, ref: User.name })
   deliveredBy: string;
+
+  @Prop({ required: false, type: Date })
+  cancelledAt: Date;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  cancelledBy: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
