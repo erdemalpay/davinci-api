@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { Collection } from './collection.schema';
+import { Discount } from './discount.schema';
 import { Order } from './order.schema';
 
 export class OrderPaymentItem {
@@ -14,6 +15,9 @@ export class OrderPaymentItem {
 
   @Prop({ required: true, type: Number })
   totalQuantity: number;
+
+  @Prop({ required: false, type: Number, ref: Discount.name })
+  discount: number;
 }
 
 @Schema({ _id: false })
@@ -32,9 +36,6 @@ export class OrderPayment extends Document {
 
   @Prop([OrderPaymentItem])
   orders: OrderPaymentItem[];
-
-  @Prop({ required: false, type: Number })
-  discount: number;
 
   @Prop({ required: true, type: Number })
   totalAmount: number;

@@ -172,9 +172,9 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('location paymentMethod')
+        .populate('location paymentMethod orderPayment')
         .populate({
-          path: 'createdBy',
+          path: 'createdBy cancelledBy',
           select: '-password',
         })
         .exec();
