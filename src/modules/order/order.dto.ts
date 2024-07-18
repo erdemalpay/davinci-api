@@ -33,3 +33,8 @@ export class CreatePaymentDto {
   collections?: number[];
   table: number;
 }
+
+export class CreateDiscountDto {
+  name: string;
+  percentage: number;
+}

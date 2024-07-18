@@ -11,8 +11,10 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
+import { Discount } from './discount.schema';
 import {
   CreateCollectionDto,
+  CreateDiscountDto,
   CreateOrderDto,
   CreatePaymentDto,
 } from './order.dto';
@@ -125,5 +127,28 @@ export class OrderController {
   @Delete('/payment/:id')
   deletePayment(@Param('id') id: number) {
     return this.orderService.removePayment(id);
+  }
+  // discount
+  @Get('/discount')
+  findAllDiscounts() {
+    return this.orderService.findAllDiscounts();
+  }
+
+  @Post('/discount')
+  createDiscount(@Body() createDiscountDto: CreateDiscountDto) {
+    return this.orderService.createDiscount(createDiscountDto);
+  }
+
+  @Patch('/discount/:id')
+  updateDiscount(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Discount>,
+  ) {
+    return this.orderService.updateDiscount(id, updates);
+  }
+
+  @Delete('/discount/:id')
+  deleteDiscount(@Param('id') id: number) {
+    return this.orderService.removeDiscount(id);
   }
 }
