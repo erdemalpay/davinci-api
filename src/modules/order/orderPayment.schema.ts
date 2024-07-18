@@ -15,6 +15,7 @@ export class OrderPaymentItem {
   @Prop({ required: true, type: Number })
   totalQuantity: number;
 }
+
 @Schema({ _id: false })
 export class OrderPayment extends Document {
   @Prop({ type: Number })

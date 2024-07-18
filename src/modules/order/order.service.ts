@@ -5,8 +5,10 @@ import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
+import { Discount } from './discount.schema';
 import {
   CreateCollectionDto,
+  CreateDiscountDto,
   CreateOrderDto,
   CreatePaymentDto,
 } from './order.dto';
@@ -19,6 +21,7 @@ export class OrderService {
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(OrderPayment.name) private paymentModel: Model<OrderPayment>,
+    @InjectModel(Discount.name) private discountModel: Model<Discount>,
     private readonly tableService: TableService,
   ) {}
   // Orders
@@ -302,5 +305,39 @@ export class OrderService {
   }
   removePayment(id: number) {
     return this.paymentModel.findByIdAndRemove(id);
+  }
+  // discount
+  async findAllDiscounts() {
+    try {
+      const discounts = await this.discountModel.find();
+      return discounts;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch discounts',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createDiscount(createDiscountDto: CreateDiscountDto) {
+    const discount = new this.discountModel({
+      ...createDiscountDto,
+    });
+    try {
+      await discount.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create discount',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return discount;
+  }
+  updateDiscount(id: number, updates: UpdateQuery<Discount>) {
+    return this.discountModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  removeDiscount(id: number) {
+    return this.discountModel.findByIdAndRemove(id);
   }
 }

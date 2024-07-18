@@ -5,6 +5,7 @@ import { TableModule } from 'src/modules/table/table.module';
 import { DatabaseModule } from '../database/database.module';
 import { TableSchema } from '../table/table.schema';
 import { Collection, CollectionSchema } from './collection.schema';
+import { Discount, DiscountSchema } from './discount.schema';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
@@ -14,6 +15,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
   createAutoIncrementConfig(Collection.name, CollectionSchema),
   createAutoIncrementConfig(OrderPayment.name, OrderPaymentSchema),
+  createAutoIncrementConfig(Discount.name, DiscountSchema),
 ]);
 
 @Module({
