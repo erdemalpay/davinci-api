@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
@@ -55,9 +56,12 @@ export class OrderController {
     return this.orderService.removeMultipleOrders(ids);
   }
 
-  @Get('/date/:date')
-  findGivenDateOrders(@Param('date') date: string) {
-    return this.orderService.findGivenDateOrders(date);
+  @Get('/date')
+  findGivenDateOrders(
+    @Query('location') location: number,
+    @Query('date') date: string,
+  ) {
+    return this.orderService.findGivenDateOrders(date, location);
   }
 
   @Patch('/:id')
@@ -83,9 +87,12 @@ export class OrderController {
     return this.orderService.createCollection(user, createCollectionDto);
   }
 
-  @Get('/collection/:date')
-  findGivenDateCollections(@Param('date') date: string) {
-    return this.orderService.findGivenDateCollections(date);
+  @Get('/collection/date')
+  findGivenDateCollections(
+    @Query('location') location: number,
+    @Query('date') date: string,
+  ) {
+    return this.orderService.findGivenDateCollections(date, location);
   }
 
   @Patch('/collection/:id')
@@ -119,9 +126,12 @@ export class OrderController {
   ) {
     return this.orderService.updatePayment(id, updates);
   }
-  @Get('/payment/:date')
-  findGivenDatePayments(@Param('date') date: string) {
-    return this.orderService.findGivenDatePayments(date);
+  @Get('/payment/date')
+  findGivenDatePayments(
+    @Query('location') location: number,
+    @Query('date') date: string,
+  ) {
+    return this.orderService.findGivenDatePayments(date, location);
   }
 
   @Delete('/payment/:id')
