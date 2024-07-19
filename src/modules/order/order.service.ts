@@ -66,7 +66,7 @@ export class OrderService {
       );
     }
   }
-  async findGivenDateOrders(date: string) {
+  async findGivenDateOrders(date: string, location: number) {
     const parsedDate = parseISO(date);
     try {
       const orders = await this.orderModel
@@ -75,6 +75,7 @@ export class OrderService {
             $gte: startOfDay(parsedDate),
             $lte: endOfDay(parsedDate),
           },
+          location: location,
         })
         .populate('location table item')
         .populate({
@@ -186,7 +187,7 @@ export class OrderService {
       );
     }
   }
-  async findGivenDateCollections(date: string) {
+  async findGivenDateCollections(date: string, location: number) {
     const parsedDate = parseISO(date);
     try {
       const collections = await this.collectionModel
@@ -195,8 +196,9 @@ export class OrderService {
             $gte: startOfDay(parsedDate),
             $lte: endOfDay(parsedDate),
           },
+          location: location,
         })
-        .populate('location paymentMethod')
+        .populate('location paymentMethod orderPayment')
         .populate({
           path: 'createdBy',
           select: '-password',
@@ -263,7 +265,7 @@ export class OrderService {
     }
   }
 
-  async findGivenDatePayments(date: string) {
+  async findGivenDatePayments(date: string, location: number) {
     const parsedDate = parseISO(date);
     try {
       const payments = await this.paymentModel
@@ -272,6 +274,7 @@ export class OrderService {
             $gte: startOfDay(parsedDate),
             $lte: endOfDay(parsedDate),
           },
+          location: location,
         })
         .populate('location table')
         .exec();
