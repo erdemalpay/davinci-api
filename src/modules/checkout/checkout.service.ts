@@ -27,7 +27,8 @@ export class CheckoutService {
         path: 'user',
         select: '-password',
       })
-      .populate('location');
+      .populate('location')
+      .sort({ date: 1 });
   }
   createIncome(user: User, createIncomeDto: CreateIncomeDto) {
     return this.incomeModel.create({ ...createIncomeDto, user: user._id });
@@ -71,7 +72,8 @@ export class CheckoutService {
         path: 'user',
         select: '-password',
       })
-      .populate('location');
+      .populate('location')
+      .sort({ date: 1 });
   }
   createCheckoutControl(
     user: User,
