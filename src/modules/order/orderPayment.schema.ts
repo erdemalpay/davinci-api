@@ -39,6 +39,9 @@ export class OrderPayment extends Document {
 
   @Prop({ required: true, type: Number })
   totalAmount: number;
+
+  @Prop({ required: true, type: Number })
+  discountedTotalAmount: number;
 }
 
 export const OrderPaymentSchema = SchemaFactory.createForClass(OrderPayment);
