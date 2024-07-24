@@ -30,6 +30,7 @@ export class CreateCollectionDto {
 export class CreatePaymentDto {
   location: number;
   totalAmount: number;
+  discountAmount: number;
   orders?: OrderPaymentItem[];
   collections?: number[];
   table: number;
