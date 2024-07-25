@@ -32,6 +32,43 @@ export class OrderController {
     return this.orderService.findAllOrders();
   }
 
+  @Post('/discount')
+  createOrderForDiscount(
+    @Body()
+    payload: {
+      orders: {
+        totalQuantity: number;
+        selectedQuantity: number;
+        orderId: number;
+      }[];
+      orderPaymentId: number;
+      discount: number;
+      discountPercentage: number;
+    },
+  ) {
+    return this.orderService.createOrderForDiscount(
+      payload.orders,
+      payload.orderPaymentId,
+      payload.discount,
+      payload.discountPercentage,
+    );
+  }
+  @Post('/cancel_discount')
+  cancelDiscountForOrder(
+    @Body()
+    payload: {
+      orderPaymentId: number;
+      orderId: number;
+      cancelQuantity: number;
+    },
+  ) {
+    return this.orderService.cancelDiscountForOrder(
+      payload.orderPaymentId,
+      payload.orderId,
+      payload.cancelQuantity,
+    );
+  }
+
   @Post()
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);

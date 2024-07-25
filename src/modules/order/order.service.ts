@@ -111,7 +111,6 @@ export class OrderService {
     let updatedTable;
     try {
       updatedTable = await this.tableService.updateTableOrders(
-        user,
         createOrderDto.table,
         order._id,
       );
@@ -342,5 +341,237 @@ export class OrderService {
   }
   removeDiscount(id: number) {
     return this.discountModel.findByIdAndRemove(id);
+  }
+
+  async createOrderForDiscount(
+    orders: {
+      totalQuantity: number;
+      selectedQuantity: number;
+      orderId: number;
+    }[],
+    orderPaymentId: number,
+    discount: number,
+    discountPercentage: number,
+  ) {
+    const orderPayment = await this.paymentModel.findById(orderPaymentId);
+    if (!orderPayment) {
+      throw new HttpException(
+        'Order Payment not found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    for (const orderItem of orders) {
+      if (orderItem.selectedQuantity === orderItem.totalQuantity) {
+        orderPayment.orders = [
+          ...orderPayment.orders.filter(
+            (paymentItem) => paymentItem.order !== orderItem.orderId,
+          ),
+          {
+            order: orderItem.orderId,
+            discount: discount,
+            discountPercentage: discountPercentage,
+            totalQuantity: orderItem.totalQuantity,
+            paidQuantity: 0,
+          },
+        ];
+        orderPayment.discountAmount =
+          (orderPayment.totalAmount * discountPercentage) / 100;
+        await orderPayment.save();
+      } else {
+        const oldOrder = await this.orderModel.findById(orderItem.orderId);
+        if (!oldOrder) {
+          throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+        }
+        // Destructure oldOrder to exclude the _id field
+        const { _id, ...orderDataWithoutId } = oldOrder.toObject();
+        // Create new order without the _id field
+        const newOrder = new this.orderModel({
+          ...orderDataWithoutId,
+          quantity: orderItem.selectedQuantity,
+        });
+        try {
+          await newOrder.save();
+        } catch (error) {
+          throw new HttpException(
+            'Failed to create order',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+        // Update the table orders
+        let updatedTable;
+        try {
+          updatedTable = await this.tableService.updateTableOrders(
+            newOrder.table,
+            newOrder._id,
+          );
+        } catch (error) {
+          // Clean up by deleting the order if updating the table fails
+          await this.orderModel.findByIdAndDelete(newOrder._id);
+          throw new HttpException(
+            'Failed to update table orders',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+        if (!updatedTable) {
+          throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+        }
+        // Update the old order
+        oldOrder.quantity =
+          orderItem.totalQuantity - orderItem.selectedQuantity;
+
+        try {
+          await oldOrder.save();
+        } catch (error) {
+          throw new HttpException(
+            'Failed to update order',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+        // Add the new order and update the old order in orderPayment
+        orderPayment.orders = [
+          ...orderPayment.orders.filter(
+            (paymentItem) => paymentItem.order !== orderItem.orderId,
+          ),
+          {
+            order: newOrder._id,
+            discount: discount,
+            discountPercentage: discountPercentage,
+            totalQuantity: newOrder.quantity,
+            paidQuantity: 0,
+          },
+          {
+            order: orderItem.orderId,
+            totalQuantity:
+              orderPayment.orders.find(
+                (paymentItem) => paymentItem.order === orderItem.orderId,
+              )?.totalQuantity - newOrder.quantity || 0,
+            paidQuantity:
+              orderPayment.orders.find(
+                (paymentItem) => paymentItem.order === orderItem.orderId,
+              )?.paidQuantity || 0,
+          },
+        ];
+        orderPayment.discountAmount =
+          orderPayment.discountAmount +
+          (newOrder.quantity * newOrder.unitPrice * discountPercentage) / 100;
+        await orderPayment.save();
+      }
+    }
+    return orders;
+  }
+  async cancelDiscountForOrder(
+    orderPaymentId: number,
+    orderId: number,
+    cancelQuantity: number,
+  ) {
+    const orderPayment = await this.paymentModel.findById(orderPaymentId);
+    if (!orderPayment) {
+      throw new HttpException(
+        'Order Payment not found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const orderPaymentOrder = orderPayment.orders.find(
+      (paymentItem) => paymentItem.order === orderId,
+    );
+    if (!orderPaymentOrder) {
+      throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+    }
+    const order = await this.orderModel.findById(orderId);
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+    }
+    if (orderPaymentOrder.totalQuantity === cancelQuantity) {
+      orderPayment.orders = [
+        ...orderPayment.orders.filter(
+          (paymentItem) => paymentItem.order !== orderId,
+        ),
+        {
+          order: orderId,
+          totalQuantity: order.quantity,
+          paidQuantity: 0,
+        },
+      ];
+      orderPayment.discountAmount =
+        orderPayment.discountAmount -
+        (order.quantity *
+          order.unitPrice *
+          orderPaymentOrder.discountPercentage) /
+          100;
+      await orderPayment.save();
+    } else {
+      const { _id, ...orderDataWithoutId } = order.toObject();
+      const newOrder = new this.orderModel({
+        ...orderDataWithoutId,
+        quantity: cancelQuantity,
+      });
+      try {
+        await newOrder.save();
+      } catch (error) {
+        throw new HttpException(
+          'Failed to create order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      // Update the table orders
+      let updatedTable;
+      try {
+        updatedTable = await this.tableService.updateTableOrders(
+          newOrder.table,
+          newOrder._id,
+        );
+      } catch (error) {
+        // Clean up by deleting the order if updating the table fails
+        await this.orderModel.findByIdAndDelete(newOrder._id);
+        throw new HttpException(
+          'Failed to update table orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      if (!updatedTable) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
+      // Update the old order
+      order.quantity = order.quantity - cancelQuantity;
+
+      try {
+        await order.save();
+      } catch (error) {
+        throw new HttpException(
+          'Failed to update order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      const foundOrderPaymentItem = orderPayment.orders.find(
+        (paymentItem) => paymentItem.order === orderId,
+      );
+      // Add the new order and update the old order in orderPayment
+      orderPayment.orders = [
+        ...orderPayment.orders.filter(
+          (paymentItem) => paymentItem.order !== orderId,
+        ),
+        {
+          order: newOrder._id,
+          totalQuantity: newOrder.quantity,
+          paidQuantity: 0,
+        },
+        {
+          order: orderId,
+          totalQuantity:
+            foundOrderPaymentItem?.totalQuantity - newOrder.quantity || 0,
+          paidQuantity: foundOrderPaymentItem?.paidQuantity || 0,
+          discount: foundOrderPaymentItem?.discount || 0,
+          discountPercentage: foundOrderPaymentItem?.discountPercentage || 0,
+        },
+      ];
+      orderPayment.discountAmount =
+        orderPayment.discountAmount -
+        (newOrder.quantity *
+          newOrder.unitPrice *
+          orderPaymentOrder.discountPercentage) /
+          100;
+      await orderPayment.save();
+    }
+    return orderPayment;
   }
 }
