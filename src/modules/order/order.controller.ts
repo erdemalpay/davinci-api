@@ -21,7 +21,7 @@ import {
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment, OrderPaymentItem } from './orderPayment.schema';
+import { OrderPayment } from './orderPayment.schema';
 
 @Controller('order')
 export class OrderController {
@@ -34,18 +34,38 @@ export class OrderController {
 
   @Post('/discount')
   createOrderForDiscount(
-    @Body() createOrderDto: CreateOrderDto,
-    @Body() orderPaymentId: number,
-    @Body() newOrderPaymentItems: OrderPaymentItem[],
-    @Body() discount: number,
-    @Body() discountPercentage: number,
+    @Body()
+    payload: {
+      orders: {
+        totalQuantity: number;
+        selectedQuantity: number;
+        orderId: number;
+      }[];
+      orderPaymentId: number;
+      discount: number;
+      discountPercentage: number;
+    },
   ) {
     return this.orderService.createOrderForDiscount(
-      createOrderDto,
-      orderPaymentId,
-      newOrderPaymentItems,
-      discount,
-      discountPercentage,
+      payload.orders,
+      payload.orderPaymentId,
+      payload.discount,
+      payload.discountPercentage,
+    );
+  }
+  @Post('/cancel_discount')
+  cancelDiscountForOrder(
+    @Body()
+    payload: {
+      orderPaymentId: number;
+      orderId: number;
+      cancelQuantity: number;
+    },
+  ) {
+    return this.orderService.cancelDiscountForOrder(
+      payload.orderPaymentId,
+      payload.orderId,
+      payload.cancelQuantity,
     );
   }
 

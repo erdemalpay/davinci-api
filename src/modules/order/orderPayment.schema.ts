@@ -17,10 +17,10 @@ export class OrderPaymentItem {
   totalQuantity: number;
 
   @Prop({ required: false, type: Number, ref: Discount.name })
-  discount: number;
+  discount?: number;
 
   @Prop({ required: false, type: Number })
-  discountPercentage: number;
+  discountPercentage?: number;
 }
 
 @Schema({ _id: false })

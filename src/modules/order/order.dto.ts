@@ -19,6 +19,25 @@ export class CreateOrderDto {
   createdBy?: string;
   status?: string;
 }
+export type Order = {
+  _id: number;
+  location: number;
+  item: number;
+  table: number;
+  quantity: number;
+  status: string;
+  note?: string;
+  unitPrice: number;
+  totalPrice: number;
+  createdAt: Date;
+  createdBy: string;
+  preparedAt?: Date;
+  preparedBy?: string;
+  deliveredAt?: Date;
+  deliveredBy?: string;
+  cancelledAt?: Date;
+  cancelledBy?: string;
+};
 
 export class CreateCollectionDto {
   location: number;
