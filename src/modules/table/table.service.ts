@@ -40,7 +40,7 @@ export class TableService {
     );
     return updatedTable;
   }
-  async updateTableOrders(user: User, id: number, order: number) {
+  async updateTableOrders(id: number, order: number) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
       throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
@@ -63,20 +63,6 @@ export class TableService {
     if (!updatedTable) {
       throw new HttpException(
         'Table not found after update',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    try {
-      await this.activityService.addUpdateActivity(
-        user,
-        ActivityType.UPDATE_TABLE,
-        existingTable,
-        updatedTable,
-      );
-    } catch (error) {
-      throw new HttpException(
-        'Failed to log activity',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

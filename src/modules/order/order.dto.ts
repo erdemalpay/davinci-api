@@ -15,6 +15,9 @@ export class CreateOrderDto {
   deliveredBy?: string;
   cancelledAt?: Date;
   cancelledBy?: string;
+  createdAt?: Date;
+  createdBy?: string;
+  status?: string;
 }
 
 export class CreateCollectionDto {

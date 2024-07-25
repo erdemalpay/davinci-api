@@ -21,7 +21,7 @@ import {
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment } from './orderPayment.schema';
+import { OrderPayment, OrderPaymentItem } from './orderPayment.schema';
 
 @Controller('order')
 export class OrderController {
@@ -30,6 +30,23 @@ export class OrderController {
   @Get()
   findAllOrders() {
     return this.orderService.findAllOrders();
+  }
+
+  @Post('/discount')
+  createOrderForDiscount(
+    @Body() createOrderDto: CreateOrderDto,
+    @Body() orderPaymentId: number,
+    @Body() newOrderPaymentItems: OrderPaymentItem[],
+    @Body() discount: number,
+    @Body() discountPercentage: number,
+  ) {
+    return this.orderService.createOrderForDiscount(
+      createOrderDto,
+      orderPaymentId,
+      newOrderPaymentItems,
+      discount,
+      discountPercentage,
+    );
   }
 
   @Post()

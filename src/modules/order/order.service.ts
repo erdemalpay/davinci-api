@@ -13,7 +13,7 @@ import {
   CreatePaymentDto,
 } from './order.dto';
 import { Order } from './order.schema';
-import { OrderPayment } from './orderPayment.schema';
+import { OrderPayment, OrderPaymentItem } from './orderPayment.schema';
 
 @Injectable()
 export class OrderService {
@@ -111,7 +111,6 @@ export class OrderService {
     let updatedTable;
     try {
       updatedTable = await this.tableService.updateTableOrders(
-        user,
         createOrderDto.table,
         order._id,
       );
@@ -342,5 +341,65 @@ export class OrderService {
   }
   removeDiscount(id: number) {
     return this.discountModel.findByIdAndRemove(id);
+  }
+
+  async createOrderForDiscount(
+    createOrderDto: CreateOrderDto,
+    orderPaymentId: number,
+    newOrderPaymentItems: OrderPaymentItem[],
+    discount: number,
+    discountPercentage: number,
+  ) {
+    const order = new this.orderModel({
+      ...createOrderDto,
+    });
+    try {
+      await order.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    let updatedTable;
+    try {
+      updatedTable = await this.tableService.updateTableOrders(
+        createOrderDto.table,
+        order._id,
+      );
+    } catch (error) {
+      // Clean up by deleting the order if updating the table fails
+      await this.orderModel.findByIdAndDelete(order._id);
+      throw new HttpException(
+        'Failed to update table orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (!updatedTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+    // add the order under orderpayment
+    const orderPayment = await this.paymentModel.findOne({
+      _id: orderPaymentId,
+    });
+    if (!orderPayment) {
+      throw new HttpException(
+        'Order Payment not found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    orderPayment.orders = [
+      ...newOrderPaymentItems,
+      {
+        order: order._id,
+        totalQuantity: createOrderDto.quantity,
+        paidQuantity: 0,
+        discount: discount,
+        discountPercentage: discountPercentage,
+      },
+    ];
+    await orderPayment.save();
+
+    return order;
   }
 }
