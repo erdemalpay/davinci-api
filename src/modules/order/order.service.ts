@@ -558,7 +558,7 @@ export class OrderService {
         (paymentItem) => paymentItem.order === orderId,
       );
       // Add the new order and update the old order in orderPayment
-      orderPayment.orders = [
+      const newOrders = [
         ...orderPayment.orders.filter(
           (paymentItem) => paymentItem.order !== orderId,
         ),
@@ -567,15 +567,18 @@ export class OrderService {
           totalQuantity: newOrder.quantity,
           paidQuantity: 0,
         },
-        {
+      ];
+      if (foundOrderPaymentItem?.totalQuantity - newOrder.quantity !== 0) {
+        newOrders.push({
           order: orderId,
           totalQuantity:
-            foundOrderPaymentItem?.totalQuantity - newOrder.quantity || 0,
+            foundOrderPaymentItem?.totalQuantity - newOrder.quantity,
           paidQuantity: foundOrderPaymentItem?.paidQuantity || 0,
           discount: foundOrderPaymentItem?.discount || 0,
           discountPercentage: foundOrderPaymentItem?.discountPercentage || 0,
-        },
-      ];
+        });
+      }
+      orderPayment.orders = newOrders;
       orderPayment.discountAmount =
         orderPayment.discountAmount -
         (newOrder.quantity *
