@@ -361,6 +361,10 @@ export class OrderService {
       );
     }
     for (const orderItem of orders) {
+      const oldOrder = await this.orderModel.findById(orderItem.orderId);
+      if (!oldOrder) {
+        throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+      }
       if (orderItem.selectedQuantity === orderItem.totalQuantity) {
         orderPayment.orders = [
           ...orderPayment.orders.filter(
@@ -375,13 +379,13 @@ export class OrderService {
           },
         ];
         orderPayment.discountAmount =
-          (orderPayment.totalAmount * discountPercentage) / 100;
+          orderPayment.discountAmount +
+          (oldOrder.unitPrice *
+            discountPercentage *
+            orderItem.selectedQuantity) /
+            100;
         await orderPayment.save();
       } else {
-        const oldOrder = await this.orderModel.findById(orderItem.orderId);
-        if (!oldOrder) {
-          throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
-        }
         // Destructure oldOrder to exclude the _id field
         const { _id, ...orderDataWithoutId } = oldOrder.toObject();
         // Create new order without the _id field
@@ -420,7 +424,11 @@ export class OrderService {
           orderItem.totalQuantity - orderItem.selectedQuantity;
 
         try {
-          await oldOrder.save();
+          if (oldOrder.quantity === 0) {
+            await this.orderModel.findByIdAndDelete(oldOrder._id);
+          } else {
+            await oldOrder.save();
+          }
         } catch (error) {
           throw new HttpException(
             'Failed to update order',
@@ -535,7 +543,11 @@ export class OrderService {
       order.quantity = order.quantity - cancelQuantity;
 
       try {
-        await order.save();
+        if (order.quantity === 0) {
+          await this.orderModel.findByIdAndDelete(order._id);
+        } else {
+          await order.save();
+        }
       } catch (error) {
         throw new HttpException(
           'Failed to update order',
@@ -546,7 +558,7 @@ export class OrderService {
         (paymentItem) => paymentItem.order === orderId,
       );
       // Add the new order and update the old order in orderPayment
-      orderPayment.orders = [
+      const newOrders = [
         ...orderPayment.orders.filter(
           (paymentItem) => paymentItem.order !== orderId,
         ),
@@ -555,15 +567,18 @@ export class OrderService {
           totalQuantity: newOrder.quantity,
           paidQuantity: 0,
         },
-        {
+      ];
+      if (foundOrderPaymentItem?.totalQuantity - newOrder.quantity !== 0) {
+        newOrders.push({
           order: orderId,
           totalQuantity:
-            foundOrderPaymentItem?.totalQuantity - newOrder.quantity || 0,
+            foundOrderPaymentItem?.totalQuantity - newOrder.quantity,
           paidQuantity: foundOrderPaymentItem?.paidQuantity || 0,
           discount: foundOrderPaymentItem?.discount || 0,
           discountPercentage: foundOrderPaymentItem?.discountPercentage || 0,
-        },
-      ];
+        });
+      }
+      orderPayment.orders = newOrders;
       orderPayment.discountAmount =
         orderPayment.discountAmount -
         (newOrder.quantity *
