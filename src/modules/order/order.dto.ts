@@ -28,7 +28,6 @@ export type Order = {
   status: string;
   note?: string;
   unitPrice: number;
-  totalPrice: number;
   createdAt: Date;
   createdBy: string;
   preparedAt?: Date;

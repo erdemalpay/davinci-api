@@ -152,8 +152,11 @@ export class OrderController {
   }
 
   @Post('/payment')
-  createPayment(@Body() createPaymentDto: CreatePaymentDto) {
-    return this.orderService.createPayment(createPaymentDto);
+  createPayment(
+    @ReqUser() user: User,
+    @Body() createPaymentDto: CreatePaymentDto,
+  ) {
+    return this.orderService.createPayment(user, createPaymentDto);
   }
 
   @Patch('/payment/:id')

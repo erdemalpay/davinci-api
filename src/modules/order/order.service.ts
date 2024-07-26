@@ -285,7 +285,7 @@ export class OrderService {
       );
     }
   }
-  async createPayment(createPaymentDto: CreatePaymentDto) {
+  async createPayment(user: User, createPaymentDto: CreatePaymentDto) {
     const payment = new this.paymentModel({
       ...createPaymentDto,
     });
@@ -297,6 +297,24 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    // Update the table
+    let updatedTable;
+    try {
+      updatedTable = await this.tableService.update(user, payment.table, {
+        payment: payment._id,
+      });
+    } catch (error) {
+      // Clean up by deleting the order if updating the table fails
+      await this.paymentModel.findByIdAndDelete(payment._id);
+      throw new HttpException(
+        'Failed to update table payment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (!updatedTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+
     return payment;
   }
 
