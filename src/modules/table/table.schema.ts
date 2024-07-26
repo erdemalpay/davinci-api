@@ -25,8 +25,8 @@ export class Table extends Document {
   @Prop({ required: false, type: [{ type: Number, ref: 'Order' }] })
   orders: number[];
 
-  @Prop({ required: false, type: [{ type: Number, ref: OrderPayment.name }] })
-  payments: number[];
+  @Prop({ required: false, type: Number, ref: OrderPayment.name })
+  payment: number;
 
   @Prop({ required: true })
   date: string;

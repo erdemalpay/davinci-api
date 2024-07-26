@@ -31,9 +31,6 @@ export class Order extends Document {
   @Prop({ required: true, type: Number })
   unitPrice: number;
 
-  @Prop({ required: true, type: Number })
-  totalPrice: number;
-
   @Prop({ required: true, type: Date })
   createdAt: Date;
 

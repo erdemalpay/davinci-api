@@ -28,8 +28,8 @@ export class TableDto {
   @IsArray()
   orders?: number[];
 
-  @IsArray()
-  payments?: number[];
+  @IsNumber()
+  payment?: number;
 }
 
 export class TableResponse {
