@@ -172,9 +172,4 @@ export class OrderController {
   deleteDiscount(@Param('id') id: number) {
     return this.orderService.removeDiscount(id);
   }
-
-  @Get('removeAll')
-  removeAll() {
-    return this.orderService.removeAll();
-  }
 }
