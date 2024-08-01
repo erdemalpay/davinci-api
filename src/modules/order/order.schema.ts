@@ -4,6 +4,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
+import { Discount } from './discount.schema';
 
 @Schema({ _id: false })
 export class Order extends Document {
@@ -54,6 +55,15 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String, ref: User.name })
   cancelledBy: string;
+
+  @Prop({ required: true, type: Number })
+  paidQuantity: number;
+
+  @Prop({ required: false, type: Number, ref: Discount.name })
+  discount?: number;
+
+  @Prop({ required: false, type: Number })
+  discountPercentage?: number;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

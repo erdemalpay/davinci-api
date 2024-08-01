@@ -27,6 +27,9 @@ export class Collection extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
+  @Prop({ required: true, type: Number, ref: 'Table' })
+  table: number;
+
   @Prop({ required: false, type: Date })
   cancelledAt: Date;
 
@@ -44,9 +47,6 @@ export class Collection extends Document {
 
   @Prop({ required: true, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
-
-  @Prop({ required: true, type: Number, ref: 'OrderPayment' })
-  orderPayment: number;
 
   @Prop([OrderCollectionItem])
   orders: OrderCollectionItem[];

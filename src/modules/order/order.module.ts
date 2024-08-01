@@ -9,12 +9,10 @@ import { Discount, DiscountSchema } from './discount.schema';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment, OrderPaymentSchema } from './orderPayment.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
   createAutoIncrementConfig(Collection.name, CollectionSchema),
-  createAutoIncrementConfig(OrderPayment.name, OrderPaymentSchema),
   createAutoIncrementConfig(Discount.name, DiscountSchema),
 ]);
 

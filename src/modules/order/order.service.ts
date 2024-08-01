@@ -10,17 +10,15 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
-  CreatePaymentDto,
+  OrderType,
 } from './order.dto';
 import { Order } from './order.schema';
-import { OrderPayment } from './orderPayment.schema';
 
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
-    @InjectModel(OrderPayment.name) private paymentModel: Model<OrderPayment>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     private readonly tableService: TableService,
   ) {}
@@ -29,7 +27,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find()
-        .populate('location table item')
+        .populate('location table item discount')
         .populate({
           path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
@@ -52,7 +50,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('location table item')
+        .populate('location table item discount')
         .populate({
           path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
@@ -77,7 +75,7 @@ export class OrderService {
           },
           location: location,
         })
-        .populate('location table item')
+        .populate('location table item discount')
         .populate({
           path: 'createdBy preparedBy deliveredBy cancelledBy',
           select: '-password',
@@ -134,21 +132,51 @@ export class OrderService {
       new: true,
     });
   }
-  async updateMultipleOrders(user: User, ids: number[], status: string) {
+
+  async updateMultipleOrders(ids: number[], updates: UpdateQuery<Order>) {
     try {
-      const result = await this.orderModel.updateMany(
-        { _id: { $in: ids } },
-        { status: status, preparedBy: user._id, preparedAt: new Date() },
-        { new: true },
+      await Promise.all(
+        ids.map(async (id) => {
+          await this.orderModel.findByIdAndUpdate(id, updates, {
+            new: true,
+          });
+        }),
       );
-      return result;
     } catch (error) {
+      console.error('Error updating orders:', error);
       throw new HttpException(
-        'Failed to update multiple orders',
+        'Failed to update some orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
+  async updateOrders(orders: OrderType[]) {
+    if (!orders?.length || orders?.length === 0) {
+      return;
+    }
+    try {
+      await Promise.all(
+        orders?.map(async (order) => {
+          const oldOrder = await this.orderModel.findById(order._id);
+          if (!oldOrder) {
+            throw new HttpException(
+              `Order with ID ${order._id} not found`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+          const updatedOrder = { ...order, _id: oldOrder._id };
+          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
+        }),
+      );
+    } catch (error) {
+      console.error('Error updating orders:', error);
+      throw new HttpException(
+        'Failed to update some orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   removeOrder(id: number) {
     return this.orderModel.findByIdAndRemove(id);
   }
@@ -172,7 +200,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('location paymentMethod orderPayment')
+        .populate('location paymentMethod table')
         .populate({
           path: 'createdBy cancelledBy',
           select: '-password',
@@ -197,7 +225,7 @@ export class OrderService {
           },
           location: location,
         })
-        .populate('location paymentMethod orderPayment')
+        .populate('location paymentMethod table')
         .populate({
           path: 'createdBy',
           select: '-password',
@@ -226,18 +254,6 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-    // add the collection under orderpayment
-    const orderPayment = await this.paymentModel.findOne({
-      _id: createCollectionDto.orderPayment,
-    });
-    if (!orderPayment) {
-      throw new HttpException(
-        'Order Payment not found',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    orderPayment.collections = [...orderPayment.collections, collection._id];
-    await orderPayment.save();
     return collection;
   }
   updateCollection(id: number, updates: UpdateQuery<Collection>) {
@@ -247,84 +263,6 @@ export class OrderService {
   }
   removeCollection(id: number) {
     return this.collectionModel.findByIdAndRemove(id);
-  }
-  // Paymenys
-  async findAllPayments() {
-    try {
-      const payments = await this.paymentModel
-        .find()
-        .populate('location table');
-
-      return payments;
-    } catch (error) {
-      throw new HttpException(
-        'Failed to fetch payments',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  async findGivenDatePayments(date: string, location: number) {
-    const parsedDate = parseISO(date);
-    try {
-      const payments = await this.paymentModel
-        .find({
-          createdAt: {
-            $gte: startOfDay(parsedDate),
-            $lte: endOfDay(parsedDate),
-          },
-          location: location,
-        })
-        .populate('location table')
-        .exec();
-      return payments;
-    } catch (error) {
-      throw new HttpException(
-        "Failed to fetch given day's payments",
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-  async createPayment(user: User, createPaymentDto: CreatePaymentDto) {
-    const payment = new this.paymentModel({
-      ...createPaymentDto,
-    });
-    try {
-      await payment.save();
-    } catch (error) {
-      throw new HttpException(
-        'Failed to create payment',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-    // Update the table
-    let updatedTable;
-    try {
-      updatedTable = await this.tableService.update(user, payment.table, {
-        payment: payment._id,
-      });
-    } catch (error) {
-      // Clean up by deleting the order if updating the table fails
-      await this.paymentModel.findByIdAndDelete(payment._id);
-      throw new HttpException(
-        'Failed to update table payment',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-    if (!updatedTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
-    }
-
-    return payment;
-  }
-
-  updatePayment(id: number, updates: UpdateQuery<OrderPayment>) {
-    return this.paymentModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-  }
-  removePayment(id: number) {
-    return this.paymentModel.findByIdAndRemove(id);
   }
   // discount
   async findAllDiscounts() {
@@ -367,42 +305,26 @@ export class OrderService {
       selectedQuantity: number;
       orderId: number;
     }[],
-    orderPaymentId: number,
     discount: number,
     discountPercentage: number,
   ) {
-    const orderPayment = await this.paymentModel.findById(orderPaymentId);
-    if (!orderPayment) {
-      throw new HttpException(
-        'Order Payment not found',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
     for (const orderItem of orders) {
       const oldOrder = await this.orderModel.findById(orderItem.orderId);
       if (!oldOrder) {
         throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
       }
       if (orderItem.selectedQuantity === orderItem.totalQuantity) {
-        orderPayment.orders = [
-          ...orderPayment.orders.filter(
-            (paymentItem) => paymentItem.order !== orderItem.orderId,
-          ),
-          {
-            order: orderItem.orderId,
+        try {
+          await this.orderModel.findByIdAndUpdate(orderItem.orderId, {
             discount: discount,
             discountPercentage: discountPercentage,
-            totalQuantity: orderItem.totalQuantity,
-            paidQuantity: 0,
-          },
-        ];
-        orderPayment.discountAmount =
-          orderPayment.discountAmount +
-          (oldOrder.unitPrice *
-            discountPercentage *
-            orderItem.selectedQuantity) /
-            100;
-        await orderPayment.save();
+          });
+        } catch (error) {
+          throw new HttpException(
+            'Failed to update order',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
       } else {
         // Destructure oldOrder to exclude the _id field
         const { _id, ...orderDataWithoutId } = oldOrder.toObject();
@@ -410,6 +332,9 @@ export class OrderService {
         const newOrder = new this.orderModel({
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
+          discount: discount,
+          discountPercentage: discountPercentage,
+          paidQuantity: 0,
         });
         try {
           await newOrder.save();
@@ -453,83 +378,37 @@ export class OrderService {
             HttpStatus.INTERNAL_SERVER_ERROR,
           );
         }
-        // Add the new order and update the old order in orderPayment
-        orderPayment.orders = [
-          ...orderPayment.orders.filter(
-            (paymentItem) => paymentItem.order !== orderItem.orderId,
-          ),
-          {
-            order: newOrder._id,
-            discount: discount,
-            discountPercentage: discountPercentage,
-            totalQuantity: newOrder.quantity,
-            paidQuantity: 0,
-          },
-          {
-            order: orderItem.orderId,
-            totalQuantity:
-              orderPayment.orders.find(
-                (paymentItem) => paymentItem.order === orderItem.orderId,
-              )?.totalQuantity - newOrder.quantity || 0,
-            paidQuantity:
-              orderPayment.orders.find(
-                (paymentItem) => paymentItem.order === orderItem.orderId,
-              )?.paidQuantity || 0,
-          },
-        ];
-        orderPayment.discountAmount =
-          orderPayment.discountAmount +
-          (newOrder.quantity * newOrder.unitPrice * discountPercentage) / 100;
-        await orderPayment.save();
       }
     }
     return orders;
   }
-  async cancelDiscountForOrder(
-    orderPaymentId: number,
-    orderId: number,
-    cancelQuantity: number,
-  ) {
-    const orderPayment = await this.paymentModel.findById(orderPaymentId);
-    if (!orderPayment) {
-      throw new HttpException(
-        'Order Payment not found',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const orderPaymentOrder = orderPayment.orders.find(
-      (paymentItem) => paymentItem.order === orderId,
-    );
-    if (!orderPaymentOrder) {
-      throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
-    }
+  async cancelDiscountForOrder(orderId: number, cancelQuantity: number) {
     const order = await this.orderModel.findById(orderId);
     if (!order) {
       throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
     }
-    if (orderPaymentOrder.totalQuantity === cancelQuantity) {
-      orderPayment.orders = [
-        ...orderPayment.orders.filter(
-          (paymentItem) => paymentItem.order !== orderId,
-        ),
-        {
-          order: orderId,
-          totalQuantity: order.quantity,
-          paidQuantity: 0,
-        },
-      ];
-      orderPayment.discountAmount =
-        orderPayment.discountAmount -
-        (order.quantity *
-          order.unitPrice *
-          orderPaymentOrder.discountPercentage) /
-          100;
-      await orderPayment.save();
+    if (order.quantity === cancelQuantity) {
+      const updatedOrder = { ...order.toObject() };
+      delete updatedOrder.discount;
+      delete updatedOrder.discountPercentage;
+
+      try {
+        await this.orderModel.findByIdAndUpdate(orderId, {
+          $set: updatedOrder,
+          $unset: { discount: '', discountPercentage: '' },
+        });
+      } catch (error) {
+        throw new HttpException(
+          'Failed to update order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     } else {
       const { _id, ...orderDataWithoutId } = order.toObject();
       const newOrder = new this.orderModel({
         ...orderDataWithoutId,
         quantity: cancelQuantity,
+        paidQuantity: 0,
       });
       try {
         await newOrder.save();
@@ -572,39 +451,18 @@ export class OrderService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-      const foundOrderPaymentItem = orderPayment.orders.find(
-        (paymentItem) => paymentItem.order === orderId,
-      );
-      // Add the new order and update the old order in orderPayment
-      const newOrders = [
-        ...orderPayment.orders.filter(
-          (paymentItem) => paymentItem.order !== orderId,
-        ),
-        {
-          order: newOrder._id,
-          totalQuantity: newOrder.quantity,
-          paidQuantity: 0,
-        },
-      ];
-      if (foundOrderPaymentItem?.totalQuantity - newOrder.quantity !== 0) {
-        newOrders.push({
-          order: orderId,
-          totalQuantity:
-            foundOrderPaymentItem?.totalQuantity - newOrder.quantity,
-          paidQuantity: foundOrderPaymentItem?.paidQuantity || 0,
-          discount: foundOrderPaymentItem?.discount || 0,
-          discountPercentage: foundOrderPaymentItem?.discountPercentage || 0,
-        });
-      }
-      orderPayment.orders = newOrders;
-      orderPayment.discountAmount =
-        orderPayment.discountAmount -
-        (newOrder.quantity *
-          newOrder.unitPrice *
-          orderPaymentOrder.discountPercentage) /
-          100;
-      await orderPayment.save();
     }
-    return orderPayment;
+    return order;
+  }
+  async removeAll() {
+    try {
+      await this.collectionModel.deleteMany({});
+      await this.orderModel.deleteMany({});
+    } catch (error) {
+      throw new HttpException(
+        'Failed to delete all data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
