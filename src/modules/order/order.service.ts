@@ -227,7 +227,7 @@ export class OrderService {
         })
         .populate('location paymentMethod table')
         .populate({
-          path: 'createdBy',
+          path: 'createdBy cancelledBy',
           select: '-password',
         })
         .exec();
@@ -453,16 +453,5 @@ export class OrderService {
       }
     }
     return order;
-  }
-  async removeAll() {
-    try {
-      await this.collectionModel.deleteMany({});
-      await this.orderModel.deleteMany({});
-    } catch (error) {
-      throw new HttpException(
-        'Failed to delete all data',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
   }
 }
