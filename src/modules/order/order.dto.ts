@@ -1,5 +1,4 @@
 import { OrderCollectionItem } from './collection.schema';
-import { OrderPaymentItem } from './orderPayment.schema';
 
 export class CreateOrderDto {
   location: number;
@@ -19,7 +18,7 @@ export class CreateOrderDto {
   createdBy?: string;
   status?: string;
 }
-export type Order = {
+export type OrderType = {
   _id: number;
   location: number;
   item: number;
@@ -36,6 +35,9 @@ export type Order = {
   deliveredBy?: string;
   cancelledAt?: Date;
   cancelledBy?: string;
+  paidQuantity: number;
+  discount?: number;
+  discountPercentage?: number;
 };
 
 export class CreateCollectionDto {
@@ -43,17 +45,8 @@ export class CreateCollectionDto {
   amount: number;
   status: string;
   paymentMethod: string;
-  orderPayment: number[];
   orders?: OrderCollectionItem[];
   cancelNote?: string;
-}
-
-export class CreatePaymentDto {
-  location: number;
-  totalAmount: number;
-  discountAmount: number;
-  orders?: OrderPaymentItem[];
-  collections?: number[];
   table: number;
 }
 

@@ -17,11 +17,10 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
-  CreatePaymentDto,
+  OrderType,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
-import { OrderPayment } from './orderPayment.schema';
 
 @Controller('order')
 export class OrderController {
@@ -41,14 +40,12 @@ export class OrderController {
         selectedQuantity: number;
         orderId: number;
       }[];
-      orderPaymentId: number;
       discount: number;
       discountPercentage: number;
     },
   ) {
     return this.orderService.createOrderForDiscount(
       payload.orders,
-      payload.orderPaymentId,
       payload.discount,
       payload.discountPercentage,
     );
@@ -57,13 +54,11 @@ export class OrderController {
   cancelDiscountForOrder(
     @Body()
     payload: {
-      orderPaymentId: number;
       orderId: number;
       cancelQuantity: number;
     },
   ) {
     return this.orderService.cancelDiscountForOrder(
-      payload.orderPaymentId,
       payload.orderId,
       payload.cancelQuantity,
     );
@@ -73,14 +68,24 @@ export class OrderController {
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
   }
-
+  @Patch('/update_bulk')
+  updateOrders(
+    @Body()
+    payload: {
+      orders: OrderType[];
+    },
+  ) {
+    return this.orderService.updateOrders(payload.orders);
+  }
   @Patch('/update_multiple')
   updateMultipleOrders(
-    @ReqUser() user: User,
-    @Body('ids') ids: number[],
-    @Body('status') status: string,
+    @Body()
+    payload: {
+      ids: number[];
+      updates: UpdateQuery<Order>;
+    },
   ) {
-    return this.orderService.updateMultipleOrders(user, ids, status);
+    return this.orderService.updateMultipleOrders(payload.ids, payload.updates);
   }
 
   @Get('/today')
@@ -144,40 +149,6 @@ export class OrderController {
   deleteCollection(@Param('id') id: number) {
     return this.orderService.removeCollection(id);
   }
-
-  // payments
-  @Get('/payment')
-  findAllPayments() {
-    return this.orderService.findAllPayments();
-  }
-
-  @Post('/payment')
-  createPayment(
-    @ReqUser() user: User,
-    @Body() createPaymentDto: CreatePaymentDto,
-  ) {
-    return this.orderService.createPayment(user, createPaymentDto);
-  }
-
-  @Patch('/payment/:id')
-  updatePayment(
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<OrderPayment>,
-  ) {
-    return this.orderService.updatePayment(id, updates);
-  }
-  @Get('/payment/date')
-  findGivenDatePayments(
-    @Query('location') location: number,
-    @Query('date') date: string,
-  ) {
-    return this.orderService.findGivenDatePayments(date, location);
-  }
-
-  @Delete('/payment/:id')
-  deletePayment(@Param('id') id: number) {
-    return this.orderService.removePayment(id);
-  }
   // discount
   @Get('/discount')
   findAllDiscounts() {
@@ -200,5 +171,10 @@ export class OrderController {
   @Delete('/discount/:id')
   deleteDiscount(@Param('id') id: number) {
     return this.orderService.removeDiscount(id);
+  }
+
+  @Get('removeAll')
+  removeAll() {
+    return this.orderService.removeAll();
   }
 }

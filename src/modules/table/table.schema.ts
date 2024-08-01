@@ -3,7 +3,6 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
-import { OrderPayment } from '../order/orderPayment.schema';
 
 @Schema({ _id: false })
 export class Table extends Document {
@@ -24,9 +23,6 @@ export class Table extends Document {
 
   @Prop({ required: false, type: [{ type: Number, ref: 'Order' }] })
   orders: number[];
-
-  @Prop({ required: false, type: Number, ref: OrderPayment.name })
-  payment: number;
 
   @Prop({ required: true })
   date: string;
