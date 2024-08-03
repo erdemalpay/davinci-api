@@ -107,6 +107,11 @@ export class MenuController {
     return this.menuService.findAllKitchens();
   }
 
+  @Get('/kitchens/update_kitchen')
+  updateKitchens() {
+    return this.menuService.updateCategoriesKitchen();
+  }
+
   @Post('/kitchens')
   createKitchen(@Body() createKitchenDto: CreateKitchenDto) {
     return this.menuService.createKitchen(createKitchenDto);

@@ -22,7 +22,7 @@ export class MenuService {
   ) {}
 
   findAllCategories() {
-    return this.categoryModel.find().sort({ order: 'asc' });
+    return this.categoryModel.find().populate('kitchen').sort({ order: 'asc' });
   }
 
   findAllItems() {
@@ -172,5 +172,17 @@ export class MenuService {
   }
   async removeKitchen(id: number) {
     return this.kitchenModel.findByIdAndRemove(id);
+  }
+
+  async updateCategoriesKitchen() {
+    let barKitchen = await this.kitchenModel.findOne({ name: 'Bar' });
+    if (!barKitchen) {
+      barKitchen = await this.kitchenModel.create({ name: 'Bar' });
+    }
+    const categories = await this.categoryModel.find();
+    categories.forEach(async (category) => {
+      category.kitchen = barKitchen._id;
+      await category.save();
+    });
   }
 }
