@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Kitchen } from './kitchen.schema';
 
 @Schema({ _id: false })
 export class MenuCategory extends Document {
@@ -15,6 +16,12 @@ export class MenuCategory extends Document {
 
   @Prop({ required: true, default: [] })
   locations: number[];
+
+  @Prop({ required: true, type: Number, ref: Kitchen.name })
+  kitchen: number;
+
+  @Prop({ required: true, type: Boolean, default: false })
+  isAutoServed: boolean;
 
   @Prop({ type: String })
   imageUrl: string;
