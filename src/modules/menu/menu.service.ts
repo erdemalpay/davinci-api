@@ -1,10 +1,16 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { Kitchen } from './kitchen.schema';
 import { Popular } from './popular.schema';
 
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
-import { CreateCategoryDto, CreateItemDto, CreatePopularDto } from './menu.dto';
+import {
+  CreateCategoryDto,
+  CreateItemDto,
+  CreateKitchenDto,
+  CreatePopularDto,
+} from './menu.dto';
 
 export class MenuService {
   constructor(
@@ -12,6 +18,7 @@ export class MenuService {
     private categoryModel: Model<MenuCategory>,
     @InjectModel(MenuItem.name) private itemModel: Model<MenuItem>,
     @InjectModel(Popular.name) private popularModel: Model<Popular>,
+    @InjectModel(Kitchen.name) private kitchenModel: Model<Kitchen>,
   ) {}
 
   findAllCategories() {
@@ -147,5 +154,23 @@ export class MenuService {
         });
       }
     });
+  }
+  // kitchen
+  findAllKitchens() {
+    return this.kitchenModel.find();
+  }
+
+  createKitchen(createKitchenDto: CreateKitchenDto) {
+    return this.kitchenModel.create({
+      ...createKitchenDto,
+    });
+  }
+  async updateKitchen(id: number, updates: UpdateQuery<Kitchen>) {
+    return this.kitchenModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+  }
+  async removeKitchen(id: number) {
+    return this.kitchenModel.findByIdAndRemove(id);
   }
 }

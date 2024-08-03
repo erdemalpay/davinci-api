@@ -11,6 +11,9 @@ export class CreateItemDto {
   locations: number[];
   order: number;
 }
+export class CreateKitchenDto {
+  name: string;
+}
 
 export class CreatePopularDto {
   item: number;
