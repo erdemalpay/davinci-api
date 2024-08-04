@@ -1,7 +1,7 @@
 export class CreateCategoryDto {
   name: string;
   locations: number[];
-  kitchen: number;
+  kitchen: string;
   isAutoServed: boolean;
 }
 
