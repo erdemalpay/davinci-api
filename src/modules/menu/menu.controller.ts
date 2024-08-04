@@ -119,14 +119,14 @@ export class MenuController {
 
   @Patch('/kitchens/:id')
   updateKitchen(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updates: UpdateQuery<Kitchen>,
   ) {
     return this.menuService.updateKitchen(id, updates);
   }
 
   @Delete('/kitchens/:id')
-  deleteKitchen(@Param('id') id: number) {
+  deleteKitchen(@Param('id') id: string) {
     return this.menuService.removeKitchen(id);
   }
 }

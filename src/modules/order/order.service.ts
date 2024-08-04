@@ -92,7 +92,7 @@ export class OrderService {
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const order = new this.orderModel({
       ...createOrderDto,
-      status: 'pending',
+      status: createOrderDto?.status ?? 'pending',
       createdBy: user._id,
       createdAt: new Date(),
     });

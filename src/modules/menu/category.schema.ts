@@ -17,8 +17,8 @@ export class MenuCategory extends Document {
   @Prop({ required: true, default: [] })
   locations: number[];
 
-  @Prop({ required: true, type: Number, ref: Kitchen.name })
-  kitchen: number;
+  @Prop({ required: true, type: String, ref: Kitchen.name })
+  kitchen: string;
 
   @Prop({ required: true, type: Boolean, default: false })
   isAutoServed: boolean;

@@ -1,5 +1,7 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { usernamify } from 'src/utils/usernamify';
+import { PanelControlService } from './../panelControl/panelControl.service';
 import { Kitchen } from './kitchen.schema';
 import { Popular } from './popular.schema';
 
@@ -19,6 +21,7 @@ export class MenuService {
     @InjectModel(MenuItem.name) private itemModel: Model<MenuItem>,
     @InjectModel(Popular.name) private popularModel: Model<Popular>,
     @InjectModel(Kitchen.name) private kitchenModel: Model<Kitchen>,
+    private readonly panelControlService: PanelControlService,
   ) {}
 
   findAllCategories() {
@@ -160,24 +163,38 @@ export class MenuService {
     return this.kitchenModel.find();
   }
 
-  createKitchen(createKitchenDto: CreateKitchenDto) {
-    return this.kitchenModel.create({
-      ...createKitchenDto,
+  async createKitchen(createKitchenDto: CreateKitchenDto) {
+    const kitchen = new this.kitchenModel(createKitchenDto);
+    kitchen._id = usernamify(createKitchenDto.name);
+    console.log(kitchen);
+    await kitchen.save();
+    const ordersPage = await this.panelControlService.getPage('orders');
+    ordersPage.tabs.push({
+      name: kitchen.name,
+      permissionsRoles: [1],
     });
+    await ordersPage.save();
+    return kitchen;
   }
-  async updateKitchen(id: number, updates: UpdateQuery<Kitchen>) {
+  async updateKitchen(id: string, updates: UpdateQuery<Kitchen>) {
     return this.kitchenModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
   }
-  async removeKitchen(id: number) {
+  async removeKitchen(id: string) {
+    const kitchen = await this.kitchenModel.findById(id);
+    const ordersPage = await this.panelControlService.getPage('orders');
+    ordersPage.tabs = ordersPage.tabs.filter(
+      (tab) => tab.name !== kitchen.name,
+    );
+    await ordersPage.save();
     return this.kitchenModel.findByIdAndRemove(id);
   }
 
   async updateCategoriesKitchen() {
-    let barKitchen = await this.kitchenModel.findOne({ name: 'Bar' });
+    let barKitchen = await this.kitchenModel.findOne({ _id: 'bar' });
     if (!barKitchen) {
-      barKitchen = await this.kitchenModel.create({ name: 'Bar' });
+      barKitchen = await this.createKitchen({ name: 'Bar' });
     }
     const categories = await this.categoryModel.find();
     categories.forEach(async (category) => {

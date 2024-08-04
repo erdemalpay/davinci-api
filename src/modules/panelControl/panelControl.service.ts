@@ -34,7 +34,10 @@ export class PanelControlService {
     });
     return newPage;
   }
-
+  async getPage(id: string) {
+    const page = await this.pageModel.findById(id);
+    return page;
+  }
   async removePage(id: string) {
     const page = await this.pageModel.findByIdAndRemove(id);
     return page;
