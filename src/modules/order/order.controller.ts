@@ -50,6 +50,21 @@ export class OrderController {
       payload.discountPercentage,
     );
   }
+
+  @Post('/divide')
+  createOrderForDivide(
+    @Body()
+    payload: {
+      orders: {
+        totalQuantity: number;
+        selectedQuantity: number;
+        orderId: number;
+      }[];
+    },
+  ) {
+    return this.orderService.createOrderForDivide(payload.orders);
+  }
+
   @Post('/cancel_discount')
   cancelDiscountForOrder(
     @Body()
