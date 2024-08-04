@@ -298,7 +298,71 @@ export class OrderService {
   removeDiscount(id: number) {
     return this.discountModel.findByIdAndRemove(id);
   }
+  async createOrderForDivide(
+    orders: {
+      totalQuantity: number;
+      selectedQuantity: number;
+      orderId: number;
+    }[],
+  ) {
+    for (const orderItem of orders) {
+      const oldOrder = await this.orderModel.findById(orderItem.orderId);
+      if (!oldOrder) {
+        throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+      }
+      // Destructure oldOrder to exclude the _id field
+      const { _id, ...orderDataWithoutId } = oldOrder.toObject();
+      // Create new order without the _id field
+      const newOrder = new this.orderModel({
+        ...orderDataWithoutId,
+        quantity: orderItem.selectedQuantity,
+        paidQuantity: 0,
+      });
+      try {
+        await newOrder.save();
+      } catch (error) {
+        throw new HttpException(
+          'Failed to create order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      // Update the table orders
+      let updatedTable;
+      try {
+        updatedTable = await this.tableService.updateTableOrders(
+          newOrder.table,
+          newOrder._id,
+        );
+      } catch (error) {
+        // Clean up by deleting the order if updating the table fails
+        await this.orderModel.findByIdAndDelete(newOrder._id);
+        throw new HttpException(
+          'Failed to update table orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      if (!updatedTable) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
+      // Update the old order
+      oldOrder.quantity = orderItem.totalQuantity - orderItem.selectedQuantity;
 
+      try {
+        if (oldOrder.quantity === 0) {
+          await this.orderModel.findByIdAndDelete(oldOrder._id);
+        } else {
+          await oldOrder.save();
+        }
+      } catch (error) {
+        throw new HttpException(
+          'Failed to update order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    }
+
+    return orders;
+  }
   async createOrderForDiscount(
     orders: {
       totalQuantity: number;
