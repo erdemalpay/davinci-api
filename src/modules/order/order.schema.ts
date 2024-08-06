@@ -64,6 +64,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Number })
   discountPercentage?: number;
+
+  @Prop({ required: false, type: Number })
+  division?: number;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

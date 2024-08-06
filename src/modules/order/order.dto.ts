@@ -5,18 +5,21 @@ export class CreateOrderDto {
   item: number;
   table: number;
   quantity: number;
+  status: string;
   note?: string;
   unitPrice: number;
-  totalPrice: number;
+  createdAt: Date;
+  createdBy: string;
   preparedAt?: Date;
   preparedBy?: string;
   deliveredAt?: Date;
   deliveredBy?: string;
   cancelledAt?: Date;
   cancelledBy?: string;
-  createdAt?: Date;
-  createdBy?: string;
-  status?: string;
+  paidQuantity: number;
+  discount?: number;
+  discountPercentage?: number;
+  division?: number;
 }
 export type OrderType = {
   _id: number;
@@ -38,6 +41,7 @@ export type OrderType = {
   paidQuantity: number;
   discount?: number;
   discountPercentage?: number;
+  division?: number;
 };
 
 export class CreateCollectionDto {
