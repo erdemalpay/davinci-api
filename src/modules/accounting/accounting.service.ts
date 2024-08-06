@@ -2155,7 +2155,7 @@ export class AccountingService {
         path: 'user',
         select: '-password',
       })
-      .sort({ createdAt: -1 });
+      .sort({ completedAt: -1 });
   }
   async createCount(createCountDto: CreateCountDto) {
     const counts = await this.countModel.find({
