@@ -128,9 +128,21 @@ export class OrderService {
     return order;
   }
   updateOrder(id: number, updates: UpdateQuery<Order>) {
-    return this.orderModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+    if (updates?.division === 1) {
+      return this.orderModel.findByIdAndUpdate(
+        id,
+        {
+          $unset: { division: '' },
+        },
+        {
+          new: true,
+        },
+      );
+    } else {
+      return this.orderModel.findByIdAndUpdate(id, updates, {
+        new: true,
+      });
+    }
   }
 
   async updateMultipleOrders(ids: number[], updates: UpdateQuery<Order>) {

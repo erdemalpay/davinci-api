@@ -166,7 +166,6 @@ export class MenuService {
   async createKitchen(createKitchenDto: CreateKitchenDto) {
     const kitchen = new this.kitchenModel(createKitchenDto);
     kitchen._id = usernamify(createKitchenDto.name);
-    console.log(kitchen);
     await kitchen.save();
     const ordersPage = await this.panelControlService.getPage('orders');
     ordersPage.tabs.push({
