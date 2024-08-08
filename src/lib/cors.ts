@@ -9,7 +9,13 @@ export const setCors: CorsOptionsDelegate<Request> = (_req, cb) => {
   const whiteListConfig = config.get('corsWhitelist') as string[];
 
   return cb(null, {
-    origin: whiteListConfig,
+    origin: (origin, callback) => {
+      if (!origin || whiteListConfig.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 };

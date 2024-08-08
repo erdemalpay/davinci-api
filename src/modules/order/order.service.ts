@@ -12,8 +12,8 @@ import {
   CreateOrderDto,
   OrderType,
 } from './order.dto';
+import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
-
 @Injectable()
 export class OrderService {
   constructor(
@@ -21,6 +21,7 @@ export class OrderService {
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     private readonly tableService: TableService,
+    private readonly orderGateway: OrderGateway,
   ) {}
   // Orders
   async findAllOrders() {
@@ -99,6 +100,7 @@ export class OrderService {
 
     try {
       await order.save();
+      this.orderGateway.emitOrderCreated(order);
     } catch (error) {
       throw new HttpException(
         'Failed to create order',
@@ -129,19 +131,29 @@ export class OrderService {
   }
   updateOrder(id: number, updates: UpdateQuery<Order>) {
     if (updates?.division === 1) {
-      return this.orderModel.findByIdAndUpdate(
-        id,
-        {
-          $unset: { division: '' },
-        },
-        {
-          new: true,
-        },
-      );
+      return this.orderModel
+        .findByIdAndUpdate(
+          id,
+          {
+            $unset: { division: '' },
+          },
+          {
+            new: true,
+          },
+        )
+        .then((order) => {
+          this.orderGateway.emitOrderUpdated(order);
+          return order;
+        });
     } else {
-      return this.orderModel.findByIdAndUpdate(id, updates, {
-        new: true,
-      });
+      return this.orderModel
+        .findByIdAndUpdate(id, updates, {
+          new: true,
+        })
+        .then((order) => {
+          this.orderGateway.emitOrderUpdated(order);
+          return order;
+        });
     }
   }
 

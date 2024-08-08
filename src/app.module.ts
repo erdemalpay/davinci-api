@@ -22,8 +22,13 @@ import { ShiftModule } from './modules/shift/shift.module';
 import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
+export interface DBConfig {
+  host: string;
+  port: number;
+  name: string;
+}
 
-const { host, port, name } = config.get('db');
+const { host, port, name }: DBConfig = config.get('db');
 const mongoUrl = `mongodb://${host}:${port}/${name}`;
 const DbModule = MongooseModule.forRoot(mongoUrl, {
   ignoreUndefined: true,
