@@ -7,6 +7,7 @@ import { TableSchema } from '../table/table.schema';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
 import { OrderController } from './order.controller';
+import { OrderGateway } from './order.gateway';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 
@@ -27,6 +28,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ]),
   ],
   controllers: [OrderController],
-  providers: [OrderService],
+  providers: [OrderService, OrderGateway],
 })
 export class OrderModule {}
