@@ -319,7 +319,14 @@ export class OrderService {
       new: true,
     });
   }
-  removeDiscount(id: number) {
+  async removeDiscount(id: number) {
+    const orders = await this.orderModel.find({ discount: id });
+    if (orders.length > 0) {
+      throw new HttpException(
+        'Discount is used in orders',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     return this.discountModel.findByIdAndRemove(id);
   }
   async createOrderForDivide(
