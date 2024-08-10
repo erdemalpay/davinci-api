@@ -31,7 +31,7 @@ export class OrderController {
     return this.orderService.findAllOrders();
   }
 
-  @Post('/discount')
+  @Post('/create_order_for_discount')
   createOrderForDiscount(
     @Body()
     payload: {
@@ -41,13 +41,15 @@ export class OrderController {
         orderId: number;
       }[];
       discount: number;
-      discountPercentage: number;
+      discountPercentage?: number;
+      discountAmount?: number;
     },
   ) {
     return this.orderService.createOrderForDiscount(
       payload.orders,
       payload.discount,
-      payload.discountPercentage,
+      payload?.discountPercentage,
+      payload?.discountAmount,
     );
   }
 

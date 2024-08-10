@@ -401,7 +401,8 @@ export class OrderService {
       orderId: number;
     }[],
     discount: number,
-    discountPercentage: number,
+    discountPercentage?: number,
+    discountAmount?: number,
   ) {
     for (const orderItem of orders) {
       const oldOrder = await this.orderModel.findById(orderItem.orderId);
@@ -412,7 +413,15 @@ export class OrderService {
         try {
           await this.orderModel.findByIdAndUpdate(orderItem.orderId, {
             discount: discount,
-            discountPercentage: discountPercentage,
+            ...(discountPercentage && {
+              discountPercentage: discountPercentage,
+            }),
+            ...(discountAmount && {
+              discountAmount: Math.min(
+                discountAmount,
+                oldOrder.unitPrice * orderItem.selectedQuantity,
+              ),
+            }),
           });
         } catch (error) {
           throw new HttpException(
@@ -428,7 +437,15 @@ export class OrderService {
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
           discount: discount,
-          discountPercentage: discountPercentage,
+          ...(discountPercentage && {
+            discountPercentage: discountPercentage,
+          }),
+          ...(discountAmount && {
+            discountAmount: Math.min(
+              discountAmount,
+              orderDataWithoutId.unitPrice * orderItem.selectedQuantity,
+            ),
+          }),
           paidQuantity: 0,
         });
         try {

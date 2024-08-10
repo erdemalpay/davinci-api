@@ -19,6 +19,7 @@ export class CreateOrderDto {
   paidQuantity: number;
   discount?: number;
   discountPercentage?: number;
+  discountAmount?: number;
   division?: number;
 }
 export type OrderType = {
@@ -41,6 +42,7 @@ export type OrderType = {
   paidQuantity: number;
   discount?: number;
   discountPercentage?: number;
+  discountAmount?: number;
   division?: number;
 };
 
@@ -56,5 +58,6 @@ export class CreateCollectionDto {
 
 export class CreateDiscountDto {
   name: string;
-  percentage: number;
+  percentage?: number;
+  amount?: number;
 }
