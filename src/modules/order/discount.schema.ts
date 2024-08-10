@@ -10,8 +10,11 @@ export class Discount extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   percentage: number;
+
+  @Prop({ required: false, type: Number })
+  amount: number;
 }
 
 export const DiscountSchema = SchemaFactory.createForClass(Discount);
