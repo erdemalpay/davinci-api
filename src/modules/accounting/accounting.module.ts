@@ -5,6 +5,7 @@ import { GameModule } from 'src/modules/game/game.module';
 import { ActivityModule } from '../activity/activity.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
+import { CheckoutModule } from './../checkout/checkout.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
@@ -72,7 +73,13 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, MenuModule, ActivityModule, GameModule],
+  imports: [
+    mongooseModule,
+    MenuModule,
+    ActivityModule,
+    GameModule,
+    CheckoutModule,
+  ],
   providers: [AccountingService],
   exports: [AccountingService],
   controllers: [AccountingController],

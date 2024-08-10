@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
+import { CheckoutService } from '../checkout/checkout.service';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { ActivityService } from './../activity/activity.service';
@@ -98,6 +99,7 @@ export class AccountingService {
     private readonly MenuService: MenuService,
     private readonly activityService: ActivityService,
     private readonly gameService: GameService,
+    private readonly checkoutService: CheckoutService,
   ) {}
   //   Products
   findAllProducts() {
@@ -994,6 +996,15 @@ export class AccountingService {
     ) {
       throw new HttpException(
         'Cannot remove payment method with invoices',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // check if payment method used in payments
+    const payments = await this.paymentModel.find({ paymentMethod: id });
+    if (payments.length > 0) {
+      throw new HttpException(
+        'Cannot remove payment method with payments',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -2093,7 +2104,51 @@ export class AccountingService {
       new: true,
     });
   }
-  removeStockLocation(id: string) {
+  async removeStockLocation(id: string) {
+    const [
+      counts,
+      fixtureCounts,
+      fixtureStocks,
+      productInvoices,
+      payments,
+      productStocks,
+      serviceInvoices,
+      cashouts,
+      checkouts,
+      incomes,
+    ] = await Promise.all([
+      this.countModel.find({ location: id }),
+      this.fixtureCountModel.find({ location: id }),
+      this.fixtureStockModel.find({ location: id }),
+      this.invoiceModel.find({ location: id }),
+      this.paymentModel.find({ location: id }),
+      this.stockModel.find({ location: id }),
+      this.serviceInvoiceModel.find({ location: id }),
+      this.checkoutService.findAllCashout(),
+      this.checkoutService.findAllCheckoutControl(),
+      this.checkoutService.findAllIncome(),
+    ]);
+
+    // Check if any of the fetched data is associated with the location
+    const hasRelatedRecords =
+      counts.length > 0 ||
+      fixtureCounts.length > 0 ||
+      fixtureStocks.length > 0 ||
+      productInvoices.length > 0 ||
+      payments.length > 0 ||
+      productStocks.length > 0 ||
+      serviceInvoices.length > 0 ||
+      cashouts.some((cashout) => (cashout.location as any)._id === id) ||
+      checkouts.some((checkout) => (checkout.location as any)._id === id) ||
+      incomes.some((income) => (income.location as any)._id === id);
+
+    // Throw an error if the location is associated with any records
+    if (hasRelatedRecords) {
+      throw new HttpException(
+        'Cannot remove a location',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     return this.stockLocationModel.findByIdAndRemove(id);
   }
   // countlist
