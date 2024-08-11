@@ -126,6 +126,34 @@ export class TableService {
     return this.tableModel.findOne(query);
   }
 
+  async findByDateAndLocationWithOrderData(
+    date: string,
+    location: number,
+  ): Promise<Table[]> {
+    return this.tableModel
+      .find({ date: date, location: location })
+      .populate({
+        path: 'orders',
+        populate: [
+          { path: 'table', model: 'Table' },
+          { path: 'item', model: 'MenuItem' },
+          { path: 'discount', model: 'Discount' },
+          { path: 'location', model: 'Location' },
+          {
+            path: 'createdBy preparedBy deliveredBy cancelledBy',
+            select: '-password',
+          },
+        ],
+      })
+      .exec();
+  }
+  async findByDateAndLocation(
+    date: string,
+    location: number,
+  ): Promise<Table[]> {
+    return this.tableModel.find({ date: date, location: location });
+  }
+
   async getByLocation(location: number, date: string): Promise<Table[]> {
     return this.tableModel.find({ location, date }).populate({
       path: 'gameplays',
