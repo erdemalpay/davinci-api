@@ -61,3 +61,11 @@ export class CreateDiscountDto {
   percentage?: number;
   amount?: number;
 }
+
+export enum OrderStatus {
+  PENDING = 'pending',
+  READYTOSERVE = 'ready_to_serve',
+  SERVED = 'served',
+  CANCELLED = 'cancelled',
+  AUTOSERVED = 'autoserved',
+}
