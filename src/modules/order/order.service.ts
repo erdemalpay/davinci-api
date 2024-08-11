@@ -419,10 +419,11 @@ export class OrderService {
               discountPercentage: discountPercentage,
             }),
             ...(discountAmount && {
-              discountAmount: Math.min(
-                discountAmount,
-                oldOrder.unitPrice * orderItem.selectedQuantity,
-              ),
+              discountAmount:
+                Math.min(
+                  discountAmount,
+                  oldOrder.unitPrice * orderItem.selectedQuantity,
+                ) / orderItem.selectedQuantity,
             }),
           });
         } catch (error) {
@@ -443,10 +444,11 @@ export class OrderService {
             discountPercentage: discountPercentage,
           }),
           ...(discountAmount && {
-            discountAmount: Math.min(
-              discountAmount,
-              orderDataWithoutId.unitPrice * orderItem.selectedQuantity,
-            ),
+            discountAmount:
+              Math.min(
+                discountAmount,
+                oldOrder.unitPrice * orderItem.selectedQuantity,
+              ) / orderItem.selectedQuantity,
           }),
           paidQuantity: 0,
         });
