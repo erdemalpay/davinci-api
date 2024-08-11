@@ -161,6 +161,7 @@ export class OrderService {
           });
         }),
       );
+      this.orderGateway.emitOrderUpdated(ids);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -187,6 +188,7 @@ export class OrderService {
           await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
       );
+      orders && this.orderGateway.emitOrderUpdated(orders[0]);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -383,6 +385,7 @@ export class OrderService {
           await this.orderModel.findByIdAndDelete(oldOrder._id);
         } else {
           await oldOrder.save();
+          this.orderGateway.emitOrderUpdated(oldOrder);
         }
       } catch (error) {
         throw new HttpException(
@@ -391,7 +394,6 @@ export class OrderService {
         );
       }
     }
-
     return orders;
   }
   async createOrderForDiscount(
@@ -483,6 +485,7 @@ export class OrderService {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
           } else {
             await oldOrder.save();
+            this.orderGateway.emitOrderUpdated(oldOrder);
           }
         } catch (error) {
           throw new HttpException(
@@ -556,6 +559,7 @@ export class OrderService {
           await this.orderModel.findByIdAndDelete(order._id);
         } else {
           await order.save();
+          this.orderGateway.emitOrderUpdated(order);
         }
       } catch (error) {
         throw new HttpException(
