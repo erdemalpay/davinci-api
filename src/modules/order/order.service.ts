@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { endOfDay, parseISO, startOfDay } from 'date-fns';
+import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
@@ -66,26 +66,21 @@ export class OrderService {
     }
   }
   async findGivenDateOrders(date: string, location: number) {
-    const parsedDate = parseISO(date);
     try {
-      const orders = await this.orderModel
-        .find({
-          createdAt: {
-            $gte: startOfDay(parsedDate),
-            $lte: endOfDay(parsedDate),
-          },
-          location: location,
-        })
-        .populate('location table item discount')
-        .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
-          select: '-password',
-        })
-        .exec();
+      const parsedDate = parseISO(date);
+      const tables = await this.tableService.findByDateAndLocationWithOrderData(
+        format(parsedDate, 'yyyy-MM-dd'),
+        location,
+      );
+      const orders = tables.reduce(
+        (acc, table) => acc.concat(table.orders),
+        [],
+      );
+
       return orders;
     } catch (error) {
       throw new HttpException(
-        "Failed to fetch given day's orders",
+        'Failed to retrieve orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -239,22 +234,26 @@ export class OrderService {
     }
   }
   async findGivenDateCollections(date: string, location: number) {
-    const parsedDate = parseISO(date);
     try {
-      const collections = await this.collectionModel
-        .find({
-          createdAt: {
-            $gte: startOfDay(parsedDate),
-            $lte: endOfDay(parsedDate),
-          },
-          location: location,
-        })
+      const parsedDate = parseISO(date);
+      const tables = await this.tableService.findByDateAndLocation(
+        format(parsedDate, 'yyyy-MM-dd'),
+        location,
+      );
+
+      const allCollections = await this.collectionModel
+        .find({})
         .populate('location paymentMethod table')
         .populate({
           path: 'createdBy cancelledBy',
           select: '-password',
         })
         .exec();
+
+      const collections = allCollections.filter((collection) =>
+        tables.some((table) => table._id === (collection.table as any)._id),
+      );
+
       return collections;
     } catch (error) {
       throw new HttpException(
@@ -263,6 +262,7 @@ export class OrderService {
       );
     }
   }
+
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     const collection = new this.collectionModel({
       ...createCollectionDto,
