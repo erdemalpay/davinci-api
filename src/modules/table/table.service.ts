@@ -7,6 +7,7 @@ import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { User } from '../user/user.schema';
+import { OrderStatus } from './../order/order.dto';
 import { CloseAllDto, TableDto } from './table.dto';
 import { Table } from './table.schema';
 @Injectable()
@@ -119,7 +120,22 @@ export class TableService {
   }
 
   async findById(id: number): Promise<Table | undefined> {
-    return this.tableModel.findById(id);
+    return this.tableModel
+      .findById(id)
+      .populate({
+        path: 'orders',
+        populate: [
+          { path: 'table', model: 'Table' },
+          { path: 'item', model: 'MenuItem' },
+          { path: 'discount', model: 'Discount' },
+          { path: 'location', model: 'Location' },
+          {
+            path: 'createdBy preparedBy deliveredBy cancelledBy',
+            select: '-password',
+          },
+        ],
+      })
+      .exec();
   }
 
   async findByQuery(query: Partial<TableDto>): Promise<Table | undefined> {
@@ -212,6 +228,15 @@ export class TableService {
     const table = await this.tableModel.findById(id);
     if (!table) {
       throw new Error(`Table ${id} does not exist.`);
+    }
+    const isTableHasOrders = (table?.orders as any)?.some(
+      (order) => order.status !== OrderStatus.CANCELLED,
+    );
+    if (isTableHasOrders) {
+      throw new HttpException(
+        'Table has orders. Please cancel the orders first.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
