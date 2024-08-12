@@ -411,6 +411,10 @@ export class OrderService {
       if (!oldOrder) {
         throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
       }
+      const totalSelectedQuantity = orders.reduce(
+        (acc, order) => acc + order.selectedQuantity,
+        0,
+      );
       if (orderItem.selectedQuantity === orderItem.totalQuantity) {
         try {
           await this.orderModel.findByIdAndUpdate(orderItem.orderId, {
@@ -419,11 +423,10 @@ export class OrderService {
               discountPercentage: discountPercentage,
             }),
             ...(discountAmount && {
-              discountAmount:
-                Math.min(
-                  discountAmount,
-                  oldOrder.unitPrice * orderItem.selectedQuantity,
-                ) / orderItem.selectedQuantity,
+              discountAmount: Math.min(
+                discountAmount / totalSelectedQuantity,
+                oldOrder.unitPrice,
+              ),
             }),
           });
         } catch (error) {
@@ -444,11 +447,10 @@ export class OrderService {
             discountPercentage: discountPercentage,
           }),
           ...(discountAmount && {
-            discountAmount:
-              Math.min(
-                discountAmount,
-                oldOrder.unitPrice * orderItem.selectedQuantity,
-              ) / orderItem.selectedQuantity,
+            discountAmount: Math.min(
+              discountAmount / totalSelectedQuantity,
+              oldOrder.unitPrice,
+            ),
           }),
           paidQuantity: 0,
         });
