@@ -48,6 +48,12 @@ export class User extends Document {
   @Prop({ type: String })
   address: string;
 
+  @Prop({ type: Number })
+  rowsPerPage: number;
+
+  @Prop({ type: String })
+  language: string;
+
   @Prop({ type: String })
   iban: string;
 
