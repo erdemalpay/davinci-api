@@ -480,7 +480,8 @@ export class AccountingService {
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
-        invoice.expenseType !== updates.expenseType)
+        invoice.expenseType !== updates.expenseType ||
+        invoice.paymentMethod !== updates.paymentMethod)
     ) {
       const newInvoice = await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
@@ -491,6 +492,7 @@ export class AccountingService {
             brand: updates.brand,
             vendor: updates.vendor,
             expenseType: updates.expenseType,
+            paymentMethod: updates.paymentMethod,
           },
         },
         { new: true },
@@ -511,7 +513,8 @@ export class AccountingService {
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
         invoice.quantity !== updates.quantity ||
-        invoice.expenseType !== updates.expenseType)
+        invoice.expenseType !== updates.expenseType ||
+        invoice.paymentMethod !== updates.paymentMethod)
     ) {
       const newInvoice = await this.fixtureInvoiceModel.findByIdAndUpdate(
         id,
@@ -523,6 +526,7 @@ export class AccountingService {
             brand: updates.brand,
             vendor: updates.vendor,
             expenseType: updates.expenseType,
+            paymentMethod: updates.paymentMethod,
           },
         },
         { new: true },
@@ -1221,7 +1225,8 @@ export class AccountingService {
         invoice.totalExpense !== updates.totalExpense ||
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
-        invoice.expenseType !== updates.expenseType)
+        invoice.expenseType !== updates.expenseType ||
+        invoice.paymentMethod !== updates.paymentMethod)
     ) {
       const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -1232,6 +1237,7 @@ export class AccountingService {
             brand: updates.brand,
             vendor: updates.vendor,
             expenseType: updates.expenseType,
+            paymentMethod: updates.paymentMethod,
           },
         },
         { new: true },
@@ -1252,7 +1258,8 @@ export class AccountingService {
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
         invoice.quantity !== updates.quantity ||
-        invoice.expenseType !== updates.expenseType)
+        invoice.expenseType !== updates.expenseType ||
+        invoice.paymentMethod !== updates.paymentMethod)
     ) {
       const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -1264,6 +1271,7 @@ export class AccountingService {
             vendor: updates.vendor,
             quantity: updates.quantity,
             expenseType: updates.expenseType,
+            paymentMethod: updates.paymentMethod,
           },
         },
         { new: true },
