@@ -225,7 +225,22 @@ export class TableService {
   }
 
   async removeTableAndGameplays(user: User, id: number) {
-    const table = await this.tableModel.findById(id);
+    const table = await this.tableModel
+      .findById(id)
+      .populate({
+        path: 'orders',
+        populate: [
+          { path: 'table', model: 'Table' },
+          { path: 'item', model: 'MenuItem' },
+          { path: 'discount', model: 'Discount' },
+          { path: 'location', model: 'Location' },
+          {
+            path: 'createdBy preparedBy deliveredBy cancelledBy',
+            select: '-password',
+          },
+        ],
+      })
+      .exec();
     if (!table) {
       throw new Error(`Table ${id} does not exist.`);
     }
