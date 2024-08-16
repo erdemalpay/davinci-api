@@ -27,6 +27,9 @@ export class TableDto {
 
   @IsArray()
   orders?: number[];
+
+  @IsString()
+  status?: string;
 }
 
 export class TableResponse {

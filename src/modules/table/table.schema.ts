@@ -32,6 +32,9 @@ export class Table extends Document {
 
   @Prop()
   finishHour: string;
+
+  @Prop()
+  status: string;
 }
 
 export const TableSchema = SchemaFactory.createForClass(Table);
