@@ -1044,7 +1044,7 @@ export class AccountingService {
   findAllPayments() {
     return this.paymentModel
       .find()
-      .populate('paymentMethod vendor')
+      .populate('paymentMethod vendor location')
       .populate({
         path: 'user',
         select: '-password',
