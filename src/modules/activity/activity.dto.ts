@@ -136,3 +136,13 @@ export type ActivityTypePayload = {
     newPaymentMethod: PaymentMethod;
   };
 };
+
+export class ActivityQueryDto {
+  user?: string;
+  date?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  type?: string;
+  asc?: number;
+}

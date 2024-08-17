@@ -3,9 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import diff from 'microdiff';
 import { Document, Model } from 'mongoose';
 import { User } from '../user/user.schema';
-import { ActivityTypePayload } from './activity.dto';
+import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
 import { Activity } from './activity.schema';
-
 @Injectable()
 export class ActivityService {
   constructor(
@@ -13,11 +12,39 @@ export class ActivityService {
     private activityModel: Model<Activity<keyof ActivityTypePayload>>,
   ) {}
 
-  getActivites() {
-    return this.activityModel.find().populate({
-      path: 'user',
-      select: '-password',
-    });
+  async getActivities(query: ActivityQueryDto) {
+    const filterQuery: any = {};
+    const { user, date, type, page, limit, sort, asc } = query;
+    if (user) {
+      filterQuery['user'] = user;
+    }
+    if (date) {
+      const [year, month, day] = date.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, 0, 0, 0);
+      const endDate = new Date(year, month - 1, day, 23, 59, 59);
+      filterQuery['createdAt'] = { $gte: startDate, $lte: endDate };
+    }
+    if (type) {
+      filterQuery['type'] = type;
+    }
+    const sortObject = {};
+    if (sort) {
+      sortObject[sort] = asc ? 1 : -1;
+    } else {
+      sortObject['createdAt'] = -1;
+    }
+    const totalCount = await this.activityModel.countDocuments(filterQuery);
+    const items = await this.activityModel
+      .find(filterQuery)
+      .sort(sortObject)
+      .skip(page ? (page - 1) * limit : 0)
+      .limit(limit || 0)
+      .populate({
+        path: 'user',
+        select: '-password',
+      });
+
+    return { totalCount, items };
   }
 
   getActivityById(gameId: number) {
