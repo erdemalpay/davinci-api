@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
@@ -39,6 +39,9 @@ export class Reservation extends Document {
 
   @Prop()
   callHour: string;
+
+  @Prop()
+  approvedHour: string;
 
   @Prop({ default: 0 })
   callCount: number;

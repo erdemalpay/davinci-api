@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 
 export class ReservationDto {
   @IsNumber()
@@ -23,7 +23,13 @@ export class ReservationDto {
   reservationHour?: string;
 
   @IsString()
+  reservedTable?: string;
+
+  @IsString()
   callHour?: string;
+
+  @IsString()
+  approvedHour?: string;
 }
 
 export class ReservationResponse {
