@@ -14,7 +14,10 @@ export class ActivityService {
   ) {}
 
   getActivites() {
-    return this.activityModel.find();
+    return this.activityModel.find().populate({
+      path: 'user',
+      select: '-password',
+    });
   }
 
   getActivityById(gameId: number) {
