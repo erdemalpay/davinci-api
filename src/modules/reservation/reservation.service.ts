@@ -29,6 +29,9 @@ export class ReservationService {
       {
         callHour,
         status: updates.status,
+        ...(updates.status === 'Coming' && {
+          approvedHour: format(gmtPlus3Now, 'HH:mm'),
+        }),
         $inc: { callCount: 1 },
       },
       { new: true },
