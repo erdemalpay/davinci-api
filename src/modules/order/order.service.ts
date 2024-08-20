@@ -95,7 +95,15 @@ export class OrderService {
 
     try {
       await order.save();
-      this.orderGateway.emitOrderCreated(order);
+      const populatedOrder = await this.orderModel
+        .findById(order._id)
+        .populate('location table item discount')
+        .populate({
+          path: 'createdBy preparedBy deliveredBy cancelledBy',
+          select: '-password',
+        })
+        .exec();
+      this.orderGateway.emitOrderCreated(populatedOrder);
     } catch (error) {
       throw new HttpException(
         'Failed to create order',
