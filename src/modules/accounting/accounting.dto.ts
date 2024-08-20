@@ -99,6 +99,7 @@ export class CreateExpenseTypeDto {
 }
 export class CreatePaymentMethodDto {
   name: string;
+  isOnlineOrder?: boolean;
 }
 export class CreatePackageTypeDto {
   name: string;

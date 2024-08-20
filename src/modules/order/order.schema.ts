@@ -17,7 +17,7 @@ export class Order extends Document {
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
 
-  @Prop({ required: true, type: Number, ref: 'Table' })
+  @Prop({ required: false, type: Number, ref: 'Table' })
   table: number;
 
   @Prop({ required: true, type: Number })
