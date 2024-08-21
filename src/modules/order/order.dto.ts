@@ -26,7 +26,7 @@ export type OrderType = {
   _id: number;
   location: number;
   item: number;
-  table: number;
+  table?: number;
   quantity: number;
   status: string;
   note?: string;
@@ -60,6 +60,7 @@ export class CreateDiscountDto {
   name: string;
   percentage?: number;
   amount?: number;
+  isOnlineOrder?: boolean;
 }
 
 export enum OrderStatus {

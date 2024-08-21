@@ -23,6 +23,9 @@ export class MenuCategory extends Document {
   @Prop({ required: true, type: Boolean, default: false })
   isAutoServed: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isOnlineOrder: boolean;
+
   @Prop({ type: String })
   imageUrl: string;
 }

@@ -15,6 +15,9 @@ export class Discount extends Document {
 
   @Prop({ required: false, type: Number })
   amount: number;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isOnlineOrder: boolean;
 }
 
 export const DiscountSchema = SchemaFactory.createForClass(Discount);

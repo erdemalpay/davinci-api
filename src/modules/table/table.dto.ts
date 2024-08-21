@@ -1,4 +1,10 @@
-import { IsArray, IsNumber, IsObject, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsObject,
+  IsString,
+} from 'class-validator';
 
 export class TableDto {
   @IsNumber()
@@ -30,6 +36,9 @@ export class TableDto {
 
   @IsString()
   status?: string;
+
+  @IsBoolean()
+  isOnlineSale?: boolean;
 }
 
 export class TableResponse {
