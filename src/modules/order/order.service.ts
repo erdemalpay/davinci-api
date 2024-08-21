@@ -92,6 +92,23 @@ export class OrderService {
       createdBy: user._id,
       createdAt: new Date(),
     });
+    if (createOrderDto?.discount) {
+      const discount = await this.discountModel.findById(
+        createOrderDto.discount,
+      );
+
+      if (!discount) {
+        throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
+      }
+      order.discount = discount._id;
+      if (discount?.percentage) {
+        order.discountPercentage = discount.percentage;
+      }
+      if (discount?.amount) {
+        const discountPerUnit = discount.amount / order.quantity;
+        order.discountAmount = Math.min(discountPerUnit, order.unitPrice);
+      }
+    }
 
     try {
       await order.save();
