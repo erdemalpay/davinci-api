@@ -3,7 +3,7 @@ import { OrderCollectionItem } from './collection.schema';
 export class CreateOrderDto {
   location: number;
   item: number;
-  table?: number;
+  table: number;
   quantity: number;
   status: string;
   note?: string;

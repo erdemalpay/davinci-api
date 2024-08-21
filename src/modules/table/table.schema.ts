@@ -24,6 +24,9 @@ export class Table extends Document {
   @Prop({ required: false, type: [{ type: Number, ref: 'Order' }] })
   orders: number[];
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isOnlineSale: boolean;
+
   @Prop({ required: true })
   date: string;
 
