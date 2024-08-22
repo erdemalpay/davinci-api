@@ -108,10 +108,16 @@ export class OrderService {
       order.discount = discount._id;
       if (discount?.percentage) {
         order.discountPercentage = discount.percentage;
+        if (order.discountPercentage >= 100) {
+          order.paidQuantity = order.quantity;
+        }
       }
       if (discount?.amount) {
         const discountPerUnit = discount.amount / order.quantity;
         order.discountAmount = Math.min(discountPerUnit, order.unitPrice);
+        if (order.discountAmount >= order.unitPrice) {
+          order.paidQuantity = order.quantity;
+        }
       }
     }
 
