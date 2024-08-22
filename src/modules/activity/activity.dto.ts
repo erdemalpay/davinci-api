@@ -4,6 +4,8 @@ import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
+import { Collection } from '../order/collection.schema';
+import { Order } from '../order/order.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
@@ -13,6 +15,7 @@ import { PackageType } from './../accounting/packageType.schema';
 import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
 import { Unit } from './../accounting/unit.schema';
 import { Vendor } from './../accounting/vendor.schema';
+import { Game } from './../game/game.schema';
 
 export class ActivityDto {
   @IsNumber()
@@ -63,6 +66,14 @@ export enum ActivityType {
   CREATE_PAYMENTMETHOD = 'CREATE_PAYMENTMETHOD',
   DELETE_PAYMENTMETHOD = 'DELETE_PAYMENTMETHOD',
   UPDATE_PAYMENTMETHOD = 'UPDATE_PAYMENTMETHOD',
+  CREATE_ORDER = 'CREATE_ORDER',
+  ADD_ORDER = 'ADD_ORDER',
+  CANCEL_ORDER = 'CANCEL_ORDER',
+  PREPARE_ORDER = 'PREPARE_ORDER',
+  DELIVER_ORDER = 'DELIVER_ORDER',
+  TAKE_PAYMENT = 'TAKE_PAYMENT',
+  GAME_LEARNED_ADD = 'GAME_LEARNED_ADD',
+  GAME_LEARNED_REMOVE = 'GAME_LEARNED_REMOVE',
 }
 
 export type ActivityTypePayload = {
@@ -135,6 +146,14 @@ export type ActivityTypePayload = {
     currentPaymentMethod: PaymentMethod;
     newPaymentMethod: PaymentMethod;
   };
+  [ActivityType.CREATE_ORDER]: Order;
+  [ActivityType.ADD_ORDER]: Order;
+  [ActivityType.CANCEL_ORDER]: Order;
+  [ActivityType.PREPARE_ORDER]: Order;
+  [ActivityType.DELIVER_ORDER]: Order;
+  [ActivityType.TAKE_PAYMENT]: Collection;
+  [ActivityType.GAME_LEARNED_ADD]: Game;
+  [ActivityType.GAME_LEARNED_REMOVE]: Game;
 };
 
 export class ActivityQueryDto {

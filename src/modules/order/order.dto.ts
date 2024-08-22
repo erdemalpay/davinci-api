@@ -60,6 +60,7 @@ export class CreateDiscountDto {
   name: string;
   percentage?: number;
   amount?: number;
+
   isOnlineOrder?: boolean;
 }
 
