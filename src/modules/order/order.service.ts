@@ -333,6 +333,11 @@ export class OrderService {
 
     try {
       await collection.save();
+      this.activityService.addActivity(
+        user,
+        ActivityType.TAKE_PAYMENT,
+        collection,
+      );
     } catch (error) {
       throw new HttpException(
         'Failed to create collection',

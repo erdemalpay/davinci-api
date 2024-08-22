@@ -10,6 +10,8 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { GameService } from '../game/game.service';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { ActivityType } from './../activity/activity.dto';
+import { ActivityService } from './../activity/activity.service';
 import { CreateUserDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
@@ -22,6 +24,7 @@ export class UserService implements OnModuleInit {
     @InjectModel(Role.name) private roleModel: Model<Role>,
     private readonly gameService: GameService,
     private readonly gameplayService: GameplayService,
+    private readonly activityService: ActivityService,
   ) {
     this.checkDefaultUser();
   }
@@ -86,6 +89,12 @@ export class UserService implements OnModuleInit {
         throw new Error('Game already added');
       }
       newUserGames.push(userGameToAdd);
+
+      this.activityService.addActivity(
+        user,
+        ActivityType.GAME_LEARNED_ADD,
+        gameExists,
+      );
     } else if (updateType === UserGameUpdateType.REMOVE) {
       newUserGames = user.userGames.filter((ug) => ug.game !== gameId);
     }
@@ -100,7 +109,11 @@ export class UserService implements OnModuleInit {
     if (!updateResult) {
       throw new Error('User not found');
     }
-
+    this.activityService.addActivity(
+      user,
+      ActivityType.GAME_LEARNED_REMOVE,
+      gameExists,
+    );
     return updateResult;
   }
 
