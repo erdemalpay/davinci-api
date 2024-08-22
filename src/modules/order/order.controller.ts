@@ -124,8 +124,12 @@ export class OrderController {
   }
 
   @Patch('/:id')
-  updateOrder(@Param('id') id: number, @Body() updates: UpdateQuery<Order>) {
-    return this.orderService.updateOrder(id, updates);
+  updateOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Order>,
+  ) {
+    return this.orderService.updateOrder(user, id, updates);
   }
 
   @Delete('/:id')

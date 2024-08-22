@@ -4,6 +4,7 @@ import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
+import { Order } from '../order/order.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
@@ -63,6 +64,11 @@ export enum ActivityType {
   CREATE_PAYMENTMETHOD = 'CREATE_PAYMENTMETHOD',
   DELETE_PAYMENTMETHOD = 'DELETE_PAYMENTMETHOD',
   UPDATE_PAYMENTMETHOD = 'UPDATE_PAYMENTMETHOD',
+  CREATE_ORDER = 'CREATE_ORDER',
+  ADD_ORDER = 'ADD_ORDER',
+  CANCEL_ORDER = 'CANCEL_ORDER',
+  PREPARE_ORDER = 'PREPARE_ORDER',
+  DELIVER_ORDER = 'DELIVER_ORDER',
 }
 
 export type ActivityTypePayload = {
@@ -135,6 +141,11 @@ export type ActivityTypePayload = {
     currentPaymentMethod: PaymentMethod;
     newPaymentMethod: PaymentMethod;
   };
+  [ActivityType.CREATE_ORDER]: Order;
+  [ActivityType.ADD_ORDER]: Order;
+  [ActivityType.CANCEL_ORDER]: Order;
+  [ActivityType.PREPARE_ORDER]: Order;
+  [ActivityType.DELIVER_ORDER]: Order;
 };
 
 export class ActivityQueryDto {

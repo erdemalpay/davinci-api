@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
 import { DatabaseModule } from '../database/database.module';
 import { TableSchema } from '../table/table.schema';
+import { ActivityModule } from './../activity/activity.module';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
 import { OrderController } from './order.controller';
@@ -22,6 +23,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     mongooseModule,
     DatabaseModule,
     TableModule,
+    ActivityModule,
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
       { name: 'Table', schema: TableSchema },

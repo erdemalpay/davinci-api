@@ -4,16 +4,20 @@ import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
+import { ActivityType } from './../activity/activity.dto';
+import { ActivityService } from './../activity/activity.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
+  OrderStatus,
   OrderType,
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -22,6 +26,7 @@ export class OrderService {
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     private readonly tableService: TableService,
     private readonly orderGateway: OrderGateway,
+    private readonly activityService: ActivityService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -112,6 +117,7 @@ export class OrderService {
 
     try {
       await order.save();
+      this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
       const populatedOrder = await this.orderModel
         .findById(order._id)
         .populate('location table item discount')
@@ -149,7 +155,35 @@ export class OrderService {
 
     return order;
   }
-  updateOrder(id: number, updates: UpdateQuery<Order>) {
+  async updateOrder(user: User, id: number, updates: UpdateQuery<Order>) {
+    // adding activities
+    if (updates?.status) {
+      const order = await this.orderModel.findById(id);
+      if (updates?.status === OrderStatus.READYTOSERVE && !updates?.quantity) {
+        this.activityService.addActivity(
+          user,
+          ActivityType.PREPARE_ORDER,
+          order,
+        );
+      }
+      if (updates?.status === OrderStatus.SERVED && !updates?.quantity) {
+        this.activityService.addActivity(
+          user,
+          ActivityType.DELIVER_ORDER,
+          order,
+        );
+      }
+      if (updates?.status === OrderStatus.CANCELLED && !updates?.quantity) {
+        this.activityService.addActivity(
+          user,
+          ActivityType.CANCEL_ORDER,
+          order,
+        );
+      }
+      if (updates?.quantity && updates?.quantity > order.quantity) {
+        this.activityService.addActivity(user, ActivityType.ADD_ORDER, order);
+      }
+    }
     if (updates?.division === 1) {
       return this.orderModel
         .findByIdAndUpdate(
@@ -446,12 +480,18 @@ export class OrderService {
             discount: discount,
             ...(discountPercentage && {
               discountPercentage: discountPercentage,
+              paidQuantity:
+                discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
             }),
             ...(discountAmount && {
               discountAmount: Math.min(
                 discountAmount / totalSelectedQuantity,
                 oldOrder.unitPrice,
               ),
+              paidQuantity:
+                discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
+                  ? orderItem.selectedQuantity
+                  : 0,
             }),
           });
         } catch (error) {
@@ -470,14 +510,19 @@ export class OrderService {
           discount: discount,
           ...(discountPercentage && {
             discountPercentage: discountPercentage,
+            paidQuantity:
+              discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
           }),
           ...(discountAmount && {
             discountAmount: Math.min(
               discountAmount / totalSelectedQuantity,
               oldOrder.unitPrice,
             ),
+            paidQuantity:
+              discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
+                ? orderItem.selectedQuantity
+                : 0,
           }),
-          paidQuantity: 0,
         });
         try {
           await newOrder.save();
