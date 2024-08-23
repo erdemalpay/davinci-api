@@ -33,6 +33,7 @@ export class OrderController {
 
   @Post('/create_order_for_discount')
   createOrderForDiscount(
+    @ReqUser() user: User,
     @Body()
     payload: {
       orders: {
@@ -46,6 +47,7 @@ export class OrderController {
     },
   ) {
     return this.orderService.createOrderForDiscount(
+      user,
       payload.orders,
       payload.discount,
       payload?.discountPercentage,
