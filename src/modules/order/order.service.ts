@@ -123,6 +123,24 @@ export class OrderService {
 
     try {
       await order.save();
+      if (
+        order.discountAmount >= order.unitPrice ||
+        order.discountPercentage >= 100
+      ) {
+        await this.createCollection(user, {
+          location: order.location,
+          amount: 0,
+          status: 'paid',
+          paymentMethod: 'cash',
+          table: order.table,
+          orders: [
+            {
+              order: order._id,
+              paidQuantity: order.quantity,
+            },
+          ],
+        });
+      }
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
       const populatedOrder = await this.orderModel
         .findById(order._id)
@@ -467,6 +485,7 @@ export class OrderService {
     return orders;
   }
   async createOrderForDiscount(
+    user: User,
     orders: {
       totalQuantity: number;
       selectedQuantity: number;
@@ -505,6 +524,24 @@ export class OrderService {
                   : 0,
             }),
           });
+          if (
+            (discountPercentage && discountPercentage >= 100) ||
+            (discountAmount && discountAmount >= oldOrder.unitPrice)
+          ) {
+            await this.createCollection(user, {
+              location: oldOrder.location,
+              amount: 0,
+              status: 'paid',
+              paymentMethod: 'cash',
+              table: oldOrder.table,
+              orders: [
+                {
+                  order: oldOrder._id,
+                  paidQuantity: orderItem.selectedQuantity,
+                },
+              ],
+            });
+          }
         } catch (error) {
           throw new HttpException(
             'Failed to update order',
@@ -537,6 +574,24 @@ export class OrderService {
         });
         try {
           await newOrder.save();
+          if (
+            (discountPercentage && discountPercentage >= 100) ||
+            (discountAmount && discountAmount >= oldOrder.unitPrice)
+          ) {
+            await this.createCollection(user, {
+              location: newOrder.location,
+              amount: 0,
+              status: 'paid',
+              paymentMethod: 'cash',
+              table: newOrder.table,
+              orders: [
+                {
+                  order: newOrder._id,
+                  paidQuantity: newOrder.quantity,
+                },
+              ],
+            });
+          }
         } catch (error) {
           throw new HttpException(
             'Failed to create order',
