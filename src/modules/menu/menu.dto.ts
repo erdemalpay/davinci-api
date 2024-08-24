@@ -4,6 +4,7 @@ export class CreateCategoryDto {
   kitchen: string;
   isAutoServed: boolean;
   isOnlineOrder?: boolean;
+  discounts?: number[];
 }
 
 export class CreateItemDto {
