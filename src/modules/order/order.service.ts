@@ -353,11 +353,16 @@ export class OrderService {
   }
 
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
+    const { newOrders, ...filteredCollectionDto } = createCollectionDto;
+
     const collection = new this.collectionModel({
-      ...createCollectionDto,
+      ...filteredCollectionDto, // Use the filtered object
       createdBy: user._id,
       createdAt: new Date(),
     });
+    if (newOrders) {
+      await this.updateOrders(user, newOrders);
+    }
 
     try {
       await collection.save();
@@ -374,7 +379,15 @@ export class OrderService {
     }
     return collection;
   }
-  updateCollection(id: number, updates: UpdateQuery<Collection>) {
+  async updateCollection(
+    user: User,
+    id: number,
+    updates: UpdateQuery<Collection>,
+  ) {
+    const { newOrders, ...filteredUpdates } = updates;
+    if (newOrders) {
+      await this.updateOrders(user, newOrders);
+    }
     return this.collectionModel.findByIdAndUpdate(id, updates, {
       new: true,
     });

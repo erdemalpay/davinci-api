@@ -171,10 +171,11 @@ export class OrderController {
 
   @Patch('/collection/:id')
   updateCollection(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Collection>,
   ) {
-    return this.orderService.updateCollection(id, updates);
+    return this.orderService.updateCollection(user, id, updates);
   }
 
   @Delete('/collection/:id')
