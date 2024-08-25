@@ -220,7 +220,7 @@ export class OrderService {
           },
         )
         .then((order) => {
-          this.orderGateway.emitOrderUpdated(order);
+          this.orderGateway.emitOrderUpdated(user, order);
           return order;
         });
     } else {
@@ -229,13 +229,17 @@ export class OrderService {
           new: true,
         })
         .then((order) => {
-          this.orderGateway.emitOrderUpdated(order);
+          this.orderGateway.emitOrderUpdated(user, order);
           return order;
         });
     }
   }
 
-  async updateMultipleOrders(ids: number[], updates: UpdateQuery<Order>) {
+  async updateMultipleOrders(
+    user: User,
+    ids: number[],
+    updates: UpdateQuery<Order>,
+  ) {
     try {
       await Promise.all(
         ids.map(async (id) => {
@@ -244,7 +248,7 @@ export class OrderService {
           });
         }),
       );
-      this.orderGateway.emitOrderUpdated(ids);
+      this.orderGateway.emitOrderUpdated(user, ids);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -253,7 +257,7 @@ export class OrderService {
       );
     }
   }
-  async updateOrders(orders: OrderType[]) {
+  async updateOrders(user: User, orders: OrderType[]) {
     if (!orders?.length || orders?.length === 0) {
       return;
     }
@@ -271,7 +275,7 @@ export class OrderService {
           await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
       );
-      orders && this.orderGateway.emitOrderUpdated(orders[0]);
+      orders && this.orderGateway.emitOrderUpdated(user, orders[0]);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -420,6 +424,7 @@ export class OrderService {
     return this.discountModel.findByIdAndRemove(id);
   }
   async createOrderForDivide(
+    user: User,
     orders: {
       totalQuantity: number;
       selectedQuantity: number;
@@ -473,7 +478,7 @@ export class OrderService {
           await this.orderModel.findByIdAndDelete(oldOrder._id);
         } else {
           await oldOrder.save();
-          this.orderGateway.emitOrderUpdated(oldOrder);
+          this.orderGateway.emitOrderUpdated(user, oldOrder);
         }
       } catch (error) {
         throw new HttpException(
@@ -625,7 +630,7 @@ export class OrderService {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
           } else {
             await oldOrder.save();
-            this.orderGateway.emitOrderUpdated(oldOrder);
+            this.orderGateway.emitOrderUpdated(user, oldOrder);
           }
         } catch (error) {
           throw new HttpException(
@@ -637,7 +642,11 @@ export class OrderService {
     }
     return orders;
   }
-  async cancelDiscountForOrder(orderId: number, cancelQuantity: number) {
+  async cancelDiscountForOrder(
+    user: User,
+    orderId: number,
+    cancelQuantity: number,
+  ) {
     const order = await this.orderModel.findById(orderId);
     if (!order) {
       throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
@@ -699,7 +708,7 @@ export class OrderService {
           await this.orderModel.findByIdAndDelete(order._id);
         } else {
           await order.save();
-          this.orderGateway.emitOrderUpdated(order);
+          this.orderGateway.emitOrderUpdated(user, order);
         }
       } catch (error) {
         throw new HttpException(

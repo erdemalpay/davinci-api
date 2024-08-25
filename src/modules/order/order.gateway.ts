@@ -8,6 +8,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { User } from '../user/user.schema';
 
 @WebSocketGateway({
   path: '/socket.io',
@@ -44,7 +45,7 @@ export class OrderGateway
     this.server.emit('orderCreated', order);
   }
 
-  emitOrderUpdated(order: any) {
-    this.server.emit('orderUpdated', order);
+  emitOrderUpdated(socketUser: User, order: any) {
+    this.server.emit('orderUpdated', { socketUser, order });
   }
 }
