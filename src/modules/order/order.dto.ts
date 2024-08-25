@@ -54,6 +54,7 @@ export class CreateCollectionDto {
   orders?: OrderCollectionItem[];
   cancelNote?: string;
   table: number;
+  newOrders?: OrderType[];
 }
 
 export class CreateDiscountDto {
