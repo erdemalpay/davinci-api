@@ -57,6 +57,7 @@ export class OrderController {
 
   @Post('/divide')
   createOrderForDivide(
+    @ReqUser() user: User,
     @Body()
     payload: {
       orders: {
@@ -66,11 +67,12 @@ export class OrderController {
       }[];
     },
   ) {
-    return this.orderService.createOrderForDivide(payload.orders);
+    return this.orderService.createOrderForDivide(user, payload.orders);
   }
 
   @Post('/cancel_discount')
   cancelDiscountForOrder(
+    @ReqUser() user: User,
     @Body()
     payload: {
       orderId: number;
@@ -78,6 +80,7 @@ export class OrderController {
     },
   ) {
     return this.orderService.cancelDiscountForOrder(
+      user,
       payload.orderId,
       payload.cancelQuantity,
     );
@@ -89,22 +92,28 @@ export class OrderController {
   }
   @Patch('/update_bulk')
   updateOrders(
+    @ReqUser() user: User,
     @Body()
     payload: {
       orders: OrderType[];
     },
   ) {
-    return this.orderService.updateOrders(payload.orders);
+    return this.orderService.updateOrders(user, payload.orders);
   }
   @Patch('/update_multiple')
   updateMultipleOrders(
+    @ReqUser() user: User,
     @Body()
     payload: {
       ids: number[];
       updates: UpdateQuery<Order>;
     },
   ) {
-    return this.orderService.updateMultipleOrders(payload.ids, payload.updates);
+    return this.orderService.updateMultipleOrders(
+      user,
+      payload.ids,
+      payload.updates,
+    );
   }
 
   @Get('/today')
