@@ -171,12 +171,28 @@ export class TableService {
   }
 
   async getByLocation(location: number, date: string): Promise<Table[]> {
-    return this.tableModel.find({ location, date }).populate({
-      path: 'gameplays',
-      populate: {
-        path: 'mentor',
-      },
-    });
+    return this.tableModel
+      .find({ location, date })
+      .populate({
+        path: 'gameplays',
+        populate: {
+          path: 'mentor',
+        },
+      })
+      .populate({
+        path: 'orders',
+        populate: [
+          { path: 'table', model: 'Table' },
+          { path: 'item', model: 'MenuItem' },
+          { path: 'discount', model: 'Discount' },
+          { path: 'location', model: 'Location' },
+          {
+            path: 'createdBy preparedBy deliveredBy cancelledBy',
+            select: '-password',
+          },
+        ],
+      })
+      .exec();
   }
 
   async addGameplay(user: User, id: number, gameplayDto: GameplayDto) {
