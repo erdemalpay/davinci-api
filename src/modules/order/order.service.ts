@@ -332,7 +332,7 @@ export class OrderService {
 
       const allCollections = await this.collectionModel
         .find({})
-        .populate('location')
+        .populate('location table')
         .populate({
           path: 'createdBy cancelledBy',
           select: '-password',
@@ -340,7 +340,7 @@ export class OrderService {
         .exec();
 
       const collections = allCollections.filter((collection) =>
-        tables.some((table) => table._id === collection.table),
+        tables.some((table) => table._id === (collection.table as any)._id),
       );
 
       return collections;
