@@ -21,6 +21,7 @@ export class CreateOrderDto {
   discountPercentage?: number;
   discountAmount?: number;
   division?: number;
+  isOnlinePrice?: boolean;
 }
 export type OrderType = {
   _id: number;
@@ -44,6 +45,7 @@ export type OrderType = {
   discountPercentage?: number;
   discountAmount?: number;
   division?: number;
+  isOnlinePrice?: boolean;
 };
 
 export class CreateCollectionDto {

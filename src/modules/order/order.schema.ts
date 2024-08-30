@@ -70,6 +70,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Number })
   division?: number;
+
+  @Prop({ required: false, type: Boolean })
+  isOnlinePrice: boolean;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

@@ -14,6 +14,7 @@ export class CreateItemDto {
   description: string;
   locations: number[];
   order: number;
+  onlinePrice?: number;
 }
 export class CreateKitchenDto {
   name: string;

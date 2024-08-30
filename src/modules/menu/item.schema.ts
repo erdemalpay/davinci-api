@@ -43,6 +43,9 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: Number, default: 0 })
   price: number;
 
+  @Prop({ required: false, type: Number })
+  onlinePrice: number;
+
   @Prop({ required: true, default: [] })
   locations: number[];
 
