@@ -2,8 +2,10 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
+import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { Collection } from './collection.schema';
@@ -27,6 +29,7 @@ export class OrderService {
     private readonly tableService: TableService,
     private readonly orderGateway: OrderGateway,
     private readonly activityService: ActivityService,
+    private readonly accountingService: AccountingService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -264,14 +267,49 @@ export class OrderService {
     try {
       await Promise.all(
         orders?.map(async (order) => {
-          const oldOrder = await this.orderModel.findById(order._id);
+          const oldOrder = await (
+            await this.orderModel.findById(order._id)
+          ).populate('item');
           if (!oldOrder) {
             throw new HttpException(
               `Order with ID ${order._id} not found`,
               HttpStatus.NOT_FOUND,
             );
           }
-          const updatedOrder = { ...order, _id: oldOrder._id };
+          for (const ingredient of (oldOrder.item as any).itemProduction) {
+            const isStockDecrementRequired = ingredient?.isDecrementStock;
+            const quantityDifference =
+              order.paidQuantity - oldOrder.paidQuantity;
+            const locationName =
+              oldOrder.location === 1 ? 'bahceli' : 'neorama';
+            if (isStockDecrementRequired && quantityDifference > 0) {
+              const consumptionQuantity =
+                ingredient.quantity * quantityDifference;
+              await this.accountingService.consumptStock(user, {
+                product: ingredient.product,
+                location: locationName,
+                quantity: consumptionQuantity,
+                packageType: 'adet',
+                status: StockHistoryStatusEnum.ORDERCREATE,
+              });
+            }
+            if (isStockDecrementRequired && quantityDifference < 0) {
+              const incrementQuantity =
+                ingredient.quantity * quantityDifference * -1;
+              await this.accountingService.createStock(user, {
+                product: ingredient.product,
+                location: locationName,
+                quantity: incrementQuantity,
+                packageType: 'adet',
+                status: StockHistoryStatusEnum.ORDERCANCEL,
+              });
+            }
+          }
+          const updatedOrder = {
+            ...order,
+            _id: oldOrder._id,
+            item: (oldOrder.item as any)._id,
+          };
           await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
       );
@@ -360,6 +398,7 @@ export class OrderService {
       createdBy: user._id,
       createdAt: new Date(),
     });
+
     if (newOrders) {
       await this.updateOrders(user, newOrders);
     }

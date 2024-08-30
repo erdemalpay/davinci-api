@@ -1924,7 +1924,7 @@ export class AccountingService {
         location: consumptStockDto.location,
         packageType: consumptStockDto.packageType,
         change: -consumptStockDto.quantity,
-        status: StockHistoryStatusEnum.CONSUMPTION,
+        status: consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
         currentAmount: stock[0].quantity,
       });
       return stock[0];
@@ -1934,7 +1934,7 @@ export class AccountingService {
         location: consumptStockDto.location,
         packageType: consumptStockDto.packageType,
         quantity: -consumptStockDto.quantity,
-        status: StockHistoryStatusEnum.CONSUMPTION,
+        status: consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
       });
       return newStock;
     }

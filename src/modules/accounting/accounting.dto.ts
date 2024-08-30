@@ -141,6 +141,7 @@ export class ConsumptStockDto {
   location: string;
   quantity: number;
   packageType: string;
+  status?: string;
 }
 
 export class CreateInvoiceDto {
@@ -205,4 +206,6 @@ export enum StockHistoryStatusEnum {
   TRANSFERFIXTURETOINVOICE = 'TRANSFERFIXTURETOINVOICE',
   TRANSFERINVOICETOFIXTURE = 'TRANSFERINVOICETOFIXTURE',
   TRANSFERINVOICETOSERVICE = 'TRANSFERINVOICETOSERVICE',
+  ORDERCANCEL = 'ORDERCANCEL',
+  ORDERCREATE = 'ORDERCREATE',
 }
