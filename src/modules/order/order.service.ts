@@ -346,7 +346,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('location paymentMethod table')
+        .populate('location table')
         .populate({
           path: 'createdBy cancelledBy',
           select: '-password',
