@@ -356,4 +356,10 @@ export class TableService {
 
     return sortedResults;
   }
+  getTableById(id: number) {
+    return this.tableModel.findById(id);
+  }
+  removeTable(id: number) {
+    return this.tableModel.findByIdAndRemove(id);
+  }
 }

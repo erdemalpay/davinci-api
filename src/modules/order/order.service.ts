@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { GameplayService } from '../gameplay/gameplay.service';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -30,6 +31,7 @@ export class OrderService {
     private readonly orderGateway: OrderGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
+    private readonly gameplayService: GameplayService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -289,7 +291,7 @@ export class OrderService {
                 product: ingredient.product,
                 location: locationName,
                 quantity: consumptionQuantity,
-                packageType: 'adet',
+                packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
               });
             }
@@ -300,7 +302,7 @@ export class OrderService {
                 product: ingredient.product,
                 location: locationName,
                 quantity: incrementQuantity,
-                packageType: 'adet',
+                packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCANCEL,
               });
             }
@@ -770,5 +772,73 @@ export class OrderService {
       }
     }
     return order;
+  }
+  async singleOrderTransfer(
+    user: User,
+    order: Order,
+    transferredTableId: number,
+  ) {
+    const oldTable = await this.tableService.getTableById(order.table);
+    if (!oldTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+    const newTable = await this.tableService.getTableById(transferredTableId);
+    if (!newTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+    oldTable.orders = oldTable.orders.filter(
+      (tableOrder) => tableOrder == order._id,
+    );
+    newTable.orders.push(order._id);
+    order.table = transferredTableId;
+    try {
+      await Promise.all([oldTable.save(), newTable.save(), order.save()]);
+      this.orderGateway.emitOrderUpdated(user, order);
+    } catch (error) {
+      throw new HttpException(
+        'Failed to transfer order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return order;
+  }
+  async tableTransfer(
+    user: User,
+    orders: Order[],
+    oldTableId: number,
+    transferredTableId: number,
+  ) {
+    const oldTable = await this.tableService.getTableById(oldTableId);
+    if (!oldTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+    const newTable = await this.tableService.getTableById(transferredTableId);
+    if (!newTable) {
+      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    }
+    for (const order of orders) {
+      oldTable.orders = oldTable.orders.filter(
+        (tableOrder) => tableOrder == order._id,
+      );
+      newTable.orders.push(order._id);
+      order.table = transferredTableId;
+    }
+    newTable.gameplays = [
+      ...new Set([...newTable.gameplays, ...oldTable.gameplays]),
+    ];
+    try {
+      await Promise.all([
+        newTable.save(),
+        ...orders.map((order) => order.save()),
+      ]);
+      this.tableService.removeTable(oldTableId);
+      this.orderGateway.emitOrderUpdated(user, orders);
+    } catch (error) {
+      throw new HttpException(
+        'Failed to transfer orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return orders;
   }
 }
