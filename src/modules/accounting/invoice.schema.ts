@@ -53,6 +53,9 @@ export class Invoice extends Document {
 
   @Prop({ required: true, type: String, ref: User.name })
   user: string;
+
+  @Prop({ required: false, type: Boolean })
+  isStockIncrement: boolean;
 }
 
 export const InvoiceSchema = SchemaFactory.createForClass(Invoice);

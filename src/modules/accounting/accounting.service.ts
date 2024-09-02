@@ -1173,18 +1173,21 @@ export class AccountingService {
           { new: true },
         );
       }
-      // adding invoice amount to stock
-      await this.createStock(user, {
-        product: createInvoiceDto.product,
-        location: createInvoiceDto.location,
-        quantity: createInvoiceDto.quantity,
-        packageType: createInvoiceDto?.packageType,
-        status: status,
-      });
+
       const invoice = await this.invoiceModel.create({
         ...createInvoiceDto,
         user: user._id,
       });
+      if (createInvoiceDto?.isStockIncrement) {
+        // adding invoice amount to stock
+        await this.createStock(user, {
+          product: createInvoiceDto.product,
+          location: createInvoiceDto.location,
+          quantity: createInvoiceDto.quantity,
+          packageType: createInvoiceDto?.packageType,
+          status: status,
+        });
+      }
       if (createInvoiceDto.isPaid) {
         await this.createPayment(user, {
           amount: createInvoiceDto.totalExpense,

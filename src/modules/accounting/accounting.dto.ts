@@ -157,6 +157,7 @@ export class CreateInvoiceDto {
   note?: string;
   isPaid: boolean;
   paymentMethod?: string;
+  isStockIncrement?: boolean;
 }
 
 export class CreateFixtureInvoiceDto {
