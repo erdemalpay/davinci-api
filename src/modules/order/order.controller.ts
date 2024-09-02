@@ -90,6 +90,25 @@ export class OrderController {
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
   }
+
+  @Post('/table_transfer')
+  tableTransfer(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      orders: Order[];
+      oldTableId: number;
+      transferredTableId: number;
+    },
+  ) {
+    return this.orderService.tableTransfer(
+      user,
+      payload.orders,
+      payload.oldTableId,
+      payload.transferredTableId,
+    );
+  }
+
   @Patch('/update_bulk')
   updateOrders(
     @ReqUser() user: User,

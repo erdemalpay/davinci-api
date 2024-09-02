@@ -810,35 +810,44 @@ export class OrderService {
   ) {
     const oldTable = await this.tableService.getTableById(oldTableId);
     if (!oldTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      throw new HttpException('Old table not found', HttpStatus.BAD_REQUEST);
     }
+
     const newTable = await this.tableService.getTableById(transferredTableId);
     if (!newTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      throw new HttpException('New table not found', HttpStatus.BAD_REQUEST);
     }
+
     for (const order of orders) {
       oldTable.orders = oldTable.orders.filter(
-        (tableOrder) => tableOrder == order._id,
+        (tableOrder) => tableOrder.toString() !== order._id.toString(),
       );
       newTable.orders.push(order._id);
-      order.table = transferredTableId;
+      await this.updateOrder(user, order._id, { table: transferredTableId });
     }
+    const collections = await this.collectionModel.find({ table: oldTableId });
+    for (const collection of collections) {
+      collection.table = transferredTableId;
+      await collection.save();
+    }
+
     newTable.gameplays = [
       ...new Set([...newTable.gameplays, ...oldTable.gameplays]),
     ];
+
     try {
-      await Promise.all([
-        newTable.save(),
-        ...orders.map((order) => order.save()),
-      ]);
-      this.tableService.removeTable(oldTableId);
+      await Promise.all([newTable.save()]);
+
+      await this.tableService.removeTable(oldTableId);
       this.orderGateway.emitOrderUpdated(user, orders);
     } catch (error) {
+      console.log(error);
       throw new HttpException(
         'Failed to transfer orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+
     return orders;
   }
 }
