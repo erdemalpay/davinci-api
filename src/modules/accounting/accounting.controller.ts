@@ -666,7 +666,27 @@ export class AccountingController {
   createCount(@Body() createCountDto: CreateCountDto) {
     return this.accountingService.createCount(createCountDto);
   }
-
+  @Patch('/stock_equalize')
+  updateStockForStockCount(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      product: string;
+      location: string;
+      packageType: string;
+      quantity: number;
+      currentCountId: number;
+    },
+  ) {
+    return this.accountingService.updateStockForStockCount(
+      user,
+      payload.product,
+      payload.location,
+      payload.packageType,
+      payload.quantity,
+      payload.currentCountId,
+    );
+  }
   @Patch('/counts/:id')
   updateCount(@Param('id') id: string, @Body() updates: UpdateQuery<Count>) {
     return this.accountingService.updateCount(id, updates);

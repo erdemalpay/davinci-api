@@ -7,17 +7,20 @@ import { PackageType, Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 
 class CountProduct {
-  @Prop({ required: true, type: Number, ref: Product.name })
-  product: Product;
+  @Prop({ required: true, type: String, ref: Product.name })
+  product: string;
 
   @Prop({ required: true, type: Number, ref: PackageType.name })
-  packageType: PackageType;
+  packageType: string;
 
   @Prop({ required: true, type: Number })
   stockQuantity: number;
 
   @Prop({ required: true, type: Number })
   countQuantity: number;
+
+  @Prop({ required: false, type: Boolean })
+  isStockEqualized: boolean;
 }
 
 @Schema({ _id: false })

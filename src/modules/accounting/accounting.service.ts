@@ -1849,6 +1849,37 @@ export class AccountingService {
       });
     }
   }
+  async updateStockForStockCount(
+    user: User,
+    product: string,
+    location: string,
+    packageType: string,
+    quantity: number,
+    currentCountId: number,
+  ) {
+    const stock = await this.stockModel.findOne({
+      product: product,
+      location: location,
+      packageType: packageType,
+    });
+
+    await this.countModel.updateOne(
+      {
+        _id: currentCountId,
+        'products.product': product,
+        'products.packageType': packageType,
+      },
+      { $set: { 'products.$.isStockEqualized': true } },
+    );
+
+    await this.createStock(user, {
+      product: product,
+      location: location,
+      packageType: packageType,
+      quantity: stock ? quantity - stock.quantity : quantity,
+      status: StockHistoryStatusEnum.STOCKEQUALIZE,
+    });
+  }
   async removeStock(user: User, id: string, status: string) {
     const stock = await this.stockModel
       .findById(id)
