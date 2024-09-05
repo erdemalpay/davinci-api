@@ -1864,12 +1864,13 @@ export class AccountingService {
     });
 
     await this.countModel.updateOne(
+      { _id: currentCountId },
+      { $set: { 'products.$[elem].isStockEqualized': true } },
       {
-        _id: currentCountId,
-        'products.product': product,
-        'products.packageType': packageType,
+        arrayFilters: [
+          { 'elem.product': product, 'elem.packageType': packageType },
+        ],
       },
-      { $set: { 'products.$.isStockEqualized': true } },
     );
 
     await this.createStock(user, {
