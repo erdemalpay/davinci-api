@@ -1849,6 +1849,25 @@ export class AccountingService {
       });
     }
   }
+
+  async updateStockForStockCountBulk(user: User, currentCountId: number) {
+    const counts = await this.countModel.findById(currentCountId);
+    if (!counts) {
+      throw new HttpException('Count not found', HttpStatus.NOT_FOUND);
+    }
+    for (const product of counts.products) {
+      if (!product?.isStockEqualized) {
+        await this.updateStockForStockCount(
+          user,
+          product.product,
+          counts.location,
+          product.packageType,
+          product.countQuantity,
+          currentCountId,
+        );
+      }
+    }
+  }
   async updateStockForStockCount(
     user: User,
     product: string,

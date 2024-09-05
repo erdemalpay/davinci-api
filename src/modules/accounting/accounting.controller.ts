@@ -687,6 +687,19 @@ export class AccountingController {
       payload.currentCountId,
     );
   }
+  @Patch('/stock_equalize_bulk')
+  updateStockForStockCountBulk(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      currentCountId: number;
+    },
+  ) {
+    return this.accountingService.updateStockForStockCountBulk(
+      user,
+      payload.currentCountId,
+    );
+  }
   @Patch('/counts/:id')
   updateCount(@Param('id') id: string, @Body() updates: UpdateQuery<Count>) {
     return this.accountingService.updateCount(id, updates);
