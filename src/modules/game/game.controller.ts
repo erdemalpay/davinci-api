@@ -1,18 +1,20 @@
 import {
+  Body,
+  Controller,
+  Delete,
   Get,
   Param,
-  Controller,
-  Post,
-  Body,
   Patch,
-  Delete,
+  Post,
 } from '@nestjs/common';
 
-import { GameService } from './game.service';
-import { GameDto } from './game.dto';
-import { Public } from '../auth/public.decorator';
 import { UpdateQuery } from 'mongoose';
+import { Public } from '../auth/public.decorator';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
+import { GameDto } from './game.dto';
 import { Game } from './game.schema';
+import { GameService } from './game.service';
 
 @Controller('games')
 export class GameController {
@@ -30,21 +32,22 @@ export class GameController {
   }
 
   @Post()
-  async addGame(@Body() game: GameDto) {
-    return this.gameService.addGameByDetails(game);
+  async addGame(@ReqUser() user: User, @Body() game: GameDto) {
+    return this.gameService.addGameByDetails(user, game);
   }
 
   @Patch('/:id')
   async updateGame(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Game>,
   ) {
-    return this.gameService.update(id, updates);
+    return this.gameService.update(user, id, updates);
   }
 
   @Delete('/:id')
-  async deleteGame(@Param('id') id: number) {
-    return this.gameService.remove(id);
+  async deleteGame(@ReqUser() user: User, @Param('id') id: number) {
+    return this.gameService.remove(user, id);
   }
 
   @Get('/migrate')

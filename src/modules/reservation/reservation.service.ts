@@ -2,29 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { User } from '../user/user.schema';
 import { ReservationDto } from './reservation.dto';
+import { ReservationGateway } from './reservation.gateway';
 import { Reservation } from './reservation.schema';
-
 @Injectable()
 export class ReservationService {
   constructor(
     @InjectModel(Reservation.name) private reservationModel: Model<Reservation>,
+    private readonly reservationGateway: ReservationGateway,
   ) {}
 
-  async create(reservationDto: ReservationDto) {
-    return this.reservationModel.create(reservationDto);
+  async create(user: User, reservationDto: ReservationDto) {
+    const reservation = await this.reservationModel.create(reservationDto);
+    this.reservationGateway.emitReservationChanged(user, reservation);
+    return reservation;
   }
 
-  async update(id: number, updates: UpdateQuery<Reservation>) {
-    return this.reservationModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+  async update(user: User, id: number, updates: UpdateQuery<Reservation>) {
+    const reservation = await this.reservationModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.reservationGateway.emitReservationChanged(user, reservation);
+    return reservation;
   }
 
-  async callUpdate(id: number, updates: UpdateQuery<Reservation>) {
+  async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
-    return this.reservationModel.findByIdAndUpdate(
+    const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
       {
         callHour,
@@ -36,6 +46,9 @@ export class ReservationService {
       },
       { new: true },
     );
+    this.reservationGateway.emitReservationChanged(user, reservation);
+
+    return reservation;
   }
 
   async findById(id: number): Promise<Reservation | undefined> {

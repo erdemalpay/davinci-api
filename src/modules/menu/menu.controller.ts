@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
 import { Kitchen } from './kitchen.schema';
@@ -37,45 +39,48 @@ export class MenuController {
   }
 
   @Post('/categories')
-  createCategory(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.menuService.createCategory(createCategoryDto);
+  createCategory(
+    @ReqUser() user: User,
+    @Body() createCategoryDto: CreateCategoryDto,
+  ) {
+    return this.menuService.createCategory(user, createCategoryDto);
   }
 
   @Post('/items')
-  createItem(@Body() createItemDto: CreateItemDto) {
-    return this.menuService.createItem(createItemDto);
+  createItem(@ReqUser() user: User, @Body() createItemDto: CreateItemDto) {
+    return this.menuService.createItem(user, createItemDto);
   }
   @Get('/items/setOrder')
-  setOrder() {
-    return this.menuService.setOrder();
-  }
-
-  @Get('/categories/setLocation')
-  setLocation() {
-    return this.menuService.updateCategoryLocations();
+  setOrder(@ReqUser() user: User) {
+    return this.menuService.setOrder(user);
   }
 
   @Patch('/categories/:id')
   updateCategory(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<MenuCategory>,
   ) {
-    return this.menuService.updateCategory(id, updates);
+    return this.menuService.updateCategory(user, id, updates);
   }
 
   @Patch('/items/:id')
-  updateItem(@Param('id') id: number, @Body() updates: UpdateQuery<MenuItem>) {
-    return this.menuService.updateItem(id, updates);
+  updateItem(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<MenuItem>,
+  ) {
+    return this.menuService.updateItem(user, id, updates);
   }
 
   @Delete('/categories/:id')
-  deleteCategory(@Param('id') id: number) {
-    return this.menuService.removeCategory(id);
+  deleteCategory(@ReqUser() user: User, @Param('id') id: number) {
+    return this.menuService.removeCategory(user, id);
   }
 
   @Delete('/items/:id')
-  deleteItem(@Param('id') id: number) {
-    return this.menuService.removeItem(id);
+  deleteItem(@ReqUser() user: User, @Param('id') id: number) {
+    return this.menuService.removeItem(user, id);
   }
   // popular
   @Public()
@@ -85,21 +90,25 @@ export class MenuController {
   }
 
   @Post('/popular')
-  createPopular(@Body() createPopularDto: CreatePopularDto) {
-    return this.menuService.createPopular(createPopularDto);
+  createPopular(
+    @ReqUser() user: User,
+    @Body() createPopularDto: CreatePopularDto,
+  ) {
+    return this.menuService.createPopular(user, createPopularDto);
   }
 
   @Patch('/popular/:id')
   updatePopular(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<MenuItem>,
   ) {
-    return this.menuService.updatePopular(id, updates);
+    return this.menuService.updatePopular(user, id, updates);
   }
 
   @Delete('/popular/:id')
-  deletePopular(@Param('id') id: number) {
-    return this.menuService.removePopular(id);
+  deletePopular(@ReqUser() user: User, @Param('id') id: number) {
+    return this.menuService.removePopular(user, id);
   }
   // kitchen
   @Get('/kitchens')
@@ -107,26 +116,25 @@ export class MenuController {
     return this.menuService.findAllKitchens();
   }
 
-  @Get('/kitchens/update_kitchen')
-  updateKitchens() {
-    return this.menuService.updateCategoriesKitchen();
-  }
-
   @Post('/kitchens')
-  createKitchen(@Body() createKitchenDto: CreateKitchenDto) {
-    return this.menuService.createKitchen(createKitchenDto);
+  createKitchen(
+    @ReqUser() user: User,
+    @Body() createKitchenDto: CreateKitchenDto,
+  ) {
+    return this.menuService.createKitchen(user, createKitchenDto);
   }
 
   @Patch('/kitchens/:id')
   updateKitchen(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Kitchen>,
   ) {
-    return this.menuService.updateKitchen(id, updates);
+    return this.menuService.updateKitchen(user, id, updates);
   }
 
   @Delete('/kitchens/:id')
-  deleteKitchen(@Param('id') id: string) {
-    return this.menuService.removeKitchen(id);
+  deleteKitchen(@ReqUser() user: User, @Param('id') id: string) {
+    return this.menuService.removeKitchen(user, id);
   }
 }

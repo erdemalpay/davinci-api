@@ -109,7 +109,7 @@ export class GameplayController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.gameplayService.remove(+id);
+  remove(@ReqUser() user: User, @Param('id') id: string) {
+    return this.gameplayService.remove(user, +id);
   }
 }

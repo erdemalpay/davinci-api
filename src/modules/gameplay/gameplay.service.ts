@@ -3,12 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { User } from '../user/user.schema';
 import {
   GameplayQueryDto,
   GameplayQueryGroupDto,
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
+import { GameplayGateway } from './gameplay.gateway';
 import { Gameplay } from './gameplay.schema';
 
 @Injectable()
@@ -16,10 +18,13 @@ export class GameplayService {
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
     private readonly activityService: ActivityService,
+    private readonly gameplayGateway: GameplayGateway,
   ) {}
 
-  create(createGameplayDto: GameplayDto) {
-    return this.gameplayModel.create(createGameplayDto);
+  async create(user: User, createGameplayDto: GameplayDto) {
+    const gameplay = await this.gameplayModel.create(createGameplayDto);
+    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+    return gameplay;
   }
 
   findAll() {
@@ -297,7 +302,7 @@ export class GameplayService {
       throw error;
     }
   }
-  async update(user, id: number, partialGameplayDto: PartialGameplayDto) {
+  async update(user: User, id: number, partialGameplayDto: PartialGameplayDto) {
     const existingGameplay = await this.gameplayModel.findById(id);
     const updatedGameplay = await this.gameplayModel.findByIdAndUpdate(
       id,
@@ -312,20 +317,26 @@ export class GameplayService {
       existingGameplay,
       updatedGameplay,
     );
+    this.gameplayGateway.emitGameplayChanged(user, updatedGameplay);
     return updatedGameplay;
   }
 
-  remove(id: number) {
-    return this.gameplayModel.findByIdAndDelete(id);
+  async remove(user: User, id: number) {
+    const gameplay = await this.gameplayModel.findByIdAndDelete(id);
+    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+    return gameplay;
   }
 
-  close(id: number, finishHour: string) {
-    return this.gameplayModel.findByIdAndUpdate(
+  async close(user: User, id: number, finishHour: string) {
+    const gameplay = await this.gameplayModel.findByIdAndUpdate(
       id,
       {
         finishHour,
       },
       { new: true },
     );
+    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+
+    return gameplay;
   }
 }

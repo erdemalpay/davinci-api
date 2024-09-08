@@ -70,12 +70,13 @@ export class TableService {
 
     return updatedTable;
   }
-  async close(id: number, tableDto: TableDto) {
+  async close(user: User, id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
     // Close the previous gameplay
     if (table.gameplays.length) {
       const lastGameplay = table.gameplays[table.gameplays.length - 1];
       await this.gameplayService.close(
+        user,
         lastGameplay as unknown as number,
         tableDto.finishHour,
       );
@@ -88,7 +89,7 @@ export class TableService {
       { new: true },
     );
   }
-  async closeAll(closeAllDto: CloseAllDto) {
+  async closeAll(user: User, closeAllDto: CloseAllDto) {
     const tables = await this.tableModel.find({
       _id: { $in: closeAllDto.ids },
     });
@@ -97,6 +98,7 @@ export class TableService {
       if (table.gameplays.length) {
         const lastGameplay = table.gameplays[table.gameplays.length - 1];
         await this.gameplayService.close(
+          user,
           lastGameplay as unknown as number,
           closeAllDto.finishHour,
         );
@@ -205,11 +207,12 @@ export class TableService {
     if (table.gameplays.length) {
       const lastGameplay = table.gameplays[table.gameplays.length - 1];
       await this.gameplayService.close(
+        user,
         lastGameplay as unknown as number,
         gameplayDto.startHour,
       );
     }
-    const gameplay = await this.gameplayService.create(gameplayDto);
+    const gameplay = await this.gameplayService.create(user, gameplayDto);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
       tableId: id,
       gameplay,
@@ -226,7 +229,7 @@ export class TableService {
       throw new Error('Table not found');
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
-    await this.gameplayService.remove(gameplayId);
+    await this.gameplayService.remove(user, gameplayId);
 
     this.activityService.addActivity(
       user,
@@ -272,7 +275,7 @@ export class TableService {
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
-        this.gameplayService.remove(gameplay._id),
+        this.gameplayService.remove(user, gameplay._id),
       ),
     );
 

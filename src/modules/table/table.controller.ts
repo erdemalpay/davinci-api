@@ -77,13 +77,17 @@ export class TableController {
 
   @Patch('/close/:id')
   @ApiResponse({ type: TableResponse })
-  closeTable(@Param('id') id: number, @Body() tableDto: TableDto) {
-    return this.tableService.close(id, tableDto);
+  closeTable(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() tableDto: TableDto,
+  ) {
+    return this.tableService.close(user, id, tableDto);
   }
   @Patch('/closeAll')
   @ApiResponse({ type: [TableResponse] })
-  closeAll(@Body() closeAllDto: CloseAllDto) {
-    return this.tableService.closeAll(closeAllDto);
+  closeAll(@ReqUser() user: User, @Body() closeAllDto: CloseAllDto) {
+    return this.tableService.closeAll(user, closeAllDto);
   }
 
   @Patch('/reopen/:id')

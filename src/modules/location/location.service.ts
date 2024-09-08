@@ -2,18 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateLocationDto } from './dto/create-location.dto';
+import { LocationGateway } from './location.gateway';
 import { Location } from './location.schema';
-
 @Injectable()
 export class LocationService {
   constructor(
     @InjectModel(Location.name) private locationModel: Model<Location>,
+    private readonly locationGateway: LocationGateway,
   ) {
     this.checkDefaultLocations();
   }
 
   create(createLocationDto: CreateLocationDto) {
-    return this.locationModel.create(createLocationDto);
+    const location = this.locationModel.create(createLocationDto);
+    this.locationGateway.emitLocationChanged(location);
+    return location;
   }
 
   findAll() {

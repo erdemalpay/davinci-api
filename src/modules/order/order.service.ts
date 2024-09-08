@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
-import { GameplayService } from '../gameplay/gameplay.service';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -31,7 +30,6 @@ export class OrderService {
     private readonly orderGateway: OrderGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
-    private readonly gameplayService: GameplayService,
   ) {}
   // Orders
   async findAllOrders() {
