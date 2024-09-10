@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { Cashout, CashoutSchema } from './cashout.schema';
 import { CheckoutController } from './checkout.controller';
+import { CheckoutGateway } from './checkout.gateway';
 import { CheckoutService } from './checkout.service';
 import {
   CheckoutControl,
@@ -18,8 +19,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [mongooseModule],
-  providers: [CheckoutService],
+  providers: [CheckoutService, CheckoutGateway],
   controllers: [CheckoutController],
-  exports: [mongooseModule, CheckoutService, CheckoutModule],
+  exports: [mongooseModule, CheckoutService, CheckoutModule, CheckoutGateway],
 })
 export class CheckoutModule {}

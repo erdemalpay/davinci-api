@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { LocationService } from './location.service';
-import { LocationController } from './location.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Location, LocationSchema } from './location.schema';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { LocationController } from './location.controller';
+import { LocationGateway } from './location.gateway';
+import { Location, LocationSchema } from './location.schema';
+import { LocationService } from './location.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Location.name, LocationSchema),
@@ -12,6 +13,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [mongooseModule],
   controllers: [LocationController],
-  providers: [LocationService],
+  providers: [LocationService, LocationGateway],
 })
 export class LocationModule {}

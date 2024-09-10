@@ -7,11 +7,15 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { MembershipService } from './membership.service';
-import { CreateMembershipDto } from './membership.dto';
 import { ApiResponse } from '@nestjs/swagger';
-import { MembershipDto, MembershipResponse } from './membership.dto';
-
+import { User } from '../user/user.schema';
+import { ReqUser } from './../user/user.decorator';
+import {
+  CreateMembershipDto,
+  MembershipDto,
+  MembershipResponse,
+} from './membership.dto';
+import { MembershipService } from './membership.service';
 @Controller('/memberships')
 export class MembershipController {
   constructor(private readonly membershipService: MembershipService) {}
@@ -22,22 +26,26 @@ export class MembershipController {
   }
 
   @Post()
-  createMembership(@Body() createMembershipDto: CreateMembershipDto) {
-    return this.membershipService.create(createMembershipDto);
+  createMembership(
+    @ReqUser() user: User,
+    @Body() createMembershipDto: CreateMembershipDto,
+  ) {
+    return this.membershipService.create(user, createMembershipDto);
   }
 
   @Patch('/:id')
   @ApiResponse({ type: MembershipResponse })
   updateMembership(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() membershipDto: MembershipDto,
   ) {
-    return this.membershipService.update(id, membershipDto);
+    return this.membershipService.update(user, id, membershipDto);
   }
 
   @Delete('/:id')
   @ApiResponse({ type: MembershipResponse })
-  deleteMembership(@Param('id') id: number) {
-    return this.membershipService.remove(id);
+  deleteMembership(@ReqUser() user: User, @Param('id') id: number) {
+    return this.membershipService.remove(user, id);
   }
 }

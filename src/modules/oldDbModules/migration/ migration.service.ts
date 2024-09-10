@@ -91,15 +91,15 @@ export class MigrationService {
           const creationTime = oldGameplay._id.getTimestamp();
           const date = format(creationTime, 'yyyy-MM-dd');
           const startHour = format(creationTime, 'HH:mm');
-          return this.gameplayService.create({
-            location: 1,
-            playerCount: oldGameplay.playerCount,
-            mentor: oldGameplay.mentor.username,
-            date: oldGameplay.date || date,
-            startHour: oldGameplay.startHour || startHour,
-            finishHour: oldGameplay.finishHour,
-            game: oldGameplay.game as unknown as number,
-          });
+          // return this.gameplayService.create({
+          //   location: 1,
+          //   playerCount: oldGameplay.playerCount,
+          //   mentor: oldGameplay.mentor.username,
+          //   date: oldGameplay.date || date,
+          //   startHour: oldGameplay.startHour || startHour,
+          //   finishHour: oldGameplay.finishHour,
+          //   game: oldGameplay.game as unknown as number,
+          // });
         }),
       );
 
@@ -112,7 +112,7 @@ export class MigrationService {
         date: tableDate,
         startHour: tableStartHour,
         finishHour: oldTable.finishHour || '23:59',
-        gameplays: gameplays.map((gameplay) => gameplay._id),
+        gameplays: gameplays?.map((gameplay) => (gameplay as any)?._id),
       });
       console.log(`Table ${oldTable.name} from ${tableDate} is migrated.`);
     }
@@ -125,7 +125,7 @@ export class MigrationService {
     for await (const oldGame of oldGames) {
       if (!existingGameIds.includes(oldGame._id)) {
         console.log(`Game not found. Adding now: ${oldGame.title}`);
-        await this.gameService.addGame(oldGame._id);
+        // await this.gameService.addGame(oldGame._id);
       }
     }
   }

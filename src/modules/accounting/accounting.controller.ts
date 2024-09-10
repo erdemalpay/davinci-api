@@ -72,8 +72,8 @@ export class AccountingController {
     return this.accountingService.createProduct(createProductDto);
   }
   @Post('/products/join')
-  joinProduct(@Body() joinProductDto: JoinProductDto) {
-    return this.accountingService.joinProducts(joinProductDto);
+  joinProduct(@ReqUser() user: User, @Body() joinProductDto: JoinProductDto) {
+    return this.accountingService.joinProducts(user, joinProductDto);
   }
   @Patch('/products/:id')
   updateCategory(

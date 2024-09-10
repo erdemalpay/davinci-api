@@ -7,10 +7,11 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { VisitService } from './visit.service';
-import { CreateVisitDto } from './create.visit.dto';
 import { Public } from '../auth/public.decorator';
-
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
+import { CreateVisitDto } from './create.visit.dto';
+import { VisitService } from './visit.service';
 @Controller('/visits')
 export class VisitController {
   constructor(private readonly visitService: VisitService) {}
@@ -38,12 +39,12 @@ export class VisitController {
   }
 
   @Post()
-  createVisit(@Body() createVisitDto: CreateVisitDto) {
-    return this.visitService.create(createVisitDto);
+  createVisit(@ReqUser() user: User, @Body() createVisitDto: CreateVisitDto) {
+    return this.visitService.create(user, createVisitDto);
   }
 
   @Patch('/finish/:id')
-  finishVisit(@Param('id') id: number) {
-    return this.visitService.finish(id);
+  finishVisit(@ReqUser() user: User, @Param('id') id: number) {
+    return this.visitService.finish(user, id);
   }
 }

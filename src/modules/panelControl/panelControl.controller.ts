@@ -26,23 +26,30 @@ export class PanelControlController {
   }
 
   @Post('/pages')
-  createPage(@Body() createPageDto: CreatePageDto) {
-    return this.panelControlService.createPage(createPageDto);
+  createPage(@ReqUser() user: User, @Body() createPageDto: CreatePageDto) {
+    return this.panelControlService.createPage(user, createPageDto);
   }
 
   @Post('/pages/multiple')
-  createMultiplePages(@Body() createPageDto: CreatePageDto[]) {
-    return this.panelControlService.createMultiplePages(createPageDto);
+  createMultiplePages(
+    @ReqUser() user: User,
+    @Body() createPageDto: CreatePageDto[],
+  ) {
+    return this.panelControlService.createMultiplePages(user, createPageDto);
   }
 
   @Patch('/pages/:id')
-  updatePage(@Param('id') id: string, @Body() updates: UpdateQuery<Page>) {
-    return this.panelControlService.updatePage(id, updates);
+  updatePage(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Page>,
+  ) {
+    return this.panelControlService.updatePage(user, id, updates);
   }
 
   @Delete('/pages/:id')
-  deletePage(@Param('id') id: string) {
-    return this.panelControlService.removePage(id);
+  deletePage(@ReqUser() user: User, @Param('id') id: string) {
+    return this.panelControlService.removePage(user, id);
   }
 
   // Checkout Cash
@@ -63,15 +70,16 @@ export class PanelControlController {
   }
 
   @Delete('/checkout-cash/:id')
-  deleteCheckoutCash(@Param('id') id: string) {
-    return this.panelControlService.removeCheckoutCash(id);
+  deleteCheckoutCash(@ReqUser() user: User, @Param('id') id: string) {
+    return this.panelControlService.removeCheckoutCash(user, id);
   }
 
   @Patch('/checkout-cash/:id')
   updateCheckoutCash(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<CheckoutCash>,
   ) {
-    return this.panelControlService.updateCheckoutCash(id, updates);
+    return this.panelControlService.updateCheckoutCash(user, id, updates);
   }
 }

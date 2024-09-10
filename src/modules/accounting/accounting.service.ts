@@ -119,7 +119,7 @@ export class AccountingService {
       );
     }
   }
-  async joinProducts(JoinProductDto: JoinProductDto) {
+  async joinProducts(user: User, JoinProductDto: JoinProductDto) {
     const { stayedProduct, removedProduct } = JoinProductDto;
     const product = await this.productModel.findById(stayedProduct);
     const removedProductDoc = await this.productModel.findById(removedProduct);
@@ -154,7 +154,11 @@ export class AccountingService {
       { $set: { product: stayedProduct } },
     );
     //update menu items
-    await this.MenuService.updateMenuItemProduct(stayedProduct, removedProduct);
+    await this.MenuService.updateMenuItemProduct(
+      user,
+      stayedProduct,
+      removedProduct,
+    );
 
     // update product
 

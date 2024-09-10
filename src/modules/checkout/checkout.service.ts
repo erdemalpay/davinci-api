@@ -8,6 +8,7 @@ import {
   CreateCheckoutControlDto,
   CreateIncomeDto,
 } from './checkout.dto';
+import { CheckoutGateway } from './checkout.gateway';
 import { CheckoutControl } from './checkoutControl.schema';
 import { Income } from './income.schema';
 
@@ -18,6 +19,7 @@ export class CheckoutService {
     @InjectModel(Cashout.name) private cashoutModel: Model<Cashout>,
     @InjectModel(CheckoutControl.name)
     private checkoutControlModel: Model<CheckoutControl>,
+    private readonly checkoutGateway: CheckoutGateway,
   ) {}
   // income
   findAllIncome() {
@@ -30,16 +32,25 @@ export class CheckoutService {
       .populate('location')
       .sort({ date: 1 });
   }
-  createIncome(user: User, createIncomeDto: CreateIncomeDto) {
-    return this.incomeModel.create({ ...createIncomeDto, user: user._id });
+  async createIncome(user: User, createIncomeDto: CreateIncomeDto) {
+    const income = await this.incomeModel.create({
+      ...createIncomeDto,
+      user: user._id,
+    });
+    this.checkoutGateway.emitIncomeChanged(user, income);
+    return income;
   }
-  updateIncome(id: string, updates: UpdateQuery<Income>) {
-    return this.incomeModel.findByIdAndUpdate(id, updates, {
+  async updateIncome(user: User, id: string, updates: UpdateQuery<Income>) {
+    const income = await this.incomeModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.checkoutGateway.emitIncomeChanged(user, income);
+    return income;
   }
-  removeIncome(id: string) {
-    return this.incomeModel.findByIdAndRemove(id);
+  async removeIncome(user: User, id: string) {
+    const income = await this.incomeModel.findByIdAndRemove(id);
+    this.checkoutGateway.emitIncomeChanged(user, income);
+    return income;
   }
 
   // Cashout
@@ -52,16 +63,25 @@ export class CheckoutService {
       })
       .populate('location');
   }
-  createCashout(user: User, createCashoutDto: CreateCashoutDto) {
-    return this.cashoutModel.create({ ...createCashoutDto, user: user._id });
+  async createCashout(user: User, createCashoutDto: CreateCashoutDto) {
+    const cashout = await this.cashoutModel.create({
+      ...createCashoutDto,
+      user: user._id,
+    });
+    this.checkoutGateway.emitCashoutChanged(user, cashout);
+    return cashout;
   }
-  updateCashout(id: string, updates: UpdateQuery<Cashout>) {
-    return this.cashoutModel.findByIdAndUpdate(id, updates, {
+  async updateCashout(user: User, id: string, updates: UpdateQuery<Cashout>) {
+    const cashout = await this.cashoutModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.checkoutGateway.emitCashoutChanged(user, cashout);
+    return cashout;
   }
-  removeCashout(id: string) {
-    return this.cashoutModel.findByIdAndRemove(id);
+  async removeCashout(usre: User, id: string) {
+    const cashout = await this.cashoutModel.findByIdAndRemove(id);
+    this.checkoutGateway.emitCashoutChanged(usre, cashout);
+    return cashout;
   }
 
   // CheckoutControl
@@ -75,21 +95,37 @@ export class CheckoutService {
       .populate('location')
       .sort({ date: 1 });
   }
-  createCheckoutControl(
+  async createCheckoutControl(
     user: User,
     createCheckoutControlDto: CreateCheckoutControlDto,
   ) {
-    return this.checkoutControlModel.create({
+    const CheckoutControl = await this.checkoutControlModel.create({
       ...createCheckoutControlDto,
       user: user._id,
     });
+    this.checkoutGateway.emitCheckoutControlChanged(user, CheckoutControl);
+    return CheckoutControl;
   }
-  updateCheckoutControl(id: string, updates: UpdateQuery<CheckoutControl>) {
-    return this.checkoutControlModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+  async updateCheckoutControl(
+    user: User,
+    id: string,
+    updates: UpdateQuery<CheckoutControl>,
+  ) {
+    const checkoutControl = await this.checkoutControlModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.checkoutGateway.emitCheckoutControlChanged(user, checkoutControl);
+    return checkoutControl;
   }
-  removeCheckoutControl(id: string) {
-    return this.checkoutControlModel.findByIdAndRemove(id);
+  async removeCheckoutControl(user: User, id: string) {
+    const checkoutControl = await this.checkoutControlModel.findByIdAndRemove(
+      id,
+    );
+    this.checkoutGateway.emitCheckoutControlChanged(user, checkoutControl);
+    return checkoutControl;
   }
 }

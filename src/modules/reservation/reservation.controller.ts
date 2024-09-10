@@ -1,18 +1,18 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
   Param,
-  Query,
-  Body,
-  Delete,
   Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
-import { ReservationResponse, ReservationDto } from './reservation.dto';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
+import { ReservationDto, ReservationResponse } from './reservation.dto';
 import { ReservationService } from './reservation.service';
-
 @ApiTags('Reservation')
 @Controller('reservations')
 export class ReservationController {
@@ -30,25 +30,30 @@ export class ReservationController {
 
   @Post()
   @ApiResponse({ type: ReservationResponse })
-  createReservation(@Body() reservationDto: ReservationDto) {
-    return this.reservationService.create(reservationDto);
+  createReservation(
+    @ReqUser() user: User,
+    @Body() reservationDto: ReservationDto,
+  ) {
+    return this.reservationService.create(user, reservationDto);
   }
 
   @Patch('/call/:id')
   @ApiResponse({ type: ReservationResponse })
   updateReservationCall(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() reservationDto: ReservationDto,
   ) {
-    return this.reservationService.callUpdate(id, reservationDto);
+    return this.reservationService.callUpdate(user, id, reservationDto);
   }
 
   @Patch('/:id')
   @ApiResponse({ type: ReservationResponse })
   updateReservation(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() reservationDto: ReservationDto,
   ) {
-    return this.reservationService.update(id, reservationDto);
+    return this.reservationService.update(user, id, reservationDto);
   }
 }

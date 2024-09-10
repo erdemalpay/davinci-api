@@ -1,9 +1,11 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as config from 'config';
+import { EventEmitter } from 'events';
 import { AppModule } from './app.module';
 import { setCors } from './lib/cors';
 import { JwtAuthGuard } from './modules/auth/auth.guards';
+EventEmitter.defaultMaxListeners = 50;
 const express = require('express');
 
 async function bootstrap() {

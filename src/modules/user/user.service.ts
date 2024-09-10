@@ -14,6 +14,7 @@ import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { CreateUserDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
+import { UserGateway } from './user.gateway';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
 
@@ -25,6 +26,7 @@ export class UserService implements OnModuleInit {
     private readonly gameService: GameService,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
+    private readonly userGateway: UserGateway,
   ) {
     this.checkDefaultUser();
   }
@@ -40,12 +42,16 @@ export class UserService implements OnModuleInit {
     user._id = usernamify(user.name);
     user.active = true;
     await user.save();
+    this.userGateway.emitUserChanged(user);
+    return user;
   }
 
   async update(id: string, updateQuery: UpdateQuery<User>) {
-    return this.userModel.findByIdAndUpdate(id, updateQuery, {
+    const user = await this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
     });
+    this.userGateway.emitUserChanged(user);
+    return user;
   }
 
   async updatePassword(user: User, oldPassword: string, newPassword: string) {
@@ -114,6 +120,8 @@ export class UserService implements OnModuleInit {
       ActivityType.GAME_LEARNED_REMOVE,
       gameExists,
     );
+    this.userGateway.emitUserChanged(updateResult);
+
     return updateResult;
   }
 

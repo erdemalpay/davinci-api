@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
-import { GameplayService } from '../gameplay/gameplay.service';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -31,7 +30,6 @@ export class OrderService {
     private readonly orderGateway: OrderGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
-    private readonly gameplayService: GameplayService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -128,10 +126,27 @@ export class OrderService {
 
     try {
       await order.save();
+      const orderWithItem = await order.populate('item');
       if (
         order.discountAmount >= order.unitPrice ||
         order.discountPercentage >= 100
       ) {
+        for (const ingredient of (orderWithItem.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          const locationName =
+            orderWithItem.location === 1 ? 'bahceli' : 'neorama';
+          if (isStockDecrementRequired) {
+            const consumptionQuantity =
+              ingredient.quantity * orderWithItem.paidQuantity;
+            await this.accountingService.consumptStock(user, {
+              product: ingredient.product,
+              location: locationName,
+              quantity: consumptionQuantity,
+              packageType: 'birim',
+              status: StockHistoryStatusEnum.ORDERCREATE,
+            });
+          }
+        }
         await this.createCollection(user, {
           location: order.location,
           amount: 0,
@@ -166,6 +181,7 @@ export class OrderService {
     let updatedTable;
     try {
       updatedTable = await this.tableService.updateTableOrders(
+        user,
         createOrderDto.table,
         order._id,
       );
@@ -510,6 +526,7 @@ export class OrderService {
       let updatedTable;
       try {
         updatedTable = await this.tableService.updateTableOrders(
+          user,
           newOrder.table,
           newOrder._id,
         );
@@ -583,10 +600,28 @@ export class OrderService {
                   : 0,
             }),
           });
+          const orderWithItem = await oldOrder.populate('item');
           if (
             (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= oldOrder.unitPrice)
+            (discountAmount && discountAmount >= orderWithItem.unitPrice)
           ) {
+            for (const ingredient of (orderWithItem.item as any)
+              .itemProduction) {
+              const isStockDecrementRequired = ingredient?.isDecrementStock;
+              const locationName =
+                oldOrder.location === 1 ? 'bahceli' : 'neorama';
+              if (isStockDecrementRequired) {
+                const consumptionQuantity =
+                  ingredient.quantity * oldOrder.quantity;
+                await this.accountingService.consumptStock(user, {
+                  product: ingredient.product,
+                  location: locationName,
+                  quantity: consumptionQuantity,
+                  packageType: 'birim',
+                  status: StockHistoryStatusEnum.ORDERCREATE,
+                });
+              }
+            }
             await this.createCollection(user, {
               location: oldOrder.location,
               amount: 0,
@@ -633,10 +668,28 @@ export class OrderService {
         });
         try {
           await newOrder.save();
+          const orderWithItem = await newOrder.populate('item');
           if (
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder.unitPrice)
           ) {
+            for (const ingredient of (orderWithItem.item as any)
+              .itemProduction) {
+              const isStockDecrementRequired = ingredient?.isDecrementStock;
+              const locationName =
+                oldOrder.location === 1 ? 'bahceli' : 'neorama';
+              if (isStockDecrementRequired) {
+                const consumptionQuantity =
+                  ingredient.quantity * oldOrder.paidQuantity;
+                await this.accountingService.consumptStock(user, {
+                  product: ingredient.product,
+                  location: locationName,
+                  quantity: consumptionQuantity,
+                  packageType: 'birim',
+                  status: StockHistoryStatusEnum.ORDERCREATE,
+                });
+              }
+            }
             await this.createCollection(user, {
               location: newOrder.location,
               amount: 0,
@@ -661,6 +714,7 @@ export class OrderService {
         let updatedTable;
         try {
           updatedTable = await this.tableService.updateTableOrders(
+            user,
             newOrder.table,
             newOrder._id,
           );
@@ -740,6 +794,7 @@ export class OrderService {
       let updatedTable;
       try {
         updatedTable = await this.tableService.updateTableOrders(
+          user,
           newOrder.table,
           newOrder._id,
         );
@@ -838,7 +893,7 @@ export class OrderService {
     try {
       await Promise.all([newTable.save()]);
 
-      await this.tableService.removeTable(oldTableId);
+      await this.tableService.removeTable(user, oldTableId);
       this.orderGateway.emitOrderUpdated(user, orders);
     } catch (error) {
       console.log(error);

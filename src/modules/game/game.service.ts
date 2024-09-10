@@ -1,17 +1,20 @@
-import { getGameDetails } from '../../lib/bgg';
 import { Injectable } from '@nestjs/common';
-import { Game } from './game.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
-import { getItems } from 'src/lib/mongo';
 import { mapGames } from 'src/lib/mappers';
+import { getItems } from 'src/lib/mongo';
+import { getGameDetails } from '../../lib/bgg';
+import { User } from '../user/user.schema';
 import { GameDto } from './game.dto';
+import { GameGateway } from './game.gateway';
+import { Game } from './game.schema';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(Game.name)
     private gameModel: Model<Game>,
+    private readonly gameGateway: GameGateway,
   ) {}
 
   getGames() {
@@ -26,21 +29,30 @@ export class GameService {
     return getGameDetails(gameId);
   }
 
-  async addGame(gameId: number) {
+  async addGame(user: User, gameId: number) {
     const gameDetails = await getGameDetails(gameId);
+    this.gameGateway.emitGameChanged(user, gameDetails);
     return this.gameModel.create(gameDetails);
   }
 
-  async addGameByDetails(gameDetails: GameDto) {
-    return this.gameModel.create(gameDetails);
+  async addGameByDetails(user: User, gameDetails: GameDto) {
+    const game = await this.gameModel.create(gameDetails);
+    this.gameGateway.emitGameChanged(user, game);
+    return game;
   }
 
-  async update(id: number, gameDetails: UpdateQuery<Game>) {
-    return this.gameModel.findByIdAndUpdate(id, gameDetails, { new: true });
+  async update(user: User, id: number, gameDetails: UpdateQuery<Game>) {
+    const game = await this.gameModel.findByIdAndUpdate(id, gameDetails, {
+      new: true,
+    });
+    this.gameGateway.emitGameChanged(user, game);
+    return game;
   }
 
-  async remove(id: number) {
-    return this.gameModel.findByIdAndDelete(id);
+  async remove(user: User, id: number) {
+    const game = await this.gameModel.findByIdAndDelete(id);
+    this.gameGateway.emitGameChanged(user, game);
+    return game;
   }
 
   async migrateGames() {
