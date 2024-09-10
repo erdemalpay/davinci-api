@@ -1,27 +1,37 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
-import { Reward } from './reward.schema';
+import { User } from '../user/user.schema';
 import { CreateRewardDto, RewardDto } from './reward.dto';
-
+import { RewardGateway } from './reward.gateway';
+import { Reward } from './reward.schema';
 export class RewardService {
-  constructor(@InjectModel(Reward.name) private rewardModel: Model<Reward>) {}
+  constructor(
+    @InjectModel(Reward.name) private rewardModel: Model<Reward>,
+    private readonly rewardGateway: RewardGateway,
+  ) {}
 
   findAll() {
     return this.rewardModel.find();
   }
 
-  create(createRewardDto: CreateRewardDto) {
-    return this.rewardModel.create(createRewardDto);
+  async create(user: User, createRewardDto: CreateRewardDto) {
+    const reward = await this.rewardModel.create(createRewardDto);
+    this.rewardGateway.emitRewardChanged(user, reward);
+    return reward;
   }
 
-  async update(id: number, rewardDto: RewardDto) {
-    return this.rewardModel.findByIdAndUpdate(id, rewardDto, {
+  async update(user: User, id: number, rewardDto: RewardDto) {
+    const reward = await this.rewardModel.findByIdAndUpdate(id, rewardDto, {
       new: true,
     });
+    this.rewardGateway.emitRewardChanged(user, reward);
+    return reward;
   }
 
-  remove(id: number) {
-    return this.rewardModel.findByIdAndRemove(id);
+  async remove(user: User, id: number) {
+    const reward = await this.rewardModel.findByIdAndRemove(id);
+    this.rewardGateway.emitRewardChanged(user, reward);
+    return reward;
   }
 }

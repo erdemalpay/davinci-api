@@ -15,7 +15,6 @@ import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import {
   AggregatedPlayerCountResponse,
-  CloseAllDto,
   TableDto,
   TableResponse,
 } from './table.dto';
@@ -84,16 +83,11 @@ export class TableController {
   ) {
     return this.tableService.close(user, id, tableDto);
   }
-  @Patch('/closeAll')
-  @ApiResponse({ type: [TableResponse] })
-  closeAll(@ReqUser() user: User, @Body() closeAllDto: CloseAllDto) {
-    return this.tableService.closeAll(user, closeAllDto);
-  }
 
   @Patch('/reopen/:id')
   @ApiResponse({ type: TableResponse })
-  reopenTable(@Param('id') id: number) {
-    return this.tableService.reopen(id);
+  reopenTable(@ReqUser() user: User, @Param('id') id: number) {
+    return this.tableService.reopen(user, id);
   }
   @Patch('/:id')
   @ApiResponse({ type: TableResponse })

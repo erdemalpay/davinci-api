@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityModule } from '../activity/activity.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { TableController } from './table.controller';
+import { TableGateway } from './table.gateway';
 import { Table, TableSchema } from './table.schema';
 import { TableService } from './table.service';
 
@@ -18,8 +19,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ActivityModule,
     MongooseModule.forFeature([{ name: 'Table', schema: TableSchema }]),
   ],
-  providers: [TableService],
-  exports: [TableService],
+  providers: [TableService, TableGateway],
+  exports: [TableService, TableGateway],
   controllers: [TableController],
 })
 export class TableModule {}

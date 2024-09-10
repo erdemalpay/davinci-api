@@ -8,14 +8,17 @@ import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { User } from '../user/user.schema';
 import { OrderStatus } from './../order/order.dto';
-import { CloseAllDto, TableDto } from './table.dto';
+import { TableDto } from './table.dto';
+import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
+
 @Injectable()
 export class TableService {
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
+    private readonly tableGateway: TableGateway,
   ) {}
 
   async create(user: User, tableDto: TableDto) {
@@ -25,6 +28,7 @@ export class TableService {
       ActivityType.CREATE_TABLE,
       createdTable,
     );
+    this.tableGateway.emitTableChanged(user, createdTable);
     return createdTable;
   }
 
@@ -39,9 +43,10 @@ export class TableService {
       existingTable,
       updatedTable,
     );
+    this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
-  async updateTableOrders(id: number, order: number) {
+  async updateTableOrders(user: User, id: number, order: number) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
       throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
@@ -67,6 +72,7 @@ export class TableService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    this.tableGateway.emitTableChanged(user, updatedTable);
 
     return updatedTable;
   }
@@ -81,44 +87,25 @@ export class TableService {
         tableDto.finishHour,
       );
     }
-    return this.tableModel.findByIdAndUpdate(
+    const updatedTable = await this.tableModel.findByIdAndUpdate(
       id,
       {
         finishHour: tableDto.finishHour,
       },
       { new: true },
     );
-  }
-  async closeAll(user: User, closeAllDto: CloseAllDto) {
-    const tables = await this.tableModel.find({
-      _id: { $in: closeAllDto.ids },
-    });
-
-    const updatePromises = tables.map(async (table) => {
-      if (table.gameplays.length) {
-        const lastGameplay = table.gameplays[table.gameplays.length - 1];
-        await this.gameplayService.close(
-          user,
-          lastGameplay as unknown as number,
-          closeAllDto.finishHour,
-        );
-      }
-      return this.tableModel.findByIdAndUpdate(
-        table._id,
-        { $set: { finishHour: closeAllDto.finishHour } },
-        { new: true },
-      );
-    });
-
-    return Promise.all(updatePromises);
+    this.tableGateway.emitTableChanged(user, updatedTable);
+    return updatedTable;
   }
 
-  async reopen(id: number) {
-    return this.tableModel.findByIdAndUpdate(
+  async reopen(user: User, id: number) {
+    const updatedTable = await this.tableModel.findByIdAndUpdate(
       id,
       { $unset: { finishHour: '' } },
       { new: true },
     );
+    this.tableGateway.emitTableChanged(user, updatedTable);
+    return updatedTable;
   }
 
   async findById(id: number): Promise<Table | undefined> {
@@ -220,6 +207,8 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
+    this.tableGateway.emitTableChanged(user, table);
+    return table;
   }
 
   async removeGameplay(user: User, tableId: number, gameplayId: number) {
@@ -241,6 +230,8 @@ export class TableService {
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
+    this.tableGateway.emitTableChanged(user, table);
+    return table;
   }
 
   async removeTableAndGameplays(user: User, id: number) {
@@ -278,8 +269,10 @@ export class TableService {
         this.gameplayService.remove(user, gameplay._id),
       ),
     );
+    await this.tableModel.findByIdAndRemove(id);
+    this.tableGateway.emitTableChanged(user, table);
 
-    return this.tableModel.findByIdAndRemove(id);
+    return table;
   }
   async getTotalPlayerCountsByMonthAndYear(
     month: string,
@@ -362,7 +355,9 @@ export class TableService {
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }
-  removeTable(id: number) {
-    return this.tableModel.findByIdAndRemove(id);
+  async removeTable(user: User, id: number) {
+    const table = await this.tableModel.findByIdAndRemove(id);
+    this.tableGateway.emitTableChanged(user, table);
+    return table;
   }
 }

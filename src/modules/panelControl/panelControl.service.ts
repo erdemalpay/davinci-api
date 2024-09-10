@@ -6,6 +6,7 @@ import { User } from '../user/user.schema';
 import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
 import { CreateCheckoutCashDto, CreatePageDto } from './panelControl.dto';
+import { PanelControlGateway } from './panelControl.gateway';
 
 @Injectable()
 export class PanelControlService {
@@ -13,6 +14,7 @@ export class PanelControlService {
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(CheckoutCash.name)
     private checkoutCashModel: Model<CheckoutCash>,
+    private readonly panelControlGateway: PanelControlGateway,
   ) {}
 
   //pages
@@ -20,30 +22,34 @@ export class PanelControlService {
     return this.pageModel.find();
   }
 
-  async createPage(createPageDto: CreatePageDto) {
+  async createPage(user: User, createPageDto: CreatePageDto) {
     const page = new this.pageModel({ ...createPageDto, permissionRoles: [] });
     page._id = usernamify(page.name);
     await page.save();
+    this.panelControlGateway.emitPageChanged(user, page);
     return page;
   }
 
-  async updatePage(id: string, updates: UpdateQuery<Page>) {
+  async updatePage(user: User, id: string, updates: UpdateQuery<Page>) {
     // const oldPage = await this.pageModel.findById(id);
     const newPage = await this.pageModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.panelControlGateway.emitPageChanged(user, newPage);
+
     return newPage;
   }
   async getPage(id: string) {
     const page = await this.pageModel.findById(id);
     return page;
   }
-  async removePage(id: string) {
+  async removePage(user: User, id: string) {
     const page = await this.pageModel.findByIdAndRemove(id);
+    this.panelControlGateway.emitPageChanged(user, page);
     return page;
   }
 
-  async createMultiplePages(createPageDto: CreatePageDto[]) {
+  async createMultiplePages(user: User, createPageDto: CreatePageDto[]) {
     const pagesWithIds = createPageDto.map((page) => ({
       ...page,
       _id: usernamify(page.name),
@@ -54,6 +60,7 @@ export class PanelControlService {
       await this.pageModel.deleteMany({ _id: { $in: idsToRemove } });
     }
     await this.pageModel.insertMany(pagesWithIds);
+    this.panelControlGateway.emitPageChanged(user, pagesWithIds);
     return pagesWithIds;
   }
 
@@ -67,6 +74,7 @@ export class PanelControlService {
       user: user._id,
     });
     await checkoutCash.save();
+    this.panelControlGateway.emitCheckoutCashChanged(user, checkoutCash);
     return checkoutCash;
   }
 
@@ -81,7 +89,11 @@ export class PanelControlService {
       .sort({ date: -1 });
   }
 
-  async updateCheckoutCash(id: string, updates: UpdateQuery<CheckoutCash>) {
+  async updateCheckoutCash(
+    user: User,
+    id: string,
+    updates: UpdateQuery<CheckoutCash>,
+  ) {
     const newCheckoutCash = await this.checkoutCashModel.findByIdAndUpdate(
       id,
       updates,
@@ -89,11 +101,15 @@ export class PanelControlService {
         new: true,
       },
     );
+    this.panelControlGateway.emitCheckoutCashChanged(user, newCheckoutCash);
+
     return newCheckoutCash;
   }
 
-  async removeCheckoutCash(id: string) {
+  async removeCheckoutCash(user: User, id: string) {
     const checkoutCash = await this.checkoutCashModel.findByIdAndRemove(id);
+    this.panelControlGateway.emitCheckoutCashChanged(user, checkoutCash);
+
     return checkoutCash;
   }
 }

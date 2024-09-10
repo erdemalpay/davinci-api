@@ -5,6 +5,7 @@ import { GameModule } from '../game/game.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { ActivityModule } from './../activity/activity.module';
 import { UserController } from './user.controller';
+import { UserGateway } from './user.gateway';
 import { Role, RoleSchema } from './user.role.schema';
 import { User, UserSchema } from './user.schema';
 import { UserService } from './user.service';
@@ -16,8 +17,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [mongooseModule, GameModule, GameplayModule, ActivityModule],
-  providers: [UserService],
-  exports: [UserService],
+  providers: [UserService, UserGateway],
+  exports: [UserService, UserGateway],
   controllers: [UserController],
 })
 export class UserModule {}
