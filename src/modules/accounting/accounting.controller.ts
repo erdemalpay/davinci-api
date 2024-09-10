@@ -68,8 +68,11 @@ export class AccountingController {
   }
 
   @Post('/products')
-  createCategory(@Body() createProductDto: CreateProductDto) {
-    return this.accountingService.createProduct(createProductDto);
+  createCategory(
+    @ReqUser() user: User,
+    @Body() createProductDto: CreateProductDto,
+  ) {
+    return this.accountingService.createProduct(user, createProductDto);
   }
   @Post('/products/join')
   joinProduct(@ReqUser() user: User, @Body() joinProductDto: JoinProductDto) {
@@ -77,15 +80,16 @@ export class AccountingController {
   }
   @Patch('/products/:id')
   updateCategory(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Product>,
   ) {
-    return this.accountingService.updateProduct(id, updates);
+    return this.accountingService.updateProduct(user, id, updates);
   }
 
   @Delete('/products/:id')
-  deleteCategory(@Param('id') id: string) {
-    return this.accountingService.removeProduct(id);
+  deleteCategory(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeProduct(user, id);
   }
 
   @Get('/update/packages')
@@ -128,21 +132,25 @@ export class AccountingController {
   }
 
   @Post('/fixtures')
-  createFixture(@Body() createFixtureDto: CreateFixtureDto) {
-    return this.accountingService.createFixture(createFixtureDto);
+  createFixture(
+    @ReqUser() user: User,
+    @Body() createFixtureDto: CreateFixtureDto,
+  ) {
+    return this.accountingService.createFixture(user, createFixtureDto);
   }
 
   @Patch('/fixtures/:id')
   updateFixture(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Fixture>,
   ) {
-    return this.accountingService.updateFixture(id, updates);
+    return this.accountingService.updateFixture(user, id, updates);
   }
 
   @Delete('/fixtures/:id')
-  deleteFixture(@Param('id') id: string) {
-    return this.accountingService.removeFixture(id);
+  deleteFixture(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeFixture(user, id);
   }
   // Services
   @Get('/services')
@@ -151,21 +159,25 @@ export class AccountingController {
   }
 
   @Post('/services')
-  createService(@Body() createServiceDto: CreateServiceDto) {
-    return this.accountingService.createService(createServiceDto);
+  createService(
+    @ReqUser() user: User,
+    @Body() createServiceDto: CreateServiceDto,
+  ) {
+    return this.accountingService.createService(user, createServiceDto);
   }
 
   @Patch('/services/:id')
   updateService(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Service>,
   ) {
-    return this.accountingService.updateService(id, updates);
+    return this.accountingService.updateService(user, id, updates);
   }
 
   @Delete('/services/:id')
-  deleteService(@Param('id') id: string) {
-    return this.accountingService.removeService(id);
+  deleteService(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeService(user, id);
   }
 
   // fixture invoices
@@ -392,15 +404,16 @@ export class AccountingController {
 
   @Patch('/payments/:id')
   updatePayment(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Payment>,
   ) {
-    return this.accountingService.updatePayment(id, updates);
+    return this.accountingService.updatePayment(user, id, updates);
   }
 
   @Delete('/payments/:id')
-  deletePayment(@Param('id') id: string) {
-    return this.accountingService.removePayment(id);
+  deletePayment(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removePayment(user, id);
   }
 
   // Invoices
@@ -459,10 +472,6 @@ export class AccountingController {
   ) {
     return this.accountingService.transferFixtureInvoiceToInvoice(user, id);
   }
-  @Get('/invoices/update_location')
-  updateInvoiceLocation() {
-    return this.accountingService.updateInvoicesLocation();
-  }
 
   @Patch('/invoices/:id')
   updateInvoice(
@@ -488,21 +497,28 @@ export class AccountingController {
     return this.accountingService.findAllStockLocations();
   }
   @Post('/stock-locations')
-  createStockLocation(@Body() createStockLocationDto: CreateStockLocationDto) {
-    return this.accountingService.createStockLocation(createStockLocationDto);
+  createStockLocation(
+    @ReqUser() user: User,
+    @Body() createStockLocationDto: CreateStockLocationDto,
+  ) {
+    return this.accountingService.createStockLocation(
+      user,
+      createStockLocationDto,
+    );
   }
 
   @Patch('/stock-locations/:id')
   updateStockLocation(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<StockLocation>,
   ) {
-    return this.accountingService.updateStockLocation(id, updates);
+    return this.accountingService.updateStockLocation(user, id, updates);
   }
 
   @Delete('/stock-locations/:id')
-  deleteStockLocation(@Param('id') id: string) {
-    return this.accountingService.removeStockLocation(id);
+  deleteStockLocation(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeStockLocation(user, id);
   }
   // Stocks
   @Get('/stocks')
@@ -548,9 +564,11 @@ export class AccountingController {
 
   @Post('/product-stock-histories')
   createProductStockHistory(
+    @ReqUser() user: User,
     @Body() createProductStockHistoryDto: CreateProductStockHistoryDto,
   ) {
     return this.accountingService.createProductStockHistory(
+      user,
       createProductStockHistoryDto,
     );
   }
@@ -611,21 +629,25 @@ export class AccountingController {
   }
 
   @Post('/count-list')
-  createCountList(@Body() createCountListDto: CreateCountListDto) {
-    return this.accountingService.createCountList(createCountListDto);
+  createCountList(
+    @ReqUser() user: User,
+    @Body() createCountListDto: CreateCountListDto,
+  ) {
+    return this.accountingService.createCountList(user, createCountListDto);
   }
 
   @Patch('/count-list/:id')
   updateCountList(
+    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<CountList>,
   ) {
-    return this.accountingService.updateCountList(id, updates);
+    return this.accountingService.updateCountList(user, id, updates);
   }
 
   @Delete('/count-list/:id')
-  deleteCountList(@Param('id') id: string) {
-    return this.accountingService.removeCountList(id);
+  deleteCountList(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeCountList(user, id);
   }
 
   // Fixture Count List
@@ -663,8 +685,8 @@ export class AccountingController {
   }
 
   @Post('/counts')
-  createCount(@Body() createCountDto: CreateCountDto) {
-    return this.accountingService.createCount(createCountDto);
+  createCount(@ReqUser() user: User, @Body() createCountDto: CreateCountDto) {
+    return this.accountingService.createCount(user, createCountDto);
   }
   @Patch('/stock_equalize')
   updateStockForStockCount(
@@ -701,8 +723,12 @@ export class AccountingController {
     );
   }
   @Patch('/counts/:id')
-  updateCount(@Param('id') id: string, @Body() updates: UpdateQuery<Count>) {
-    return this.accountingService.updateCount(id, updates);
+  updateCount(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Count>,
+  ) {
+    return this.accountingService.updateCount(user, id, updates);
   }
 
   //fixture count
