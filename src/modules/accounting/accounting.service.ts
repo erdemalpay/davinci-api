@@ -144,18 +144,20 @@ export class AccountingService {
       countList.products = updatedProducts;
       await countList.save();
     }
+    this.accountingGateway.emitCountListChanged(user, countLists);
 
     // updateStocks
     await this.stockModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-
+    this.accountingGateway.emitStockChanged(user, stayedProduct);
     // update invoices
     await this.invoiceModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
+    this.accountingGateway.emitInvoiceChanged(user, stayedProduct);
     //update menu items
     await this.MenuService.updateMenuItemProduct(
       user,
@@ -210,6 +212,7 @@ export class AccountingService {
 
     // remove product
     await this.productModel.findByIdAndDelete(removedProduct);
+    this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
 
@@ -1571,6 +1574,7 @@ export class AccountingService {
 
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1580,8 +1584,8 @@ export class AccountingService {
     }
 
     try {
-      await this.removeProductStocks(foundInvoice.product);
-      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
+      await this.removeProductStocks(user, foundInvoice.product);
+      await this.removeProductStocks(user, usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(user, foundInvoice.product);
     } catch (error) {
       throw new HttpException(
@@ -1642,6 +1646,7 @@ export class AccountingService {
 
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1651,8 +1656,8 @@ export class AccountingService {
     }
 
     try {
-      await this.removeProductStocks(foundInvoice.product);
-      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
+      await this.removeProductStocks(user, foundInvoice.product);
+      await this.removeProductStocks(user, usernamify(product.name)); //this is needed for the first product id type which is not including the units
       await this.removeProduct(user, foundInvoice.product);
     } catch (error) {
       throw new HttpException(
@@ -1723,6 +1728,7 @@ export class AccountingService {
 
       try {
         await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1803,6 +1809,7 @@ export class AccountingService {
 
       try {
         await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1946,7 +1953,7 @@ export class AccountingService {
       packageType: packageType,
     });
 
-    await this.countModel.updateOne(
+    const count = await this.countModel.updateOne(
       { _id: currentCountId },
       { $set: { 'products.$[elem].isStockEqualized': true } },
       {
@@ -1955,6 +1962,7 @@ export class AccountingService {
         ],
       },
     );
+    this.accountingGateway.emitCountChanged(user, count);
 
     await this.createStock(user, {
       product: product,
@@ -1991,6 +1999,7 @@ export class AccountingService {
         deletedStock,
       );
       // Remove the stock item
+      this.accountingGateway.emitStockChanged(user, deletedStock);
       return deletedStock;
     } catch (error) {
       throw new HttpException(
@@ -2000,7 +2009,7 @@ export class AccountingService {
     }
   }
 
-  async removeProductStocks(id: string) {
+  async removeProductStocks(user: User, id: string) {
     const productStocks = await this.stockModel.find({ product: id });
     const ProductStockHistory = await this.productStockHistoryModel.find({
       product: id,
@@ -2008,9 +2017,14 @@ export class AccountingService {
     for (const stockHistory of ProductStockHistory) {
       await this.productStockHistoryModel.findByIdAndRemove(stockHistory.id);
     }
+    this.accountingGateway.emitProductStockHistoryChanged(
+      user,
+      ProductStockHistory,
+    );
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
+    this.accountingGateway.emitStockChanged(user, productStocks);
   }
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
@@ -2028,6 +2042,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitStockChanged(user, newStock);
       //create Activity
       this.activityService.addUpdateActivity(
         user,
