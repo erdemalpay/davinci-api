@@ -341,24 +341,6 @@ export class OrderService {
     }
   }
 
-  removeOrder(id: number) {
-    return this.orderModel.findByIdAndRemove(id);
-  }
-  async removeMultipleOrders(ids: number[]): Promise<void> {
-    try {
-      await Promise.all(
-        ids.map(async (id) => {
-          await this.orderModel.findByIdAndRemove(id);
-        }),
-      );
-    } catch (error) {
-      console.error('Error removing orders:', error);
-      throw new HttpException(
-        'Failed to remove some orders',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
   // Collections
   async findAllCollections() {
     try {
@@ -449,8 +431,10 @@ export class OrderService {
       new: true,
     });
   }
-  removeCollection(id: number) {
-    return this.collectionModel.findByIdAndRemove(id);
+  async removeCollection(user: User, id: number) {
+    const collection = await this.collectionModel.findByIdAndRemove(id);
+    this.orderGateway.emitCollectionChanged(user, collection);
+    return collection;
   }
   // discount
   async findAllDiscounts() {
@@ -464,7 +448,7 @@ export class OrderService {
       );
     }
   }
-  async createDiscount(createDiscountDto: CreateDiscountDto) {
+  async createDiscount(user: User, createDiscountDto: CreateDiscountDto) {
     const discount = new this.discountModel({
       ...createDiscountDto,
     });
@@ -476,14 +460,17 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    this.orderGateway.emitDiscountChanged(user, discount);
     return discount;
   }
-  updateDiscount(id: number, updates: UpdateQuery<Discount>) {
-    return this.discountModel.findByIdAndUpdate(id, updates, {
+  async updateDiscount(user: User, id: number, updates: UpdateQuery<Discount>) {
+    const discount = await this.discountModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.orderGateway.emitDiscountChanged(user, discount);
+    return discount;
   }
-  async removeDiscount(id: number) {
+  async removeDiscount(user: User, id: number) {
     const orders = await this.orderModel.find({ discount: id });
     if (orders.length > 0) {
       throw new HttpException(
@@ -491,7 +478,9 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.discountModel.findByIdAndRemove(id);
+    const discount = await this.discountModel.findByIdAndRemove(id);
+    this.orderGateway.emitDiscountChanged(user, discount);
+    return discount;
   }
   async createOrderForDivide(
     user: User,

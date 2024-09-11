@@ -42,6 +42,6 @@ export class TableGateway
   }
 
   emitTableChanged(user: User, table: any) {
-    this.server.emit('TableChanged', { user, table });
+    this.server.emit('tableChanged', { user, table });
   }
 }

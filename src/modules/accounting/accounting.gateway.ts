@@ -42,85 +42,85 @@ export class AccountingGateway
   }
 
   emitBrandChanged(user: User, brand: any) {
-    this.server.emit('BrandChanged', { user, brand });
+    this.server.emit('brandChanged', { user, brand });
   }
 
   emitCountChanged(user: User, count: any) {
-    this.server.emit('CountChanged', { user, count });
+    this.server.emit('countChanged', { user, count });
   }
 
   emitCountListChanged(user: User, countList: any) {
-    this.server.emit('CountListChanged', { user, countList });
+    this.server.emit('countListChanged', { user, countList });
   }
 
   emitExpenseTypeChanged(user: User, expenseType: any) {
-    this.server.emit('ExpenseTypeChanged', { user, expenseType });
+    this.server.emit('expenseTypeChanged', { user, expenseType });
   }
 
   emitFixtureChanged(user: User, fixture: any) {
-    this.server.emit('FixtureChanged', { user, fixture });
+    this.server.emit('fixtureChanged', { user, fixture });
   }
 
   emitFixtureCountChanged(user: User, fixtureCount: any) {
-    this.server.emit('FixtureCountChanged', { user, fixtureCount });
+    this.server.emit('fixtureCountChanged', { user, fixtureCount });
   }
 
   emitFixtureInvoiceChanged(user: User, fixtureInvoice: any) {
-    this.server.emit('FixtureInvoiceChanged', { user, fixtureInvoice });
+    this.server.emit('fixtureInvoiceChanged', { user, fixtureInvoice });
   }
 
   emitFixtureCountListChanged(user: User, fixtureCountList: any) {
-    this.server.emit('FixtureCountListChanged', { user, fixtureCountList });
+    this.server.emit('fixtureCountListChanged', { user, fixtureCountList });
   }
 
   emitInvoiceChanged(user: User, invoice: any) {
-    this.server.emit('InvoiceChanged', { user, invoice });
+    this.server.emit('invoiceChanged', { user, invoice });
   }
 
   emitPackageTypeChanged(user: User, packageType: any) {
-    this.server.emit('PackageTypeChanged', { user, packageType });
+    this.server.emit('packageTypeChanged', { user, packageType });
   }
 
   emitPaymentChanged(user: User, payment: any) {
-    this.server.emit('PaymentChanged', { user, payment });
+    this.server.emit('paymentChanged', { user, payment });
   }
 
   emitPaymentMethodChanged(user: User, paymentMethod: any) {
-    this.server.emit('PaymentMethodChanged', { user, paymentMethod });
+    this.server.emit('paymentMethodChanged', { user, paymentMethod });
   }
 
   emitProductChanged(user: User, product: any) {
-    this.server.emit('ProductChanged', { user, product });
+    this.server.emit('productChanged', { user, product });
   }
 
   emitProductStockHistoryChanged(user: User, productStockHistory: any) {
-    this.server.emit('ProductStockHistoryChanged', {
+    this.server.emit('productStockHistoryChanged', {
       user,
       productStockHistory,
     });
   }
 
   emitServiceChanged(user: User, service: any) {
-    this.server.emit('ServiceChanged', { user, service });
+    this.server.emit('serviceChanged', { user, service });
   }
 
   emitServiceInvoiceChanged(user: User, serviceInvoice: any) {
-    this.server.emit('ServiceInvoiceChanged', { user, serviceInvoice });
+    this.server.emit('serviceInvoiceChanged', { user, serviceInvoice });
   }
 
   emitStockChanged(user: User, stock: any) {
-    this.server.emit('StockChanged', { user, stock });
+    this.server.emit('stockChanged', { user, stock });
   }
 
   emitStockLocationChanged(user: User, stockLocation: any) {
-    this.server.emit('StockLocationChanged', { user, stockLocation });
+    this.server.emit('stockLocationChanged', { user, stockLocation });
   }
 
   emitUnitChanged(user: User, unit: any) {
-    this.server.emit('UnitChanged', { user, unit });
+    this.server.emit('unitChanged', { user, unit });
   }
 
   emitVendorChanged(user: User, vendor: any) {
-    this.server.emit('VendorChanged', { user, vendor });
+    this.server.emit('vendorChanged', { user, vendor });
   }
 }

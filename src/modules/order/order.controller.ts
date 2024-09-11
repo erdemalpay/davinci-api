@@ -140,11 +140,6 @@ export class OrderController {
     return this.orderService.findTodayOrders();
   }
 
-  @Patch('/delete_multiple')
-  deleteMultipleOrders(@Body('ids') ids: number[]) {
-    return this.orderService.removeMultipleOrders(ids);
-  }
-
   @Get('/date')
   findGivenDateOrders(
     @Query('location') location: number,
@@ -162,10 +157,6 @@ export class OrderController {
     return this.orderService.updateOrder(user, id, updates);
   }
 
-  @Delete('/:id')
-  deleteOrder(@Param('id') id: number) {
-    return this.orderService.removeOrder(id);
-  }
   //collections
   @Get('/collection')
   findAllCollections() {
@@ -198,8 +189,8 @@ export class OrderController {
   }
 
   @Delete('/collection/:id')
-  deleteCollection(@Param('id') id: number) {
-    return this.orderService.removeCollection(id);
+  deleteCollection(@ReqUser() user: User, @Param('id') id: number) {
+    return this.orderService.removeCollection(user, id);
   }
   // discount
   @Get('/discount')
@@ -208,20 +199,24 @@ export class OrderController {
   }
 
   @Post('/discount')
-  createDiscount(@Body() createDiscountDto: CreateDiscountDto) {
-    return this.orderService.createDiscount(createDiscountDto);
+  createDiscount(
+    @ReqUser() user: User,
+    @Body() createDiscountDto: CreateDiscountDto,
+  ) {
+    return this.orderService.createDiscount(user, createDiscountDto);
   }
 
   @Patch('/discount/:id')
   updateDiscount(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Discount>,
   ) {
-    return this.orderService.updateDiscount(id, updates);
+    return this.orderService.updateDiscount(user, id, updates);
   }
 
   @Delete('/discount/:id')
-  deleteDiscount(@Param('id') id: number) {
-    return this.orderService.removeDiscount(id);
+  deleteDiscount(@ReqUser() user: User, @Param('id') id: number) {
+    return this.orderService.removeDiscount(user, id);
   }
 }

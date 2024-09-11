@@ -42,6 +42,6 @@ export class RewardGateway
   }
 
   emitRewardChanged(user: User, reward: any) {
-    this.server.emit('RewardChanged', { user, reward });
+    this.server.emit('rewardChanged', { user, reward });
   }
 }

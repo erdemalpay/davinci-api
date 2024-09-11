@@ -48,4 +48,12 @@ export class OrderGateway
   emitOrderUpdated(socketUser: User, order: any) {
     this.server.emit('orderUpdated', { socketUser, order });
   }
+
+  emitDiscountChanged(socketUser: User, discount: any) {
+    this.server.emit('discountChanged', { socketUser, discount });
+  }
+
+  emitCollectionChanged(socketUser: User, collection: any) {
+    this.server.emit('collectionChanged', { socketUser, collection });
+  }
 }
