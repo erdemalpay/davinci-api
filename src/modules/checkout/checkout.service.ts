@@ -23,14 +23,7 @@ export class CheckoutService {
   ) {}
   // income
   findAllIncome() {
-    return this.incomeModel
-      .find()
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .populate('location')
-      .sort({ date: 1 });
+    return this.incomeModel.find().sort({ date: 1 });
   }
   async createIncome(user: User, createIncomeDto: CreateIncomeDto) {
     const income = await this.incomeModel.create({
@@ -55,13 +48,7 @@ export class CheckoutService {
 
   // Cashout
   findAllCashout() {
-    return this.cashoutModel
-      .find()
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .populate('location');
+    return this.cashoutModel.find();
   }
   async createCashout(user: User, createCashoutDto: CreateCashoutDto) {
     const cashout = await this.cashoutModel.create({
@@ -86,14 +73,7 @@ export class CheckoutService {
 
   // CheckoutControl
   findAllCheckoutControl() {
-    return this.checkoutControlModel
-      .find()
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .populate('location')
-      .sort({ date: 1 });
+    return this.checkoutControlModel.find().sort({ date: 1 });
   }
   async createCheckoutControl(
     user: User,

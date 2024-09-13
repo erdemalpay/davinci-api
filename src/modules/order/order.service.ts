@@ -34,14 +34,7 @@ export class OrderService {
   // Orders
   async findAllOrders() {
     try {
-      const orders = await this.orderModel
-        .find()
-        .populate('location table item discount')
-        .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
-          select: '-password',
-        })
-        .exec();
+      const orders = await this.orderModel.find().populate('table').exec();
       return orders;
     } catch (error) {
       throw new HttpException(
@@ -59,11 +52,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('location table item discount')
-        .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
-          select: '-password',
-        })
+        .populate('table')
         .exec();
       return orders;
     } catch (error) {
@@ -164,9 +153,9 @@ export class OrderService {
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
       const populatedOrder = await this.orderModel
         .findById(order._id)
-        .populate('location table item discount')
+
         .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
+          path: 'createdBy',
           select: '-password',
         })
         .exec();
@@ -346,11 +335,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('location table')
-        .populate({
-          path: 'createdBy cancelledBy',
-          select: '-password',
-        })
+        .populate('table')
         .exec();
       return collections;
     } catch (error) {
@@ -369,12 +354,8 @@ export class OrderService {
       );
 
       const allCollections = await this.collectionModel
-        .find({})
-        .populate('location table')
-        .populate({
-          path: 'createdBy cancelledBy',
-          select: '-password',
-        })
+        .find()
+        .populate('table')
         .exec();
 
       const collections = allCollections.filter((collection) =>

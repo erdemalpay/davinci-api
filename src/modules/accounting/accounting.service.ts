@@ -105,7 +105,7 @@ export class AccountingService {
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit');
+    return this.productModel.find();
   }
   async createProduct(user: User, createProductDto: CreateProductDto) {
     try {
@@ -418,14 +418,7 @@ export class AccountingService {
   }
   // Fixture Invoice
   findAllFixtureInvoices() {
-    return this.fixtureInvoiceModel
-      .find()
-      .populate('fixture expenseType brand vendor location paymentMethod')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.fixtureInvoiceModel.find().sort({ _id: -1 });
   }
   async createFixtureInvoice(
     user: User,
@@ -648,14 +641,7 @@ export class AccountingService {
   }
   // Service Invoice
   findAllServiceInvoices() {
-    return this.serviceInvoiceModel
-      .find()
-      .populate('service expenseType vendor location paymentMethod')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.serviceInvoiceModel.find().sort({ _id: -1 });
   }
   async createServiceInvoice(
     user: User,
@@ -936,7 +922,7 @@ export class AccountingService {
   }
   // packageType
   findAllPackageTypes() {
-    return this.packageTypeModel.find().populate('unit');
+    return this.packageTypeModel.find();
   }
   async createPackageType(
     user: User,
@@ -1096,14 +1082,7 @@ export class AccountingService {
   }
   // payment
   findAllPayments() {
-    return this.paymentModel
-      .find()
-      .populate('paymentMethod vendor location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.paymentModel.find().sort({ _id: -1 });
   }
 
   async createPayment(user: User, createPaymentDto: CreatePaymentDto) {
@@ -1129,16 +1108,7 @@ export class AccountingService {
   }
   // Invoices
   findAllInvoices() {
-    return this.invoiceModel
-      .find()
-      .populate(
-        'product expenseType brand vendor location packageType paymentMethod',
-      )
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.invoiceModel.find().sort({ _id: -1 });
   }
   async createInvoice(
     user: User,
@@ -1830,7 +1800,7 @@ export class AccountingService {
 
   // Stocks
   findAllStocks() {
-    return this.stockModel.find().populate('product location packageType');
+    return this.stockModel.find();
   }
 
   async createStock(user: User, createStockDto: CreateStockDto) {
@@ -2074,14 +2044,7 @@ export class AccountingService {
   }
   // Product Stock History
   findAllProductStockHistories() {
-    return this.productStockHistoryModel
-      .find()
-      .populate('product packageType location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.productStockHistoryModel.find().sort({ createdAt: -1 });
   }
   async createProductStockHistory(
     user: User,
@@ -2099,14 +2062,7 @@ export class AccountingService {
   }
   // Fixture Stock History
   findAllFixtureStockHistories() {
-    return this.fixtureStockHistoryModel
-      .find()
-      .populate('fixture location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.fixtureStockHistoryModel.find().sort({ createdAt: -1 });
   }
   async createFixtureStockHistory(
     createFixtureStockHistoryDto: CreateFixtureStockHistoryDto,
@@ -2119,7 +2075,7 @@ export class AccountingService {
   }
   // Fixture Stocks
   findAllFixtureStocks() {
-    return this.fixtureStockModel.find().populate('fixture location');
+    return this.fixtureStockModel.find();
   }
 
   async createFixtureStock(
@@ -2374,14 +2330,7 @@ export class AccountingService {
   }
   // count
   findAllCounts() {
-    return this.countModel
-      .find()
-      .populate('location countList')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ isCompleted: 1, completedAt: -1 });
+    return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
   }
   async createCount(user: User, createCountDto: CreateCountDto) {
     const counts = await this.countModel.find({
@@ -2411,14 +2360,7 @@ export class AccountingService {
 
   // fixtureCount
   findAllFixtureCounts() {
-    return this.fixtureCountModel
-      .find()
-      .populate('location countList')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.fixtureCountModel.find().sort({ createdAt: -1 });
   }
   async createFixtureCount(createFixtureCountDto: CreateFixtureCountDto) {
     const counts = await this.fixtureCountModel.find({
