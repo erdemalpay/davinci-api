@@ -15,17 +15,14 @@ export class VisitService {
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
-    return this.visitModel.find({ date, location }).populate({
-      path: 'user',
-      select: '_id name role active',
-      populate: 'role',
-    });
+    return this.visitModel.find({ date, location });
   }
 
   findMonthlyByLocation(date: string, location: number) {
-    return this.visitModel
-      .find({ date: { $gte: `${date}-01`, $lte: `${date}-31` }, location })
-      .populate({ path: 'user', select: '_id name' });
+    return this.visitModel.find({
+      date: { $gte: `${date}-01`, $lte: `${date}-31` },
+      location,
+    });
   }
 
   findOneByQuery(visitDto: VisitDto) {
@@ -72,7 +69,6 @@ export class VisitService {
         { __v: false, _id: false },
       )
       .sort({ date: 1, location: 1 })
-      .populate('user')
       .lean();
 
     return visits.map((visit) => {

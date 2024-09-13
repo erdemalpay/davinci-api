@@ -4,12 +4,15 @@ import diff from 'microdiff';
 import { Document, Model } from 'mongoose';
 import { User } from '../user/user.schema';
 import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
+import { ActivityGateway } from './activity.gateway';
 import { Activity } from './activity.schema';
+
 @Injectable()
 export class ActivityService {
   constructor(
     @InjectModel(Activity.name)
     private activityModel: Model<Activity<keyof ActivityTypePayload>>,
+    private readonly activityGateway: ActivityGateway,
   ) {}
 
   async getActivities(query: ActivityQueryDto) {
@@ -55,11 +58,13 @@ export class ActivityService {
     T extends keyof ActivityTypePayload,
     P extends ActivityTypePayload[T],
   >(user: User, type: T, payload: P) {
-    return this.activityModel.create({
+    const activity = await this.activityModel.create({
       user,
       type,
       payload,
     });
+    this.activityGateway.emitActivityChanged(activity);
+    return activity;
   }
 
   async addUpdateActivity<
@@ -80,7 +85,7 @@ export class ActivityService {
     } else if (dif.type === 'REMOVE') {
       oldValue = dif.oldValue;
     }
-    return this.activityModel.create({
+    const activity = await this.activityModel.create({
       user,
       type,
       payload: {
@@ -91,5 +96,7 @@ export class ActivityService {
         type: dif.type,
       },
     });
+    this.activityGateway.emitActivityChanged(activity);
+    return activity;
   }
 }

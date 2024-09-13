@@ -36,6 +36,7 @@ import {
   JoinProductDto,
   StockHistoryStatusEnum,
 } from './accounting.dto';
+import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
@@ -100,17 +101,19 @@ export class AccountingService {
     private readonly activityService: ActivityService,
     private readonly gameService: GameService,
     private readonly checkoutService: CheckoutService,
+    private readonly accountingGateway: AccountingGateway,
   ) {}
   //   Products
   findAllProducts() {
-    return this.productModel.find().populate('unit');
+    return this.productModel.find();
   }
-  async createProduct(createProductDto: CreateProductDto) {
+  async createProduct(user: User, createProductDto: CreateProductDto) {
     try {
       const product = new this.productModel(createProductDto);
       product._id =
         usernamify(product.name) + usernamify(createProductDto.unit);
       await product.save();
+      this.accountingGateway.emitProductChanged(user, product);
       return product;
     } catch (error) {
       throw new HttpException(
@@ -141,18 +144,20 @@ export class AccountingService {
       countList.products = updatedProducts;
       await countList.save();
     }
+    this.accountingGateway.emitCountListChanged(user, countLists);
 
     // updateStocks
     await this.stockModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-
+    this.accountingGateway.emitStockChanged(user, stayedProduct);
     // update invoices
     await this.invoiceModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
+    this.accountingGateway.emitInvoiceChanged(user, stayedProduct);
     //update menu items
     await this.MenuService.updateMenuItemProduct(
       user,
@@ -207,18 +212,23 @@ export class AccountingService {
 
     // remove product
     await this.productModel.findByIdAndDelete(removedProduct);
+    this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
 
-  updateProduct(id: string, updates: UpdateQuery<Product>) {
-    return this.productModel.findByIdAndUpdate(id, updates, {
+  async updateProduct(user: User, id: string, updates: UpdateQuery<Product>) {
+    const product = await this.productModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitProductChanged(user, product);
+    return product;
   }
-  async removeProduct(id: string) {
+  async removeProduct(user: User, id: string) {
     await this.checkIsProductRemovable(id);
     await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
-    return this.productModel.findByIdAndRemove(id);
+    const product = await this.productModel.findByIdAndRemove(id);
+    this.accountingGateway.emitProductChanged(user, product);
+    return product;
   }
   async checkIsProductRemovable(id: string) {
     const invoices = await this.invoiceModel.find({ product: id });
@@ -273,6 +283,7 @@ export class AccountingService {
     unit._id = usernamify(unit.name);
     await unit.save();
     this.activityService.addActivity(user, ActivityType.CREATE_UNIT, unit);
+    this.accountingGateway.emitUnitChanged(user, unit);
     return unit;
   }
   async updateUnit(user: User, id: string, updates: UpdateQuery<Unit>) {
@@ -286,6 +297,7 @@ export class AccountingService {
       oldUnit,
       newUnit,
     );
+    this.accountingGateway.emitUnitChanged(user, newUnit);
     return newUnit;
   }
   async removeUnit(user: User, id: string) {
@@ -298,27 +310,33 @@ export class AccountingService {
     }
     const unit = await this.unitModel.findByIdAndRemove(id);
     this.activityService.addActivity(user, ActivityType.DELETE_UNIT, unit);
+    this.accountingGateway.emitUnitChanged(user, unit);
     return unit;
   }
   // Fixtures
   findAllFixtures() {
     return this.fixtureModel.find();
   }
-  async createFixture(createFixtureDto: CreateFixtureDto) {
+  async createFixture(user: User, createFixtureDto: CreateFixtureDto) {
     const fixture = new this.fixtureModel(createFixtureDto);
     fixture._id = usernamify(fixture.name);
     await fixture.save();
+    this.accountingGateway.emitFixtureChanged(user, fixture);
     return fixture;
   }
-  updateFixture(id: string, updates: UpdateQuery<Fixture>) {
-    return this.fixtureModel.findByIdAndUpdate(id, updates, {
+  async updateFixture(user: User, id: string, updates: UpdateQuery<Fixture>) {
+    const fixture = await this.fixtureModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitFixtureChanged(user, fixture);
+    return fixture;
   }
-  async removeFixture(id: string) {
+  async removeFixture(user: User, id: string) {
     await this.checkIsFixtureRemovable(id);
     await this.fixtureStockModel.deleteMany({ fixture: id }); //removing the 0 amount stocks of the fixture
-    return this.fixtureModel.findByIdAndRemove(id);
+    const fixture = await this.fixtureModel.findByIdAndRemove(id);
+    this.accountingGateway.emitFixtureChanged(user, fixture);
+    return fixture;
   }
   async checkIsFixtureRemovable(id: string) {
     const invoices = await this.fixtureInvoiceModel.find({ fixture: id });
@@ -344,7 +362,7 @@ export class AccountingService {
   async gamesFixtures(user: User) {
     const games = await this.gameService.getGames();
     for (const game of games) {
-      await this.createFixture({
+      await this.createFixture(user, {
         name: game.name,
         expenseType: ['kutuphane'],
       });
@@ -371,19 +389,22 @@ export class AccountingService {
   findAllServices() {
     return this.serviceModel.find();
   }
-  async createService(createServiceDto: CreateServiceDto) {
+  async createService(user: User, createServiceDto: CreateServiceDto) {
     const service = new this.serviceModel(createServiceDto);
     service._id = usernamify(service.name);
     await service.save();
+    this.accountingGateway.emitServiceChanged(user, service);
     return service;
   }
 
-  updateService(id: string, updates: UpdateQuery<Service>) {
-    return this.serviceModel.findByIdAndUpdate(id, updates, {
+  async updateService(user: User, id: string, updates: UpdateQuery<Service>) {
+    const service = await this.serviceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitServiceChanged(user, service);
+    return service;
   }
-  async removeService(id: string) {
+  async removeService(user: User, id: string) {
     const invoices = await this.serviceInvoiceModel.find({ service: id });
     if (invoices.length > 0) {
       throw new HttpException(
@@ -391,18 +412,13 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.serviceModel.findByIdAndRemove(id);
+    const service = await this.serviceModel.findByIdAndRemove(id);
+    this.accountingGateway.emitServiceChanged(user, service);
+    return service;
   }
   // Fixture Invoice
   findAllFixtureInvoices() {
-    return this.fixtureInvoiceModel
-      .find()
-      .populate('fixture expenseType brand vendor location paymentMethod')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.fixtureInvoiceModel.find().sort({ _id: -1 });
   }
   async createFixtureInvoice(
     user: User,
@@ -425,11 +441,12 @@ export class AccountingService {
           ).toFixed(4),
         );
 
-        await this.fixtureModel.findByIdAndUpdate(
+        const fixture = await this.fixtureModel.findByIdAndUpdate(
           createFixtureInvoiceDto.fixture,
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
+        this.accountingGateway.emitFixtureChanged(user, fixture);
       }
       // adding invoice amount to fixture stock
       await this.createFixtureStock(user, {
@@ -438,10 +455,12 @@ export class AccountingService {
         quantity: createFixtureInvoiceDto.quantity,
         status: status,
       });
+
       const invoice = await this.fixtureInvoiceModel.create({
         ...createFixtureInvoiceDto,
         user: user._id,
       });
+      this.accountingGateway.emitFixtureInvoiceChanged(user, invoice);
       if (createFixtureInvoiceDto.isPaid) {
         await this.createPayment(user, {
           amount: createFixtureInvoiceDto.totalExpense,
@@ -501,6 +520,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitFixtureInvoiceChanged(user, newInvoice);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_FIXTUREEXPENSE,
@@ -535,6 +555,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitFixtureInvoiceChanged(user, newInvoice);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_FIXTUREEXPENSE,
@@ -606,7 +627,8 @@ export class AccountingService {
       quantity: -1 * invoice.quantity,
       status: status,
     });
-    await this.fixtureInvoiceModel.findByIdAndRemove(id);
+    const removedInvoice = await this.fixtureInvoiceModel.findByIdAndRemove(id);
+    this.accountingGateway.emitFixtureInvoiceChanged(user, removedInvoice);
     this.activityService.addActivity(
       user,
       ActivityType.DELETE_FIXTUREEXPENSE,
@@ -614,18 +636,12 @@ export class AccountingService {
     );
     // remove payments
     await this.paymentModel.deleteMany({ fixtureInvoice: id });
+    this.accountingGateway.emitPaymentChanged(user, null);
     return invoice;
   }
   // Service Invoice
   findAllServiceInvoices() {
-    return this.serviceInvoiceModel
-      .find()
-      .populate('service expenseType vendor location paymentMethod')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.serviceInvoiceModel.find().sort({ _id: -1 });
   }
   async createServiceInvoice(
     user: User,
@@ -647,16 +663,18 @@ export class AccountingService {
           ).toFixed(4),
         );
 
-        await this.serviceModel.findByIdAndUpdate(
+        const service = await this.serviceModel.findByIdAndUpdate(
           createServiceInvoiceDto.service,
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
+        this.accountingGateway.emitServiceChanged(user, service);
       }
       const invoice = await this.serviceInvoiceModel.create({
         ...createServiceInvoiceDto,
         user: user._id,
       });
+      this.accountingGateway.emitServiceInvoiceChanged(user, invoice);
 
       if (createServiceInvoiceDto.isPaid) {
         await this.createPayment(user, {
@@ -712,7 +730,7 @@ export class AccountingService {
       .find({ service: invoice.service })
       .sort({ date: -1 });
     if (serviceLastInvoice[0]?._id === id) {
-      await this.serviceModel.findByIdAndUpdate(
+      const service = await this.serviceModel.findByIdAndUpdate(
         invoice.service,
         {
           unitPrice: serviceLastInvoice[1]
@@ -728,8 +746,10 @@ export class AccountingService {
           new: true,
         },
       );
+      this.accountingGateway.emitServiceChanged(user, service);
     }
     await this.serviceInvoiceModel.findByIdAndRemove(id);
+    this.accountingGateway.emitServiceInvoiceChanged(user, invoice);
     this.activityService.addActivity(
       user,
       ActivityType.DELETE_SERVICEEXPENSE,
@@ -737,6 +757,7 @@ export class AccountingService {
     );
     // remove payments
     await this.paymentModel.deleteMany({ serviceInvoice: id });
+    this.accountingGateway.emitPaymentChanged(user, null);
     return invoice;
   }
 
@@ -756,6 +777,7 @@ export class AccountingService {
       ActivityType.CREATE_EXPENSETYPE,
       expenseType,
     );
+    this.accountingGateway.emitExpenseTypeChanged(user, expenseType);
     return expenseType;
   }
   async updateExpenseType(
@@ -777,6 +799,7 @@ export class AccountingService {
       oldExpenseType,
       newExpenseType,
     );
+    this.accountingGateway.emitExpenseTypeChanged(user, newExpenseType);
     return newExpenseType;
   }
   async removeExpenseType(user: User, id: string) {
@@ -802,6 +825,7 @@ export class AccountingService {
       ActivityType.DELETE_EXPENSETYPE,
       expenseType,
     );
+    this.accountingGateway.emitExpenseTypeChanged(user, expenseType);
     return expenseType;
   }
   //   Brands
@@ -813,6 +837,7 @@ export class AccountingService {
     brand._id = usernamify(brand.name);
     await brand.save();
     this.activityService.addActivity(user, ActivityType.CREATE_BRAND, brand);
+    this.accountingGateway.emitBrandChanged(user, brand);
     return brand;
   }
   async updateBrand(user: User, id: string, updates: UpdateQuery<Brand>) {
@@ -826,6 +851,7 @@ export class AccountingService {
       oldBrand,
       newBrand,
     );
+    this.accountingGateway.emitBrandChanged(user, newBrand);
     return newBrand;
   }
   async removeBrand(user: User, id: string) {
@@ -843,6 +869,7 @@ export class AccountingService {
     }
     const brand = await this.brandModel.findByIdAndRemove(id);
     this.activityService.addActivity(user, ActivityType.DELETE_BRAND, brand);
+    this.accountingGateway.emitBrandChanged(user, brand);
     return brand;
   }
 
@@ -855,6 +882,7 @@ export class AccountingService {
     vendor._id = usernamify(vendor.name);
     await vendor.save();
     this.activityService.addActivity(user, ActivityType.CREATE_VENDOR, vendor);
+    this.accountingGateway.emitVendorChanged(user, vendor);
     return vendor;
   }
   async updateVendor(user: User, id: string, updates: UpdateQuery<Vendor>) {
@@ -868,6 +896,7 @@ export class AccountingService {
       oldVendor,
       newVendor,
     );
+    this.accountingGateway.emitVendorChanged(user, newVendor);
     return newVendor;
   }
   async removeVendor(user: User, id: string) {
@@ -888,11 +917,12 @@ export class AccountingService {
     }
     const vendor = await this.vendorModel.findByIdAndRemove(id);
     this.activityService.addActivity(user, ActivityType.DELETE_VENDOR, vendor);
+    this.accountingGateway.emitVendorChanged(user, vendor);
     return vendor;
   }
   // packageType
   findAllPackageTypes() {
-    return this.packageTypeModel.find().populate('unit');
+    return this.packageTypeModel.find();
   }
   async createPackageType(
     user: User,
@@ -907,6 +937,7 @@ export class AccountingService {
       ActivityType.CREATE_PACKAGETYPE,
       packageType,
     );
+    this.accountingGateway.emitPackageTypeChanged(user, packageType);
     return packageType;
   }
   async updatePackageType(
@@ -928,6 +959,7 @@ export class AccountingService {
       oldPackageType,
       newPackageType,
     );
+    this.accountingGateway.emitPackageTypeChanged(user, newPackageType);
     return newPackageType;
   }
   async removePackageType(user: User, id: string) {
@@ -947,6 +979,7 @@ export class AccountingService {
       ActivityType.DELETE_PACKAGETYPE,
       packageType,
     );
+    this.accountingGateway.emitPackageTypeChanged(user, packageType);
     return packageType;
   }
   // payment methods
@@ -966,6 +999,7 @@ export class AccountingService {
       ActivityType.CREATE_PAYMENTMETHOD,
       paymentMethod,
     );
+    this.accountingGateway.emitPaymentMethodChanged(user, paymentMethod);
     return paymentMethod;
   }
   async updatePaymentMethod(
@@ -987,6 +1021,7 @@ export class AccountingService {
       oldPaymentMethod,
       newPaymentMethod,
     );
+    this.accountingGateway.emitPaymentMethodChanged(user, newPaymentMethod);
     return newPaymentMethod;
   }
   async removePaymentMethod(user: User, id: string) {
@@ -1022,6 +1057,7 @@ export class AccountingService {
       ActivityType.DELETE_PAYMENTMETHOD,
       paymentMethod,
     );
+    this.accountingGateway.emitPaymentMethodChanged(user, paymentMethod);
     return paymentMethod;
   }
   async createFixedPaymentMethods() {
@@ -1046,46 +1082,33 @@ export class AccountingService {
   }
   // payment
   findAllPayments() {
-    return this.paymentModel
-      .find()
-      .populate('paymentMethod vendor location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.paymentModel.find().sort({ _id: -1 });
   }
 
-  createPayment(user: User, createPaymentDto: CreatePaymentDto) {
-    const payment = this.paymentModel.create({
+  async createPayment(user: User, createPaymentDto: CreatePaymentDto) {
+    const payment = await this.paymentModel.create({
       ...createPaymentDto,
       user: user,
     });
+    this.accountingGateway.emitPaymentChanged(user, payment);
     return payment;
   }
-  updatePayment(id: string, updates: UpdateQuery<Payment>) {
+  async updatePayment(user: User, id: string, updates: UpdateQuery<Payment>) {
     const newPayment = this.paymentModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitPaymentChanged(user, newPayment);
     return newPayment;
   }
 
-  removePayment(id: string) {
-    const payment = this.paymentModel.findByIdAndRemove(id);
+  async removePayment(user: User, id: string) {
+    const payment = await this.paymentModel.findByIdAndRemove(id);
+    this.accountingGateway.emitPaymentChanged(user, payment);
     return payment;
   }
   // Invoices
   findAllInvoices() {
-    return this.invoiceModel
-      .find()
-      .populate(
-        'product expenseType brand vendor location packageType paymentMethod',
-      )
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ _id: -1 });
+    return this.invoiceModel.find().sort({ _id: -1 });
   }
   async createInvoice(
     user: User,
@@ -1126,7 +1149,7 @@ export class AccountingService {
             },
           ];
           await product.save();
-
+          this.accountingGateway.emitProductChanged(user, product);
           const productStocks = await this.stockModel
             .find({ product: createInvoiceDto.product })
             .populate('packageType');
@@ -1171,17 +1194,19 @@ export class AccountingService {
             ),
           );
         }
-        await this.productModel.findByIdAndUpdate(
+        const product = await this.productModel.findByIdAndUpdate(
           createInvoiceDto.product,
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
+        this.accountingGateway.emitProductChanged(user, product);
       }
 
       const invoice = await this.invoiceModel.create({
         ...createInvoiceDto,
         user: user._id,
       });
+      this.accountingGateway.emitInvoiceChanged(user, invoice);
       if (createInvoiceDto?.isStockIncrement) {
         // adding invoice amount to stock
         await this.createStock(user, {
@@ -1249,6 +1274,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitInvoiceChanged(user, newInvoice);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
@@ -1283,6 +1309,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitInvoiceChanged(user, newInvoice);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
@@ -1338,6 +1365,7 @@ export class AccountingService {
 
     //remove from the invoice
     await this.invoiceModel.findByIdAndDelete(id);
+    this.accountingGateway.emitInvoiceChanged(user, invoice);
     this.activityService.addActivity(
       user,
       ActivityType.DELETE_EXPENSE,
@@ -1345,6 +1373,7 @@ export class AccountingService {
     );
     // remove from payments
     await this.paymentModel.deleteMany({ invoice: id });
+    this.accountingGateway.emitPaymentChanged(user, null);
     // updating the packagetype unit price
     const product = await this.productModel.findById(invoice.product);
     const invoicePackageType = await this.packageTypeModel.findById(
@@ -1454,7 +1483,9 @@ export class AccountingService {
     }
 
     await product.save();
+    this.accountingGateway.emitProductChanged(user, product);
   }
+
   async transferInvoiceToFixtureInvoice(user: User, id: number) {
     const foundInvoice = await this.invoiceModel.findById(id);
     if (!foundInvoice) {
@@ -1468,7 +1499,7 @@ export class AccountingService {
 
     let fixture = await this.fixtureModel.findById(usernamify(product.name));
     if (!fixture) {
-      fixture = await this.createFixture({
+      fixture = await this.createFixture(user, {
         name: product.name,
         unitPrice: product?.unitPrice ?? 0,
         expenseType: product?.expenseType,
@@ -1513,6 +1544,7 @@ export class AccountingService {
 
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1522,9 +1554,9 @@ export class AccountingService {
     }
 
     try {
-      await this.removeProductStocks(foundInvoice.product);
-      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
-      await this.removeProduct(foundInvoice.product);
+      await this.removeProductStocks(user, foundInvoice.product);
+      await this.removeProductStocks(user, usernamify(product.name)); //this is needed for the first product id type which is not including the units
+      await this.removeProduct(user, foundInvoice.product);
     } catch (error) {
       throw new HttpException(
         `Failed to remove the product`,
@@ -1545,7 +1577,7 @@ export class AccountingService {
     }
     let service = await this.serviceModel.findById(usernamify(product.name));
     if (!service) {
-      service = await this.createService({
+      service = await this.createService(user, {
         name: product.name,
         unitPrice: product?.unitPrice ?? 0,
         expenseType: product?.expenseType,
@@ -1584,6 +1616,7 @@ export class AccountingService {
 
       try {
         await this.invoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1593,9 +1626,9 @@ export class AccountingService {
     }
 
     try {
-      await this.removeProductStocks(foundInvoice.product);
-      await this.removeProductStocks(usernamify(product.name)); //this is needed for the first product id type which is not including the units
-      await this.removeProduct(foundInvoice.product);
+      await this.removeProductStocks(user, foundInvoice.product);
+      await this.removeProductStocks(user, usernamify(product.name)); //this is needed for the first product id type which is not including the units
+      await this.removeProduct(user, foundInvoice.product);
     } catch (error) {
       throw new HttpException(
         `Failed to remove the product`,
@@ -1620,7 +1653,7 @@ export class AccountingService {
     );
 
     if (!product) {
-      product = await this.createProduct({
+      product = await this.createProduct(user, {
         name: fixture.name,
         unitPrice: fixture?.unitPrice ?? 0,
         expenseType: fixture?.expenseType,
@@ -1665,6 +1698,7 @@ export class AccountingService {
 
       try {
         await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1675,7 +1709,7 @@ export class AccountingService {
 
     try {
       await this.removeFixtureFixtureStocks(foundInvoice.fixture);
-      await this.removeFixture(foundInvoice.fixture);
+      await this.removeFixture(user, foundInvoice.fixture);
     } catch (error) {
       throw new HttpException(
         `Failed to remove the fixture`,
@@ -1700,7 +1734,7 @@ export class AccountingService {
     );
 
     if (!product) {
-      product = await this.createProduct({
+      product = await this.createProduct(user, {
         name: service.name,
         unitPrice: service?.unitPrice ?? 0,
         expenseType: service?.expenseType,
@@ -1745,6 +1779,7 @@ export class AccountingService {
 
       try {
         await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
       } catch (error) {
         throw new HttpException(
           'Failed to remove invoice',
@@ -1754,7 +1789,7 @@ export class AccountingService {
     }
 
     try {
-      await this.removeFixture(foundInvoice.service);
+      await this.removeFixture(user, foundInvoice.service);
     } catch (error) {
       throw new HttpException(
         `Failed to remove the service associated with the invoice`,
@@ -1765,7 +1800,7 @@ export class AccountingService {
 
   // Stocks
   findAllStocks() {
-    return this.stockModel.find().populate('product location packageType');
+    return this.stockModel.find();
   }
 
   async createStock(user: User, createStockDto: CreateStockDto) {
@@ -1785,8 +1820,9 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitStockChanged(user, newStock);
       // create stock history with currentAmount
-      await this.createProductStockHistory({
+      await this.createProductStockHistory(user, {
         user: user._id,
         product: createStockDto.product,
         location: createStockDto.location,
@@ -1806,10 +1842,11 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
+      this.accountingGateway.emitStockChanged(user, stock);
       // create Activity
       this.activityService.addActivity(user, ActivityType.CREATE_STOCK, stock);
       // create stock history with currentAmount 0
-      await this.createProductStockHistory({
+      await this.createProductStockHistory(user, {
         user: user._id,
         product: createStockDto.product,
         location: createStockDto.location,
@@ -1886,7 +1923,7 @@ export class AccountingService {
       packageType: packageType,
     });
 
-    await this.countModel.updateOne(
+    const count = await this.countModel.updateOne(
       { _id: currentCountId },
       { $set: { 'products.$[elem].isStockEqualized': true } },
       {
@@ -1895,6 +1932,7 @@ export class AccountingService {
         ],
       },
     );
+    this.accountingGateway.emitCountChanged(user, count);
 
     await this.createStock(user, {
       product: product,
@@ -1915,7 +1953,7 @@ export class AccountingService {
 
     try {
       // Create stock history with status delete
-      await this.createProductStockHistory({
+      await this.createProductStockHistory(user, {
         product: stock.product?._id,
         location: stock.location,
         packageType: stock.packageType?._id,
@@ -1931,6 +1969,7 @@ export class AccountingService {
         deletedStock,
       );
       // Remove the stock item
+      this.accountingGateway.emitStockChanged(user, deletedStock);
       return deletedStock;
     } catch (error) {
       throw new HttpException(
@@ -1940,7 +1979,7 @@ export class AccountingService {
     }
   }
 
-  async removeProductStocks(id: string) {
+  async removeProductStocks(user: User, id: string) {
     const productStocks = await this.stockModel.find({ product: id });
     const ProductStockHistory = await this.productStockHistoryModel.find({
       product: id,
@@ -1948,9 +1987,14 @@ export class AccountingService {
     for (const stockHistory of ProductStockHistory) {
       await this.productStockHistoryModel.findByIdAndRemove(stockHistory.id);
     }
+    this.accountingGateway.emitProductStockHistoryChanged(
+      user,
+      ProductStockHistory,
+    );
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
+    this.accountingGateway.emitStockChanged(user, productStocks);
   }
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
     const stock = await this.stockModel.find({
@@ -1968,6 +2012,7 @@ export class AccountingService {
         },
         { new: true },
       );
+      this.accountingGateway.emitStockChanged(user, newStock);
       //create Activity
       this.activityService.addUpdateActivity(
         user,
@@ -1976,7 +2021,7 @@ export class AccountingService {
         newStock,
       );
       // create stock history with currentAmount
-      await this.createProductStockHistory({
+      await this.createProductStockHistory(user, {
         user: user._id,
         product: consumptStockDto.product,
         location: consumptStockDto.location,
@@ -1999,36 +2044,27 @@ export class AccountingService {
   }
   // Product Stock History
   findAllProductStockHistories() {
-    return this.productStockHistoryModel
-      .find()
-      .populate('product packageType location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.productStockHistoryModel.find().sort({ createdAt: -1 });
   }
-  createProductStockHistory(
+  async createProductStockHistory(
+    user: User,
     createProductStockHistoryDto: CreateProductStockHistoryDto,
   ) {
-    const productStockHistory = new this.productStockHistoryModel({
+    const productStockHistory = await new this.productStockHistoryModel({
       ...createProductStockHistoryDto,
       createdAt: new Date(),
     });
+    this.accountingGateway.emitProductStockHistoryChanged(
+      user,
+      productStockHistory,
+    );
     return productStockHistory.save();
   }
   // Fixture Stock History
   findAllFixtureStockHistories() {
-    return this.fixtureStockHistoryModel
-      .find()
-      .populate('fixture location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.fixtureStockHistoryModel.find().sort({ createdAt: -1 });
   }
-  createFixtureStockHistory(
+  async createFixtureStockHistory(
     createFixtureStockHistoryDto: CreateFixtureStockHistoryDto,
   ) {
     const fixtureStockHistory = new this.fixtureStockHistoryModel({
@@ -2039,7 +2075,7 @@ export class AccountingService {
   }
   // Fixture Stocks
   findAllFixtureStocks() {
-    return this.fixtureStockModel.find().populate('fixture location');
+    return this.fixtureStockModel.find();
   }
 
   async createFixtureStock(
@@ -2160,17 +2196,31 @@ export class AccountingService {
   findAllStockLocations() {
     return this.stockLocationModel.find();
   }
-  createStockLocation(createStockLocationDto: CreateStockLocationDto) {
+  createStockLocation(
+    user: User,
+    createStockLocationDto: CreateStockLocationDto,
+  ) {
     const stockLocation = new this.stockLocationModel(createStockLocationDto);
     stockLocation._id = usernamify(stockLocation.name);
+    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
     return stockLocation.save();
   }
-  updateStockLocation(id: string, updates: UpdateQuery<StockLocation>) {
-    return this.stockLocationModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+  async updateStockLocation(
+    user: User,
+    id: string,
+    updates: UpdateQuery<StockLocation>,
+  ) {
+    const stockLocation = await this.stockLocationModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
+    return stockLocation;
   }
-  async removeStockLocation(id: string) {
+  async removeStockLocation(user: User, id: string) {
     const [
       counts,
       fixtureCounts,
@@ -2215,24 +2265,33 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.stockLocationModel.findByIdAndRemove(id);
+    const stockLocation = await this.stockLocationModel.findByIdAndRemove(id);
+    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
+    return stockLocation;
   }
   // countlist
-  createCountList(createCountListDto: CreateCountListDto) {
+  async createCountList(user: User, createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);
     countList.locations = ['bahceli', 'neorama'];
+    this.accountingGateway.emitCountListChanged(user, countList);
     return countList.save();
   }
   findAllCountLists() {
     return this.countListModel.find();
   }
-  updateCountList(id: string, updates: UpdateQuery<CountList>) {
-    return this.countListModel.findByIdAndUpdate(id, updates, {
+  async updateCountList(
+    user: User,
+    id: string,
+    updates: UpdateQuery<CountList>,
+  ) {
+    const countList = await this.countListModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitCountListChanged(user, countList);
+    return countList;
   }
-  async removeCountList(id: string) {
+  async removeCountList(user: User, id: string) {
     const counts = await this.countModel.find({ countList: id });
     if (counts.length > 0) {
       throw new HttpException(
@@ -2240,7 +2299,9 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.countListModel.findByIdAndRemove(id);
+    const countList = await this.countListModel.findByIdAndRemove(id);
+    this.accountingGateway.emitCountListChanged(user, countList);
+    return countList;
   }
   //fixture Count list
   createFixtureCountList(createFixtureCountListDto: CreateFixtureCountListDto) {
@@ -2269,16 +2330,9 @@ export class AccountingService {
   }
   // count
   findAllCounts() {
-    return this.countModel
-      .find()
-      .populate('location countList')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ isCompleted: 1, completedAt: -1 });
+    return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
   }
-  async createCount(createCountDto: CreateCountDto) {
+  async createCount(user: User, createCountDto: CreateCountDto) {
     const counts = await this.countModel.find({
       isCompleted: false,
       user: createCountDto.user,
@@ -2293,24 +2347,20 @@ export class AccountingService {
     }
     const count = new this.countModel(createCountDto);
     count._id = usernamify(count.user + new Date().toISOString());
+    this.accountingGateway.emitCountChanged(user, count);
     return count.save();
   }
-  updateCount(id: string, updates: UpdateQuery<Count>) {
-    return this.countModel.findByIdAndUpdate(id, updates, {
+  async updateCount(user: User, id: string, updates: UpdateQuery<Count>) {
+    const count = await this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.accountingGateway.emitCountChanged(user, count);
+    return count;
   }
 
   // fixtureCount
   findAllFixtureCounts() {
-    return this.fixtureCountModel
-      .find()
-      .populate('location countList')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ createdAt: -1 });
+    return this.fixtureCountModel.find().sort({ createdAt: -1 });
   }
   async createFixtureCount(createFixtureCountDto: CreateFixtureCountDto) {
     const counts = await this.fixtureCountModel.find({
@@ -2340,73 +2390,7 @@ export class AccountingService {
       $set: { unit: 'adet' },
     });
   }
-  async updateInvoicesLocation() {
-    // Assuming the creation of stock locations is handled elsewhere or checked if already exists
-    try {
-      await this.createStockLocation({ name: 'Bahçeli' });
-    } catch (error) {
-      throw new HttpException(
-        'Error creating stock location',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    try {
-      await this.createStockLocation({ name: 'Neorama' });
-    } catch (error) {
-      throw new HttpException(
-        'Error creating stock location',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const invoices = await this.invoiceModel.find({});
-    for (const invoice of invoices) {
-      // Update the location based on the previous number value
-      switch (invoice.location) {
-        case 1:
-          invoice.location = 'bahceli';
-          break;
-        case 2:
-          invoice.location = 'neorama';
-          break;
-      }
-      // Save the invoice if the location was updated
-      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
-        await invoice.save();
-      }
-    }
-    const fixtureInvoices = await this.fixtureInvoiceModel.find({});
-    for (const invoice of fixtureInvoices) {
-      // Update the location based on the previous number value
-      switch (invoice.location) {
-        case 1:
-          invoice.location = 'bahceli';
-          break;
-        case 2:
-          invoice.location = 'neorama';
-          break;
-      }
-      // Save the invoice if the location was updated
-      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
-        await invoice.save();
-      }
-    }
-    const serviceInvoices = await this.serviceInvoiceModel.find({});
-    for (const invoice of serviceInvoices) {
-      // Update the location based on the previous number value
-      switch (invoice.location) {
-        case 1:
-          invoice.location = 'bahceli';
-          break;
-        case 2:
-          invoice.location = 'neorama';
-          break;
-      }
-      // Save the invoice if the location was updated
-      if (invoice.location === 'bahceli' || invoice.location === 'neorama') {
-        await invoice.save();
-      }
-    }
-  }
+
   async updateInvoicesPayments() {
     await this.invoiceModel.updateMany(
       {},

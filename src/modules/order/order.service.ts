@@ -34,14 +34,7 @@ export class OrderService {
   // Orders
   async findAllOrders() {
     try {
-      const orders = await this.orderModel
-        .find()
-        .populate('location table item discount')
-        .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
-          select: '-password',
-        })
-        .exec();
+      const orders = await this.orderModel.find().populate('table').exec();
       return orders;
     } catch (error) {
       throw new HttpException(
@@ -59,11 +52,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('location table item discount')
-        .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
-          select: '-password',
-        })
+        .populate('table')
         .exec();
       return orders;
     } catch (error) {
@@ -164,9 +153,9 @@ export class OrderService {
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
       const populatedOrder = await this.orderModel
         .findById(order._id)
-        .populate('location table item discount')
+
         .populate({
-          path: 'createdBy preparedBy deliveredBy cancelledBy',
+          path: 'createdBy',
           select: '-password',
         })
         .exec();
@@ -341,34 +330,12 @@ export class OrderService {
     }
   }
 
-  removeOrder(id: number) {
-    return this.orderModel.findByIdAndRemove(id);
-  }
-  async removeMultipleOrders(ids: number[]): Promise<void> {
-    try {
-      await Promise.all(
-        ids.map(async (id) => {
-          await this.orderModel.findByIdAndRemove(id);
-        }),
-      );
-    } catch (error) {
-      console.error('Error removing orders:', error);
-      throw new HttpException(
-        'Failed to remove some orders',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
   // Collections
   async findAllCollections() {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('location table')
-        .populate({
-          path: 'createdBy cancelledBy',
-          select: '-password',
-        })
+        .populate('table')
         .exec();
       return collections;
     } catch (error) {
@@ -387,12 +354,8 @@ export class OrderService {
       );
 
       const allCollections = await this.collectionModel
-        .find({})
-        .populate('location table')
-        .populate({
-          path: 'createdBy cancelledBy',
-          select: '-password',
-        })
+        .find()
+        .populate('table')
         .exec();
 
       const collections = allCollections.filter((collection) =>
@@ -449,8 +412,10 @@ export class OrderService {
       new: true,
     });
   }
-  removeCollection(id: number) {
-    return this.collectionModel.findByIdAndRemove(id);
+  async removeCollection(user: User, id: number) {
+    const collection = await this.collectionModel.findByIdAndRemove(id);
+    this.orderGateway.emitCollectionChanged(user, collection);
+    return collection;
   }
   // discount
   async findAllDiscounts() {
@@ -464,7 +429,7 @@ export class OrderService {
       );
     }
   }
-  async createDiscount(createDiscountDto: CreateDiscountDto) {
+  async createDiscount(user: User, createDiscountDto: CreateDiscountDto) {
     const discount = new this.discountModel({
       ...createDiscountDto,
     });
@@ -476,14 +441,17 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    this.orderGateway.emitDiscountChanged(user, discount);
     return discount;
   }
-  updateDiscount(id: number, updates: UpdateQuery<Discount>) {
-    return this.discountModel.findByIdAndUpdate(id, updates, {
+  async updateDiscount(user: User, id: number, updates: UpdateQuery<Discount>) {
+    const discount = await this.discountModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.orderGateway.emitDiscountChanged(user, discount);
+    return discount;
   }
-  async removeDiscount(id: number) {
+  async removeDiscount(user: User, id: number) {
     const orders = await this.orderModel.find({ discount: id });
     if (orders.length > 0) {
       throw new HttpException(
@@ -491,7 +459,9 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.discountModel.findByIdAndRemove(id);
+    const discount = await this.discountModel.findByIdAndRemove(id);
+    this.orderGateway.emitDiscountChanged(user, discount);
+    return discount;
   }
   async createOrderForDivide(
     user: User,

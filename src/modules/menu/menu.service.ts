@@ -27,11 +27,11 @@ export class MenuService {
   ) {}
 
   findAllCategories() {
-    return this.categoryModel.find().populate('kitchen').sort({ order: 'asc' });
+    return this.categoryModel.find().sort({ order: 'asc' });
   }
 
   findAllItems() {
-    return this.itemModel.find().populate('category').sort({ order: 'asc' });
+    return this.itemModel.find().sort({ order: 'asc' });
   }
   async setOrder(user: User) {
     const items = await this.itemModel.find();
@@ -124,7 +124,7 @@ export class MenuService {
 
   // popular
   async findAllPopular() {
-    return this.popularModel.find().populate('item').sort({ order: 'asc' });
+    return this.popularModel.find().sort({ order: 'asc' });
   }
 
   async createPopular(user: User, createPopularDto: CreatePopularDto) {
@@ -139,9 +139,9 @@ export class MenuService {
     return popularItem;
   }
 
-  async removePopular(user: User, id: number) {
+  async removePopular(id: number) {
     const popularItem = await this.popularModel.findByIdAndRemove(id);
-    this.menuGateway.emitPopularChanged(user, popularItem);
+    // this.menuGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
   async updatePopular(user: User, id: number, updates: UpdateQuery<Popular>) {

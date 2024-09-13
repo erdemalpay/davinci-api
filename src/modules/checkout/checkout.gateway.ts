@@ -42,19 +42,19 @@ export class CheckoutGateway
   }
 
   emitCheckoutChanged(user: User, checkout: any) {
-    this.server.emit('CheckoutChanged', { checkout: checkout });
+    this.server.emit('checkoutChanged', { checkout: checkout });
   }
 
   emitIncomeChanged(user: User, income: any) {
-    this.server.emit('CheckoutChanged', { income: income });
+    this.server.emit('incomeChanged', { income: income });
   }
 
   emitCashoutChanged(user: User, cashout: any) {
-    this.server.emit('CheckoutChanged', { cashout: cashout });
+    this.server.emit('cashoutChanged', { cashout: cashout });
   }
 
   emitCheckoutControlChanged(user: User, checkoutControl: any) {
-    this.server.emit('CheckoutControlChanged', {
+    this.server.emit('checkoutControlChanged', {
       user,
       checkoutControl,
     });

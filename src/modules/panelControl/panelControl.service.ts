@@ -79,14 +79,7 @@ export class PanelControlService {
   }
 
   findAllCheckoutCash() {
-    return this.checkoutCashModel
-      .find()
-      .populate('location')
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort({ date: -1 });
+    return this.checkoutCashModel.find().sort({ date: -1 });
   }
 
   async updateCheckoutCash(

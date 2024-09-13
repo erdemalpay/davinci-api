@@ -42,6 +42,6 @@ export class UserGateway
   }
 
   emitUserChanged(user: User) {
-    this.server.emit('UserChanged', { user });
+    this.server.emit('userChanged', { user });
   }
 }

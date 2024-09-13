@@ -17,11 +17,11 @@ import { Server, Socket } from 'socket.io';
     credentials: true,
   },
 })
-export class LocationGateway
+export class ActivityGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Server;
-  private logger: Logger = new Logger('LocationGateway');
+  private logger: Logger = new Logger('ActivityGateway');
 
   afterInit(server: Server) {
     this.logger.log('Init');
@@ -40,7 +40,7 @@ export class LocationGateway
     return 'Hello world!';
   }
 
-  emitLocationChanged(location: any) {
-    this.server.emit('locationChanged', { location: location });
+  emitActivityChanged(activity: any) {
+    this.server.emit('activityChanged', { activity });
   }
 }

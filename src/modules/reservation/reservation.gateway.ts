@@ -42,6 +42,6 @@ export class ReservationGateway
   }
 
   emitReservationChanged(user: User, reservation: any) {
-    this.server.emit('ReservationChanged', { user, reservation });
+    this.server.emit('reservationChanged', { user, reservation });
   }
 }

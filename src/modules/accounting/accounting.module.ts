@@ -7,6 +7,7 @@ import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { CheckoutModule } from './../checkout/checkout.module';
 import { AccountingController } from './accounting.controller';
+import { AccountingGateway } from './accounting.gateway';
 import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
 import { Count, CountSchema } from './count.schema';
@@ -80,8 +81,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     GameModule,
     CheckoutModule,
   ],
-  providers: [AccountingService],
-  exports: [AccountingService],
+  providers: [AccountingService, AccountingGateway],
+  exports: [AccountingService, AccountingGateway],
   controllers: [AccountingController],
 })
 export class AccountingModule {}

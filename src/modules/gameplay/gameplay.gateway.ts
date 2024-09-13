@@ -42,6 +42,6 @@ export class GameplayGateway
   }
 
   emitGameplayChanged(user: User, gameplay: any) {
-    this.server.emit('GameplayChanged', { user, gameplay });
+    this.server.emit('gameplayChanged', { user, gameplay });
   }
 }

@@ -42,6 +42,6 @@ export class VisitGateway
   }
 
   emitVisitChanged(user: User, visit: any) {
-    this.server.emit('VisitChanged', { user, visit });
+    this.server.emit('visitChanged', { user, visit });
   }
 }

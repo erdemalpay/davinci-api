@@ -42,6 +42,6 @@ export class GameGateway
   }
 
   emitGameChanged(user: User, game: any) {
-    this.server.emit('GameChanged', { user, game });
+    this.server.emit('gameChanged', { user, game });
   }
 }

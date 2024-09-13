@@ -113,16 +113,7 @@ export class TableService {
       .findById(id)
       .populate({
         path: 'orders',
-        populate: [
-          { path: 'table', model: 'Table' },
-          { path: 'item', model: 'MenuItem' },
-          { path: 'discount', model: 'Discount' },
-          { path: 'location', model: 'Location' },
-          {
-            path: 'createdBy preparedBy deliveredBy cancelledBy',
-            select: '-password',
-          },
-        ],
+        populate: [{ path: 'table', model: 'Table' }],
       })
       .exec();
   }
@@ -139,16 +130,7 @@ export class TableService {
       .find({ date: date, location: location })
       .populate({
         path: 'orders',
-        populate: [
-          { path: 'table', model: 'Table' },
-          { path: 'item', model: 'MenuItem' },
-          { path: 'discount', model: 'Discount' },
-          { path: 'location', model: 'Location' },
-          {
-            path: 'createdBy preparedBy deliveredBy cancelledBy',
-            select: '-password',
-          },
-        ],
+        populate: [{ path: 'table', model: 'Table' }],
       })
       .exec();
   }
@@ -170,16 +152,7 @@ export class TableService {
       })
       .populate({
         path: 'orders',
-        populate: [
-          { path: 'table', model: 'Table' },
-          { path: 'item', model: 'MenuItem' },
-          { path: 'discount', model: 'Discount' },
-          { path: 'location', model: 'Location' },
-          {
-            path: 'createdBy preparedBy deliveredBy cancelledBy',
-            select: '-password',
-          },
-        ],
+        populate: [{ path: 'table', model: 'Table' }],
       })
       .exec();
   }
@@ -239,16 +212,7 @@ export class TableService {
       .findById(id)
       .populate({
         path: 'orders',
-        populate: [
-          { path: 'table', model: 'Table' },
-          { path: 'item', model: 'MenuItem' },
-          { path: 'discount', model: 'Discount' },
-          { path: 'location', model: 'Location' },
-          {
-            path: 'createdBy preparedBy deliveredBy cancelledBy',
-            select: '-password',
-          },
-        ],
+        populate: [{ path: 'table', model: 'Table' }],
       })
       .exec();
     if (!table) {

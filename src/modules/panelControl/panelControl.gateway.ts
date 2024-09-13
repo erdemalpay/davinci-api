@@ -42,14 +42,14 @@ export class PanelControlGateway
   }
 
   emitPageChanged(user: User, page: any) {
-    this.server.emit('PageChanged', { user, page });
+    this.server.emit('pageChanged', { user, page });
   }
 
   emitPanelControlChanged(user: User, panelControl: any) {
-    this.server.emit('PanelControlChanged', { user, panelControl });
+    this.server.emit('panelControlChanged', { user, panelControl });
   }
 
   emitCheckoutCashChanged(user: User, checkoutCash: any) {
-    this.server.emit('CheckoutCashChanged', { user, checkoutCash });
+    this.server.emit('checkoutCashChanged', { user, checkoutCash });
   }
 }
