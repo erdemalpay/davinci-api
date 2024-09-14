@@ -218,6 +218,7 @@ export class OrderService {
         this.activityService.addActivity(user, ActivityType.ADD_ORDER, order);
       }
     }
+
     if (updates?.division === 1) {
       return this.orderModel
         .findByIdAndUpdate(
@@ -230,7 +231,9 @@ export class OrderService {
           },
         )
         .then((order) => {
-          this.orderGateway.emitOrderUpdated(user, order);
+          if (updates?.quantity) {
+            this.orderGateway.emitOrderUpdated(user, order);
+          }
           return order;
         });
     } else {
@@ -239,7 +242,9 @@ export class OrderService {
           new: true,
         })
         .then((order) => {
-          this.orderGateway.emitOrderUpdated(user, order);
+          if (updates?.quantity) {
+            this.orderGateway.emitOrderUpdated(user, order);
+          }
           return order;
         });
     }
@@ -708,7 +713,6 @@ export class OrderService {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
           } else {
             await oldOrder.save();
-            this.orderGateway.emitOrderUpdated(user, oldOrder);
           }
         } catch (error) {
           throw new HttpException(
