@@ -115,11 +115,11 @@ export class OrderService {
 
     try {
       await order.save();
-      const orderWithItem = await order.populate('item');
       if (
         order.discountAmount >= order.unitPrice ||
         order.discountPercentage >= 100
       ) {
+        const orderWithItem = await order.populate('item');
         for (const ingredient of (orderWithItem.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           const locationName =
@@ -571,11 +571,13 @@ export class OrderService {
                   : 0,
             }),
           });
-          const orderWithItem = await oldOrder.populate('item');
+
           if (
             (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= orderWithItem.unitPrice)
+            (discountAmount && discountAmount >= oldOrder.unitPrice)
           ) {
+            const orderWithItem = await oldOrder.populate('item');
+
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
@@ -639,11 +641,12 @@ export class OrderService {
         });
         try {
           await newOrder.save();
-          const orderWithItem = await newOrder.populate('item');
           if (
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder.unitPrice)
           ) {
+            const orderWithItem = await newOrder.populate('item');
+
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
