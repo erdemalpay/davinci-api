@@ -194,42 +194,38 @@ export class OrderService {
     if (updates?.status) {
       const order = await this.orderModel.findById(id);
       if (updates?.status === OrderStatus.READYTOSERVE && !updates?.quantity) {
-        this.activityService.addActivity(
+        await this.activityService.addActivity(
           user,
           ActivityType.PREPARE_ORDER,
           order,
         );
       }
       if (updates?.status === OrderStatus.SERVED && !updates?.quantity) {
-        this.activityService.addActivity(
+        await this.activityService.addActivity(
           user,
           ActivityType.DELIVER_ORDER,
           order,
         );
       }
       if (updates?.status === OrderStatus.CANCELLED && !updates?.quantity) {
-        this.activityService.addActivity(
+        await this.activityService.addActivity(
           user,
           ActivityType.CANCEL_ORDER,
           order,
         );
       }
       if (updates?.quantity && updates?.quantity > order.quantity) {
-        this.activityService.addActivity(user, ActivityType.ADD_ORDER, order);
+        await this.activityService.addActivity(
+          user,
+          ActivityType.ADD_ORDER,
+          order,
+        );
       }
     }
 
     if (updates?.division === 1) {
       return this.orderModel
-        .findByIdAndUpdate(
-          id,
-          {
-            $unset: { division: '' },
-          },
-          {
-            new: true,
-          },
-        )
+        .findByIdAndUpdate(id, { $unset: { division: '' } }, { new: true })
         .then((order) => {
           if (updates?.quantity) {
             this.orderGateway.emitOrderUpdated(user, order);
