@@ -54,8 +54,12 @@ export class MenuService {
     return category;
   }
 
-  updateCategory(user: User, id: number, updates: UpdateQuery<MenuCategory>) {
-    const category = this.categoryModel.findByIdAndUpdate(id, updates, {
+  async updateCategory(
+    user: User,
+    id: number,
+    updates: UpdateQuery<MenuCategory>,
+  ) {
+    const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
     this.menuGateway.emitCategoryChanged(user, category);
@@ -140,7 +144,7 @@ export class MenuService {
   }
 
   async removePopular(id: number) {
-    const popularItem = await this.popularModel.findByIdAndRemove(id);
+    const popularItem = await this.popularModel.findOneAndDelete({ item: id });
     // this.menuGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
