@@ -227,9 +227,8 @@ export class OrderService {
       return this.orderModel
         .findByIdAndUpdate(id, { $unset: { division: '' } }, { new: true })
         .then((order) => {
-          if (updates?.quantity) {
-            this.orderGateway.emitOrderUpdated(user, order);
-          }
+          this.orderGateway.emitOrderUpdated(user, order);
+
           return order;
         });
     } else {
@@ -238,9 +237,8 @@ export class OrderService {
           new: true,
         })
         .then((order) => {
-          if (updates?.quantity) {
-            this.orderGateway.emitOrderUpdated(user, order);
-          }
+          this.orderGateway.emitOrderUpdated(user, order);
+
           return order;
         });
     }
@@ -646,7 +644,6 @@ export class OrderService {
             (discountAmount && discountAmount >= oldOrder.unitPrice)
           ) {
             const orderWithItem = await newOrder.populate('item');
-
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
