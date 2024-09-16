@@ -222,13 +222,11 @@ export class OrderService {
         );
       }
     }
-
     if (updates?.division === 1) {
       return this.orderModel
         .findByIdAndUpdate(id, { $unset: { division: '' } }, { new: true })
         .then((order) => {
           this.orderGateway.emitOrderUpdated(user, order);
-
           return order;
         });
     } else {
@@ -238,7 +236,6 @@ export class OrderService {
         })
         .then((order) => {
           this.orderGateway.emitOrderUpdated(user, order);
-
           return order;
         });
     }
