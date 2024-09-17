@@ -53,4 +53,5 @@ export class Collection extends Document {
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
+CollectionSchema.index({ location: 1 });
 purifySchema(CollectionSchema);
