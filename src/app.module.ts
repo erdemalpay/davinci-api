@@ -7,7 +7,6 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
-import { DatabaseModule } from './modules/database/database.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
 import { LocationModule } from './modules/location/location.module';
@@ -55,7 +54,6 @@ const modules = [
   CheckoutModule,
   PanelControlModule,
   OrderModule,
-  DatabaseModule,
 ];
 
 if (config.get('migrationEnabled')) {
