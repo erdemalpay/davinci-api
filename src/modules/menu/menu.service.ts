@@ -1,4 +1,4 @@
-import { forwardRef, Inject } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
@@ -37,6 +37,7 @@ export class MenuService {
   findAllItems() {
     return this.itemModel.find().sort({ order: 'asc' });
   }
+
   async setOrder(user: User) {
     const items = await this.itemModel.find();
     items.forEach(async (item, index) => {
@@ -44,7 +45,6 @@ export class MenuService {
     });
     this.menuGateway.emitItemChanged(user, items);
   }
-
   async createCategory(user: User, createCategoryDto: CreateCategoryDto) {
     const lastCategory = await this.categoryModel
       .findOne({})
@@ -70,6 +70,10 @@ export class MenuService {
     return category;
   }
   async removeCategory(user: User, id: number) {
+    const itemsWithCategory = await this.itemModel.find({ category: id });
+    if (itemsWithCategory.length > 0) {
+      throw new HttpException('Category has items', HttpStatus.BAD_REQUEST);
+    }
     try {
       const categories = await this.categoryModel.find();
       const deletedCategory = categories.find(
@@ -125,6 +129,13 @@ export class MenuService {
     return updatedItem;
   }
   async removeItem(user: User, id: number) {
+    const itemOrders = await this.orderService.findOrderByItemId(id);
+    if (itemOrders?.length > 0) {
+      throw new HttpException(
+        'Item is already ordered',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const item = await this.itemModel.findByIdAndRemove(id);
     this.menuGateway.emitItemChanged(user, item);
     return item;

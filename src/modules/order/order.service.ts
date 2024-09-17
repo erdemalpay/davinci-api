@@ -43,6 +43,11 @@ export class OrderService {
       );
     }
   }
+  async findOrderByItemId(id: number) {
+    const orders = await this.orderModel.find({ item: id });
+    return orders;
+  }
+
   async findTodayOrders() {
     const start = startOfDay(new Date());
     const end = endOfDay(new Date());
