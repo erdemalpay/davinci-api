@@ -371,6 +371,21 @@ export class OrderService {
       );
     }
   }
+  async findGivenTableCollection(tableId: number) {
+    try {
+      const tableCollection = await this.collectionModel
+        .find({ table: tableId })
+        .populate('table')
+        .exec();
+
+      return tableCollection;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's collections",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;

@@ -179,6 +179,11 @@ export class OrderController {
     return this.orderService.findGivenDateCollections(date, location);
   }
 
+  @Get('/collection/table/:id')
+  findGivenTableCollection(@Param('id') id: number) {
+    return this.orderService.findGivenTableCollection(id);
+  }
+
   @Patch('/collection/:id')
   updateCollection(
     @ReqUser() user: User,

@@ -41,5 +41,5 @@ export class Table extends Document {
 }
 
 export const TableSchema = SchemaFactory.createForClass(Table);
-TableSchema.index({ location: 1, date: 1 });
+// TableSchema.index({ location: 1, date: 1 });
 purifySchema(TableSchema);

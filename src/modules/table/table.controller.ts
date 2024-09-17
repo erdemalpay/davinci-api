@@ -41,7 +41,27 @@ export class TableController {
   ) {
     return this.tableService.getTotalPlayerCountsByMonthAndYear(month, year);
   }
+  @Post()
+  @ApiResponse({ type: TableResponse })
+  createTable(@ReqUser() user: User, @Body() tableDto: TableDto) {
+    return this.tableService.create(user, tableDto);
+  }
 
+  @Patch('/close/:id')
+  @ApiResponse({ type: TableResponse })
+  closeTable(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() tableDto: TableDto,
+  ) {
+    return this.tableService.close(user, id, tableDto);
+  }
+
+  @Patch('/reopen/:id')
+  @ApiResponse({ type: TableResponse })
+  reopenTable(@ReqUser() user: User, @Param('id') id: number) {
+    return this.tableService.reopen(user, id);
+  }
   @Delete('/:id')
   @ApiResponse({ type: TableResponse })
   removeTable(@ReqUser() user: User, @Param('id') id: number) {
@@ -66,28 +86,6 @@ export class TableController {
     @Param('gameplayId') gameplayId: number,
   ) {
     return this.tableService.removeGameplay(user, tableId, gameplayId);
-  }
-
-  @Post()
-  @ApiResponse({ type: TableResponse })
-  createTable(@ReqUser() user: User, @Body() tableDto: TableDto) {
-    return this.tableService.create(user, tableDto);
-  }
-
-  @Patch('/close/:id')
-  @ApiResponse({ type: TableResponse })
-  closeTable(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-    @Body() tableDto: TableDto,
-  ) {
-    return this.tableService.close(user, id, tableDto);
-  }
-
-  @Patch('/reopen/:id')
-  @ApiResponse({ type: TableResponse })
-  reopenTable(@ReqUser() user: User, @Param('id') id: number) {
-    return this.tableService.reopen(user, id);
   }
   @Patch('/:id')
   @ApiResponse({ type: TableResponse })

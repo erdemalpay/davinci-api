@@ -18,7 +18,7 @@ export class Collection extends Document {
   @Prop({ type: Number })
   _id: number;
 
-  @Prop({ required: true, type: Number, ref: Location.name })
+  @Prop({ required: true, type: Number, ref: Location.name, index: true })
   location: number;
 
   @Prop({ required: true, type: Date })
@@ -27,7 +27,7 @@ export class Collection extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
-  @Prop({ required: true, type: Number, ref: 'Table' })
+  @Prop({ required: true, type: Number, ref: 'Table', index: true })
   table: number;
 
   @Prop({ required: false, type: Date })
@@ -53,5 +53,5 @@ export class Collection extends Document {
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
-CollectionSchema.index({ location: 1 });
+
 purifySchema(CollectionSchema);

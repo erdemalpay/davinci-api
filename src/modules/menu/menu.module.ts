@@ -15,7 +15,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(MenuItem.name, MenuItemSchema),
   createAutoIncrementConfig(MenuCategory.name, MenuCategorySchema),
   createAutoIncrementConfig(Popular.name, PopularSchema),
-
   { name: Kitchen.name, useFactory: () => KitchenSchema },
 ]);
 
