@@ -120,8 +120,8 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
-  removeItem(user: User, id: number) {
-    const item = this.itemModel.findByIdAndRemove(id);
+  async removeItem(user: User, id: number) {
+    const item = await this.itemModel.findByIdAndRemove(id);
     this.menuGateway.emitItemChanged(user, item);
     return item;
   }
@@ -143,9 +143,9 @@ export class MenuService {
     return popularItem;
   }
 
-  async removePopular(id: number) {
+  async removePopular(user: User, id: number) {
     const popularItem = await this.popularModel.findOneAndDelete({ item: id });
-    // this.menuGateway.emitPopularChanged(user, popularItem);
+    this.menuGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
   async updatePopular(user: User, id: number, updates: UpdateQuery<Popular>) {

@@ -107,8 +107,8 @@ export class MenuController {
   }
 
   @Delete('/popular/:id')
-  deletePopular(@Param('id') id: number) {
-    return this.menuService.removePopular(id);
+  deletePopular(@ReqUser() user: User, @Param('id') id: number) {
+    return this.menuService.removePopular(user, id);
   }
   // kitchen
   @Get('/kitchens')
