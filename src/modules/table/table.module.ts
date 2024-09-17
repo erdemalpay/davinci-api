@@ -13,12 +13,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [
-    mongooseModule,
-    GameplayModule,
-    ActivityModule,
-    MongooseModule.forFeature([{ name: 'Table', schema: TableSchema }]),
-  ],
+  imports: [mongooseModule, GameplayModule, ActivityModule],
   providers: [TableService, TableGateway],
   exports: [TableService, TableGateway],
   controllers: [TableController],
