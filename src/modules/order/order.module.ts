@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
@@ -26,7 +26,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     DatabaseModule,
     TableModule,
     ActivityModule,
-    AccountingModule,
+    forwardRef(() => AccountingModule),
     GameplayModule,
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
@@ -35,5 +35,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderGateway],
+  exports: [OrderService],
 })
 export class OrderModule {}
