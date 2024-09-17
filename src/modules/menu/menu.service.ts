@@ -1,6 +1,8 @@
+import { forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { OrderService } from '../order/order.service';
 import { User } from '../user/user.schema';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
@@ -24,6 +26,8 @@ export class MenuService {
     @InjectModel(Kitchen.name) private kitchenModel: Model<Kitchen>,
     private readonly menuGateway: MenuGateway,
     private readonly panelControlService: PanelControlService,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
   ) {}
 
   findAllCategories() {
