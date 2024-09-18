@@ -87,6 +87,21 @@ export class OrderService {
       );
     }
   }
+  async findGivenTableOrders(tableId: number) {
+    try {
+      const tableOrders = await this.orderModel
+        .find({ table: tableId })
+        .populate('table')
+        .exec();
+
+      return tableOrders;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch given day's orders",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const order = new this.orderModel({
       ...createOrderDto,
@@ -164,7 +179,7 @@ export class OrderService {
           select: '-password',
         })
         .exec();
-      this.orderGateway.emitOrderCreated(populatedOrder);
+      this.orderGateway.emitOrderCreated(user, populatedOrder);
     } catch (error) {
       throw new HttpException(
         'Failed to create order',
@@ -259,7 +274,8 @@ export class OrderService {
           });
         }),
       );
-      this.orderGateway.emitOrderUpdated(user, ids);
+      const order = await this.orderModel.findOne({ id: ids[0] });
+      this.orderGateway.emitOrderUpdated(user, order);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -486,6 +502,7 @@ export class OrderService {
       });
       try {
         await newOrder.save();
+        this.orderGateway.emitOrderCreated(user, newOrder);
       } catch (error) {
         throw new HttpException(
           'Failed to create order',
@@ -503,6 +520,7 @@ export class OrderService {
       } catch (error) {
         // Clean up by deleting the order if updating the table fails
         await this.orderModel.findByIdAndDelete(newOrder._id);
+        this.orderGateway.emitOrderUpdated(user, newOrder);
         throw new HttpException(
           'Failed to update table orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -517,6 +535,7 @@ export class OrderService {
       try {
         if (oldOrder.quantity === 0) {
           await this.orderModel.findByIdAndDelete(oldOrder._id);
+          this.orderGateway.emitOrderUpdated(user, oldOrder);
         } else {
           await oldOrder.save();
           this.orderGateway.emitOrderUpdated(user, oldOrder);
@@ -552,25 +571,28 @@ export class OrderService {
       );
       if (orderItem.selectedQuantity === orderItem.totalQuantity) {
         try {
-          await this.orderModel.findByIdAndUpdate(orderItem.orderId, {
-            discount: discount,
-            ...(discountPercentage && {
-              discountPercentage: discountPercentage,
-              paidQuantity:
-                discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
-            }),
-            ...(discountAmount && {
-              discountAmount: Math.min(
-                discountAmount / totalSelectedQuantity,
-                oldOrder.unitPrice,
-              ),
-              paidQuantity:
-                discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
-                  ? orderItem.selectedQuantity
-                  : 0,
-            }),
-          });
-
+          const updatedOrder = await this.orderModel.findByIdAndUpdate(
+            orderItem.orderId,
+            {
+              discount: discount,
+              ...(discountPercentage && {
+                discountPercentage: discountPercentage,
+                paidQuantity:
+                  discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
+              }),
+              ...(discountAmount && {
+                discountAmount: Math.min(
+                  discountAmount / totalSelectedQuantity,
+                  oldOrder.unitPrice,
+                ),
+                paidQuantity:
+                  discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
+                    ? orderItem.selectedQuantity
+                    : 0,
+              }),
+            },
+          );
+          this.orderGateway.emitOrderUpdated(user, updatedOrder);
           if (
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder.unitPrice)
@@ -640,6 +662,7 @@ export class OrderService {
         });
         try {
           await newOrder.save();
+          this.orderGateway.emitOrderCreated(user, newOrder);
           if (
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder.unitPrice)
@@ -693,6 +716,7 @@ export class OrderService {
         } catch (error) {
           // Clean up by deleting the order if updating the table fails
           await this.orderModel.findByIdAndDelete(newOrder._id);
+          this.orderGateway.emitOrderUpdated(user, newOrder);
           throw new HttpException(
             'Failed to update table orders',
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -708,6 +732,7 @@ export class OrderService {
         try {
           if (oldOrder.quantity === 0) {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
+            this.orderGateway.emitOrderUpdated(user, oldOrder);
           } else {
             await oldOrder.save();
           }
@@ -740,6 +765,7 @@ export class OrderService {
           $set: updatedOrder,
           $unset: { discount: '', discountPercentage: '' },
         });
+        this.orderGateway.emitOrderUpdated(user, updatedOrder);
       } catch (error) {
         throw new HttpException(
           'Failed to update order',
@@ -755,12 +781,14 @@ export class OrderService {
       });
       try {
         await newOrder.save();
+        this.orderGateway.emitOrderCreated(user, newOrder);
       } catch (error) {
         throw new HttpException(
           'Failed to create order',
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+
       // Update the table orders
       let updatedTable;
       try {
@@ -772,6 +800,7 @@ export class OrderService {
       } catch (error) {
         // Clean up by deleting the order if updating the table fails
         await this.orderModel.findByIdAndDelete(newOrder._id);
+        this.orderGateway.emitOrderUpdated(user, newOrder);
         throw new HttpException(
           'Failed to update table orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -786,6 +815,7 @@ export class OrderService {
       try {
         if (order.quantity === 0) {
           await this.orderModel.findByIdAndDelete(order._id);
+          this.orderGateway.emitOrderUpdated(user, order);
         } else {
           await order.save();
           this.orderGateway.emitOrderUpdated(user, order);
@@ -865,7 +895,7 @@ export class OrderService {
       await Promise.all([newTable.save()]);
 
       await this.tableService.removeTable(user, oldTableId);
-      this.orderGateway.emitOrderUpdated(user, orders);
+      this.orderGateway.emitOrderUpdated(user, orders[0]);
     } catch (error) {
       console.log(error);
       throw new HttpException(

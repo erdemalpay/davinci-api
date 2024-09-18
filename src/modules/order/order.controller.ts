@@ -139,7 +139,10 @@ export class OrderController {
   findTodayOrders() {
     return this.orderService.findTodayOrders();
   }
-
+  @Get('/table/:id')
+  findGivenTableOrders(@Param('id') id: number) {
+    return this.orderService.findGivenTableOrders(id);
+  }
   @Get('/date')
   findGivenDateOrders(
     @Query('location') location: number,

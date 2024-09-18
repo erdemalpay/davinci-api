@@ -109,13 +109,7 @@ export class TableService {
   }
 
   async findById(id: number): Promise<Table | undefined> {
-    return this.tableModel
-      .findById(id)
-      .populate({
-        path: 'orders',
-        populate: [{ path: 'table', model: 'Table' }],
-      })
-      .exec();
+    return this.tableModel.findById(id);
   }
 
   async findByQuery(query: Partial<TableDto>): Promise<Table | undefined> {
@@ -126,13 +120,7 @@ export class TableService {
     date: string,
     location: number,
   ): Promise<Table[]> {
-    return this.tableModel
-      .find({ date: date, location: location })
-      .populate({
-        path: 'orders',
-        populate: [{ path: 'table', model: 'Table' }],
-      })
-      .exec();
+    return this.tableModel.find({ date: date, location: location });
   }
   async findByDateAndLocation(
     date: string,
@@ -149,10 +137,6 @@ export class TableService {
         populate: {
           path: 'mentor',
         },
-      })
-      .populate({
-        path: 'orders',
-        populate: [{ path: 'table', model: 'Table' }],
       })
       .exec();
   }
@@ -208,13 +192,7 @@ export class TableService {
   }
 
   async removeTableAndGameplays(user: User, id: number) {
-    const table = await this.tableModel
-      .findById(id)
-      .populate({
-        path: 'orders',
-        populate: [{ path: 'table', model: 'Table' }],
-      })
-      .exec();
+    const table = await this.tableModel.findById(id).exec();
     if (!table) {
       throw new Error(`Table ${id} does not exist.`);
     }

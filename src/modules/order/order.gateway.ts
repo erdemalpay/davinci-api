@@ -41,7 +41,7 @@ export class OrderGateway
     return 'Hello world!';
   }
 
-  emitOrderCreated(order: any) {
+  emitOrderCreated(socketUser: User, order: any) {
     this.server.emit('orderCreated', order);
   }
 
