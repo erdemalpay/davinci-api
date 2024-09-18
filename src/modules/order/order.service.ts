@@ -402,6 +402,7 @@ export class OrderService {
 
     try {
       await collection.save();
+      this.orderGateway.emitCollectionChanged(user, collection);
       this.activityService.addActivity(
         user,
         ActivityType.TAKE_PAYMENT,
@@ -424,12 +425,19 @@ export class OrderService {
     if (newOrders) {
       await this.updateOrders(user, newOrders);
     }
-    return this.collectionModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+    const collection = await this.collectionModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.orderGateway.emitCollectionChanged(user, collection);
+    return collection;
   }
   async removeCollection(user: User, id: number) {
     const collection = await this.collectionModel.findByIdAndRemove(id);
+
     this.orderGateway.emitCollectionChanged(user, collection);
     return collection;
   }
