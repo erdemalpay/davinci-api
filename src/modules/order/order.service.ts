@@ -346,31 +346,7 @@ export class OrderService {
       );
     }
   }
-  async findGivenDateCollections(date: string, location: number) {
-    try {
-      const parsedDate = parseISO(date);
-      const tables = await this.tableService.findByDateAndLocation(
-        format(parsedDate, 'yyyy-MM-dd'),
-        location,
-      );
 
-      const allCollections = await this.collectionModel
-        .find()
-        .populate('table')
-        .exec();
-
-      const collections = allCollections.filter((collection) =>
-        tables.some((table) => table._id === (collection.table as any)._id),
-      );
-
-      return collections;
-    } catch (error) {
-      throw new HttpException(
-        "Failed to fetch given day's collections",
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
   async findGivenTableCollection(tableId: number) {
     try {
       const tableCollection = await this.collectionModel

@@ -171,14 +171,6 @@ export class OrderController {
     return this.orderService.createCollection(user, createCollectionDto);
   }
 
-  @Get('/collection/date')
-  findGivenDateCollections(
-    @Query('location') location: number,
-    @Query('date') date: string,
-  ) {
-    return this.orderService.findGivenDateCollections(date, location);
-  }
-
   @Get('/collection/table/:id')
   findGivenTableCollection(@Param('id') id: number) {
     return this.orderService.findGivenTableCollection(id);
