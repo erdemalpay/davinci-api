@@ -60,7 +60,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
       return orders;
     } catch (error) {
