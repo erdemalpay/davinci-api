@@ -34,7 +34,10 @@ export class OrderService {
   // Orders
   async findAllOrders() {
     try {
-      const orders = await this.orderModel.find().populate('table').exec();
+      const orders = await this.orderModel
+        .find()
+        .populate('table', 'date _id')
+        .exec();
       return orders;
     } catch (error) {
       throw new HttpException(
@@ -57,7 +60,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('table')
+        .populate('table', 'date _id')
         .exec();
       return orders;
     } catch (error) {
@@ -91,7 +94,7 @@ export class OrderService {
     try {
       const tableOrders = await this.orderModel
         .find({ table: tableId })
-        .populate('table')
+        .populate('table', 'date _id')
         .exec();
 
       return tableOrders;
@@ -352,7 +355,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('table')
+        .populate('table', 'date _id')
         .exec();
       return collections;
     } catch (error) {
@@ -367,7 +370,7 @@ export class OrderService {
     try {
       const tableCollection = await this.collectionModel
         .find({ table: tableId })
-        .populate('table')
+        .populate('table', 'date _id')
         .exec();
 
       return tableCollection;
