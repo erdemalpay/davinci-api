@@ -284,14 +284,13 @@ export class OrderService {
     if (!orders?.length || orders?.length === 0) {
       return;
     }
-    const tableOrders = await this.orderModel
-      .find({ table: orders[0].table })
-      .populate('item')
-      .exec();
+
     try {
       await Promise.all(
         orders?.map(async (order) => {
-          const oldOrder = tableOrders.find((o) => o._id === order._id);
+          const oldOrder = await (
+            await this.orderModel.findById(order._id)
+          ).populate('item');
           if (!oldOrder) {
             throw new HttpException(
               `Order with ID ${order._id} not found`,
@@ -332,7 +331,8 @@ export class OrderService {
             _id: oldOrder._id,
             item: (oldOrder.item as any)._id,
           };
-          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
+          oldOrder.set(updatedOrder);
+          await oldOrder.save();
         }),
       );
       orders && this.orderGateway.emitOrderUpdated(user, orders[0]);
