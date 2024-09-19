@@ -2357,6 +2357,11 @@ export class AccountingService {
     this.accountingGateway.emitCountChanged(user, count);
     return count;
   }
+  async removeCount(user: User, id: string) {
+    const count = await this.countModel.findByIdAndRemove(id);
+    this.accountingGateway.emitCountChanged(user, count);
+    return count;
+  }
 
   // fixtureCount
   findAllFixtureCounts() {

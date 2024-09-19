@@ -731,6 +731,11 @@ export class AccountingController {
     return this.accountingService.updateCount(user, id, updates);
   }
 
+  @Delete('/counts/:id')
+  deleteCount(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeCount(user, id);
+  }
+
   //fixture count
   @Get('/fixture-counts')
   getFixtureCounts() {
