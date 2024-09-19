@@ -174,15 +174,7 @@ export class OrderService {
         });
       }
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
-      const populatedOrder = await this.orderModel
-        .findById(order._id)
-
-        .populate({
-          path: 'createdBy',
-          select: '-password',
-        })
-        .exec();
-      this.orderGateway.emitOrderCreated(user, populatedOrder);
+      this.orderGateway.emitOrderCreated(user, order);
     } catch (error) {
       throw new HttpException(
         'Failed to create order',
@@ -200,6 +192,7 @@ export class OrderService {
     } catch (error) {
       // Clean up by deleting the order if updating the table fails
       await this.orderModel.findByIdAndDelete(order._id);
+      this.orderGateway.emitOrderUpdated(user, order);
       throw new HttpException(
         'Failed to update table orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -291,12 +284,14 @@ export class OrderService {
     if (!orders?.length || orders?.length === 0) {
       return;
     }
+    const tableOrders = await this.orderModel
+      .find({ table: orders[0].table })
+      .populate('item')
+      .exec();
     try {
       await Promise.all(
         orders?.map(async (order) => {
-          const oldOrder = await (
-            await this.orderModel.findById(order._id)
-          ).populate('item');
+          const oldOrder = tableOrders.find((o) => o._id === order._id);
           if (!oldOrder) {
             throw new HttpException(
               `Order with ID ${order._id} not found`,

@@ -73,7 +73,6 @@ export class TableService {
       );
     }
     this.tableGateway.emitTableChanged(user, updatedTable);
-
     return updatedTable;
   }
   async close(user: User, id: number, tableDto: TableDto) {
