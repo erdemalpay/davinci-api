@@ -270,7 +270,7 @@ export class OrderService {
           });
         }),
       );
-      const order = await this.orderModel.findOne({ id: ids[0] });
+      const order = await this.orderModel.findOne({ _id: ids[0] });
       this.orderGateway.emitOrderUpdated(user, order);
     } catch (error) {
       console.error('Error updating orders:', error);
@@ -331,8 +331,7 @@ export class OrderService {
             _id: oldOrder._id,
             item: (oldOrder.item as any)._id,
           };
-          oldOrder.set(updatedOrder);
-          await oldOrder.save();
+          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
       );
       orders && this.orderGateway.emitOrderUpdated(user, orders[0]);
