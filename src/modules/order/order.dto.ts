@@ -74,3 +74,7 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
   AUTOSERVED = 'autoserved',
 }
+
+export class OrderQueryDto {
+  after?: string;
+}

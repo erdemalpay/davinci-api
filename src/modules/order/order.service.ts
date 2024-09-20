@@ -14,6 +14,7 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
+  OrderQueryDto,
   OrderStatus,
   OrderType,
 } from './order.dto';
@@ -36,6 +37,26 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find()
+        .populate('table', 'date _id')
+        .exec();
+      return orders;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findQueryOrders(query: OrderQueryDto) {
+    const filterQuery = {};
+    const { after } = query;
+    if (after) {
+      console.log(after);
+      filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+    try {
+      const orders = await this.orderModel
+        .find(filterQuery)
         .populate('table', 'date _id')
         .exec();
       return orders;

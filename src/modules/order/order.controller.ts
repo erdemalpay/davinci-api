@@ -30,6 +30,10 @@ export class OrderController {
   findAllOrders() {
     return this.orderService.findAllOrders();
   }
+  @Get('/query')
+  findQueryOrders(@Query('after') after?: string) {
+    return this.orderService.findQueryOrders({ after: after });
+  }
 
   @Post('/create_order_for_discount')
   createOrderForDiscount(
