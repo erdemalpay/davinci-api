@@ -78,3 +78,7 @@ export enum OrderStatus {
 export class OrderQueryDto {
   after?: string;
 }
+
+export class CollectionQueryDto {
+  after?: string;
+}

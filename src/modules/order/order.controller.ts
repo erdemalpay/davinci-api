@@ -169,6 +169,10 @@ export class OrderController {
   findAllCollections() {
     return this.orderService.findAllCollections();
   }
+  @Get('/collection/query')
+  findQueryCollections(@Query('after') after?: string) {
+    return this.orderService.findQueryCollections({ after: after });
+  }
 
   @Post('/collection')
   createCollection(

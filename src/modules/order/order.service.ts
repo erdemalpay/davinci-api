@@ -11,6 +11,7 @@ import { ActivityService } from './../activity/activity.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
+  CollectionQueryDto,
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
@@ -376,6 +377,26 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to fetch collections',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findQueryCollections(query: CollectionQueryDto) {
+    const filterQuery = {};
+    const { after } = query;
+    if (after) {
+      console.log(after);
+      filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+    try {
+      const collections = await this.collectionModel
+        .find(filterQuery)
+        .populate('table', 'date _id')
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
