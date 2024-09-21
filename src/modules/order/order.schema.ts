@@ -4,6 +4,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
+import { StockLocation } from './../accounting/stockLocation.schema';
 import { Discount } from './discount.schema';
 
 @Schema({ _id: false })
@@ -73,6 +74,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Boolean })
   isOnlinePrice: boolean;
+
+  @Prop({ required: false, type: String, ref: StockLocation.name })
+  stockLocation: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

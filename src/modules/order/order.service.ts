@@ -52,7 +52,6 @@ export class OrderService {
     const filterQuery = {};
     const { after } = query;
     if (after) {
-      console.log(after);
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
     try {
@@ -167,14 +166,13 @@ export class OrderService {
         const orderWithItem = await order.populate('item');
         for (const ingredient of (orderWithItem.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
-          const locationName =
-            orderWithItem.location === 1 ? 'bahceli' : 'neorama';
+
           if (isStockDecrementRequired) {
             const consumptionQuantity =
               ingredient.quantity * orderWithItem.paidQuantity;
             await this.accountingService.consumptStock(user, {
               product: ingredient.product,
-              location: locationName,
+              location: order.stockLocation,
               quantity: consumptionQuantity,
               packageType: 'birim',
               status: StockHistoryStatusEnum.ORDERCREATE,
@@ -323,14 +321,13 @@ export class OrderService {
             const isStockDecrementRequired = ingredient?.isDecrementStock;
             const quantityDifference =
               order.paidQuantity - oldOrder.paidQuantity;
-            const locationName =
-              oldOrder.location === 1 ? 'bahceli' : 'neorama';
+
             if (isStockDecrementRequired && quantityDifference > 0) {
               const consumptionQuantity =
                 ingredient.quantity * quantityDifference;
               await this.accountingService.consumptStock(user, {
                 product: ingredient.product,
-                location: locationName,
+                location: oldOrder.stockLocation,
                 quantity: consumptionQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
@@ -341,7 +338,7 @@ export class OrderService {
                 ingredient.quantity * quantityDifference * -1;
               await this.accountingService.createStock(user, {
                 product: ingredient.product,
-                location: locationName,
+                location: oldOrder.stockLocation,
                 quantity: incrementQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCANCEL,
@@ -385,7 +382,6 @@ export class OrderService {
     const filterQuery = {};
     const { after } = query;
     if (after) {
-      console.log(after);
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
     try {
@@ -641,14 +637,12 @@ export class OrderService {
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
-              const locationName =
-                oldOrder.location === 1 ? 'bahceli' : 'neorama';
               if (isStockDecrementRequired) {
                 const consumptionQuantity =
                   ingredient.quantity * oldOrder.quantity;
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
-                  location: locationName,
+                  location: oldOrder.stockLocation,
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
@@ -710,14 +704,12 @@ export class OrderService {
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
-              const locationName =
-                oldOrder.location === 1 ? 'bahceli' : 'neorama';
               if (isStockDecrementRequired) {
                 const consumptionQuantity =
                   ingredient.quantity * oldOrder.paidQuantity;
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
-                  location: locationName,
+                  location: oldOrder.stockLocation,
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
