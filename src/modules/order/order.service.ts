@@ -38,7 +38,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find()
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
       return orders;
     } catch (error) {
@@ -57,7 +57,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find(filterQuery)
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
       return orders;
     } catch (error) {
@@ -115,7 +115,7 @@ export class OrderService {
     try {
       const tableOrders = await this.orderModel
         .find({ table: tableId })
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
 
       return tableOrders;
@@ -368,7 +368,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
       return collections;
     } catch (error) {
@@ -387,7 +387,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find(filterQuery)
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
       return collections;
     } catch (error) {
@@ -402,7 +402,7 @@ export class OrderService {
     try {
       const tableCollection = await this.collectionModel
         .find({ table: tableId })
-        .populate('table', 'date _id')
+        .populate('table', 'date _id name')
         .exec();
 
       return tableCollection;
