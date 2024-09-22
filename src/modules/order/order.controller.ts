@@ -174,7 +174,7 @@ export class OrderController {
     return this.orderService.findQueryCollections({ after: after });
   }
 
-  @Post('/collection')
+  @Post('/collection/table')
   createCollection(
     @ReqUser() user: User,
     @Body() createCollectionDto: CreateCollectionDto,
@@ -187,7 +187,7 @@ export class OrderController {
     return this.orderService.findGivenTableCollection(id);
   }
 
-  @Patch('/collection/:id')
+  @Patch('/collection/table/:id')
   updateCollection(
     @ReqUser() user: User,
     @Param('id') id: number,
@@ -196,7 +196,7 @@ export class OrderController {
     return this.orderService.updateCollection(user, id, updates);
   }
 
-  @Delete('/collection/:id')
+  @Delete('/collection/table/:id')
   deleteCollection(@ReqUser() user: User, @Param('id') id: number) {
     return this.orderService.removeCollection(user, id);
   }
