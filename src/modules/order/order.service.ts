@@ -172,7 +172,10 @@ export class OrderService {
               ingredient.quantity * orderWithItem.paidQuantity;
             await this.accountingService.consumptStock(user, {
               product: ingredient.product,
-              location: order.stockLocation,
+              location:
+                order.stockLocation ?? order.location === 1
+                  ? 'bahceli'
+                  : 'neorama',
               quantity: consumptionQuantity,
               packageType: 'birim',
               status: StockHistoryStatusEnum.ORDERCREATE,
@@ -327,7 +330,10 @@ export class OrderService {
                 ingredient.quantity * quantityDifference;
               await this.accountingService.consumptStock(user, {
                 product: ingredient.product,
-                location: oldOrder.stockLocation,
+                location:
+                  oldOrder.stockLocation ?? oldOrder.location === 1
+                    ? 'bahceli'
+                    : 'neorama',
                 quantity: consumptionQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
@@ -642,7 +648,10 @@ export class OrderService {
                   ingredient.quantity * oldOrder.quantity;
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
-                  location: oldOrder.stockLocation,
+                  location:
+                    oldOrder.stockLocation ?? oldOrder.location === 1
+                      ? 'bahceli'
+                      : 'neorama',
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
@@ -709,7 +718,10 @@ export class OrderService {
                   ingredient.quantity * oldOrder.paidQuantity;
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
-                  location: oldOrder.stockLocation,
+                  location:
+                    oldOrder.stockLocation ?? oldOrder.location === 1
+                      ? 'bahceli'
+                      : 'neorama',
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
