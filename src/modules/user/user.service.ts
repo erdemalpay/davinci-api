@@ -103,23 +103,21 @@ export class UserService implements OnModuleInit {
       );
     } else if (updateType === UserGameUpdateType.REMOVE) {
       newUserGames = user.userGames.filter((ug) => ug.game !== gameId);
+      this.activityService.addActivity(
+        user,
+        ActivityType.GAME_LEARNED_REMOVE,
+        gameExists,
+      );
     }
 
-    // Perform the update operation
     const updateResult = await this.userModel.findByIdAndUpdate(
       user._id,
       { userGames: newUserGames },
       { new: true },
     );
-
     if (!updateResult) {
       throw new Error('User not found');
     }
-    this.activityService.addActivity(
-      user,
-      ActivityType.GAME_LEARNED_REMOVE,
-      gameExists,
-    );
     this.userGateway.emitUserChanged(updateResult);
 
     return updateResult;

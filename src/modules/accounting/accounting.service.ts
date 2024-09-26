@@ -1815,9 +1815,7 @@ export class AccountingService {
       const oldQuantity = existingStock.quantity;
       const newStock = await this.stockModel.findByIdAndUpdate(
         stockId,
-        {
-          quantity: Number(oldQuantity) + Number(createStockDto.quantity),
-        },
+        { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
       this.accountingGateway.emitStockChanged(user, newStock);
@@ -1832,7 +1830,7 @@ export class AccountingService {
         currentAmount: oldQuantity,
       });
       // create Activity
-      this.activityService.addUpdateActivity(
+      await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
         existingStock,
@@ -1844,7 +1842,11 @@ export class AccountingService {
       await stock.save();
       this.accountingGateway.emitStockChanged(user, stock);
       // create Activity
-      this.activityService.addActivity(user, ActivityType.CREATE_STOCK, stock);
+      await this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_STOCK,
+        stock,
+      );
       // create stock history with currentAmount 0
       await this.createProductStockHistory(user, {
         user: user._id,
@@ -1997,30 +1999,24 @@ export class AccountingService {
     this.accountingGateway.emitStockChanged(user, productStocks);
   }
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
-    const stock = await this.stockModel.find({
+    const stock = await this.stockModel.findOne({
       product: consumptStockDto.product,
       location: consumptStockDto.location,
       packageType: consumptStockDto.packageType,
     });
-    // if stock exist update quantity
-    if (stock.length > 0) {
-      const existingStock = stock[0];
+    if (stock) {
       const newStock = await this.stockModel.findByIdAndUpdate(
-        stock[0]._id,
-        {
-          quantity: stock[0].quantity - consumptStockDto.quantity,
-        },
+        stock._id,
+        { $inc: { quantity: -consumptStockDto.quantity } },
         { new: true },
       );
       this.accountingGateway.emitStockChanged(user, newStock);
-      //create Activity
-      this.activityService.addUpdateActivity(
+      await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
-        existingStock,
+        stock,
         newStock,
       );
-      // create stock history with currentAmount
       await this.createProductStockHistory(user, {
         user: user._id,
         product: consumptStockDto.product,
@@ -2028,9 +2024,12 @@ export class AccountingService {
         packageType: consumptStockDto.packageType,
         change: -consumptStockDto.quantity,
         status: consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
-        currentAmount: stock[0].quantity,
+        currentAmount:
+          consumptStockDto.quantity > 0
+            ? newStock.quantity + consumptStockDto.quantity
+            : stock.quantity,
       });
-      return stock[0];
+      return stock;
     } else {
       const newStock = await this.createStock(user, {
         product: consumptStockDto.product,

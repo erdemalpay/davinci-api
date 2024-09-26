@@ -173,7 +173,7 @@ export class OrderService {
             await this.accountingService.consumptStock(user, {
               product: ingredient.product,
               location:
-                order.stockLocation ?? order.location === 1
+                order?.stockLocation ?? order.location === 1
                   ? 'bahceli'
                   : 'neorama',
               quantity: consumptionQuantity,
@@ -307,7 +307,6 @@ export class OrderService {
     if (!orders?.length || orders?.length === 0) {
       return;
     }
-
     try {
       await Promise.all(
         orders?.map(async (order) => {
@@ -320,20 +319,21 @@ export class OrderService {
               HttpStatus.NOT_FOUND,
             );
           }
+
           for (const ingredient of (oldOrder.item as any).itemProduction) {
             const isStockDecrementRequired = ingredient?.isDecrementStock;
             const quantityDifference =
               order.paidQuantity - oldOrder.paidQuantity;
-
             if (isStockDecrementRequired && quantityDifference > 0) {
               const consumptionQuantity =
                 ingredient.quantity * quantityDifference;
+              console.log(oldOrder?.stockLocation);
+              console.log(oldOrder.location);
               await this.accountingService.consumptStock(user, {
                 product: ingredient.product,
                 location:
-                  oldOrder.stockLocation ?? oldOrder.location === 1
-                    ? 'bahceli'
-                    : 'neorama',
+                  oldOrder?.stockLocation ??
+                  (oldOrder.location === 1 ? 'bahceli' : 'neorama'),
                 quantity: consumptionQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
@@ -341,7 +341,7 @@ export class OrderService {
             }
             if (isStockDecrementRequired && quantityDifference < 0) {
               const incrementQuantity =
-                ingredient.quantity * quantityDifference * -1;
+                ingredient.quantity * -quantityDifference;
               await this.accountingService.createStock(user, {
                 product: ingredient.product,
                 location: oldOrder.stockLocation,
@@ -351,6 +351,7 @@ export class OrderService {
               });
             }
           }
+
           const updatedOrder = {
             ...order,
             _id: oldOrder._id,
@@ -646,10 +647,11 @@ export class OrderService {
               if (isStockDecrementRequired) {
                 const consumptionQuantity =
                   ingredient.quantity * oldOrder.quantity;
+
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder.stockLocation ?? oldOrder.location === 1
+                    oldOrder?.stockLocation ?? oldOrder.location === 1
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
@@ -719,7 +721,7 @@ export class OrderService {
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder.stockLocation ?? oldOrder.location === 1
+                    oldOrder?.stockLocation ?? oldOrder.location === 1
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
