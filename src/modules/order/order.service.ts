@@ -327,8 +327,6 @@ export class OrderService {
             if (isStockDecrementRequired && quantityDifference > 0) {
               const consumptionQuantity =
                 ingredient.quantity * quantityDifference;
-              console.log(oldOrder?.stockLocation);
-              console.log(oldOrder.location);
               await this.accountingService.consumptStock(user, {
                 product: ingredient.product,
                 location:
