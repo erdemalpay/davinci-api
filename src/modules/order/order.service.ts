@@ -320,10 +320,10 @@ export class OrderService {
             );
           }
 
-          for (const ingredient of (oldOrder.item as any).itemProduction) {
+          for (const ingredient of (oldOrder?.item as any).itemProduction) {
             const isStockDecrementRequired = ingredient?.isDecrementStock;
             const quantityDifference =
-              order.paidQuantity - oldOrder.paidQuantity;
+              order.paidQuantity - oldOrder?.paidQuantity;
             if (isStockDecrementRequired && quantityDifference > 0) {
               const consumptionQuantity =
                 ingredient.quantity * quantityDifference;
@@ -331,7 +331,7 @@ export class OrderService {
                 product: ingredient.product,
                 location:
                   oldOrder?.stockLocation ??
-                  (oldOrder.location === 1 ? 'bahceli' : 'neorama'),
+                  (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
                 quantity: consumptionQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
@@ -342,7 +342,7 @@ export class OrderService {
                 ingredient.quantity * -quantityDifference;
               await this.accountingService.createStock(user, {
                 product: ingredient.product,
-                location: oldOrder.stockLocation,
+                location: oldOrder?.stockLocation,
                 quantity: incrementQuantity,
                 packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCANCEL,
@@ -352,8 +352,8 @@ export class OrderService {
 
           const updatedOrder = {
             ...order,
-            _id: oldOrder._id,
-            item: (oldOrder.item as any)._id,
+            _id: oldOrder?._id,
+            item: (oldOrder?.item as any)._id,
           };
           await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
@@ -533,7 +533,7 @@ export class OrderService {
         throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
       }
       // Destructure oldOrder to exclude the _id field
-      const { _id, ...orderDataWithoutId } = oldOrder.toObject();
+      const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
       // Create new order without the _id field
       const newOrder = new this.orderModel({
         ...orderDataWithoutId,
@@ -573,11 +573,11 @@ export class OrderService {
       oldOrder.quantity = orderItem.totalQuantity - orderItem.selectedQuantity;
 
       try {
-        if (oldOrder.quantity === 0) {
-          await this.orderModel.findByIdAndDelete(oldOrder._id);
+        if (oldOrder?.quantity === 0) {
+          await this.orderModel.findByIdAndDelete(oldOrder?._id);
           this.orderGateway.emitOrderUpdated(user, oldOrder);
         } else {
-          await oldOrder.save();
+          await oldOrder?.save();
           this.orderGateway.emitOrderUpdated(user, oldOrder);
         }
       } catch (error) {
@@ -623,10 +623,10 @@ export class OrderService {
               ...(discountAmount && {
                 discountAmount: Math.min(
                   discountAmount / totalSelectedQuantity,
-                  oldOrder.unitPrice,
+                  oldOrder?.unitPrice,
                 ),
                 paidQuantity:
-                  discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
+                  discountAmount / totalSelectedQuantity >= oldOrder?.unitPrice
                     ? orderItem.selectedQuantity
                     : 0,
               }),
@@ -635,21 +635,21 @@ export class OrderService {
           this.orderGateway.emitOrderUpdated(user, updatedOrder);
           if (
             (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= oldOrder.unitPrice)
+            (discountAmount && discountAmount >= oldOrder?.unitPrice)
           ) {
-            const orderWithItem = await oldOrder.populate('item');
+            const orderWithItem = await oldOrder?.populate('item');
 
             for (const ingredient of (orderWithItem.item as any)
               .itemProduction) {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
               if (isStockDecrementRequired) {
                 const consumptionQuantity =
-                  ingredient.quantity * oldOrder.quantity;
+                  ingredient.quantity * oldOrder?.quantity;
 
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder?.stockLocation ?? oldOrder.location === 1
+                    oldOrder?.stockLocation ?? oldOrder?.location === 1
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
@@ -659,14 +659,14 @@ export class OrderService {
               }
             }
             await this.createCollection(user, {
-              location: oldOrder.location,
+              location: oldOrder?.location,
               amount: 0,
               status: 'paid',
               paymentMethod: 'cash',
-              table: oldOrder.table,
+              table: oldOrder?.table,
               orders: [
                 {
-                  order: oldOrder._id,
+                  order: oldOrder?._id,
                   paidQuantity: orderItem.selectedQuantity,
                 },
               ],
@@ -680,7 +680,7 @@ export class OrderService {
         }
       } else {
         // Destructure oldOrder to exclude the _id field
-        const { _id, ...orderDataWithoutId } = oldOrder.toObject();
+        const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
         // Create new order without the _id field
         const newOrder = new this.orderModel({
           ...orderDataWithoutId,
@@ -694,10 +694,10 @@ export class OrderService {
           ...(discountAmount && {
             discountAmount: Math.min(
               discountAmount / totalSelectedQuantity,
-              oldOrder.unitPrice,
+              oldOrder?.unitPrice,
             ),
             paidQuantity:
-              discountAmount / totalSelectedQuantity >= oldOrder.unitPrice
+              discountAmount / totalSelectedQuantity >= oldOrder?.unitPrice
                 ? orderItem.selectedQuantity
                 : 0,
           }),
@@ -707,7 +707,7 @@ export class OrderService {
           this.orderGateway.emitOrderCreated(user, newOrder);
           if (
             (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= oldOrder.unitPrice)
+            (discountAmount && discountAmount >= oldOrder?.unitPrice)
           ) {
             const orderWithItem = await newOrder.populate('item');
             for (const ingredient of (orderWithItem.item as any)
@@ -715,11 +715,11 @@ export class OrderService {
               const isStockDecrementRequired = ingredient?.isDecrementStock;
               if (isStockDecrementRequired) {
                 const consumptionQuantity =
-                  ingredient.quantity * oldOrder.paidQuantity;
+                  ingredient.quantity * oldOrder?.paidQuantity;
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder?.stockLocation ?? oldOrder.location === 1
+                    oldOrder?.stockLocation ?? oldOrder?.location === 1
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
@@ -773,11 +773,11 @@ export class OrderService {
           orderItem.totalQuantity - orderItem.selectedQuantity;
 
         try {
-          if (oldOrder.quantity === 0) {
-            await this.orderModel.findByIdAndDelete(oldOrder._id);
+          if (oldOrder?.quantity === 0) {
+            await this.orderModel.findByIdAndDelete(oldOrder?._id);
             this.orderGateway.emitOrderUpdated(user, oldOrder);
           } else {
-            await oldOrder.save();
+            await oldOrder?.save();
           }
         } catch (error) {
           throw new HttpException(
