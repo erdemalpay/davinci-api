@@ -1,5 +1,4 @@
 import { CountListsProduct } from './countList.schema';
-import { CountListsFixture } from './fixtureCountList.schema';
 import { PackageType } from './product.schema';
 
 export class CreateProductDto {
@@ -12,15 +11,6 @@ export class CreateProductDto {
   packages?: PackageType[];
 }
 
-export class CreateFixtureDto {
-  name: string;
-  expenseType: string[];
-  brand?: string[];
-  vendor?: string[];
-  unitPrice?: number;
-  unit?: string;
-  packages?: PackageType[];
-}
 export class CreateServiceDto {
   name: string;
   expenseType: string[];
@@ -34,7 +24,6 @@ export class CreateServiceDto {
 export class CreatePaymentDto {
   vendor: string;
   invoice?: number;
-  fixtureInvoice?: number;
   serviceInvoice?: number;
   paymentMethod: string;
   date: string;
@@ -62,10 +51,6 @@ export class CreateCountListDto {
   name: string;
   products?: CountListsProduct[];
 }
-export class CreateFixtureCountListDto {
-  name: string;
-  fixtures?: CountListsFixture[];
-}
 export class CreateCountDto {
   user: string;
   location: string;
@@ -74,22 +59,9 @@ export class CreateCountDto {
   products: CountProductDto[];
   countList: string;
 }
-export class CreateFixtureCountDto {
-  user: string;
-  location: string;
-  isCompleted: boolean;
-  createdAt: Date;
-  fixtures: CountFixtureDto[];
-  countList: string;
-}
 export class CountProductDto {
   product: string;
   packageType: string;
-  stockQuantity: number;
-  countQuantity: number;
-}
-export class CountFixtureDto {
-  product: string;
   stockQuantity: number;
   countQuantity: number;
 }
@@ -113,26 +85,12 @@ export class CreateStockDto {
   packageType?: string;
   status: string;
 }
-export class CreateFixtureStockDto {
-  fixture: string;
-  location: string | number;
-  quantity: number;
-  status: string;
-}
 export class CreateProductStockHistoryDto {
   product: string;
   location: string | number;
   change: number;
   currentAmount: number;
   packageType?: string;
-  status: string;
-  user: string;
-}
-export class CreateFixtureStockHistoryDto {
-  fixture: string;
-  location: string | number;
-  change: number;
-  currentAmount: number;
   status: string;
   user: string;
 }
@@ -158,21 +116,6 @@ export class CreateInvoiceDto {
   isPaid: boolean;
   paymentMethod?: string;
   isStockIncrement?: boolean;
-}
-
-export class CreateFixtureInvoiceDto {
-  fixture: string;
-  expenseType: string;
-  quantity: number;
-  totalExpense: number;
-  location: string | number;
-  date: string;
-  brand?: string;
-  vendor?: string;
-  note?: string;
-  packageType?: string;
-  isPaid: boolean;
-  paymentMethod?: string;
 }
 
 export class CreateServiceInvoiceDto {
@@ -204,8 +147,6 @@ export enum StockHistoryStatusEnum {
   STOCKUPDATEENTRY = 'STOCKUPDATEENTRY',
   CONSUMPTION = 'CONSUMPTION',
   TRANSFERSERVICETOINVOICE = 'TRANSFERSERVICETOINVOICE',
-  TRANSFERFIXTURETOINVOICE = 'TRANSFERFIXTURETOINVOICE',
-  TRANSFERINVOICETOFIXTURE = 'TRANSFERINVOICETOFIXTURE',
   TRANSFERINVOICETOSERVICE = 'TRANSFERINVOICETOSERVICE',
   ORDERCANCEL = 'ORDERCANCEL',
   ORDERCREATE = 'ORDERCREATE',

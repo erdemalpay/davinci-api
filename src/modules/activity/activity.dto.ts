@@ -9,7 +9,6 @@ import { Order } from '../order/order.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
-import { FixtureInvoice } from './../accounting/fixtureInvoice.schema';
 import { Invoice } from './../accounting/invoice.schema';
 import { PackageType } from './../accounting/packageType.schema';
 import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
@@ -42,9 +41,6 @@ export enum ActivityType {
   CREATE_EXPENSE = 'CREATE_EXPENSE',
   DELETE_EXPENSE = 'DELETE_EXPENSE',
   UPDATE_EXPENSE = 'UPDATE_EXPENSE',
-  CREATE_FIXTUREEXPENSE = 'CREATE_FIXTUREEXPENSE',
-  DELETE_FIXTUREEXPENSE = 'DELETE_FIXTUREEXPENSE',
-  UPDATE_FIXTUREEXPENSE = 'UPDATE_FIXTUREEXPENSE',
   CREATE_SERVICEEXPENSE = 'CREATE_SERVICEEXPENSE',
   DELETE_SERVICEEXPENSE = 'DELETE_SERVICEEXPENSE',
   UPDATE_SERVICEEXPENSE = 'UPDATE_SERVICEEXPENSE',
@@ -97,12 +93,6 @@ export type ActivityTypePayload = {
   [ActivityType.UPDATE_EXPENSE]: {
     currentExpense: Invoice;
     newExpense: Invoice;
-  };
-  [ActivityType.CREATE_FIXTUREEXPENSE]: FixtureInvoice;
-  [ActivityType.DELETE_FIXTUREEXPENSE]: FixtureInvoice;
-  [ActivityType.UPDATE_FIXTUREEXPENSE]: {
-    currentExpense: FixtureInvoice;
-    newExpense: FixtureInvoice;
   };
   [ActivityType.CREATE_SERVICEEXPENSE]: ServiceInvoice;
   [ActivityType.DELETE_SERVICEEXPENSE]: ServiceInvoice;
