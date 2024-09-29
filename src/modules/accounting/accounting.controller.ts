@@ -16,12 +16,6 @@ import {
   CreateCountDto,
   CreateCountListDto,
   CreateExpenseTypeDto,
-  CreateFixtureCountDto,
-  CreateFixtureCountListDto,
-  CreateFixtureDto,
-  CreateFixtureInvoiceDto,
-  CreateFixtureStockDto,
-  CreateFixtureStockHistoryDto,
   CreateInvoiceDto,
   CreatePackageTypeDto,
   CreatePaymentDto,
@@ -42,11 +36,6 @@ import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
-import { Fixture } from './fixture.schema';
-import { FixtureCount } from './fixtureCount.schema';
-import { FixtureCountList } from './fixtureCountList.schema';
-import { FixtureInvoice } from './fixtureInvoice.schema';
-import { FixtureStock } from './fixtureStock.schema';
 import { Invoice } from './invoice.schema';
 import { PackageType } from './packageType.schema';
 import { Payment } from './payment.schema';
@@ -121,37 +110,7 @@ export class AccountingController {
   deleteUnit(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeUnit(user, id);
   }
-  // Fixtures
-  @Get('/fixtures')
-  getFixtures() {
-    return this.accountingService.findAllFixtures();
-  }
-  @Get('/fixture/games')
-  getGamesFixtures(@ReqUser() user: User) {
-    return this.accountingService.gamesFixtures(user);
-  }
 
-  @Post('/fixtures')
-  createFixture(
-    @ReqUser() user: User,
-    @Body() createFixtureDto: CreateFixtureDto,
-  ) {
-    return this.accountingService.createFixture(user, createFixtureDto);
-  }
-
-  @Patch('/fixtures/:id')
-  updateFixture(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Fixture>,
-  ) {
-    return this.accountingService.updateFixture(user, id, updates);
-  }
-
-  @Delete('/fixtures/:id')
-  deleteFixture(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeFixture(user, id);
-  }
   // Services
   @Get('/services')
   getServices() {
@@ -178,42 +137,6 @@ export class AccountingController {
   @Delete('/services/:id')
   deleteService(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeService(user, id);
-  }
-
-  // fixture invoices
-  @Get('/fixture-invoice')
-  getFixtureInvoice() {
-    return this.accountingService.findAllFixtureInvoices();
-  }
-
-  @Post('/fixture-invoice')
-  createFixtureInvoice(
-    @ReqUser() user: User,
-    @Body() createFixtureInvoiceDto: CreateFixtureInvoiceDto,
-  ) {
-    return this.accountingService.createFixtureInvoice(
-      user,
-      createFixtureInvoiceDto,
-      StockHistoryStatusEnum.EXPENSEENTRY,
-    );
-  }
-
-  @Patch('fixture-invoice/:id')
-  updateFixtureInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<FixtureInvoice>,
-  ) {
-    return this.accountingService.updateFixtureInvoice(user, id, updates);
-  }
-
-  @Delete('/fixture-invoice/:id')
-  deleteFixtureInvoice(@ReqUser() user: User, @Param('id') id: number) {
-    return this.accountingService.removeFixtureInvoice(
-      user,
-      id,
-      StockHistoryStatusEnum.EXPENSEDELETE,
-    );
   }
 
   // service invoices
@@ -443,14 +366,6 @@ export class AccountingController {
     );
   }
 
-  @Patch('/invoices/transfer_to_fixture_invoice/:id')
-  updateInvoiceToFixtureInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-  ) {
-    return this.accountingService.transferInvoiceToFixtureInvoice(user, id);
-  }
-
   @Patch('/invoices/transfer_to_service_invoice/:id')
   updateInvoiceToServiceInvoice(
     @ReqUser() user: User,
@@ -464,25 +379,6 @@ export class AccountingController {
     @Param('id') id: number,
   ) {
     return this.accountingService.transferServiceInvoiceToInvoice(user, id);
-  }
-
-  @Patch('/invoices/transfer_fixture_invoice_to_invoice/:id')
-  updateFixtureInvoiceToInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-  ) {
-    return this.accountingService.transferFixtureInvoiceToInvoice(user, id);
-  }
-
-  @Patch('/invoices/transfer_fixture_invoice_to_service_invoice/:id')
-  updateFixtureInvoiceToServiceInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-  ) {
-    return this.accountingService.transferFixtureInvoiceToServiceInvoice(
-      user,
-      id,
-    );
   }
 
   @Patch('/invoices/:id')
@@ -584,56 +480,6 @@ export class AccountingController {
       createProductStockHistoryDto,
     );
   }
-  // Fixture Stock History
-  @Get('/fixture-stock-histories')
-  getFixtureStockHistories() {
-    return this.accountingService.findAllFixtureStockHistories();
-  }
-
-  @Post('/fixture-stock-histories')
-  createFixtureStockHistory(
-    @Body() createFixtureStockHistoryDto: CreateFixtureStockHistoryDto,
-  ) {
-    return this.accountingService.createFixtureStockHistory(
-      createFixtureStockHistoryDto,
-    );
-  }
-
-  // Fixture Stocks
-  @Get('/fixture-stocks')
-  getFixtureStocks() {
-    return this.accountingService.findAllFixtureStocks();
-  }
-
-  @Post('/fixture-stocks')
-  createFixtureStock(
-    @ReqUser() user: User,
-    @Body() createFixtureStockDto: CreateFixtureStockDto,
-  ) {
-    return this.accountingService.createFixtureStock(
-      user,
-      createFixtureStockDto,
-    );
-  }
-
-  @Patch('/fixture-stocks/:id')
-  updateFixtureStock(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<FixtureStock>,
-  ) {
-    return this.accountingService.updateFixtureStock(user, id, updates);
-  }
-
-  @Delete('/fixture-stocks/:id')
-  deleteFixtureStock(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeFixtureStock(
-      user,
-      id,
-      StockHistoryStatusEnum.STOCKDELETE,
-    );
-  }
-
   // count list
   @Get('/count-list')
   getCountList() {
@@ -660,34 +506,6 @@ export class AccountingController {
   @Delete('/count-list/:id')
   deleteCountList(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeCountList(user, id);
-  }
-
-  // Fixture Count List
-  @Get('/fixture-count-list')
-  getFixtureCountList() {
-    return this.accountingService.findAllFixtureCountLists();
-  }
-
-  @Post('/fixture-count-list')
-  createFixtureCountList(
-    @Body() createFixtureCountListDto: CreateFixtureCountListDto,
-  ) {
-    return this.accountingService.createFixtureCountList(
-      createFixtureCountListDto,
-    );
-  }
-
-  @Patch('/fixture-count-list/:id')
-  updateFixtureCountList(
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<FixtureCountList>,
-  ) {
-    return this.accountingService.updateFixtureCountList(id, updates);
-  }
-
-  @Delete('/fixture-count-list/:id')
-  deleteFixtureCountList(@Param('id') id: string) {
-    return this.accountingService.removeFixtureCountList(id);
   }
 
   // count
@@ -746,24 +564,5 @@ export class AccountingController {
   @Delete('/counts/:id')
   deleteCount(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeCount(user, id);
-  }
-
-  //fixture count
-  @Get('/fixture-counts')
-  getFixtureCounts() {
-    return this.accountingService.findAllFixtureCounts();
-  }
-
-  @Post('/fixture-counts')
-  createFixtureCount(@Body() createFixtureCountDto: CreateFixtureCountDto) {
-    return this.accountingService.createFixtureCount(createFixtureCountDto);
-  }
-
-  @Patch('/fixture-counts/:id')
-  updateFixtureCount(
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<FixtureCount>,
-  ) {
-    return this.accountingService.updateFixtureCount(id, updates);
   }
 }

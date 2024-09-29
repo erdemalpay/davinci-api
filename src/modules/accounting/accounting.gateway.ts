@@ -56,23 +56,6 @@ export class AccountingGateway
   emitExpenseTypeChanged(user: User, expenseType: any) {
     this.server.emit('expenseTypeChanged', { user, expenseType });
   }
-
-  emitFixtureChanged(user: User, fixture: any) {
-    this.server.emit('fixtureChanged', { user, fixture });
-  }
-
-  emitFixtureCountChanged(user: User, fixtureCount: any) {
-    this.server.emit('fixtureCountChanged', { user, fixtureCount });
-  }
-
-  emitFixtureInvoiceChanged(user: User, fixtureInvoice: any) {
-    this.server.emit('fixtureInvoiceChanged', { user, fixtureInvoice });
-  }
-
-  emitFixtureCountListChanged(user: User, fixtureCountList: any) {
-    this.server.emit('fixtureCountListChanged', { user, fixtureCountList });
-  }
-
   emitInvoiceChanged(user: User, invoice: any) {
     this.server.emit('invoiceChanged', { user, invoice });
   }
