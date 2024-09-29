@@ -1718,6 +1718,104 @@ export class AccountingService {
     }
   }
 
+  async transferFixtureInvoiceToServiceInvoice(user: User, id: number) {
+    const foundInvoice = await this.fixtureInvoiceModel.findById(id);
+    if (!foundInvoice) {
+      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
+    }
+
+    const fixture = await this.fixtureModel.findById(foundInvoice.fixture);
+    if (!fixture) {
+      throw new HttpException('Fixture not found', HttpStatus.BAD_REQUEST);
+    }
+
+    let service = await this.serviceModel.findById(usernamify(fixture.name));
+    if (!service) {
+      service = await this.createService(user, {
+        name: fixture.name,
+        unitPrice: fixture?.unitPrice ?? 0,
+        expenseType: fixture?.expenseType,
+        vendor: fixture?.vendor,
+        brand: fixture?.brand,
+        unit: fixture?.unit,
+        packages: fixture?.packages,
+      });
+    }
+
+    const fixtureInvoices = await this.fixtureInvoiceModel.find({
+      fixture: foundInvoice.fixture,
+    });
+    if (fixtureInvoices.length === 0) {
+      throw new HttpException(
+        'No invoices found for the product',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    for (const invoice of fixtureInvoices) {
+      await this.createServiceInvoice(user, {
+        service: service._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        vendor: invoice?.vendor,
+        brand: invoice?.brand,
+        note: invoice?.note,
+        packageType: invoice?.packageType ?? 'birim',
+        isPaid: invoice?.isPaid,
+        paymentMethod: invoice?.paymentMethod,
+      });
+
+      try {
+        await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
+        // this.accountingGateway.emitInvoiceChanged(user, invoice);
+      } catch (error) {
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    for (const invoice of fixtureInvoices) {
+      await this.createServiceInvoice(user, {
+        service: fixture._id,
+        expenseType: invoice?.expenseType,
+        quantity: invoice?.quantity,
+        totalExpense: invoice?.totalExpense,
+        location: invoice?.location,
+        date: invoice.date,
+        brand: invoice?.brand,
+        vendor: invoice?.vendor,
+        note: invoice?.note,
+        packageType: invoice?.packageType ?? 'birim',
+        isPaid: invoice?.isPaid,
+        paymentMethod: invoice?.paymentMethod,
+      });
+
+      try {
+        await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
+        this.accountingGateway.emitInvoiceChanged(user, invoice);
+      } catch (error) {
+        throw new HttpException(
+          'Failed to remove invoice',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    try {
+      await this.removeFixture(user, foundInvoice.fixture);
+    } catch (error) {
+      throw new HttpException(
+        `Failed to remove the fixture`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async transferServiceInvoiceToInvoice(user: User, id: number) {
     const foundInvoice = await this.serviceInvoiceModel.findById(id);
     if (!foundInvoice) {
