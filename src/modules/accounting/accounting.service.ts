@@ -1779,33 +1779,6 @@ export class AccountingService {
       }
     }
 
-    for (const invoice of fixtureInvoices) {
-      await this.createServiceInvoice(user, {
-        service: fixture._id,
-        expenseType: invoice?.expenseType,
-        quantity: invoice?.quantity,
-        totalExpense: invoice?.totalExpense,
-        location: invoice?.location,
-        date: invoice.date,
-        brand: invoice?.brand,
-        vendor: invoice?.vendor,
-        note: invoice?.note,
-        packageType: invoice?.packageType ?? 'birim',
-        isPaid: invoice?.isPaid,
-        paymentMethod: invoice?.paymentMethod,
-      });
-
-      try {
-        await this.fixtureInvoiceModel.findByIdAndDelete(invoice._id);
-        this.accountingGateway.emitInvoiceChanged(user, invoice);
-      } catch (error) {
-        throw new HttpException(
-          'Failed to remove invoice',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
     try {
       await this.removeFixture(user, foundInvoice.fixture);
     } catch (error) {
