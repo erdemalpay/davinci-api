@@ -465,12 +465,24 @@ export class AccountingController {
   ) {
     return this.accountingService.transferServiceInvoiceToInvoice(user, id);
   }
+
   @Patch('/invoices/transfer_fixture_invoice_to_invoice/:id')
   updateFixtureInvoiceToInvoice(
     @ReqUser() user: User,
     @Param('id') id: number,
   ) {
     return this.accountingService.transferFixtureInvoiceToInvoice(user, id);
+  }
+
+  @Patch('/invoices/transfer_fixture_invoice_to_service_invoice/:id')
+  updateFixtureInvoiceToServiceInvoice(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+  ) {
+    return this.accountingService.transferFixtureInvoiceToServiceInvoice(
+      user,
+      id,
+    );
   }
 
   @Patch('/invoices/:id')
