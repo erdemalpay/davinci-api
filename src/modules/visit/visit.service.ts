@@ -1,7 +1,6 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format } from 'date-fns';
 import { Model } from 'mongoose';
-
 import { User } from '../user/user.schema';
 import { CreateVisitDto } from './create.visit.dto';
 import { VisitDto } from './visit.dto';
@@ -68,6 +67,7 @@ export class VisitService {
         { date: { $gte: startDate, $lte: endDate } },
         { __v: false, _id: false },
       )
+      .populate('user')
       .sort({ date: 1, location: 1 })
       .lean();
 
