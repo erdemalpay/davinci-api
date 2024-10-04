@@ -56,6 +56,11 @@ export class AccountingController {
     return this.accountingService.findAllProducts();
   }
 
+  @Get('/update-products')
+  updateProducts() {
+    return this.accountingService.createNewProductsWithPackage();
+  }
+
   @Post('/products')
   createCategory(
     @ReqUser() user: User,

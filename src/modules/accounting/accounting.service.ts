@@ -7,7 +7,6 @@ import { CheckoutService } from '../checkout/checkout.service';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { ActivityService } from './../activity/activity.service';
-import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
@@ -76,7 +75,6 @@ export class AccountingService {
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
     private readonly MenuService: MenuService,
     private readonly activityService: ActivityService,
-    private readonly gameService: GameService,
     private readonly checkoutService: CheckoutService,
     private readonly accountingGateway: AccountingGateway,
   ) {}
@@ -84,6 +82,33 @@ export class AccountingService {
   findAllProducts() {
     return this.productModel.find();
   }
+
+  async createNewProductsWithPackage() {
+    const packages = await this.packageTypeModel.find();
+    const packageMap = new Map<string, PackageType>();
+    packages.forEach((p) => {
+      packageMap.set(p._id, p);
+    });
+    const allProducts = await this.productModel.find();
+    for (const product of allProducts) {
+      for (const packageType of product.packages) {
+        const packageObject = packageMap.get(packageType.package);
+        if (packageObject.quantity === 1 && packageObject.unit === 'adet') {
+          continue;
+        }
+        const newProduct = await this.productModel.create({
+          ...product,
+          _id: product._id + '_' + packageType.package,
+          name: product.name + ' ' + packageObject.name,
+        });
+        await this.invoiceModel.updateMany(
+          { product: product._id, packageType: packageType.package },
+          { $set: { product: newProduct } },
+        );
+      }
+    }
+  }
+
   async createProduct(user: User, createProductDto: CreateProductDto) {
     try {
       const product = new this.productModel(createProductDto);
