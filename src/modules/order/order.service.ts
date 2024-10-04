@@ -173,9 +173,8 @@ export class OrderService {
             await this.accountingService.consumptStock(user, {
               product: ingredient.product,
               location:
-                order?.stockLocation ?? order.location === 1
-                  ? 'bahceli'
-                  : 'neorama',
+                order?.stockLocation ??
+                (order?.location === 1 ? 'bahceli' : 'neorama'),
               quantity: consumptionQuantity,
               packageType: 'birim',
               status: StockHistoryStatusEnum.ORDERCREATE,
@@ -649,9 +648,8 @@ export class OrderService {
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder?.stockLocation ?? oldOrder?.location === 1
-                      ? 'bahceli'
-                      : 'neorama',
+                    oldOrder?.stockLocation ??
+                    (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
@@ -719,9 +717,8 @@ export class OrderService {
                 await this.accountingService.consumptStock(user, {
                   product: ingredient.product,
                   location:
-                    oldOrder?.stockLocation ?? oldOrder?.location === 1
-                      ? 'bahceli'
-                      : 'neorama',
+                    oldOrder?.stockLocation ??
+                    (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
                   quantity: consumptionQuantity,
                   packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
