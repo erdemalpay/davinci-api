@@ -79,6 +79,10 @@ export class AccountingService {
     private readonly accountingGateway: AccountingGateway,
   ) {}
   //   Products
+  findActiveProducts() {
+    return this.productModel.find({ deleted: { $ne: true } });
+  }
+
   findAllProducts() {
     return this.productModel.find();
   }
@@ -89,8 +93,9 @@ export class AccountingService {
     packages.forEach((p) => {
       packageMap.set(p._id, p);
     });
-    const allProducts = await this.productModel.find();
+    const allProducts = await this.productModel.find().lean();
     for (const product of allProducts) {
+      let productCreated = 0;
       for (const packageType of product.packages) {
         const packageObject = packageMap.get(packageType.package);
         if (packageObject.quantity === 1 && packageObject.unit === 'adet') {
@@ -101,10 +106,16 @@ export class AccountingService {
           _id: product._id + '_' + packageType.package,
           name: product.name + ' ' + packageObject.name,
         });
+        productCreated++;
         await this.invoiceModel.updateMany(
           { product: product._id, packageType: packageType.package },
           { $set: { product: newProduct } },
         );
+      }
+      if (productCreated > 0) {
+        await this.productModel.findByIdAndUpdate(product._id, {
+          deleted: true,
+        });
       }
     }
   }
@@ -213,7 +224,9 @@ export class AccountingService {
     await product.save();
 
     // remove product
-    await this.productModel.findByIdAndDelete(removedProduct);
+    await this.productModel.findByIdAndUpdate(removedProduct, {
+      deleted: true,
+    });
     this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
@@ -226,9 +239,11 @@ export class AccountingService {
     return product;
   }
   async removeProduct(user: User, id: string) {
-    await this.checkIsProductRemovable(id);
-    await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
-    const product = await this.productModel.findByIdAndRemove(id);
+    // await this.checkIsProductRemovable(id);
+    // await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
+    const product = await this.productModel.findByIdAndUpdate(id, {
+      deleted: true,
+    });
     this.accountingGateway.emitProductChanged(user, product);
     return product;
   }

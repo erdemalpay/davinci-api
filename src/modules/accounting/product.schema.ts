@@ -39,6 +39,9 @@ export class Product extends Document {
 
   @Prop([PackageType])
   packages: PackageType[];
+
+  @Prop({ required: true, default: false, type: Boolean, index: true })
+  deleted: boolean;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
