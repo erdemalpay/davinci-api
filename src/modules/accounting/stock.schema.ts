@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { PackageType } from './packageType.schema';
 import { Product } from './product.schema';
 import { StockLocation } from './stockLocation.schema';
 
@@ -15,9 +14,6 @@ export class Stock extends Document {
 
   @Prop({ required: true, type: String, ref: StockLocation.name })
   location: string | number;
-
-  @Prop({ required: false, type: String, ref: PackageType.name })
-  packageType: PackageType;
 
   @Prop({ required: true, type: Number })
   quantity: number;

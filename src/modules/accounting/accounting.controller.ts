@@ -17,7 +17,6 @@ import {
   CreateCountListDto,
   CreateExpenseTypeDto,
   CreateInvoiceDto,
-  CreatePackageTypeDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductDto,
@@ -26,7 +25,6 @@ import {
   CreateServiceInvoiceDto,
   CreateStockDto,
   CreateStockLocationDto,
-  CreateUnitDto,
   CreateVendorDto,
   JoinProductDto,
   StockHistoryStatusEnum,
@@ -37,7 +35,6 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
-import { PackageType } from './packageType.schema';
 import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
@@ -45,8 +42,8 @@ import { Service } from './service.schema';
 import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
-import { Unit } from './unit.schema';
 import { Vendor } from './vendor.schema';
+
 @Controller('/accounting')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
@@ -59,11 +56,6 @@ export class AccountingController {
   @Get('/all-products')
   getAllProducts() {
     return this.accountingService.findAllProducts();
-  }
-
-  @Get('/update-products')
-  updateProducts() {
-    return this.accountingService.createNewProductsWithPackage();
   }
 
   @Post('/products')
@@ -89,36 +81,6 @@ export class AccountingController {
   @Delete('/products/:id')
   deleteCategory(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeProduct(user, id);
-  }
-
-  @Get('/update/packages')
-  updateProductPackages() {
-    return this.accountingService.updatePackages();
-  }
-
-  // Units
-  @Get('/units')
-  getUnits() {
-    return this.accountingService.findAllUnits();
-  }
-
-  @Post('/units')
-  createUnit(@ReqUser() user: User, @Body() createUnitDto: CreateUnitDto) {
-    return this.accountingService.createUnit(user, createUnitDto);
-  }
-
-  @Patch('/units/:id')
-  updateUnit(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Unit>,
-  ) {
-    return this.accountingService.updateUnit(user, id, updates);
-  }
-
-  @Delete('/units/:id')
-  deleteUnit(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeUnit(user, id);
   }
 
   // Services
@@ -259,33 +221,7 @@ export class AccountingController {
   deleteVendor(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeVendor(user, id);
   }
-  // packageTypes
-  @Get('/package-types')
-  getPackageTypes() {
-    return this.accountingService.findAllPackageTypes();
-  }
 
-  @Post('/package-types')
-  createPackageType(
-    @ReqUser() user: User,
-    @Body() createPackageTypeDto: CreatePackageTypeDto,
-  ) {
-    return this.accountingService.createPackageType(user, createPackageTypeDto);
-  }
-
-  @Patch('/package-types/:id')
-  updatePackageType(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<PackageType>,
-  ) {
-    return this.accountingService.updatePackageType(user, id, updates);
-  }
-
-  @Delete('/package-types/:id')
-  deletePackageType(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removePackageType(user, id);
-  }
   // payment methods
   @Get('/payment-methods')
   getPaymentMethods() {
@@ -535,7 +471,6 @@ export class AccountingController {
     payload: {
       product: string;
       location: string;
-      packageType: string;
       quantity: number;
       currentCountId: number;
     },
@@ -544,7 +479,6 @@ export class AccountingController {
       user,
       payload.product,
       payload.location,
-      payload.packageType,
       payload.quantity,
       payload.currentCountId,
     );

@@ -177,7 +177,6 @@ export class OrderService {
                   ? 'bahceli'
                   : 'neorama',
               quantity: consumptionQuantity,
-              packageType: 'birim',
               status: StockHistoryStatusEnum.ORDERCREATE,
             });
           }
@@ -333,7 +332,6 @@ export class OrderService {
                   oldOrder?.stockLocation ??
                   (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
                 quantity: consumptionQuantity,
-                packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCREATE,
               });
             }
@@ -344,7 +342,6 @@ export class OrderService {
                 product: ingredient.product,
                 location: oldOrder?.stockLocation,
                 quantity: incrementQuantity,
-                packageType: 'birim',
                 status: StockHistoryStatusEnum.ORDERCANCEL,
               });
             }
@@ -653,7 +650,6 @@ export class OrderService {
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
-                  packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
                 });
               }
@@ -723,7 +719,6 @@ export class OrderService {
                       ? 'bahceli'
                       : 'neorama',
                   quantity: consumptionQuantity,
-                  packageType: 'birim',
                   status: StockHistoryStatusEnum.ORDERCREATE,
                 });
               }
