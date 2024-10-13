@@ -4,7 +4,6 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { User } from '../user/user.schema';
 import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
-import { PackageType } from './packageType.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Service } from './service.schema';
 import { StockLocation } from './stockLocation.schema';
@@ -32,9 +31,6 @@ export class ServiceInvoice extends Document {
 
   @Prop({ required: false, type: String, ref: Brand.name })
   brand: string;
-
-  @Prop({ required: false, type: String, ref: PackageType.name })
-  packageType: string;
 
   @Prop({ required: true, type: Number })
   totalExpense: number;

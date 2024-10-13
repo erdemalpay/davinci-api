@@ -10,9 +10,7 @@ import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
 import { Invoice } from './../accounting/invoice.schema';
-import { PackageType } from './../accounting/packageType.schema';
 import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
-import { Unit } from './../accounting/unit.schema';
 import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
 
@@ -44,9 +42,6 @@ export enum ActivityType {
   CREATE_SERVICEEXPENSE = 'CREATE_SERVICEEXPENSE',
   DELETE_SERVICEEXPENSE = 'DELETE_SERVICEEXPENSE',
   UPDATE_SERVICEEXPENSE = 'UPDATE_SERVICEEXPENSE',
-  CREATE_UNIT = 'CREATE_UNIT',
-  DELETE_UNIT = 'DELETE_UNIT',
-  UPDATE_UNIT = 'UPDATE_UNIT',
   CREATE_EXPENSETYPE = 'CREATE_EXPENSETYPE',
   DELETE_EXPENSETYPE = 'DELETE_EXPENSETYPE',
   UPDATE_EXPENSETYPE = 'UPDATE_EXPENSETYPE',
@@ -56,9 +51,6 @@ export enum ActivityType {
   CREATE_BRAND = 'CREATE_BRAND',
   DELETE_BRAND = 'DELETE_BRAND',
   UPDATE_BRAND = 'UPDATE_BRAND',
-  CREATE_PACKAGETYPE = 'CREATE_PACKAGETYPE',
-  DELETE_PACKAGETYPE = 'DELETE_PACKAGETYPE',
-  UPDATE_PACKAGETYPE = 'UPDATE_PACKAGETYPE',
   CREATE_PAYMENTMETHOD = 'CREATE_PAYMENTMETHOD',
   DELETE_PAYMENTMETHOD = 'DELETE_PAYMENTMETHOD',
   UPDATE_PAYMENTMETHOD = 'UPDATE_PAYMENTMETHOD',
@@ -100,12 +92,6 @@ export type ActivityTypePayload = {
     currentExpense: ServiceInvoice;
     newExpense: ServiceInvoice;
   };
-  [ActivityType.CREATE_UNIT]: Unit;
-  [ActivityType.DELETE_UNIT]: Unit;
-  [ActivityType.UPDATE_UNIT]: {
-    currentUnit: Unit;
-    newUnit: Unit;
-  };
   [ActivityType.CREATE_EXPENSETYPE]: ExpenseType;
   [ActivityType.DELETE_EXPENSETYPE]: ExpenseType;
   [ActivityType.UPDATE_EXPENSETYPE]: {
@@ -123,12 +109,6 @@ export type ActivityTypePayload = {
   [ActivityType.UPDATE_BRAND]: {
     currentBrand: Brand;
     newBrand: Brand;
-  };
-  [ActivityType.CREATE_PACKAGETYPE]: PackageType;
-  [ActivityType.DELETE_PACKAGETYPE]: PackageType;
-  [ActivityType.UPDATE_PACKAGETYPE]: {
-    currentPackageType: PackageType;
-    newPackageType: PackageType;
   };
   [ActivityType.CREATE_PAYMENTMETHOD]: PaymentMethod;
   [ActivityType.DELETE_PAYMENTMETHOD]: PaymentMethod;

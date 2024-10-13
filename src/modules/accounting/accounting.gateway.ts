@@ -60,10 +60,6 @@ export class AccountingGateway
     this.server.emit('invoiceChanged', { user, invoice });
   }
 
-  emitPackageTypeChanged(user: User, packageType: any) {
-    this.server.emit('packageTypeChanged', { user, packageType });
-  }
-
   emitPaymentChanged(user: User, payment: any) {
     this.server.emit('paymentChanged', { user, payment });
   }
@@ -97,10 +93,6 @@ export class AccountingGateway
 
   emitStockLocationChanged(user: User, stockLocation: any) {
     this.server.emit('stockLocationChanged', { user, stockLocation });
-  }
-
-  emitUnitChanged(user: User, unit: any) {
-    this.server.emit('unitChanged', { user, unit });
   }
 
   emitVendorChanged(user: User, vendor: any) {
