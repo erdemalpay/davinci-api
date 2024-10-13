@@ -23,6 +23,7 @@ export class CreateOrderDto {
   division?: number;
   isOnlinePrice?: boolean;
   stockLocation?: string;
+  discountNote?: string;
 }
 export type OrderType = {
   _id: number;
@@ -48,6 +49,7 @@ export type OrderType = {
   division?: number;
   isOnlinePrice?: boolean;
   stockLocation?: string;
+  discountNote?: string;
 };
 
 export class CreateCollectionDto {
@@ -66,7 +68,7 @@ export class CreateDiscountDto {
   name: string;
   percentage?: number;
   amount?: number;
-
+  isNoteRequired?: boolean;
   isOnlineOrder?: boolean;
 }
 

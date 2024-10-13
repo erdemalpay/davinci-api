@@ -598,7 +598,9 @@ export class OrderService {
     discount: number,
     discountPercentage?: number,
     discountAmount?: number,
+    discountNote?: string,
   ) {
+    console.log(discountNote);
     for (const orderItem of orders) {
       const oldOrder = await this.orderModel.findById(orderItem.orderId);
       if (!oldOrder) {
@@ -624,11 +626,13 @@ export class OrderService {
                   discountAmount / totalSelectedQuantity,
                   oldOrder?.unitPrice,
                 ),
+
                 paidQuantity:
                   discountAmount / totalSelectedQuantity >= oldOrder?.unitPrice
                     ? orderItem.selectedQuantity
                     : 0,
               }),
+              discountNote: discountNote ?? '',
             },
           );
           this.orderGateway.emitOrderUpdated(user, updatedOrder);
@@ -699,6 +703,7 @@ export class OrderService {
                 ? orderItem.selectedQuantity
                 : 0,
           }),
+          discountNote: discountNote ?? '',
         });
         try {
           await newOrder.save();

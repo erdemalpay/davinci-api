@@ -48,6 +48,7 @@ export class OrderController {
       discount: number;
       discountPercentage?: number;
       discountAmount?: number;
+      discountNote?: string;
     },
   ) {
     return this.orderService.createOrderForDiscount(
@@ -56,6 +57,7 @@ export class OrderController {
       payload.discount,
       payload?.discountPercentage,
       payload?.discountAmount,
+      payload?.discountNote,
     );
   }
 
