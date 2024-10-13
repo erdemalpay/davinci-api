@@ -13,6 +13,7 @@ export class PackageType {
   @Prop({ required: true, type: String, ref: PackageType.name })
   package: string;
 }
+
 @Schema({ _id: false })
 export class Product extends Document {
   @Prop({ type: String })
@@ -33,11 +34,14 @@ export class Product extends Document {
   @Prop({ required: false, type: [{ type: String, ref: Vendor.name }] })
   vendor: string[];
 
-  @Prop({ required: true, type: String, ref: Unit.name })
+  @Prop({ type: String, ref: Unit.name })
   unit: string;
 
   @Prop([PackageType])
   packages: PackageType[];
+
+  @Prop({ required: true, default: false, type: Boolean, index: true })
+  deleted: boolean;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

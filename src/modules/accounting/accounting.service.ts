@@ -7,7 +7,6 @@ import { CheckoutService } from '../checkout/checkout.service';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { ActivityService } from './../activity/activity.service';
-import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import {
   ConsumptStockDto,
@@ -76,14 +75,51 @@ export class AccountingService {
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
     private readonly MenuService: MenuService,
     private readonly activityService: ActivityService,
-    private readonly gameService: GameService,
     private readonly checkoutService: CheckoutService,
     private readonly accountingGateway: AccountingGateway,
   ) {}
   //   Products
+  findActiveProducts() {
+    return this.productModel.find({ deleted: { $ne: true } });
+  }
+
   findAllProducts() {
     return this.productModel.find();
   }
+
+  async createNewProductsWithPackage() {
+    const packages = await this.packageTypeModel.find();
+    const packageMap = new Map<string, PackageType>();
+    packages.forEach((p) => {
+      packageMap.set(p._id, p);
+    });
+    const allProducts = await this.productModel.find().lean();
+    for (const product of allProducts) {
+      let productCreated = 0;
+      for (const packageType of product.packages) {
+        const packageObject = packageMap.get(packageType.package);
+        if (packageObject.quantity === 1 && packageObject.unit === 'adet') {
+          continue;
+        }
+        const newProduct = await this.productModel.create({
+          ...product,
+          _id: product._id + '_' + packageType.package,
+          name: product.name + ' ' + packageObject.name,
+        });
+        productCreated++;
+        await this.invoiceModel.updateMany(
+          { product: product._id, packageType: packageType.package },
+          { $set: { product: newProduct } },
+        );
+      }
+      if (productCreated > 0) {
+        await this.productModel.findByIdAndUpdate(product._id, {
+          deleted: true,
+        });
+      }
+    }
+  }
+
   async createProduct(user: User, createProductDto: CreateProductDto) {
     try {
       const product = new this.productModel(createProductDto);
@@ -188,7 +224,9 @@ export class AccountingService {
     await product.save();
 
     // remove product
-    await this.productModel.findByIdAndDelete(removedProduct);
+    await this.productModel.findByIdAndUpdate(removedProduct, {
+      deleted: true,
+    });
     this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
@@ -201,9 +239,11 @@ export class AccountingService {
     return product;
   }
   async removeProduct(user: User, id: string) {
-    await this.checkIsProductRemovable(id);
-    await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
-    const product = await this.productModel.findByIdAndRemove(id);
+    // await this.checkIsProductRemovable(id);
+    // await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
+    const product = await this.productModel.findByIdAndUpdate(id, {
+      deleted: true,
+    });
     this.accountingGateway.emitProductChanged(user, product);
     return product;
   }

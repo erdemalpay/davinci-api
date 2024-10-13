@@ -52,8 +52,18 @@ export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
   // Products
   @Get('/products')
-  getCategories() {
+  getProducts() {
+    return this.accountingService.findActiveProducts();
+  }
+
+  @Get('/all-products')
+  getAllProducts() {
     return this.accountingService.findAllProducts();
+  }
+
+  @Get('/update-products')
+  updateProducts() {
+    return this.accountingService.createNewProductsWithPackage();
   }
 
   @Post('/products')
