@@ -69,6 +69,9 @@ export class Order extends Document {
   @Prop({ required: false, type: Number })
   discountAmount?: number;
 
+  @Prop({ required: false, type: String })
+  discountNote?: string;
+
   @Prop({ required: false, type: Number })
   division?: number;
 
