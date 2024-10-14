@@ -403,6 +403,11 @@ export class AccountingController {
     return this.accountingService.updateStock(user, id, updates);
   }
 
+  @Get('/fix-stocks')
+  fixStocks() {
+    return this.accountingService.fixStockIds();
+  }
+
   @Post('/stocks/consumpt')
   consumptStock(
     @ReqUser() user: User,

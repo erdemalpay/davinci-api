@@ -1092,6 +1092,23 @@ export class AccountingService {
     return this.stockModel.find();
   }
 
+  async fixStockIds() {
+    const stocks = await this.stockModel.find().lean();
+    for (const stock of stocks) {
+      const stockId = usernamify(
+        (stock.product as unknown as string) + stock.location,
+      );
+      if (stockId !== stock._id) {
+        try {
+          await this.stockModel.create({ ...stock, _id: stockId });
+        } catch (error) {
+          console.log('Stock already exists', stockId);
+        }
+        await this.stockModel.findByIdAndRemove(stock._id);
+      }
+    }
+  }
+
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
