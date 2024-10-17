@@ -384,6 +384,25 @@ export class AccountingController {
   createStock(@ReqUser() user: User, @Body() createStockDto: CreateStockDto) {
     return this.accountingService.createStock(user, createStockDto);
   }
+  @Post('/stock_transfer')
+  stockTransfer(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      currentStockLocation: string;
+      transferredStockLocation: string;
+      product: string;
+      quantity: number;
+    },
+  ) {
+    return this.accountingService.stockTransfer(
+      user,
+      payload.currentStockLocation,
+      payload.transferredStockLocation,
+      payload.product,
+      payload.quantity,
+    );
+  }
 
   @Delete('/stocks/:id')
   deleteStock(@ReqUser() user: User, @Param('id') id: string) {
