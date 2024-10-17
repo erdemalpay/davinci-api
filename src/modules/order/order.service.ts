@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { TableGateway } from '../table/table.gateway';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -30,6 +31,7 @@ export class OrderService {
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     private readonly tableService: TableService,
     private readonly orderGateway: OrderGateway,
+    private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
   ) {}
@@ -597,7 +599,6 @@ export class OrderService {
     discountAmount?: number,
     discountNote?: string,
   ) {
-    console.log(discountNote);
     for (const orderItem of orders) {
       const oldOrder = await this.orderModel.findById(orderItem.orderId);
       if (!oldOrder) {
@@ -775,6 +776,7 @@ export class OrderService {
             this.orderGateway.emitOrderUpdated(user, oldOrder);
           } else {
             await oldOrder?.save();
+            this.orderGateway.emitOrderUpdated(user, oldOrder);
           }
         } catch (error) {
           throw new HttpException(
@@ -869,34 +871,86 @@ export class OrderService {
     }
     return order;
   }
-  async singleOrderTransfer(
+  async selectedOrderTransfer(
     user: User,
-    order: Order,
+    orders: {
+      totalQuantity: number;
+      selectedQuantity: number;
+      orderId: number;
+    }[],
     transferredTableId: number,
   ) {
-    const oldTable = await this.tableService.getTableById(order.table);
-    if (!oldTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+    for (const orderItem of orders) {
+      const oldOrder = await this.orderModel.findById(orderItem.orderId);
+      const oldTable = await this.tableService.getTableById(oldOrder.table);
+      if (!oldOrder) {
+        throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+      }
+      // order total is transferred
+      if (orderItem.selectedQuantity === orderItem.totalQuantity) {
+        const oldTable = await this.tableService.getTableById(oldOrder.table);
+        if (!oldTable) {
+          throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+        }
+        const newTable = await this.tableService.getTableById(
+          transferredTableId,
+        );
+        if (!newTable) {
+          throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+        }
+        oldTable.orders = oldTable.orders.filter(
+          (tableOrder) => tableOrder == oldOrder._id,
+        );
+
+        newTable.orders.push(oldOrder._id);
+        oldOrder.table = transferredTableId;
+        try {
+          await Promise.all([
+            oldTable.save(),
+            newTable.save(),
+            oldOrder.save(),
+          ]);
+          this.orderGateway.emitOrderUpdated(user, oldOrder);
+          this.tableGateway.emitTableChanged(user, oldTable);
+        } catch (error) {
+          throw new HttpException(
+            'Failed to transfer order',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+      // order partially transferred
+      else {
+        // Destructure oldOrder to exclude the _id field
+        const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
+        // Create new order without the _id field
+        const newOrder = new this.orderModel({
+          ...orderDataWithoutId,
+          quantity: orderItem.selectedQuantity,
+        });
+        const newTable = await this.tableService.getTableById(
+          transferredTableId,
+        );
+        if (!newTable) {
+          throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+        }
+        await newOrder.save();
+        newTable.orders.push(newOrder._id);
+        oldOrder.quantity =
+          orderItem.totalQuantity - orderItem.selectedQuantity;
+        oldOrder.table = transferredTableId;
+        try {
+          await Promise.all([newTable.save(), oldOrder.save()]);
+          this.orderGateway.emitOrderUpdated(user, oldOrder);
+          this.tableGateway.emitTableChanged(user, oldTable);
+        } catch (error) {
+          throw new HttpException(
+            'Failed to transfer order',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
     }
-    const newTable = await this.tableService.getTableById(transferredTableId);
-    if (!newTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
-    }
-    oldTable.orders = oldTable.orders.filter(
-      (tableOrder) => tableOrder == order._id,
-    );
-    newTable.orders.push(order._id);
-    order.table = transferredTableId;
-    try {
-      await Promise.all([oldTable.save(), newTable.save(), order.save()]);
-      this.orderGateway.emitOrderUpdated(user, order);
-    } catch (error) {
-      throw new HttpException(
-        'Failed to transfer order',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-    return order;
   }
   async tableTransfer(
     user: User,

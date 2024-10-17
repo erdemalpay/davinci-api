@@ -115,6 +115,26 @@ export class OrderController {
     );
   }
 
+  @Post('/selected_order_transfer')
+  selectedOrderTransfer(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      orders: {
+        totalQuantity: number;
+        selectedQuantity: number;
+        orderId: number;
+      }[];
+      transferredTableId: number;
+    },
+  ) {
+    return this.orderService.selectedOrderTransfer(
+      user,
+      payload.orders,
+      payload.transferredTableId,
+    );
+  }
+
   @Patch('/update_bulk')
   updateOrders(
     @ReqUser() user: User,
