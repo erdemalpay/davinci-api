@@ -911,7 +911,7 @@ export class OrderService {
             oldOrder.save(),
           ]);
           this.orderGateway.emitOrderUpdated(user, oldOrder);
-          this.tableGateway.emitTableChanged(user, oldTable);
+          this.tableGateway.emitSingleTableChanged(user, oldTable);
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',
@@ -942,7 +942,7 @@ export class OrderService {
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.orderGateway.emitOrderUpdated(user, oldOrder);
-          this.tableGateway.emitTableChanged(user, oldTable);
+          this.tableGateway.emitSingleTableChanged(user, oldTable);
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',

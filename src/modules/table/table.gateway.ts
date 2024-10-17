@@ -41,6 +41,10 @@ export class TableGateway
     return 'Hello world!';
   }
 
+  emitSingleTableChanged(user: User, table: any) {
+    this.server.emit('singleTableChanged', { user, table });
+  }
+
   emitTableChanged(user: User, table: any) {
     this.server.emit('tableChanged', { user, table });
   }
