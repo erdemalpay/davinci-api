@@ -1329,13 +1329,7 @@ export class AccountingService {
         { $inc: { quantity: -consumptStockDto.quantity } },
         { new: true },
       );
-      this.accountingGateway.emitStockChanged(user, newStock);
-      await this.activityService.addUpdateActivity(
-        user,
-        ActivityType.UPDATE_STOCK,
-        stock,
-        newStock,
-      );
+
       await this.createProductStockHistory(user, {
         user: user._id,
         product: consumptStockDto.product,
@@ -1344,9 +1338,16 @@ export class AccountingService {
         status: consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
         currentAmount:
           consumptStockDto.quantity > 0
-            ? newStock.quantity + consumptStockDto.quantity
+            ? Number(newStock.quantity) + Number(consumptStockDto.quantity)
             : stock.quantity,
       });
+      this.accountingGateway.emitStockChanged(user, newStock);
+      await this.activityService.addUpdateActivity(
+        user,
+        ActivityType.UPDATE_STOCK,
+        stock,
+        newStock,
+      );
       return stock;
     } else {
       const newStock = await this.createStock(user, {
