@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
@@ -379,7 +380,12 @@ export class AccountingController {
   getStock() {
     return this.accountingService.findAllStocks();
   }
-
+  @Get('/stocks/query')
+  findQueryStocks(@Query('after') after?: string) {
+    return this.accountingService.findQueryStocks({
+      after: after,
+    });
+  }
   @Post('/stocks')
   createStock(@ReqUser() user: User, @Body() createStockDto: CreateStockDto) {
     return this.accountingService.createStock(user, createStockDto);

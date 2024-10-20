@@ -25,6 +25,7 @@ import {
   CreateVendorDto,
   JoinProductDto,
   StockHistoryStatusEnum,
+  StockQueryDto,
 } from './accounting.dto';
 import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
@@ -1091,6 +1092,46 @@ export class AccountingService {
   findAllStocks() {
     return this.stockModel.find();
   }
+  async findQueryStocks(query: StockQueryDto) {
+    const { after } = query;
+    const filterQuery = {};
+    if (after) {
+      filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+    const stocks = await this.stockModel.find();
+    if (!after) {
+      return stocks;
+    }
+    try {
+      let filteredStocks = [];
+      for (const stock of stocks) {
+        const productStockHistory = await this.productStockHistoryModel.find({
+          product: stock.product,
+          location: stock.location,
+          ...filterQuery,
+        });
+        let changeSum = productStockHistory.reduce(
+          (acc, history) => acc + history.change * -1,
+          0,
+        );
+        if (productStockHistory.length > 0) {
+          stock.quantity += changeSum;
+        }
+        filteredStocks.push({
+          _id: stock._id,
+          product: stock.product,
+          location: stock.location,
+          quantity: stock.quantity,
+        });
+      }
+      return filteredStocks;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch and process stocks due to an internal error',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async fixStockIds() {
     const stocks = await this.stockModel.find().lean();
@@ -1329,7 +1370,6 @@ export class AccountingService {
         { $inc: { quantity: -consumptStockDto.quantity } },
         { new: true },
       );
-
       await this.createProductStockHistory(user, {
         user: user._id,
         product: consumptStockDto.product,

@@ -29,6 +29,9 @@ export class CreatePaymentDto {
 export class CreateUnitDto {
   name: string;
 }
+export class StockQueryDto {
+  after: string;
+}
 
 export class CreateStockLocationDto {
   name: string;
