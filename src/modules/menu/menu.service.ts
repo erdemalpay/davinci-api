@@ -157,7 +157,7 @@ export class MenuService {
           await this.itemModel.findByIdAndUpdate(existingItem._id, {
             matchedProduct: null,
             itemProduction: [
-              ...existingItem.itemProduction.filter(
+              ...existingItem?.itemProduction?.filter(
                 (itemProductionItem) =>
                   itemProductionItem.product !== existingItem.matchedProduct,
               ),
@@ -172,8 +172,9 @@ export class MenuService {
         updates.itemProduction = [
           ...item.itemProduction.filter(
             (itemProductionItem) =>
-              itemProductionItem.product !== item.matchedProduct ||
-              itemProductionItem.product !== updates.matchedProduct,
+              ![item.matchedProduct, updates.matchedProduct].includes(
+                itemProductionItem.product,
+              ),
           ),
           {
             product: updates.matchedProduct,
@@ -181,6 +182,14 @@ export class MenuService {
             isDecrementStock: true,
           },
         ];
+
+        await this.accountingService.updateItemProduct(
+          user,
+          updates.matchedProduct,
+          {
+            matchedMenuItem: item._id,
+          },
+        );
         if (
           item?.matchedProduct &&
           item?.matchedProduct !== updates.matchedProduct
@@ -192,15 +201,24 @@ export class MenuService {
               matchedMenuItem: null,
             },
           );
-          await this.accountingService.updateItemProduct(
-            user,
-            updates.matchedProduct,
-            {
-              matchedMenuItem: item._id,
-            },
-          );
         }
       }
+    }
+    // if matched product removed from an item
+    if (item?.matchedProduct && !updates.matchedProduct) {
+      updates.itemProduction = [
+        ...item.itemProduction.filter(
+          (itemProductionItem) =>
+            itemProductionItem.product !== item.matchedProduct,
+        ),
+      ];
+      await this.accountingService.updateItemProduct(
+        user,
+        item.matchedProduct,
+        {
+          matchedMenuItem: null,
+        },
+      );
     }
 
     if (updates.hasOwnProperty('price') && item.price !== updates.price) {
@@ -247,11 +265,12 @@ export class MenuService {
         !item?.matchedProduct ||
         item.matchedProduct !== updates.matchedProduct
       ) {
-        updates.itemProduction = [
+        updates.itemProduction = updates.itemProduction = [
           ...item.itemProduction.filter(
             (itemProductionItem) =>
-              itemProductionItem.product !== item.matchedProduct ||
-              itemProductionItem.product !== updates.matchedProduct,
+              ![item.matchedProduct, updates.matchedProduct].includes(
+                itemProductionItem.product,
+              ),
           ),
           {
             product: updates.matchedProduct,
@@ -260,6 +279,22 @@ export class MenuService {
           },
         ];
       }
+    }
+    // if matched product removed from an item
+    if (item?.matchedProduct && !updates.matchedProduct) {
+      updates.itemProduction = [
+        ...item.itemProduction.filter(
+          (itemProductionItem) =>
+            itemProductionItem.product !== item.matchedProduct,
+        ),
+      ];
+      await this.accountingService.updateItemProduct(
+        user,
+        item.matchedProduct,
+        {
+          matchedMenuItem: null,
+        },
+      );
     }
 
     if (updates.hasOwnProperty('price') && item.price !== updates.price) {
@@ -284,7 +319,15 @@ export class MenuService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const item = await this.itemModel.findByIdAndRemove(id);
+    const item = await this.itemModel.findById(id);
+    if (item?.matchedProduct) {
+      await this.accountingService.updateItemProduct(
+        user,
+        item.matchedProduct,
+        { matchedMenuItem: null },
+      );
+    }
+    await item.remove();
     this.menuGateway.emitItemChanged(user, item);
     return item;
   }

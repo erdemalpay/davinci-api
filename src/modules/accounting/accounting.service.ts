@@ -81,11 +81,8 @@ export class AccountingService {
   }
 
   async createProduct(user: User, createProductDto: CreateProductDto) {
+    console.log(createProductDto);
     try {
-      const product = new this.productModel(createProductDto);
-      product._id = usernamify(product.name);
-      await product.save();
-      this.accountingGateway.emitProductChanged(user, product);
       if (createProductDto?.matchedMenuItem) {
         const products = await this.productModel.find({
           matchedMenuItem: createProductDto.matchedMenuItem,
@@ -97,6 +94,12 @@ export class AccountingService {
             });
           }
         }
+      }
+      const product = new this.productModel(createProductDto);
+      product._id = usernamify(product.name);
+      await product.save();
+      this.accountingGateway.emitProductChanged(user, product);
+      if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
           user,
           createProductDto.matchedMenuItem,
@@ -199,6 +202,7 @@ export class AccountingService {
   }
 
   async updateProduct(user: User, id: string, updates: UpdateQuery<Product>) {
+    const product = await this.productModel.findById(id);
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
         matchedMenuItem: updates.matchedMenuItem,
@@ -210,7 +214,6 @@ export class AccountingService {
           });
         }
       }
-      const product = await this.productModel.findById(id);
       if (product.matchedMenuItem !== updates.matchedMenuItem) {
         if (product?.matchedMenuItem) {
           await this.menuService.updateProductItem(
@@ -229,6 +232,11 @@ export class AccountingService {
           },
         );
       }
+    }
+    if (product?.matchedMenuItem && !updates?.matchedMenuItem) {
+      await this.menuService.updateProductItem(user, product.matchedMenuItem, {
+        matchedProduct: null,
+      });
     }
     const updatedProduct = await this.productModel.findByIdAndUpdate(
       id,
@@ -272,9 +280,15 @@ export class AccountingService {
   async removeProduct(user: User, id: string) {
     // await this.checkIsProductRemovable(id);
     // await this.stockModel.deleteMany({ product: id }); // removing the 0 amaount stocks
-    const product = await this.productModel.findByIdAndUpdate(id, {
-      deleted: true,
-    });
+    const product = await this.productModel.findById(id);
+
+    if (product?.matchedMenuItem) {
+      await this.menuService.updateProductItem(user, product.matchedMenuItem, {
+        matchedProduct: null,
+      });
+    }
+    product.deleted = true;
+    await product.save();
     this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
