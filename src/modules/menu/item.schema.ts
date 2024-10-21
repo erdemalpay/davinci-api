@@ -49,6 +49,9 @@ export class MenuItem extends Document {
   @Prop({ required: true, default: [] })
   locations: number[];
 
+  @Prop({ required: false, type: String })
+  matchedProduct: string;
+
   @Prop([ItemProduction])
   itemProduction: ItemProduction[];
 

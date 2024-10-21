@@ -96,30 +96,55 @@ export class MenuService {
 
   async createItem(user: User, createItemDto: CreateItemDto) {
     const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
-    const item = await this.itemModel.create({
+    const item = new this.itemModel({
       ...createItemDto,
       order: lastItem ? lastItem.order + 1 : 1,
     });
+    if (createItemDto?.matchedProduct) {
+      item.itemProduction = [
+        {
+          product: createItemDto.matchedProduct,
+          quantity: 1,
+          isDecrementStock: true,
+        },
+      ];
+    }
+    await item.save();
     this.menuGateway.emitItemChanged(user, item);
     return item;
   }
 
-  async updateItem(user: User, id: number, updates: UpdateQuery<MenuCategory>) {
-    if (updates.hasOwnProperty('price')) {
-      const item = await this.itemModel.findById(id);
-      if (!item) {
-        throw new Error('Item not found');
+  async updateItem(user: User, id: number, updates: UpdateQuery<MenuItem>) {
+    const item = await this.itemModel.findById(id);
+    if (!item) {
+      throw new Error('Item not found');
+    }
+
+    if (updates?.matchedProduct) {
+      if (
+        !item.matchedProduct ||
+        item.matchedProduct !== updates.matchedProduct
+      ) {
+        item.matchedProduct = updates.matchedProduct;
+        updates.itemProduction = [
+          ...item.itemProduction.filter(
+            (itemProductionItem) =>
+              itemProductionItem.product !== updates.matchedProduct,
+          ),
+          {
+            product: updates.matchedProduct,
+            quantity: 1,
+            isDecrementStock: true,
+          },
+        ];
       }
-      updates.priceHistory =
-        item.price !== updates.price
-          ? [
-              ...item.priceHistory,
-              {
-                price: updates.price,
-                date: new Date().toISOString(),
-              },
-            ]
-          : item.priceHistory;
+    }
+
+    if (updates.hasOwnProperty('price') && item.price !== updates.price) {
+      updates.priceHistory = [
+        ...item.priceHistory,
+        { price: updates.price, date: new Date().toISOString() },
+      ];
     }
 
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
@@ -128,6 +153,7 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
+
   async removeItem(user: User, id: number) {
     const itemOrders = await this.orderService.findOrderByItemId(id);
     if (itemOrders?.length > 0) {
