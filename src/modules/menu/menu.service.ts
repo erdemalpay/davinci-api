@@ -4,6 +4,7 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { OrderService } from '../order/order.service';
 import { User } from '../user/user.schema';
+import { AccountingService } from './../accounting/accounting.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
@@ -28,6 +29,8 @@ export class MenuService {
     private readonly panelControlService: PanelControlService,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
+    @Inject(forwardRef(() => AccountingService))
+    private readonly accountingService: AccountingService,
   ) {}
 
   findAllCategories() {
@@ -101,6 +104,24 @@ export class MenuService {
       order: lastItem ? lastItem.order + 1 : 1,
     });
     if (createItemDto?.matchedProduct) {
+      const items = await this.itemModel.find({
+        matchedProduct: createItemDto.matchedProduct,
+      });
+
+      if (items.length > 0) {
+        for (const existingItem of items) {
+          await this.itemModel.findByIdAndUpdate(existingItem._id, {
+            matchedProduct: null,
+            itemProduction: [
+              ...existingItem.itemProduction.filter(
+                (itemProductionItem) =>
+                  itemProductionItem.product !== existingItem.matchedProduct,
+              ),
+            ],
+          });
+        }
+      }
+
       item.itemProduction = [
         {
           product: createItemDto.matchedProduct,
@@ -110,6 +131,13 @@ export class MenuService {
       ];
     }
     await item.save();
+    if (createItemDto?.matchedProduct) {
+      await this.accountingService.updateItemProduct(
+        user,
+        createItemDto.matchedProduct,
+        { matchedMenuItem: item._id },
+      );
+    }
     this.menuGateway.emitItemChanged(user, item);
     return item;
   }
@@ -121,8 +149,102 @@ export class MenuService {
     }
 
     if (updates?.matchedProduct) {
+      const items = await this.itemModel.find({
+        matchedProduct: updates.matchedProduct,
+      });
+      if (items.length > 0) {
+        for (const existingItem of items) {
+          await this.itemModel.findByIdAndUpdate(existingItem._id, {
+            matchedProduct: null,
+            itemProduction: [
+              ...existingItem.itemProduction.filter(
+                (itemProductionItem) =>
+                  itemProductionItem.product !== existingItem.matchedProduct,
+              ),
+            ],
+          });
+        }
+      }
       if (
-        !item.matchedProduct ||
+        !item?.matchedProduct ||
+        item.matchedProduct !== updates.matchedProduct
+      ) {
+        updates.itemProduction = [
+          ...item.itemProduction.filter(
+            (itemProductionItem) =>
+              itemProductionItem.product !== item.matchedProduct ||
+              itemProductionItem.product !== updates.matchedProduct,
+          ),
+          {
+            product: updates.matchedProduct,
+            quantity: 1,
+            isDecrementStock: true,
+          },
+        ];
+        if (
+          item?.matchedProduct &&
+          item?.matchedProduct !== updates.matchedProduct
+        ) {
+          await this.accountingService.updateItemProduct(
+            user,
+            item.matchedProduct,
+            {
+              matchedMenuItem: null,
+            },
+          );
+          await this.accountingService.updateItemProduct(
+            user,
+            updates.matchedProduct,
+            {
+              matchedMenuItem: item._id,
+            },
+          );
+        }
+      }
+    }
+
+    if (updates.hasOwnProperty('price') && item.price !== updates.price) {
+      updates.priceHistory = [
+        ...item.priceHistory,
+        { price: updates.price, date: new Date().toISOString() },
+      ];
+    }
+
+    const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    this.menuGateway.emitItemChanged(user, updatedItem);
+    return updatedItem;
+  }
+  async updateProductItem(
+    user: User,
+    id: number,
+    updates: UpdateQuery<MenuItem>,
+  ) {
+    const item = await this.itemModel.findById(id);
+    if (!item) {
+      throw new Error('Item not found');
+    }
+
+    if (updates?.matchedProduct) {
+      const items = await this.itemModel.find({
+        matchedProduct: updates.matchedProduct,
+      });
+      if (items.length > 0) {
+        for (const existingItem of items) {
+          await this.itemModel.findByIdAndUpdate(existingItem._id, {
+            matchedProduct: null,
+            itemProduction: [
+              ...existingItem.itemProduction.filter(
+                (itemProductionItem) =>
+                  itemProductionItem.product !== existingItem.matchedProduct,
+              ),
+            ],
+          });
+        }
+      }
+      if (
+        !item?.matchedProduct ||
         item.matchedProduct !== updates.matchedProduct
       ) {
         updates.itemProduction = [

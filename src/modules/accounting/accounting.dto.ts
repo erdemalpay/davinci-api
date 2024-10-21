@@ -6,6 +6,7 @@ export class CreateProductDto {
   brand?: string[];
   vendor?: string[];
   unitPrice?: number;
+  matchedMenuItem?: number;
 }
 
 export class CreateServiceDto {

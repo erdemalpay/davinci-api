@@ -66,7 +66,7 @@ export class AccountingService {
     @InjectModel(StockLocation.name)
     private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
-    private readonly MenuService: MenuService,
+    private readonly menuService: MenuService,
     private readonly activityService: ActivityService,
     private readonly checkoutService: CheckoutService,
     private readonly accountingGateway: AccountingGateway,
@@ -86,6 +86,25 @@ export class AccountingService {
       product._id = usernamify(product.name);
       await product.save();
       this.accountingGateway.emitProductChanged(user, product);
+      if (createProductDto?.matchedMenuItem) {
+        const products = await this.productModel.find({
+          matchedMenuItem: createProductDto.matchedMenuItem,
+        });
+        if (products) {
+          for (const existingProduct of products) {
+            await this.productModel.findByIdAndUpdate(existingProduct._id, {
+              matchedMenuItem: null,
+            });
+          }
+        }
+        await this.menuService.updateProductItem(
+          user,
+          createProductDto.matchedMenuItem,
+          {
+            matchedProduct: product._id,
+          },
+        );
+      }
       return product;
     } catch (error) {
       throw new HttpException(
@@ -128,7 +147,7 @@ export class AccountingService {
     );
     this.accountingGateway.emitInvoiceChanged(user, stayedProduct);
     //update menu items
-    await this.MenuService.updateMenuItemProduct(
+    await this.menuService.updateMenuItemProduct(
       user,
       stayedProduct,
       removedProduct,
@@ -180,11 +199,74 @@ export class AccountingService {
   }
 
   async updateProduct(user: User, id: string, updates: UpdateQuery<Product>) {
-    const product = await this.productModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-    this.accountingGateway.emitProductChanged(user, product);
-    return product;
+    if (updates?.matchedMenuItem) {
+      const products = await this.productModel.find({
+        matchedMenuItem: updates.matchedMenuItem,
+      });
+      if (products) {
+        for (const existingProduct of products) {
+          await this.productModel.findByIdAndUpdate(existingProduct._id, {
+            matchedMenuItem: null,
+          });
+        }
+      }
+      const product = await this.productModel.findById(id);
+      if (product.matchedMenuItem !== updates.matchedMenuItem) {
+        if (product?.matchedMenuItem) {
+          await this.menuService.updateProductItem(
+            user,
+            product.matchedMenuItem,
+            {
+              matchedProduct: null,
+            },
+          );
+        }
+        await this.menuService.updateProductItem(
+          user,
+          updates.matchedMenuItem,
+          {
+            matchedProduct: product._id,
+          },
+        );
+      }
+    }
+    const updatedProduct = await this.productModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.accountingGateway.emitProductChanged(user, updatedProduct);
+
+    return updatedProduct;
+  }
+  async updateItemProduct(
+    user: User,
+    id: string,
+    updates: UpdateQuery<Product>,
+  ) {
+    if (updates?.matchedMenuItem) {
+      const products = await this.productModel.find({
+        matchedMenuItem: updates.matchedMenuItem,
+      });
+      if (products) {
+        for (const existingProduct of products) {
+          await this.productModel.findByIdAndUpdate(existingProduct._id, {
+            matchedMenuItem: null,
+          });
+        }
+      }
+    }
+    const updatedProduct = await this.productModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.accountingGateway.emitProductChanged(user, updatedProduct);
+    return updatedProduct;
   }
 
   async removeProduct(user: User, id: string) {
@@ -199,7 +281,7 @@ export class AccountingService {
 
   async checkIsProductRemovable(id: string) {
     const invoices = await this.invoiceModel.find({ product: id });
-    const menuItems = await this.MenuService.findAllItems();
+    const menuItems = await this.menuService.findAllItems();
     const stocks = await this.stockModel.find({ product: id });
     const countlists = await this.countListModel.find();
 

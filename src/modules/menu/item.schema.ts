@@ -7,7 +7,7 @@ class ItemProduction {
   @Prop()
   quantity: number;
 
-  @Prop({ required: true, type: Number, ref: Product.name })
+  @Prop({ required: true, type: String, ref: Product.name })
   product: string;
 
   @Prop({ required: true, type: Boolean, default: true })
@@ -49,7 +49,7 @@ export class MenuItem extends Document {
   @Prop({ required: true, default: [] })
   locations: number[];
 
-  @Prop({ required: false, type: String })
+  @Prop({ required: false, type: String, ref: Product.name })
   matchedProduct: string;
 
   @Prop([ItemProduction])

@@ -27,6 +27,9 @@ export class Product extends Document {
 
   @Prop({ required: true, default: false, type: Boolean, index: true })
   deleted: boolean;
+
+  @Prop({ required: false, type: Number, ref: 'MenuItem' })
+  matchedMenuItem: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
