@@ -125,10 +125,10 @@ export class MenuService {
         !item.matchedProduct ||
         item.matchedProduct !== updates.matchedProduct
       ) {
-        item.matchedProduct = updates.matchedProduct;
         updates.itemProduction = [
           ...item.itemProduction.filter(
             (itemProductionItem) =>
+              itemProductionItem.product !== item.matchedProduct ||
               itemProductionItem.product !== updates.matchedProduct,
           ),
           {
