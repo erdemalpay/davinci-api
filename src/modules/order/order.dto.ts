@@ -87,3 +87,7 @@ export class OrderQueryDto {
 export class CollectionQueryDto {
   after?: string;
 }
+export class SummaryCollectionQueryDto {
+  after?: string;
+  before?: string;
+}

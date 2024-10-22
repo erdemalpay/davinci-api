@@ -19,6 +19,7 @@ import {
   OrderQueryDto,
   OrderStatus,
   OrderType,
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
@@ -396,6 +397,51 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to fetch orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findSummaryCollectionsQuery(query: SummaryCollectionQueryDto) {
+    const filterQuery = {};
+    const { after, before } = query;
+    if (!after && !before) {
+      throw new HttpException(
+        'Failed to fetch summary collections',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (after) {
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $gte: new Date(after),
+      };
+    }
+    if (before) {
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: new Date(before),
+      };
+    }
+
+    try {
+      const collectionsTotal = await this.collectionModel.aggregate([
+        {
+          $match: {
+            ...filterQuery,
+            status: 'paid',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: '$amount' },
+          },
+        },
+      ]);
+      return collectionsTotal.length > 0 ? collectionsTotal[0].totalAmount : 0;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch summary collections',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

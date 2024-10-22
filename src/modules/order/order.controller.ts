@@ -196,6 +196,17 @@ export class OrderController {
     return this.orderService.findQueryCollections({ after: after });
   }
 
+  @Get('/collection/summary/query')
+  findSummaryCollectionsQuery(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.orderService.findSummaryCollectionsQuery({
+      after,
+      before,
+    });
+  }
+
   @Post('/collection/table')
   createCollection(
     @ReqUser() user: User,
