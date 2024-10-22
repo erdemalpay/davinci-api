@@ -81,7 +81,6 @@ export class AccountingService {
   }
 
   async createProduct(user: User, createProductDto: CreateProductDto) {
-    console.log(createProductDto);
     try {
       if (createProductDto?.matchedMenuItem) {
         const products = await this.productModel.find({
@@ -1383,13 +1382,13 @@ export class AccountingService {
     product: string,
     quantity: number,
   ) {
-    // const stock = await this.stockModel.findOne({
-    //   product: product,
-    //   location: currentStockLocation,
-    // });
-    // if (!stock) {
-    //   throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
-    // }
+    const stock = await this.stockModel.findOne({
+      product: product,
+      location: currentStockLocation,
+    });
+    if (!stock) {
+      throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
+    }
     await this.createStock(user, {
       product: product,
       location: transferredStockLocation,
@@ -1402,6 +1401,8 @@ export class AccountingService {
       quantity: -quantity,
       status: StockHistoryStatusEnum.STOCKTRANSFER,
     });
+    this.accountingGateway.emitStockChanged(user, stock);
+    return stock;
   }
   async removeStock(user: User, id: string, status: string) {
     const stock = await this.stockModel.findById(id).populate('product');
