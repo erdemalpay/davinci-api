@@ -1227,6 +1227,86 @@ export class AccountingService {
       );
     }
   }
+  async findQueryStocksTotalValue(query: StockQueryDto) {
+    try {
+      const { after, before, location } = query;
+
+      const buildAggregationPipeline = (date, comparisonOperator) => {
+        const matchCriteria = {
+          'history.createdAt': { [comparisonOperator]: new Date(date) },
+        };
+
+        if (location && Number(location) !== 0) {
+          matchCriteria['history.location'] = Number(location);
+          matchCriteria['location'] = Number(location);
+        }
+
+        return [
+          {
+            $lookup: {
+              from: 'productstockhistories',
+              localField: 'product',
+              foreignField: 'product',
+              as: 'history',
+            },
+          },
+          { $unwind: '$history' },
+          { $match: matchCriteria },
+          {
+            $group: {
+              _id: { _id: '$_id', product: '$product', location: '$location' },
+              updatedQuantity: { $sum: { $multiply: ['$history.change', -1] } },
+            },
+          },
+          {
+            $project: {
+              _id: '$_id._id',
+              product: '$_id.product',
+              location: '$_id.location',
+              updatedQuantity: { $sum: ['$updatedQuantity', '$quantity'] },
+            },
+          },
+        ];
+      };
+
+      const afterAggregation = after
+        ? buildAggregationPipeline(after, '$gte')
+        : [];
+      const beforeAggregation = before
+        ? buildAggregationPipeline(before, '$lte')
+        : [];
+
+      const afterStocks = after
+        ? await this.stockModel.aggregate(afterAggregation)
+        : [];
+      const beforeStocks = before
+        ? await this.stockModel.aggregate(beforeAggregation)
+        : [];
+      console.log(afterStocks);
+      const products = await this.productModel.find();
+      const productPriceMap = products.reduce((map, product) => {
+        map[product._id] = product.unitPrice;
+        return map;
+      }, {});
+
+      const calculateTotalValue = (stocks) =>
+        stocks.reduce((acc, stock) => {
+          const price = productPriceMap[stock.product] || 0;
+          const quantity = stock.updatedQuantity || stock.quantity;
+          return acc + price * quantity;
+        }, 0);
+
+      const afterTotalValue = calculateTotalValue(afterStocks);
+      const beforeTotalValue = calculateTotalValue(beforeStocks);
+
+      return { afterTotalValue, beforeTotalValue };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to fetch and process stocks due to an internal error: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async fixStockIds() {
     const stocks = await this.stockModel.find().lean();

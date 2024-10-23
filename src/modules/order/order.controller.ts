@@ -200,10 +200,12 @@ export class OrderController {
   findSummaryCollectionsQuery(
     @Query('after') after?: string,
     @Query('before') before?: string,
+    @Query('location') location?: number,
   ) {
     return this.orderService.findSummaryCollectionsQuery({
       after,
       before,
+      location,
     });
   }
 

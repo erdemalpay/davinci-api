@@ -32,6 +32,8 @@ export class CreateUnitDto {
 }
 export class StockQueryDto {
   after: string;
+  location?: string;
+  before?: string;
 }
 
 export class CreateStockLocationDto {

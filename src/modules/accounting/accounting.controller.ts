@@ -380,6 +380,18 @@ export class AccountingController {
   getStock() {
     return this.accountingService.findAllStocks();
   }
+  @Get('/stocks/summary/query')
+  findQueryStocksTotalValue(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('location') location?: string,
+  ) {
+    return this.accountingService.findQueryStocksTotalValue({
+      after,
+      before,
+      location,
+    });
+  }
   @Get('/stocks/query')
   findQueryStocks(@Query('after') after?: string) {
     return this.accountingService.findQueryStocks({

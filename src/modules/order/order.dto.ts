@@ -90,4 +90,5 @@ export class CollectionQueryDto {
 export class SummaryCollectionQueryDto {
   after?: string;
   before?: string;
+  location?: number;
 }

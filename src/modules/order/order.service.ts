@@ -403,7 +403,7 @@ export class OrderService {
   }
   async findSummaryCollectionsQuery(query: SummaryCollectionQueryDto) {
     const filterQuery = {};
-    const { after, before } = query;
+    const { after, before, location } = query;
     if (!after && !before) {
       throw new HttpException(
         'Failed to fetch summary collections',
@@ -421,6 +421,9 @@ export class OrderService {
         ...filterQuery['createdAt'],
         $lte: new Date(before),
       };
+    }
+    if (location && Number(location) !== 0) {
+      filterQuery['location'] = Number(location);
     }
 
     try {
