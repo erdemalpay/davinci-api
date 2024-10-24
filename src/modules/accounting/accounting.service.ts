@@ -1230,75 +1230,84 @@ export class AccountingService {
   async findQueryStocksTotalValue(query: StockQueryDto) {
     try {
       const { after, before, location } = query;
+      const stockLocation = !location
+        ? ''
+        : location === '1'
+        ? 'bahceli'
+        : 'neorama';
 
-      const buildAggregationPipeline = (date, comparisonOperator) => {
-        const matchCriteria = {
-          'history.createdAt': { [comparisonOperator]: new Date(date) },
-        };
-
-        if (location && Number(location) !== 0) {
-          matchCriteria['history.location'] = Number(location);
-          matchCriteria['location'] = Number(location);
-        }
-
-        return [
-          {
-            $lookup: {
-              from: 'productstockhistories',
-              localField: 'product',
-              foreignField: 'product',
-              as: 'history',
-            },
-          },
-          { $unwind: '$history' },
-          { $match: matchCriteria },
-          {
-            $group: {
-              _id: { _id: '$_id', product: '$product', location: '$location' },
-              updatedQuantity: { $sum: { $multiply: ['$history.change', -1] } },
-            },
-          },
-          {
-            $project: {
-              _id: '$_id._id',
-              product: '$_id.product',
-              location: '$_id.location',
-              updatedQuantity: { $sum: ['$updatedQuantity', '$quantity'] },
-            },
-          },
-        ];
+      const afterFilterQuery = {
+        createdAt: {
+          $gte: new Date(after),
+        },
+        ...(stockLocation && { location: stockLocation }),
+      };
+      const beforeFilterQuery = {
+        createdAt: {
+          $gte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
+        },
+        ...(stockLocation && { location: stockLocation }),
       };
 
-      const afterAggregation = after
-        ? buildAggregationPipeline(after, '$gte')
-        : [];
-      const beforeAggregation = before
-        ? buildAggregationPipeline(before, '$lte')
-        : [];
+      const stocks = await this.stockModel.find({
+        ...(stockLocation && { location: stockLocation }),
+      });
 
-      const afterStocks = after
-        ? await this.stockModel.aggregate(afterAggregation)
-        : [];
-      const beforeStocks = before
-        ? await this.stockModel.aggregate(beforeAggregation)
-        : [];
-      console.log(afterStocks);
+      const findFilterStocks = async (filterQuery) => {
+        let filteredStocks = [];
+        for (const stock of stocks) {
+          const productStockHistory = await this.productStockHistoryModel.find({
+            product: stock.product,
+            location: stock.location,
+            ...filterQuery,
+          });
+          let changeSum = productStockHistory.reduce(
+            (acc, history) => acc + history.change * -1,
+            0,
+          );
+          if (productStockHistory.length > 0) {
+            stock.quantity += changeSum; // Make sure this modification doesn't affect subsequent calculations
+          }
+          filteredStocks.push({
+            _id: stock._id,
+            product: stock.product,
+            location: stock.location,
+            quantity: stock.quantity,
+          });
+        }
+        return filteredStocks;
+      };
+
+      // Using await to ensure that the asynchronous function completes before proceeding.
+      const afterStocks = await findFilterStocks(afterFilterQuery);
+      const beforeStocks = await findFilterStocks(beforeFilterQuery);
       const products = await this.productModel.find();
-      const productPriceMap = products.reduce((map, product) => {
-        map[product._id] = product.unitPrice;
-        return map;
-      }, {});
 
-      const calculateTotalValue = (stocks) =>
-        stocks.reduce((acc, stock) => {
-          const price = productPriceMap[stock.product] || 0;
-          const quantity = stock.updatedQuantity || stock.quantity;
-          return acc + price * quantity;
-        }, 0);
+      const calculateTotalValue = async (initialStocks) => {
+        let totalValue = 0;
+        for (const stock of initialStocks) {
+          const product = products.find(
+            (product) => product._id === stock.product,
+          );
+          if (product) {
+            const quantity = Number(stock.quantity);
+            const unitPrice = Number(product.unitPrice);
+            if (
+              !isNaN(quantity) &&
+              !isNaN(unitPrice)
+              // &&
+              // quantity >= 0 &&
+              // unitPrice >= 0
+            ) {
+              totalValue += quantity * unitPrice;
+            }
+          }
+        }
+        return totalValue;
+      };
 
-      const afterTotalValue = calculateTotalValue(afterStocks);
-      const beforeTotalValue = calculateTotalValue(beforeStocks);
-
+      const afterTotalValue = await calculateTotalValue(afterStocks);
+      const beforeTotalValue = await calculateTotalValue(beforeStocks);
       return { afterTotalValue, beforeTotalValue };
     } catch (error) {
       throw new HttpException(
@@ -1318,7 +1327,10 @@ export class AccountingService {
         try {
           await this.stockModel.create({ ...stock, _id: stockId });
         } catch (error) {
-          console.log('Stock already exists', stockId);
+          throw new HttpException(
+            'Stock already exists',
+            HttpStatus.BAD_REQUEST,
+          );
         }
         await this.stockModel.findByIdAndRemove(stock._id);
       }
