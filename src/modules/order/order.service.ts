@@ -419,7 +419,7 @@ export class OrderService {
     if (before) {
       filterQuery['createdAt'] = {
         ...filterQuery['createdAt'],
-        $lte: new Date(before),
+        $lte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
       };
     }
     if (location && Number(location) !== 0) {

@@ -1230,24 +1230,25 @@ export class AccountingService {
   async findQueryStocksTotalValue(query: StockQueryDto) {
     try {
       const { after, before, location } = query;
-      const stockLocation = !location
-        ? ''
-        : location === '1'
-        ? 'bahceli'
-        : 'neorama';
+      const stockLocation =
+        !location || location === '0'
+          ? ''
+          : location === '1'
+          ? 'bahceli'
+          : 'neorama';
 
-      const afterFilterQuery = {
-        createdAt: {
-          $gte: new Date(after),
-        },
-        ...(stockLocation && { location: stockLocation }),
+      let afterFilterQuery = {};
+      let beforeFilterQuery = {};
+      afterFilterQuery['createdAt'] = { $gte: new Date(after) };
+
+      beforeFilterQuery['createdAt'] = {
+        $gte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
       };
-      const beforeFilterQuery = {
-        createdAt: {
-          $gte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
-        },
-        ...(stockLocation && { location: stockLocation }),
-      };
+
+      if (stockLocation) {
+        afterFilterQuery['location'] = stockLocation;
+        beforeFilterQuery['location'] = stockLocation;
+      }
 
       const stocks = await this.stockModel.find({
         ...(stockLocation && { location: stockLocation }),
@@ -1258,7 +1259,6 @@ export class AccountingService {
         for (const stock of stocks) {
           const productStockHistory = await this.productStockHistoryModel.find({
             product: stock.product,
-            location: stock.location,
             ...filterQuery,
           });
           let changeSum = productStockHistory.reduce(
@@ -1266,7 +1266,7 @@ export class AccountingService {
             0,
           );
           if (productStockHistory.length > 0) {
-            stock.quantity += changeSum; // Make sure this modification doesn't affect subsequent calculations
+            stock.quantity += changeSum;
           }
           filteredStocks.push({
             _id: stock._id,
@@ -1290,8 +1290,8 @@ export class AccountingService {
             (product) => product._id === stock.product,
           );
           if (product) {
-            const quantity = Number(stock.quantity);
-            const unitPrice = Number(product.unitPrice);
+            const quantity = stock?.quantity;
+            const unitPrice = product?.unitPrice;
             if (
               !isNaN(quantity) &&
               !isNaN(unitPrice)
@@ -1305,9 +1305,9 @@ export class AccountingService {
         }
         return totalValue;
       };
-
       const afterTotalValue = await calculateTotalValue(afterStocks);
       const beforeTotalValue = await calculateTotalValue(beforeStocks);
+
       return { afterTotalValue, beforeTotalValue };
     } catch (error) {
       throw new HttpException(
