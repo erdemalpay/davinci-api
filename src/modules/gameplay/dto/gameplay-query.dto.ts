@@ -1,7 +1,7 @@
 export type FieldGrouping = 'mentor' | 'game';
 
 export class GameplayQueryDto {
-  location: string;
+  location: number;
   field?: string;
   startDate?: string;
   endDate?: string;

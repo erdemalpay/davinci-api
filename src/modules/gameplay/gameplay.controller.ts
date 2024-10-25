@@ -30,7 +30,7 @@ export class GameplayController {
 
   @Get('/query')
   findByQuery(
-    @Query('location') location: string,
+    @Query('location') location: number,
     @Query('limit') limit: number,
     @Query('page') page: number,
     @Query('startDate') startDate?: string,
@@ -74,7 +74,7 @@ export class GameplayController {
 
   @Get('/group')
   groupByQuery(
-    @Query('location') location: string,
+    @Query('location') location: number,
     @Query('field') field: string,
     @Query('limit') limit: number,
     @Query('startDate') startDate?: string,

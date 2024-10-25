@@ -35,7 +35,7 @@ export class GameplayService {
     const matchQuery = {
       date: { $gte: query.startDate },
       location: {
-        $in: query.location.split(',').map((location) => Number(location)),
+        $in: query.location,
       },
     };
     if (query.endDate) {
@@ -68,6 +68,7 @@ export class GameplayService {
   async queryData(query: GameplayQueryDto) {
     const filterQuery = {};
     const {
+      location,
       startDate,
       endDate,
       game,
@@ -94,6 +95,9 @@ export class GameplayService {
     }
     if (mentor) {
       filterQuery['mentor'] = mentor;
+    }
+    if (location) {
+      filterQuery['location'] = location;
     }
 
     // Check if groupBy exists, and if so, use aggregation
