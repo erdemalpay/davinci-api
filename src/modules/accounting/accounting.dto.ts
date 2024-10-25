@@ -71,6 +71,7 @@ export class CountProductDto {
   product: string;
   stockQuantity: number;
   countQuantity: number;
+  productDeleteRequest?: string;
 }
 
 export class CreateExpenseTypeDto {

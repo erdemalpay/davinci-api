@@ -18,6 +18,9 @@ class CountProduct {
 
   @Prop({ required: false, type: Boolean })
   isStockEqualized: boolean;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  productDeleteRequest: string;
 }
 
 @Schema({ _id: false })
