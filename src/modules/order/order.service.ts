@@ -162,27 +162,28 @@ export class OrderService {
 
     try {
       await order.save();
+
+      const orderWithItem = await order.populate('item');
+      for (const ingredient of (orderWithItem.item as any).itemProduction) {
+        const isStockDecrementRequired = ingredient?.isDecrementStock;
+
+        if (isStockDecrementRequired) {
+          const consumptionQuantity =
+            ingredient.quantity * orderWithItem.quantity;
+          await this.accountingService.consumptStock(user, {
+            product: ingredient.product,
+            location:
+              order?.stockLocation ??
+              (order?.location === 1 ? 'bahceli' : 'neorama'),
+            quantity: consumptionQuantity,
+            status: StockHistoryStatusEnum.ORDERCREATE,
+          });
+        }
+      }
       if (
         order.discountAmount >= order.unitPrice ||
         order.discountPercentage >= 100
       ) {
-        const orderWithItem = await order.populate('item');
-        for (const ingredient of (orderWithItem.item as any).itemProduction) {
-          const isStockDecrementRequired = ingredient?.isDecrementStock;
-
-          if (isStockDecrementRequired) {
-            const consumptionQuantity =
-              ingredient.quantity * orderWithItem.paidQuantity;
-            await this.accountingService.consumptStock(user, {
-              product: ingredient.product,
-              location:
-                order?.stockLocation ??
-                (order?.location === 1 ? 'bahceli' : 'neorama'),
-              quantity: consumptionQuantity,
-              status: StockHistoryStatusEnum.ORDERCREATE,
-            });
-          }
-        }
         await this.createCollection(user, {
           location: order.location,
           amount: 0,
@@ -254,6 +255,27 @@ export class OrderService {
           order,
         );
       }
+      if (updates?.status === OrderStatus.CANCELLED) {
+        const oldOrder = await this.orderModel.findById(id).populate('item');
+
+        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const incrementQuantity = ingredient.quantity * oldOrder?.quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient.product,
+              location: oldOrder?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.ORDERCANCEL,
+            });
+          }
+        }
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CANCEL_ORDER,
+          order,
+        );
+      }
       if (updates?.quantity && updates?.quantity > order.quantity) {
         await this.activityService.addActivity(
           user,
@@ -311,48 +333,17 @@ export class OrderService {
     try {
       await Promise.all(
         orders?.map(async (order) => {
-          const oldOrder = await (
-            await this.orderModel.findById(order._id)
-          ).populate('item');
+          const oldOrder = await await this.orderModel.findById(order._id);
           if (!oldOrder) {
             throw new HttpException(
               `Order with ID ${order._id} not found`,
               HttpStatus.NOT_FOUND,
             );
           }
-
-          for (const ingredient of (oldOrder?.item as any).itemProduction) {
-            const isStockDecrementRequired = ingredient?.isDecrementStock;
-            const quantityDifference =
-              order.paidQuantity - oldOrder?.paidQuantity;
-            if (isStockDecrementRequired && quantityDifference > 0) {
-              const consumptionQuantity =
-                ingredient.quantity * quantityDifference;
-              await this.accountingService.consumptStock(user, {
-                product: ingredient.product,
-                location:
-                  oldOrder?.stockLocation ??
-                  (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
-                quantity: consumptionQuantity,
-                status: StockHistoryStatusEnum.ORDERCREATE,
-              });
-            }
-            if (isStockDecrementRequired && quantityDifference < 0) {
-              const incrementQuantity =
-                ingredient.quantity * -quantityDifference;
-              await this.accountingService.createStock(user, {
-                product: ingredient.product,
-                location: oldOrder?.stockLocation,
-                quantity: incrementQuantity,
-                status: StockHistoryStatusEnum.ORDERCANCEL,
-              });
-            }
-          }
-
           const updatedOrder = {
             ...order,
             _id: oldOrder?._id,
-            item: (oldOrder?.item as any)._id,
+            item: oldOrder.item,
           };
           await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
         }),
@@ -687,25 +678,6 @@ export class OrderService {
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder?.unitPrice)
           ) {
-            const orderWithItem = await oldOrder?.populate('item');
-
-            for (const ingredient of (orderWithItem.item as any)
-              .itemProduction) {
-              const isStockDecrementRequired = ingredient?.isDecrementStock;
-              if (isStockDecrementRequired) {
-                const consumptionQuantity =
-                  ingredient.quantity * oldOrder?.quantity;
-
-                await this.accountingService.consumptStock(user, {
-                  product: ingredient.product,
-                  location:
-                    oldOrder?.stockLocation ??
-                    (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
-                  quantity: consumptionQuantity,
-                  status: StockHistoryStatusEnum.ORDERCREATE,
-                });
-              }
-            }
             await this.createCollection(user, {
               location: oldOrder?.location,
               amount: 0,
@@ -758,23 +730,6 @@ export class OrderService {
             (discountPercentage && discountPercentage >= 100) ||
             (discountAmount && discountAmount >= oldOrder?.unitPrice)
           ) {
-            const orderWithItem = await newOrder.populate('item');
-            for (const ingredient of (orderWithItem.item as any)
-              .itemProduction) {
-              const isStockDecrementRequired = ingredient?.isDecrementStock;
-              if (isStockDecrementRequired) {
-                const consumptionQuantity =
-                  ingredient.quantity * oldOrder?.paidQuantity;
-                await this.accountingService.consumptStock(user, {
-                  product: ingredient.product,
-                  location:
-                    oldOrder?.stockLocation ??
-                    (oldOrder?.location === 1 ? 'bahceli' : 'neorama'),
-                  quantity: consumptionQuantity,
-                  status: StockHistoryStatusEnum.ORDERCREATE,
-                });
-              }
-            }
             await this.createCollection(user, {
               location: newOrder.location,
               amount: 0,
