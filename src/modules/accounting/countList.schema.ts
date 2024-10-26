@@ -20,6 +20,9 @@ export class CountList extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
+  @Prop({ required: true, type: Boolean })
+  active: boolean;
+
   @Prop({ required: true, type: [{ type: String, ref: StockLocation.name }] })
   locations: string[];
 

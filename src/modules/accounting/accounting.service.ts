@@ -1685,8 +1685,10 @@ export class AccountingService {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);
     countList.locations = ['bahceli', 'neorama'];
+    countList.active = true;
+    await countList.save();
     this.accountingGateway.emitCountListChanged(user, countList);
-    return countList.save();
+    return countList;
   }
   findAllCountLists() {
     return this.countListModel.find();
