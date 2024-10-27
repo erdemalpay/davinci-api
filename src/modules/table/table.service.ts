@@ -79,12 +79,17 @@ export class TableService {
     const table = await this.tableModel.findById(id);
     // Close the previous gameplay
     if (table.gameplays.length) {
-      const lastGameplay = table.gameplays[table.gameplays.length - 1];
-      await this.gameplayService.close(
-        user,
-        lastGameplay as unknown as number,
-        tableDto.finishHour,
+      const lastGameplayId = table.gameplays[table.gameplays.length - 1];
+      const lastGameplay = await this.gameplayService.findById(
+        lastGameplayId as unknown as number,
       );
+      if (!lastGameplay?.finishHour) {
+        await this.gameplayService.close(
+          user,
+          lastGameplayId as unknown as number,
+          tableDto.finishHour,
+        );
+      }
     }
     const updatedTable = await this.tableModel.findByIdAndUpdate(
       id,
@@ -148,12 +153,17 @@ export class TableService {
     }
     // Close the previous gameplay
     if (table.gameplays.length) {
-      const lastGameplay = table.gameplays[table.gameplays.length - 1];
-      await this.gameplayService.close(
-        user,
-        lastGameplay as unknown as number,
-        gameplayDto.startHour,
+      const lastGameplayId = table.gameplays[table.gameplays.length - 1];
+      const lastGameplay = await this.gameplayService.findById(
+        lastGameplayId as unknown as number,
       );
+      if (!lastGameplay?.finishHour) {
+        await this.gameplayService.close(
+          user,
+          lastGameplayId as unknown as number,
+          gameplayDto.startHour,
+        );
+      }
     }
     const gameplay = await this.gameplayService.create(user, gameplayDto);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
