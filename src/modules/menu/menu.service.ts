@@ -38,7 +38,7 @@ export class MenuService {
   }
 
   findAllItems() {
-    return this.itemModel.find().sort({ order: 'asc' });
+    return this.itemModel.find().sort({ category: 1, order: 1 });
   }
 
   async setOrder(user: User) {
