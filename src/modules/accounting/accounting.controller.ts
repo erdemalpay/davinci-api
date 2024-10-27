@@ -398,10 +398,12 @@ export class AccountingController {
       after: after,
     });
   }
+
   @Post('/stocks')
   createStock(@ReqUser() user: User, @Body() createStockDto: CreateStockDto) {
     return this.accountingService.createStock(user, createStockDto);
   }
+
   @Post('/stock_transfer')
   stockTransfer(
     @ReqUser() user: User,
@@ -550,5 +552,10 @@ export class AccountingController {
   @Delete('/counts/:id')
   deleteCount(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeCount(user, id);
+  }
+
+  @Get('/match-products')
+  matchProducts() {
+    return this.accountingService.matchProducts();
   }
 }
