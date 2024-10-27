@@ -333,7 +333,7 @@ export class OrderService {
     try {
       await Promise.all(
         orders?.map(async (order) => {
-          const oldOrder = await await this.orderModel.findById(order._id);
+          const oldOrder = await this.orderModel.findById(order._id);
           if (!oldOrder) {
             throw new HttpException(
               `Order with ID ${order._id} not found`,
@@ -345,7 +345,9 @@ export class OrderService {
             _id: oldOrder?._id,
             item: oldOrder.item,
           };
-          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder);
+          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder, {
+            new: true,
+          });
         }),
       );
       orders && this.orderGateway.emitOrderUpdated(user, orders[0]);

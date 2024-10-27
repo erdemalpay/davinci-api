@@ -234,6 +234,41 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
+  async updateMultipleItems(user: User, items: MenuItem[]) {
+    if (!items?.length) {
+      return;
+    }
+    try {
+      await Promise.all(
+        items.map(async (item) => {
+          const foundItem = await this.itemModel.findById(item._id);
+          if (!foundItem) {
+            return;
+          }
+          if (foundItem.price !== item.price) {
+            foundItem.priceHistory.push({
+              price: item.price,
+              date: new Date().toISOString(),
+            });
+          }
+          foundItem.name = item.name;
+          foundItem.price = item.price;
+          if (item?.onlinePrice && (item.onlinePrice as any) !== '-') {
+            foundItem.onlinePrice = item.onlinePrice;
+          }
+          await foundItem.save();
+        }),
+      );
+      this.menuGateway.emitItemChanged(user, items);
+    } catch (error) {
+      console.error('Error updating items:', error);
+      throw new HttpException(
+        'Failed to update some items',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async updateProductItem(
     user: User,
     id: number,

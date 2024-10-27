@@ -54,6 +54,16 @@ export class MenuController {
   setOrder(@ReqUser() user: User) {
     return this.menuService.setOrder(user);
   }
+  @Patch('/items/update_bulk')
+  updateMultipleItems(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      items: MenuItem[];
+    },
+  ) {
+    return this.menuService.updateMultipleItems(user, payload.items);
+  }
 
   @Patch('/categories/:id')
   updateCategory(
