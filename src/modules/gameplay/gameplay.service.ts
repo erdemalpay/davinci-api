@@ -31,12 +31,12 @@ export class GameplayService {
     return this.gameplayModel.find();
   }
 
-  async groupByField(query: GameplayQueryDto) {
+  async groupByField(query) {
     const matchQuery = {
       date: { $gte: query.startDate },
-      location: {
-        $in: query.location,
-      },
+      ...(query.location !== '1,2'
+        ? { location: { $in: query.location.split(',').map(Number) } }
+        : {}),
     };
     if (query.endDate) {
       matchQuery.date['$lte'] = query.endDate;

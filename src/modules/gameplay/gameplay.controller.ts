@@ -74,7 +74,7 @@ export class GameplayController {
 
   @Get('/group')
   groupByQuery(
-    @Query('location') location: number,
+    @Query('location') location: string,
     @Query('field') field: string,
     @Query('limit') limit: number,
     @Query('startDate') startDate?: string,
