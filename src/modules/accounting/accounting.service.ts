@@ -1786,17 +1786,15 @@ export class AccountingService {
     const products = await this.productModel.find();
     const allMenuItems = await this.menuService.findAllItems();
     for (const product of products) {
-      if (product.matchedMenuItem) {
-        continue;
-      }
       const menuItem = allMenuItems.find(
         (item) => item.name.toLowerCase() === product.name.toLowerCase(),
       );
       if (!menuItem) {
         continue;
       }
-      product.matchedMenuItem = menuItem._id;
-      await product.save();
+      await this.updateProduct(null, product._id, {
+        matchedMenuItem: menuItem._id,
+      });
     }
   }
 }
