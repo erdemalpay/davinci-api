@@ -386,7 +386,7 @@ export class AccountingController {
     @Query('before') before?: string,
     @Query('location') location?: string,
   ) {
-    return this.accountingService.findQueryStocksTotalValue({
+    return this.accountingService.findFilterStocksTotalValue({
       after,
       before,
       location,
