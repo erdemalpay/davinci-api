@@ -1234,12 +1234,12 @@ export class AccountingService {
     try {
       const { after, before, location } = query;
       const products = await this.findActiveProducts();
-      const stockLocation =
-        !location || location === '0'
-          ? ''
-          : location === '1'
-          ? 'bahceli'
-          : 'neorama';
+      const locationMap = {
+        '0': '',
+        '1': 'bahceli',
+        '2': 'neorama',
+      };
+      const stockLocation = locationMap[location] || '';
 
       let afterFilterQuery = {};
       let beforeFilterQuery = {};
