@@ -1230,83 +1230,68 @@ export class AccountingService {
       );
     }
   }
-  async findQueryStocksTotalValue(query: StockQueryDto) {
+  async findFilterStocksTotalValue(query: StockQueryDto) {
     try {
-      const { after, before, location } = query;
-      const stockLocation =
-        !location || location === '0'
-          ? ''
-          : location === '1'
-          ? 'bahceli'
-          : 'neorama';
-
-      let afterFilterQuery = {};
-      let beforeFilterQuery = {};
-      afterFilterQuery['createdAt'] = { $gte: new Date(after) };
-
-      beforeFilterQuery['createdAt'] = {
-        $gte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
+      const stockLocation = this.mapLocation(query.location);
+      const afterFilterQuery = {
+        createdAt: { $gte: new Date(query.after) },
+        ...(stockLocation && { location: stockLocation }),
+      };
+      const beforeFilterQuery = {
+        createdAt: {
+          $gte: new Date(
+            new Date(query.before).getTime() + 24 * 60 * 60 * 1000,
+          ),
+        },
+        ...(stockLocation && { location: stockLocation }),
       };
 
-      if (stockLocation) {
-        afterFilterQuery['location'] = stockLocation;
-        beforeFilterQuery['location'] = stockLocation;
-      }
-
-      const findFilterStocksValue = async (filterQuery) => {
-        const stocks = await this.stockModel.find({
-          ...(stockLocation && { location: stockLocation }),
-        });
-        const products = await this.findActiveProducts();
-        let filteredStocks = [];
-        const stockHistory = await this.productStockHistoryModel.find({
-          ...filterQuery,
-        });
-        for (const stock of stocks) {
-          const productStockHistory = stockHistory?.filter(
-            (stockHistory) =>
-              stockHistory.product.toString() === stock.product.toString() &&
-              stockHistory.location.toString() === stock.location.toString(),
-          );
-          let changeSum = productStockHistory?.reduce(
-            (acc, history) => acc + history.change * -1,
-            0,
-          );
-          if (productStockHistory?.length > 0) {
-            stock.quantity += changeSum;
-          }
-          filteredStocks.push({
-            _id: stock._id,
-            product: stock.product,
-            location: stock.location,
-            quantity: stock.quantity,
-          });
-        }
-        filteredStocks;
-        const totalValue = filteredStocks.reduce((acc, stock) => {
-          const foundProduct = products.find(
-            (product) => product._id === stock.product,
-          );
-          if (!foundProduct) {
-            return acc;
-          }
-          const expense = (foundProduct?.unitPrice ?? 0) * stock.quantity;
-          return acc + expense;
-        }, 0);
-        return totalValue;
-      };
-
-      // Using await to ensure that the asynchronous function completes before proceeding.
-      const afterTotalValue = await findFilterStocksValue(afterFilterQuery);
-      const beforeTotalValue = await findFilterStocksValue(beforeFilterQuery);
+      const afterTotalValue = await this.findFilterStocksValue(
+        afterFilterQuery,
+      );
+      const beforeTotalValue = await this.findFilterStocksValue(
+        beforeFilterQuery,
+      );
 
       return { beforeTotalValue, afterTotalValue };
     } catch (error) {
+      console.error('Error fetching and processing stocks:', error);
       throw new HttpException(
         `Failed to fetch and process stocks due to an internal error: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  async findFilterStocksValue(filterQuery) {
+    const stocks = await this.stockModel.find(filterQuery);
+    const products = await this.findActiveProducts();
+    let totalValue = 0;
+
+    for (const stock of stocks) {
+      const productStockHistory = await this.productStockHistoryModel.find({
+        product: stock.product,
+        location: stock.location,
+      });
+      const changeSum = productStockHistory.reduce(
+        (acc, history) => acc + history.change * -1,
+        0,
+      );
+      stock.quantity += changeSum;
+
+      const product = products.find(
+        (p) => p._id.toString() === stock.product.toString(),
+      );
+      if (product) {
+        totalValue += product.unitPrice * stock.quantity;
+      }
+    }
+
+    return totalValue;
+  }
+
+  mapLocation(location) {
+    if (!location || location === '0') return '';
+    return location === '1' ? 'bahceli' : 'neorama';
   }
 
   async fixStockIds() {
