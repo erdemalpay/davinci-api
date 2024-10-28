@@ -1199,12 +1199,15 @@ export class AccountingService {
     }
     try {
       let filteredStocks = [];
+      const stockHistory = await this.productStockHistoryModel.find(
+        filterQuery,
+      );
       for (const stock of stocks) {
-        const productStockHistory = await this.productStockHistoryModel.find({
-          product: stock.product,
-          location: stock.location,
-          ...filterQuery,
-        });
+        const productStockHistory = stockHistory.filter(
+          (history) =>
+            history.product.toString() === stock.product.toString() &&
+            history.location.toString() === stock.location.toString(),
+        );
         let changeSum = productStockHistory.reduce(
           (acc, history) => acc + history.change * -1,
           0,
@@ -1250,22 +1253,26 @@ export class AccountingService {
         beforeFilterQuery['location'] = stockLocation;
       }
 
-      const stocks = await this.stockModel.find({
-        ...(stockLocation && { location: stockLocation }),
-      });
-
-      const findFilterStocks = async (filterQuery) => {
+      const findFilterStocksValue = async (filterQuery) => {
+        const stocks = await this.stockModel.find({
+          ...(stockLocation && { location: stockLocation }),
+        });
+        const products = await this.findActiveProducts();
         let filteredStocks = [];
+        const stockHistory = await this.productStockHistoryModel.find({
+          ...filterQuery,
+        });
         for (const stock of stocks) {
-          const productStockHistory = await this.productStockHistoryModel.find({
-            product: stock.product,
-            ...filterQuery,
-          });
-          let changeSum = productStockHistory.reduce(
+          const productStockHistory = stockHistory?.filter(
+            (stockHistory) =>
+              stockHistory.product.toString() === stock.product.toString() &&
+              stockHistory.location.toString() === stock.location.toString(),
+          );
+          let changeSum = productStockHistory?.reduce(
             (acc, history) => acc + history.change * -1,
             0,
           );
-          if (productStockHistory.length > 0) {
+          if (productStockHistory?.length > 0) {
             stock.quantity += changeSum;
           }
           filteredStocks.push({
@@ -1275,40 +1282,25 @@ export class AccountingService {
             quantity: stock.quantity,
           });
         }
-        return filteredStocks;
+        filteredStocks;
+        const totalValue = filteredStocks.reduce((acc, stock) => {
+          const foundProduct = products.find(
+            (product) => product._id === stock.product,
+          );
+          if (!foundProduct) {
+            return acc;
+          }
+          const expense = (foundProduct?.unitPrice ?? 0) * stock.quantity;
+          return acc + expense;
+        }, 0);
+        return totalValue;
       };
 
       // Using await to ensure that the asynchronous function completes before proceeding.
-      const afterStocks = await findFilterStocks(afterFilterQuery);
-      const beforeStocks = await findFilterStocks(beforeFilterQuery);
-      const products = await this.productModel.find();
+      const afterTotalValue = await findFilterStocksValue(afterFilterQuery);
+      const beforeTotalValue = await findFilterStocksValue(beforeFilterQuery);
 
-      const calculateTotalValue = async (initialStocks) => {
-        let totalValue = 0;
-        for (const stock of initialStocks) {
-          const product = products.find(
-            (product) => product._id === stock.product,
-          );
-          if (product) {
-            const quantity = stock?.quantity;
-            const unitPrice = product?.unitPrice;
-            if (
-              !isNaN(quantity) &&
-              !isNaN(unitPrice)
-              // &&
-              // quantity >= 0 &&
-              // unitPrice >= 0
-            ) {
-              totalValue += quantity * unitPrice;
-            }
-          }
-        }
-        return totalValue;
-      };
-      const afterTotalValue = await calculateTotalValue(afterStocks);
-      const beforeTotalValue = await calculateTotalValue(beforeStocks);
-
-      return { afterTotalValue, beforeTotalValue };
+      return { beforeTotalValue, afterTotalValue };
     } catch (error) {
       throw new HttpException(
         `Failed to fetch and process stocks due to an internal error: ${error.message}`,
