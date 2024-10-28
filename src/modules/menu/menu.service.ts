@@ -98,48 +98,54 @@ export class MenuService {
   }
 
   async createItem(user: User, createItemDto: CreateItemDto) {
-    const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
-    const item = new this.itemModel({
-      ...createItemDto,
-      order: lastItem ? lastItem.order + 1 : 1,
-    });
-    if (createItemDto?.matchedProduct) {
-      const items = await this.itemModel.find({
-        matchedProduct: createItemDto.matchedProduct,
+    try {
+      const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
+      const item = new this.itemModel({
+        ...createItemDto,
+        order: lastItem ? lastItem.order + 1 : 1,
       });
 
-      if (items.length > 0) {
-        for (const existingItem of items) {
-          await this.itemModel.findByIdAndUpdate(existingItem._id, {
-            matchedProduct: null,
-            itemProduction: [
-              ...existingItem.itemProduction.filter(
-                (itemProductionItem) =>
-                  itemProductionItem.product !== existingItem.matchedProduct,
+      if (createItemDto?.matchedProduct) {
+        const items = await this.itemModel.find({
+          matchedProduct: createItemDto.matchedProduct,
+        });
+
+        if (items.length > 0) {
+          for (const existingItem of items) {
+            await this.itemModel.findByIdAndUpdate(existingItem._id, {
+              matchedProduct: null,
+              itemProduction: existingItem.itemProduction.filter(
+                (ip) => ip.product !== existingItem.matchedProduct,
               ),
-            ],
-          });
+            });
+          }
         }
+
+        item.itemProduction = [
+          {
+            product: createItemDto.matchedProduct,
+            quantity: 1,
+            isDecrementStock: true,
+          },
+        ];
+
+        await this.accountingService.updateItemProduct(
+          user,
+          createItemDto.matchedProduct,
+          { matchedMenuItem: item._id },
+        );
       }
 
-      item.itemProduction = [
-        {
-          product: createItemDto.matchedProduct,
-          quantity: 1,
-          isDecrementStock: true,
-        },
-      ];
-    }
-    await item.save();
-    if (createItemDto?.matchedProduct) {
-      await this.accountingService.updateItemProduct(
-        user,
-        createItemDto.matchedProduct,
-        { matchedMenuItem: item._id },
+      await item.save();
+      this.menuGateway.emitItemChanged(user, item);
+      return item;
+    } catch (error) {
+      console.error('Error creating item:', error);
+      throw new HttpException(
+        `Error creating item: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-    this.menuGateway.emitItemChanged(user, item);
-    return item;
   }
 
   async updateItem(user: User, id: number, updates: UpdateQuery<MenuItem>) {
