@@ -77,7 +77,7 @@ export class AccountingService {
   }
 
   findAllProducts() {
-    return this.productModel.find();
+    return this.productModel.find({ deleted: { $ne: true } });
   }
 
   async createProduct(user: User, createProductDto: CreateProductDto) {
