@@ -6,6 +6,7 @@ import { ActivityModule } from '../activity/activity.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { CheckoutModule } from './../checkout/checkout.module';
+import { RedisModule } from './../redis/redis.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingGateway } from './accounting.gateway';
 import { AccountingService } from './accounting.service';
@@ -55,6 +56,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ActivityModule,
     GameModule,
     CheckoutModule,
+    RedisModule,
   ],
   providers: [AccountingService, AccountingGateway],
   exports: [AccountingService, AccountingGateway],

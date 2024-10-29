@@ -4,6 +4,8 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
@@ -70,14 +72,37 @@ export class AccountingService {
     private readonly activityService: ActivityService,
     private readonly checkoutService: CheckoutService,
     private readonly accountingGateway: AccountingGateway,
+    private readonly redisService: RedisService,
   ) {}
   //   Products
   findActiveProducts() {
     return this.productModel.find({ deleted: { $ne: true } });
   }
 
-  findAllProducts() {
-    return this.productModel.find({ deleted: { $ne: true } });
+  async findAllProducts() {
+    try {
+      const redisProducts = await this.redisService.get(
+        RedisKeys.AccountingProducts,
+      );
+      if (redisProducts) {
+        return redisProducts;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve products from Redis:', error);
+    }
+
+    try {
+      const products = await this.productModel
+        .find({ deleted: { $ne: true } })
+        .exec();
+      if (products.length > 0) {
+        await this.redisService.set(RedisKeys.AccountingProducts, products);
+      }
+      return products;
+    } catch (error) {
+      console.error('Failed to retrieve products from database:', error);
+      throw new Error('Could not retrieve products');
+    }
   }
 
   async createProduct(user: User, createProductDto: CreateProductDto) {
