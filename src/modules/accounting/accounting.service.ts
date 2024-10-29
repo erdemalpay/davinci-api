@@ -122,9 +122,8 @@ export class AccountingService {
       const product = new this.productModel(createProductDto);
       product._id = usernamify(product.name);
       await product.save();
-      await this.redisService.reset(RedisKeys.AccountingProducts);
 
-      this.accountingGateway.emitProductChanged(user, product);
+      await this.accountingGateway.emitProductChanged(user, product);
       if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
           user,
@@ -223,8 +222,7 @@ export class AccountingService {
     await this.productModel.findByIdAndUpdate(removedProduct, {
       deleted: true,
     });
-    await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.accountingGateway.emitProductChanged(user, product);
+    await this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
 
@@ -272,8 +270,7 @@ export class AccountingService {
         new: true,
       },
     );
-    await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.accountingGateway.emitProductChanged(user, updatedProduct);
+    await this.accountingGateway.emitProductChanged(user, updatedProduct);
 
     return updatedProduct;
   }
@@ -301,8 +298,7 @@ export class AccountingService {
         new: true,
       },
     );
-    await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.accountingGateway.emitProductChanged(user, updatedProduct);
+    await this.accountingGateway.emitProductChanged(user, updatedProduct);
     return updatedProduct;
   }
 
@@ -318,8 +314,7 @@ export class AccountingService {
     }
     product.deleted = true;
     await product.save();
-    await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.accountingGateway.emitProductChanged(user, product);
+    await this.accountingGateway.emitProductChanged(user, product);
     return product;
   }
 
@@ -842,8 +837,7 @@ export class AccountingService {
           { $set: { unitPrice: updatedUnitPrice } },
           { new: true },
         );
-        await this.redisService.reset(RedisKeys.AccountingProducts);
-        this.accountingGateway.emitProductChanged(user, product);
+        await this.accountingGateway.emitProductChanged(user, product);
       }
 
       const invoice = await this.invoiceModel.create({
@@ -1070,8 +1064,7 @@ export class AccountingService {
     }
 
     await product.save();
-    await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.accountingGateway.emitProductChanged(user, product);
+    await this.accountingGateway.emitProductChanged(user, product);
   }
 
   async transferInvoiceToServiceInvoice(user: User, id: number) {
