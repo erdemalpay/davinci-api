@@ -91,7 +91,8 @@ export class AccountingGateway
     this.server.emit('serviceInvoiceChanged', { user, serviceInvoice });
   }
 
-  emitStockChanged(user: User, stock: any) {
+  async emitStockChanged(user: User, stock: any) {
+    await this.redisService.reset(RedisKeys.AccountingStocks);
     this.server.emit('stockChanged', { user, stock });
   }
 

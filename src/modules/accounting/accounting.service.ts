@@ -1210,9 +1210,33 @@ export class AccountingService {
   }
 
   // Stocks
-  findAllStocks() {
-    return this.stockModel.find();
+  async findAllStocks() {
+    try {
+      const redisStocks = await this.redisService.get(
+        RedisKeys.AccountingStocks,
+      );
+      if (redisStocks) {
+        return redisStocks;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve stocks from Redis:', error);
+    }
+
+    try {
+      const stocks = await this.stockModel.find();
+      if (stocks.length > 0) {
+        await this.redisService.set(RedisKeys.AccountingStocks, stocks);
+      }
+      return stocks;
+    } catch (error) {
+      console.error('Failed to retrieve stocks from database:', error);
+      throw new HttpException(
+        'Failed to retrieve stocks from database',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
+
   async findQueryStocks(query: StockQueryDto) {
     const { after } = query;
     const filterQuery = {};
