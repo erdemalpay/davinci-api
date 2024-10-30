@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { OrderModule } from '../order/order.module';
+import { RedisModule } from '../redis/redis.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
 import { MenuCategory, MenuCategorySchema } from './category.schema';
@@ -24,6 +25,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     mongooseModule,
     PanelControlModule,
     OrderModule,
+    RedisModule,
     forwardRef(() => AccountingModule),
   ],
   providers: [MenuService, MenuGateway],
