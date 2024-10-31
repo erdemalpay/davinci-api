@@ -11,6 +11,8 @@ export class CreateOrderDto {
   createdAt: Date;
   createdBy: string;
   preparedAt?: Date;
+  confirmedAt?: Date;
+  confirmedBy?: string;
   preparedBy?: string;
   deliveredAt?: Date;
   deliveredBy?: string;
@@ -36,6 +38,8 @@ export type OrderType = {
   unitPrice: number;
   createdAt: Date;
   createdBy: string;
+  confirmedAt?: Date;
+  confirmedBy?: string;
   preparedAt?: Date;
   preparedBy?: string;
   deliveredAt?: Date;

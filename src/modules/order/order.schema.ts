@@ -33,6 +33,12 @@ export class Order extends Document {
   @Prop({ required: true, type: Number })
   unitPrice: number;
 
+  @Prop({ required: false, type: Date })
+  confirmedAt: Date;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  confirmedBy: string;
+
   @Prop({ required: true, type: Date })
   createdAt: Date;
 
