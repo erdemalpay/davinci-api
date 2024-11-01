@@ -144,6 +144,22 @@ export class TableService {
       })
       .exec();
   }
+  async getYerVarmiByLocation(location: number, date: string) {
+    console.log('here');
+    try {
+      const tables = await this.tableModel.find({
+        location,
+        date,
+        finishHour: { $exists: false },
+        isOnlineSale: { $ne: true },
+      });
+      console.log(tables.length);
+      return tables.length;
+    } catch (error) {
+      console.error('Error retrieving tables:', error);
+      throw new Error('Failed to retrieve table availability.');
+    }
+  }
 
   async addGameplay(user: User, id: number, gameplayDto: GameplayDto) {
     const table = await this.tableModel.findById(id);

@@ -2,6 +2,8 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { OrderService } from '../order/order.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -31,6 +33,7 @@ export class MenuService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+    private readonly activityService: ActivityService,
   ) {}
 
   findAllCategories() {
@@ -237,6 +240,12 @@ export class MenuService {
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_MENU_ITEM,
+      item,
+      updatedItem,
+    );
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }

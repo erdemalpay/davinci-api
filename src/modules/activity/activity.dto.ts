@@ -13,6 +13,7 @@ import { Invoice } from './../accounting/invoice.schema';
 import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
 import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
+import { MenuItem } from './../menu/item.schema';
 
 export class ActivityDto {
   @IsNumber()
@@ -62,6 +63,7 @@ export enum ActivityType {
   TAKE_PAYMENT = 'TAKE_PAYMENT',
   GAME_LEARNED_ADD = 'GAME_LEARNED_ADD',
   GAME_LEARNED_REMOVE = 'GAME_LEARNED_REMOVE',
+  UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
 }
 
 export type ActivityTypePayload = {
@@ -124,6 +126,10 @@ export type ActivityTypePayload = {
   [ActivityType.TAKE_PAYMENT]: Collection;
   [ActivityType.GAME_LEARNED_ADD]: Game;
   [ActivityType.GAME_LEARNED_REMOVE]: Game;
+  [ActivityType.UPDATE_MENU_ITEM]: {
+    currentMenuItem: MenuItem;
+    newMenuItem: MenuItem;
+  };
 };
 
 export class ActivityQueryDto {
