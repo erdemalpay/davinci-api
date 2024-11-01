@@ -19,6 +19,7 @@ export class CreateItemDto {
 }
 export class CreateKitchenDto {
   name: string;
+  isConfirmationRequired: boolean;
 }
 
 export class CreatePopularDto {
