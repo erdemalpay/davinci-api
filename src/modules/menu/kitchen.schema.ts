@@ -12,6 +12,9 @@ export class Kitchen extends Document {
 
   @Prop({ required: true, type: Boolean })
   isConfirmationRequired: boolean;
+
+  @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
+  locations: number[];
 }
 
 export const KitchenSchema = SchemaFactory.createForClass(Kitchen);
