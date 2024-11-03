@@ -68,6 +68,7 @@ export class OrderService {
       const orders = await this.orderModel
         .find(filterQuery)
         .populate('table', 'date _id name finishHour')
+        .sort({ createdAt: -1 })
         .exec();
       return orders;
     } catch (error) {
