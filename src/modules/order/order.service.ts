@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
@@ -30,6 +36,7 @@ export class OrderService {
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
+    @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
     private readonly orderGateway: OrderGateway,
     private readonly tableGateway: TableGateway,

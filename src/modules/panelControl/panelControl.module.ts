@@ -6,9 +6,11 @@ import { Page, PageSchema } from './page.schema';
 import { PanelControlController } from './panelControl.controller';
 import { PanelControlGateway } from './panelControl.gateway';
 import { PanelControlService } from './panelControl.service';
+import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Page.name, useFactory: () => PageSchema },
   createAutoIncrementConfig(CheckoutCash.name, CheckoutCashSchema),
+  createAutoIncrementConfig(PanelSettings.name, PanelSettingsSchema),
 ]);
 
 @Module({

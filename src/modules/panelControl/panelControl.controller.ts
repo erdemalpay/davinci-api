@@ -12,7 +12,11 @@ import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
-import { CreateCheckoutCashDto, CreatePageDto } from './panelControl.dto';
+import {
+  CreateCheckoutCashDto,
+  CreatePageDto,
+  CreatePanelSettingsDto,
+} from './panelControl.dto';
 import { PanelControlService } from './panelControl.service';
 
 @Controller('panel-control')
@@ -81,5 +85,22 @@ export class PanelControlController {
     @Body() updates: UpdateQuery<CheckoutCash>,
   ) {
     return this.panelControlService.updateCheckoutCash(user, id, updates);
+  }
+
+  //panel settings
+  @Get('/panel-settings')
+  getPanelSettings() {
+    return this.panelControlService.findPanelSettings();
+  }
+
+  @Post('/panel-settings')
+  createPanelSettings(
+    @ReqUser() user: User,
+    @Body() createPanelSettingsDto: CreatePanelSettingsDto,
+  ) {
+    return this.panelControlService.createPanelSetting(
+      user,
+      createPanelSettingsDto,
+    );
   }
 }

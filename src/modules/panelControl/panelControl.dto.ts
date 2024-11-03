@@ -12,3 +12,8 @@ export class CreateCheckoutCashDto {
   date: string;
   location: string;
 }
+
+export class CreatePanelSettingsDto {
+  _id: number;
+  isHoliday: boolean;
+}

@@ -99,7 +99,10 @@ export class MenuService {
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
-
+  async findItemById(id: number) {
+    const item = await this.itemModel.findById(id);
+    return item;
+  }
   async createItem(user: User, createItemDto: CreateItemDto) {
     try {
       const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });

@@ -10,7 +10,7 @@ export class Table extends Document {
   _id: number;
 
   @Prop({ required: true, type: Number, ref: Location.name })
-  location: Location;
+  location: number;
 
   @Prop({ type: [{ type: Number, ref: Gameplay.name }] })
   gameplays: Gameplay[];
@@ -26,6 +26,9 @@ export class Table extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   isOnlineSale: boolean;
+
+  @Prop({ required: true, type: Boolean, default: false })
+  isAutoEntryAdded: boolean;
 
   @Prop({ required: true })
   date: string;

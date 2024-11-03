@@ -21,9 +21,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     mongooseModule,
-    TableModule,
+
     ActivityModule,
     forwardRef(() => AccountingModule),
+    forwardRef(() => TableModule),
     GameplayModule,
   ],
   controllers: [OrderController],

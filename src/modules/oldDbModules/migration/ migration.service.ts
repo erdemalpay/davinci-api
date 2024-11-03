@@ -113,6 +113,7 @@ export class MigrationService {
         startHour: tableStartHour,
         finishHour: oldTable.finishHour || '23:59',
         gameplays: gameplays?.map((gameplay) => (gameplay as any)?._id),
+        isAutoEntryAdded: false,
       });
       console.log(`Table ${oldTable.name} from ${tableDate} is migrated.`);
     }
