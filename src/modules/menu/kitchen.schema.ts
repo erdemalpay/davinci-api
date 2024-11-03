@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Location } from '../location/location.schema';
 
 @Schema({ _id: false })
 export class Kitchen extends Document {
