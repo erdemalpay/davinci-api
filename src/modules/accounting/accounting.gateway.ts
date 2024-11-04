@@ -9,6 +9,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { User } from '../user/user.schema';
+import { RedisKeys } from './../redis/redis.dto';
+import { RedisService } from './../redis/redis.service';
 
 @WebSocketGateway({
   path: '/socket.io',
@@ -23,6 +25,7 @@ export class AccountingGateway
 {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('AccountingGateway');
+  constructor(private readonly redisService: RedisService) {}
 
   afterInit(server: Server) {
     this.logger.log('Init');
@@ -68,7 +71,8 @@ export class AccountingGateway
     this.server.emit('paymentMethodChanged', { user, paymentMethod });
   }
 
-  emitProductChanged(user: User, product: any) {
+  async emitProductChanged(user: User, product: any) {
+    await this.redisService.reset(RedisKeys.AccountingProducts);
     this.server.emit('productChanged', { user, product });
   }
 
@@ -87,7 +91,8 @@ export class AccountingGateway
     this.server.emit('serviceInvoiceChanged', { user, serviceInvoice });
   }
 
-  emitStockChanged(user: User, stock: any) {
+  async emitStockChanged(user: User, stock: any) {
+    await this.redisService.reset(RedisKeys.AccountingStocks);
     this.server.emit('stockChanged', { user, stock });
   }
 

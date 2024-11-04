@@ -9,6 +9,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { TableGateway } from '../table/table.gateway';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
@@ -42,6 +44,7 @@ export class OrderService {
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
+    private readonly redisService: RedisService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -523,15 +526,30 @@ export class OrderService {
   // discount
   async findAllDiscounts() {
     try {
-      const discounts = await this.discountModel.find();
+      const redisDiscounts = await this.redisService.get(RedisKeys.Discounts);
+      if (redisDiscounts) {
+        return redisDiscounts;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve discounts from Redis:', error);
+    }
+
+    try {
+      const discounts = await this.discountModel.find().exec();
+
+      if (discounts.length > 0) {
+        await this.redisService.set(RedisKeys.Discounts, discounts);
+      }
       return discounts;
     } catch (error) {
+      console.error('Failed to retrieve discounts from database:', error);
       throw new HttpException(
         'Failed to fetch discounts',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
+
   async createDiscount(user: User, createDiscountDto: CreateDiscountDto) {
     const discount = new this.discountModel({
       ...createDiscountDto,

@@ -5,6 +5,8 @@ import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { OrderService } from '../order/order.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
@@ -33,15 +35,42 @@ export class MenuService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
+
   ) {}
 
   findAllCategories() {
     return this.categoryModel.find().sort({ order: 'asc' });
   }
 
-  findAllItems() {
-    return this.itemModel.find().sort({ category: 1, order: 1 });
+  async findAllItems() {
+    try {
+      // Attempt to retrieve items from Redis cache
+      const redisItems = await this.redisService.get(RedisKeys.MenuItems);
+      if (redisItems) {
+        return redisItems; // Return cached items if available
+      }
+    } catch (error) {
+      console.error('Failed to retrieve items from Redis:', error);
+    }
+
+    try {
+      // Query the database for items, sorted by category and order
+      const items = await this.itemModel
+        .find()
+        .sort({ category: 1, order: 1 })
+        .exec();
+
+      // If items are found, cache them in Redis
+      if (items.length > 0) {
+        await this.redisService.set(RedisKeys.MenuItems, items);
+      }
+      return items; // Return items from the database
+    } catch (error) {
+      console.error('Failed to retrieve items from database:', error);
+      throw new Error('Could not retrieve items');
+    }
   }
 
   async setOrder(user: User) {

@@ -9,6 +9,10 @@
     "host": "localhost",
     "name": "davinci"
   },
+  "redis": {
+    "port": "6379",
+    "host": "localhost"
+  },
   "app": {
     "port": 4000
   },
