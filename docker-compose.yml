@@ -8,6 +8,12 @@ services:
       - ./davinci-data:/data/db
     ports:
       - '27017:27017'
+  redis:
+    image: redis:latest
+    container_name: davinci-redis
+    restart: always
+    ports:
+      - '6379:6379'
   api-production:
     build:
       context: ./
@@ -16,6 +22,7 @@ services:
     restart: always
     depends_on:
       - mongo
+      - redis
     ports:
       - '8070:4000'
     volumes:
@@ -28,6 +35,7 @@ services:
     restart: always
     depends_on:
       - mongo
+      - redis
     ports:
       - '8080:4000'
     volumes:
