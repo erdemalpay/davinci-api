@@ -28,7 +28,7 @@ services:
     restart: always
     depends_on:
       - mongo
-      - redis
+      - redis-production
     ports:
       - '8070:4000'
     volumes:
@@ -41,7 +41,7 @@ services:
     restart: always
     depends_on:
       - mongo
-      - redis
+      - redis-staging
     ports:
       - '8080:4000'
     volumes:
