@@ -19,6 +19,8 @@ export class CreateItemDto {
 }
 export class CreateKitchenDto {
   name: string;
+  isConfirmationRequired: boolean;
+  locatins: number[];
 }
 
 export class CreatePopularDto {

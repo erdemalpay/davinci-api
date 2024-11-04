@@ -39,6 +39,9 @@ export class TableDto {
 
   @IsBoolean()
   isOnlineSale?: boolean;
+
+  @IsBoolean()
+  isAutoEntryAdded: boolean;
 }
 
 export class TableResponse {

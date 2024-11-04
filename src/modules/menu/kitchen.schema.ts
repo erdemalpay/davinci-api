@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Location } from '../location/location.schema';
 
 @Schema({ _id: false })
 export class Kitchen extends Document {
@@ -9,6 +10,12 @@ export class Kitchen extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+
+  @Prop({ required: true, type: Boolean })
+  isConfirmationRequired: boolean;
+
+  @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
+  locations: number[];
 }
 
 export const KitchenSchema = SchemaFactory.createForClass(Kitchen);

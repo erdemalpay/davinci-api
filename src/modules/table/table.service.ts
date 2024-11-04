@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
@@ -6,8 +12,11 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { OrderService } from '../order/order.service';
 import { User } from '../user/user.schema';
+import { MenuService } from './../menu/menu.service';
 import { OrderStatus } from './../order/order.dto';
+import { PanelControlService } from './../panelControl/panelControl.service';
 import { TableDto } from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
@@ -18,7 +27,11 @@ export class TableService {
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
+    private readonly menuService: MenuService,
     private readonly tableGateway: TableGateway,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
+    private readonly panelControlService: PanelControlService,
   ) {}
 
   async create(user: User, tableDto: TableDto) {
@@ -28,6 +41,27 @@ export class TableService {
       ActivityType.CREATE_TABLE,
       createdTable,
     );
+    // Add auto entry for the table
+    if (
+      tableDto.isAutoEntryAdded &&
+      !tableDto?.isOnlineSale &&
+      tableDto.playerCount > 0
+    ) {
+      const isWeekend = await this.panelControlService.isWeekend();
+      const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+      await this.orderService.createOrder(user, {
+        table: createdTable._id,
+        location: createdTable.location,
+        item: menuItem._id,
+        quantity: tableDto.playerCount,
+        createdAt: new Date(tableDto.date),
+        createdBy: user._id,
+        status: OrderStatus.AUTOSERVED,
+        paidQuantity: 0,
+        unitPrice: menuItem.price,
+        kitchen: 'bar',
+      });
+    }
     this.tableGateway.emitTableChanged(user, createdTable);
     return createdTable;
   }
@@ -143,6 +177,22 @@ export class TableService {
         },
       })
       .exec();
+  }
+  async getYerVarmiByLocation(location: number, date: string) {
+    console.log('here');
+    try {
+      const tables = await this.tableModel.find({
+        location,
+        date,
+        finishHour: { $exists: false },
+        isOnlineSale: { $ne: true },
+      });
+      console.log(tables.length);
+      return tables.length;
+    } catch (error) {
+      console.error('Error retrieving tables:', error);
+      throw new Error('Failed to retrieve table availability.');
+    }
   }
 
   async addGameplay(user: User, id: number, gameplayDto: GameplayDto) {

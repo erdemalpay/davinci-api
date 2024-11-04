@@ -11,6 +11,8 @@ export class CreateOrderDto {
   createdAt: Date;
   createdBy: string;
   preparedAt?: Date;
+  confirmedAt?: Date;
+  confirmedBy?: string;
   preparedBy?: string;
   deliveredAt?: Date;
   deliveredBy?: string;
@@ -24,6 +26,7 @@ export class CreateOrderDto {
   isOnlinePrice?: boolean;
   stockLocation?: string;
   discountNote?: string;
+  kitchen: string;
 }
 export type OrderType = {
   _id: number;
@@ -31,11 +34,14 @@ export type OrderType = {
   item: number;
   table?: number;
   quantity: number;
+  kitchen: string;
   status: string;
   note?: string;
   unitPrice: number;
   createdAt: Date;
   createdBy: string;
+  confirmedAt?: Date;
+  confirmedBy?: string;
   preparedAt?: Date;
   preparedBy?: string;
   deliveredAt?: Date;

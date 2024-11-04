@@ -31,6 +31,14 @@ export class TableController {
   getTables(@Query('location') location: number, @Query('date') date: string) {
     return this.tableService.getByLocation(location, date);
   }
+  @Public()
+  @Get('/yer_varmi')
+  getYerVarmiTables(
+    @Query('location') location: number,
+    @Query('date') date: string,
+  ) {
+    return this.tableService.getYerVarmiByLocation(location, date);
+  }
 
   @Public()
   @Get('/count')

@@ -5,8 +5,13 @@ import { usernamify } from 'src/utils/usernamify';
 import { User } from '../user/user.schema';
 import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
-import { CreateCheckoutCashDto, CreatePageDto } from './panelControl.dto';
+import {
+  CreateCheckoutCashDto,
+  CreatePageDto,
+  CreatePanelSettingsDto,
+} from './panelControl.dto';
 import { PanelControlGateway } from './panelControl.gateway';
+import { PanelSettings } from './panelSettings.schema';
 
 @Injectable()
 export class PanelControlService {
@@ -14,6 +19,8 @@ export class PanelControlService {
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(CheckoutCash.name)
     private checkoutCashModel: Model<CheckoutCash>,
+    @InjectModel(PanelSettings.name)
+    private panelSettingsModel: Model<PanelSettings>,
     private readonly panelControlGateway: PanelControlGateway,
   ) {}
 
@@ -104,5 +111,42 @@ export class PanelControlService {
     this.panelControlGateway.emitCheckoutCashChanged(user, checkoutCash);
 
     return checkoutCash;
+  }
+  // panel settings
+  async findPanelSettings() {
+    const panelSettings = await this.panelSettingsModel.find();
+    return panelSettings[0];
+  }
+  async isWeekend() {
+    const today = new Date();
+    const day = today.getDay();
+    const panelSetting = await this.findPanelSettings();
+    if (panelSetting?.isHoliday) {
+      return true;
+    }
+    return day === 0 || day === 6;
+  }
+
+  async createPanelSetting(
+    user: User,
+    createPanelSettingsDto: CreatePanelSettingsDto,
+  ) {
+    const panelSetting = await this.findPanelSettings();
+    if (panelSetting) {
+      const newPanelSetting = await this.panelSettingsModel.findByIdAndUpdate(
+        panelSetting._id,
+        createPanelSettingsDto,
+        {
+          new: true,
+        },
+      );
+      this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
+      return newPanelSetting;
+    }
+    const newPanelSetting = await this.panelSettingsModel.create(
+      createPanelSettingsDto,
+    );
+    this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
+    return newPanelSetting;
   }
 }

@@ -2,6 +2,8 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -33,7 +35,9 @@ export class MenuService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
-    private readonly redisService: RedisService,
+private readonly redisService: RedisService,
+    private readonly activityService: ActivityService,
+
   ) {}
 
   findAllCategories() {
@@ -124,7 +128,10 @@ export class MenuService {
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
-
+  async findItemById(id: number) {
+    const item = await this.itemModel.findById(id);
+    return item;
+  }
   async createItem(user: User, createItemDto: CreateItemDto) {
     try {
       const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
@@ -265,6 +272,12 @@ export class MenuService {
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_MENU_ITEM,
+      item,
+      updatedItem,
+    );
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }

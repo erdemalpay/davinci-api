@@ -52,11 +52,11 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     mongooseModule,
-    forwardRef(() => MenuModule),
     ActivityModule,
     GameModule,
     CheckoutModule,
     RedisModule,
+    forwardRef(() => MenuModule),
   ],
   providers: [AccountingService, AccountingGateway],
   exports: [AccountingService, AccountingGateway],

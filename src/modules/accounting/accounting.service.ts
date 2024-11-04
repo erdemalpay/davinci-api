@@ -894,7 +894,8 @@ export class AccountingService {
         invoice.brand !== updates.brand ||
         invoice.vendor !== updates.vendor ||
         invoice.expenseType !== updates.expenseType ||
-        invoice.paymentMethod !== updates.paymentMethod)
+        invoice.paymentMethod !== updates.paymentMethod ||
+        invoice?.isStockIncrement !== updates.isStockIncrement)
     ) {
       const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -906,6 +907,7 @@ export class AccountingService {
             vendor: updates.vendor,
             expenseType: updates.expenseType,
             paymentMethod: updates.paymentMethod,
+            isStockIncrement: updates.isStockIncrement,
           },
         },
         { new: true },
@@ -927,7 +929,8 @@ export class AccountingService {
         invoice.vendor !== updates.vendor ||
         invoice.quantity !== updates.quantity ||
         invoice.expenseType !== updates.expenseType ||
-        invoice.paymentMethod !== updates.paymentMethod)
+        invoice.paymentMethod !== updates.paymentMethod ||
+        invoice?.isStockIncrement !== updates.isStockIncrement)
     ) {
       const newInvoice = await this.invoiceModel.findByIdAndUpdate(
         id,
@@ -940,6 +943,7 @@ export class AccountingService {
             quantity: updates.quantity,
             expenseType: updates.expenseType,
             paymentMethod: updates.paymentMethod,
+            isStockIncrement: updates.isStockIncrement,
           },
         },
         { new: true },
@@ -951,12 +955,14 @@ export class AccountingService {
         invoice,
         newInvoice,
       );
-      await this.createStock(user, {
-        product: updates.product,
-        location: updates.location,
-        quantity: updates.quantity - invoice.quantity,
-        status: StockHistoryStatusEnum.EXPENSEUPDATE,
-      });
+      if (invoice.isStockIncrement || updates.isStockIncrement) {
+        await this.createStock(user, {
+          product: updates.product,
+          location: updates.location,
+          quantity: updates.quantity - invoice.quantity,
+          status: StockHistoryStatusEnum.EXPENSEUPDATE,
+        });
+      }
     } else {
       await this.removeInvoice(
         user,
@@ -977,6 +983,9 @@ export class AccountingService {
           note: updates?.note,
           isPaid: updates?.isPaid,
           paymentMethod: updates?.paymentMethod,
+          isStockIncrement: updates?.isStockIncrement
+            ? updates?.isStockIncrement
+            : invoice?.isStockIncrement ?? false,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
@@ -1184,6 +1193,7 @@ export class AccountingService {
           note: invoice?.note,
           isPaid: invoice?.isPaid,
           paymentMethod: invoice?.paymentMethod,
+          isStockIncrement: false,
         },
         StockHistoryStatusEnum.TRANSFERSERVICETOINVOICE,
       );
