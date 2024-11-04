@@ -51,7 +51,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find()
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
       return orders;
     } catch (error) {
@@ -70,7 +70,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find(filterQuery)
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .sort({ createdAt: -1 })
         .exec();
       return orders;
@@ -95,7 +95,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end },
         })
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
       return orders;
     } catch (error) {
@@ -129,7 +129,7 @@ export class OrderService {
     try {
       const tableOrders = await this.orderModel
         .find({ table: tableId })
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
 
       return tableOrders;
@@ -375,7 +375,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
       return collections;
     } catch (error) {
@@ -394,7 +394,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find(filterQuery)
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
       return collections;
     } catch (error) {
@@ -457,7 +457,7 @@ export class OrderService {
     try {
       const tableCollection = await this.collectionModel
         .find({ table: tableId })
-        .populate('table', 'date _id name finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();
 
       return tableCollection;
