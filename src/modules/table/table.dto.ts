@@ -56,6 +56,9 @@ export class TableResponse {
 
   @IsString()
   date: string;
+
+  @IsString()
+  createdBy: string;
 }
 export class CloseAllDto {
   @IsArray()

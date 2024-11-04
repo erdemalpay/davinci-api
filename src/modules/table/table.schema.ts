@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
+import { User } from '../user/user.schema';
 
 @Schema({ _id: false })
 export class Table extends Document {
@@ -41,6 +42,9 @@ export class Table extends Document {
 
   @Prop()
   status: string;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  createdBy: string;
 }
 
 export const TableSchema = SchemaFactory.createForClass(Table);

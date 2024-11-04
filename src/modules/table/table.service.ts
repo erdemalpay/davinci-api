@@ -35,7 +35,10 @@ export class TableService {
   ) {}
 
   async create(user: User, tableDto: TableDto) {
-    const createdTable = await this.tableModel.create(tableDto);
+    const createdTable = await this.tableModel.create({
+      ...tableDto,
+      createdBy: user._id,
+    });
     this.activityService.addActivity(
       user,
       ActivityType.CREATE_TABLE,
