@@ -59,6 +59,7 @@ export class TableService {
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
+        kitchen: 'bar',
       });
     }
     this.tableGateway.emitTableChanged(user, createdTable);
