@@ -26,6 +26,7 @@ export class CreateOrderDto {
   isOnlinePrice?: boolean;
   stockLocation?: string;
   discountNote?: string;
+  kitchen: string;
 }
 export type OrderType = {
   _id: number;
@@ -33,6 +34,7 @@ export type OrderType = {
   item: number;
   table?: number;
   quantity: number;
+  kitchen: string;
   status: string;
   note?: string;
   unitPrice: number;

@@ -174,7 +174,6 @@ export class OrderService {
       const orderWithItem = await order.populate('item');
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
-
         if (isStockDecrementRequired) {
           const consumptionQuantity =
             ingredient.quantity * orderWithItem.quantity;

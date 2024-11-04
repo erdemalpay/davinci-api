@@ -5,6 +5,7 @@ import { Location } from '../location/location.schema';
 import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
 import { StockLocation } from './../accounting/stockLocation.schema';
+import { Kitchen } from './../menu/kitchen.schema';
 import { Discount } from './discount.schema';
 
 @Schema({ _id: false })
@@ -17,6 +18,9 @@ export class Order extends Document {
 
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
+
+  @Prop({ required: true, type: String, ref: Kitchen.name })
+  kitchen: string;
 
   @Prop({ required: true, type: Number, ref: 'Table' })
   table: number;
