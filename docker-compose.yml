@@ -8,12 +8,18 @@ services:
       - ./davinci-data:/data/db
     ports:
       - '27017:27017'
-  redis:
+  redis-staging:
     image: redis:latest
-    container_name: davinci-redis
+    container_name: redis-staging
     restart: always
     ports:
       - '6379:6379'
+  redis-production:
+    image: redis:latest
+    container_name: redis-production
+    restart: always
+    ports:
+      - '6380:6379'
   api-production:
     build:
       context: ./
