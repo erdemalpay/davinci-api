@@ -73,6 +73,29 @@ export class MenuController {
   ) {
     return this.menuService.updateCategory(user, id, updates);
   }
+  @Patch('/categories_order/:id')
+  updateCategoriesOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body()
+    payload: {
+      newOrder: number;
+    },
+  ) {
+    return this.menuService.updateCategoriesOrder(user, id, payload.newOrder);
+  }
+
+  @Patch('/items_order/:id')
+  updateItemsOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body()
+    payload: {
+      newOrder: number;
+    },
+  ) {
+    return this.menuService.updateItemsOrder(user, id, payload.newOrder);
+  }
 
   @Patch('/items/:id')
   updateItem(

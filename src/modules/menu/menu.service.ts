@@ -35,9 +35,8 @@ export class MenuService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
-private readonly redisService: RedisService,
+    private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
-
   ) {}
 
   findAllCategories() {
@@ -281,6 +280,38 @@ private readonly redisService: RedisService,
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
+  async updateItemsOrder(user: User, id: number, newOrder: number) {
+    const item = await this.itemModel.findById(id);
+    if (!item) {
+      throw new Error('Item not found');
+    }
+    await this.itemModel.findByIdAndUpdate(id, { order: newOrder });
+
+    await this.itemModel.updateMany(
+      { _id: { $ne: id }, order: { $gte: newOrder } },
+      { $inc: { order: 1 } },
+    );
+
+    this.menuGateway.emitItemChanged(user, item);
+  }
+  async updateCategoriesOrder(
+    user: User,
+    categoryId: number,
+    newOrder: number,
+  ) {
+    const category = await this.categoryModel.findById(categoryId);
+    if (!category) {
+      throw new Error('Category not found');
+    }
+    await this.categoryModel.findByIdAndUpdate(categoryId, { order: newOrder });
+
+    await this.categoryModel.updateMany(
+      { _id: { $ne: categoryId }, order: { $gte: newOrder } },
+      { $inc: { order: 1 } },
+    );
+    this.menuGateway.emitCategoryChanged(user, category);
+  }
+
   async updateMultipleItems(user: User, items: MenuItem[]) {
     if (!items?.length) {
       return;
