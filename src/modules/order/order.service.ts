@@ -6,7 +6,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { RedisKeys } from '../redis/redis.dto';
@@ -231,14 +231,16 @@ export class OrderService {
     return orders;
   }
 
-  async findTodayOrders() {
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
+  async findTodayOrders(after: string) {
+    const start = new Date(after);
+    start.setUTCHours(0, 0, 0, 0);
 
+    const end = new Date(after);
+    end.setUTCHours(23, 59, 59, 999);
     try {
       const orders = await this.orderModel
         .find({
-          createdAt: { $gte: start, $lte: end },
+          createdAt: { $gte: start, $lte: end }, // Only orders on 'after' date
         })
         .populate('table', 'date _id name isOnlineSale finishHour')
         .exec();

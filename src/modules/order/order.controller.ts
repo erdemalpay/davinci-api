@@ -162,8 +162,8 @@ export class OrderController {
   }
 
   @Get('/today')
-  findTodayOrders() {
-    return this.orderService.findTodayOrders();
+  findTodayOrders(@Query('after') after: string) {
+    return this.orderService.findTodayOrders(after);
   }
   @Get('/table/:id')
   findGivenTableOrders(@Param('id') id: number) {
