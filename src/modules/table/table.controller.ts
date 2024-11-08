@@ -87,8 +87,11 @@ export class TableController {
   }
 
   @Get('/create_count')
-  getAfterGivenDateCreatedNumbers(@Query('after') after: string) {
-    return this.tableService.getAfterGivenDateCreatedNumbers(after);
+  getAfterGivenDateCreatedNumbers(
+    @Query('after') after: string,
+    @Query('before') before?: string,
+  ) {
+    return this.tableService.getAfterGivenDateCreatedNumbers(after, before);
   }
 
   @Delete('/:tableId/gameplay/:gameplayId')

@@ -267,11 +267,14 @@ export class GameplayService {
 
     return this.gameplayModel.aggregate(aggregation).exec();
   }
-  async getAfterGivenDateMentorCounts(after: string) {
+  async getAfterGivenDateMentorCounts(after: string, before?: string) {
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
-          date: { $gt: after },
+          date: {
+            $gt: after,
+            $lte: before ? before : new Date().toISOString(),
+          },
         },
       },
       {

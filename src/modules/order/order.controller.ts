@@ -166,9 +166,13 @@ export class OrderController {
     return this.orderService.findTodayOrders(after);
   }
   @Get('/personal')
-  findPersonalData(@Query('after') after: string) {
+  findPersonalData(
+    @Query('after') after: string,
+    @Query('before') before?: string,
+  ) {
     return this.orderService.findPersonalDatas({
       after: after,
+      before: before,
     });
   }
   @Get('/table/:id')

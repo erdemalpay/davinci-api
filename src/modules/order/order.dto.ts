@@ -88,6 +88,7 @@ export enum OrderStatus {
 
 export class OrderQueryDto {
   after?: string;
+  before?: string;
 }
 
 export class CollectionQueryDto {

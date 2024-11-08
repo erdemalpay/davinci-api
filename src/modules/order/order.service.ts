@@ -84,9 +84,12 @@ export class OrderService {
 
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: any = {};
-    const { after } = query;
+    const { after, before } = query;
     if (after) {
       filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+    if (before) {
+      filterQuery['createdAt'] = { $lte: new Date(before) };
     }
 
     try {

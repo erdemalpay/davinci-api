@@ -276,11 +276,14 @@ export class TableService {
 
     return table;
   }
-  async getAfterGivenDateCreatedNumbers(after: string) {
+  async getAfterGivenDateCreatedNumbers(after: string, before?: string) {
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
-          date: { $gt: after },
+          date: {
+            $gt: after,
+            $lte: before ? before : new Date().toISOString(),
+          },
         },
       },
       {
