@@ -267,6 +267,32 @@ export class GameplayService {
 
     return this.gameplayModel.aggregate(aggregation).exec();
   }
+  async getAfterGivenDateMentorCounts(after: string) {
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: { $gt: after },
+        },
+      },
+      {
+        $group: {
+          _id: '$mentor',
+          gameplayCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          mentor: '$_id',
+          gameplayCount: 1,
+        },
+      },
+    ];
+    const results = await this.gameplayModel
+      .aggregate(aggregationPipeline)
+      .exec();
+    return results;
+  }
 
   findById(id: number) {
     return this.gameplayModel.findById(id);

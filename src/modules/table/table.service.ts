@@ -182,7 +182,6 @@ export class TableService {
       .exec();
   }
   async getYerVarmiByLocation(location: number, date: string) {
-    console.log('here');
     try {
       const tables = await this.tableModel.find({
         location,
@@ -190,7 +189,6 @@ export class TableService {
         finishHour: { $exists: false },
         isOnlineSale: { $ne: true },
       });
-      console.log(tables.length);
       return tables.length;
     } catch (error) {
       console.error('Error retrieving tables:', error);
@@ -278,6 +276,32 @@ export class TableService {
 
     return table;
   }
+  async getAfterGivenDateCreatedNumbers(after: string) {
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: { $gt: after },
+        },
+      },
+      {
+        $group: {
+          _id: '$createdBy',
+          tableCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          createdBy: '$_id',
+          tableCount: 1,
+        },
+      },
+    ];
+
+    const results = await this.tableModel.aggregate(aggregationPipeline).exec();
+    return results;
+  }
+
   async getTotalPlayerCountsByMonthAndYear(
     month: string,
     year: string,

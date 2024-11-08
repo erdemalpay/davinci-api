@@ -94,6 +94,12 @@ export class GameplayController {
   findByMentor(@Param('mentorId') mentorId: string) {
     return this.gameplayService.findByMentor(mentorId);
   }
+
+  @Get('/create_count')
+  getAfterGivenDateMentorCounts(@Query('after') after: string) {
+    return this.gameplayService.getAfterGivenDateMentorCounts(after);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.gameplayService.findById(+id);

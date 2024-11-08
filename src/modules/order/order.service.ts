@@ -82,149 +82,218 @@ export class OrderService {
     }
   }
 
-  // async findPersonalDatas(query: OrderQueryDto) {
-  //   const filterQuery: any = {};
-  //   const { after, } = query;
-  //   if (after) {
-  //     filterQuery['createdAt'] = { $gte: new Date(after) };
-  //   }
-  //   try {
-  //     const pipeline = [
-  //       { $match: filterQuery },
-  //       { $sort: { createdAt: -1 } },
-  //       {
-  //         $group: {
-  //           _id: '$user',
-  //           createdByCount: {
-  //             $sum: {
-  //               $cond: [
-  //                 {
-  //                   $and: [
-  //                     { $eq: ['$status', 'ACTIVE'] },
-  //                     { $eq: ['$createdBy', '$user'] },
-  //                   ],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //           preparedByCount: {
-  //             $sum: {
-  //               $cond: [
-  //                 {
-  //                   $and: [
-  //                     { $eq: ['$status', 'ACTIVE'] },
-  //                     { $eq: ['$preparedBy', '$user'] },
-  //                   ],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //           cancelledByCount: {
-  //             $sum: {
-  //               $cond: [
-  //                 {
-  //                   $and: [
-  //                     { $eq: ['$status', 'CANCELLED'] },
-  //                     { $eq: ['$cancelledBy', '$user'] },
-  //                   ],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //           deliveredByCount: {
-  //             $sum: {
-  //               $cond: [
-  //                 {
-  //                   $and: [
-  //                     { $eq: ['$status', 'DELIVERED'] },
-  //                     { $eq: ['$deliveredBy', '$user'] },
-  //                   ],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //           createdByTables: {
-  //             $addToSet: {
-  //               $cond: [{ $eq: ['$createdBy', '$user'] }, '$table._id', null],
-  //             },
-  //           },
-  //           preparedByTables: {
-  //             $addToSet: {
-  //               $cond: [{ $eq: ['$preparedBy', '$user'] }, '$table._id', null],
-  //             },
-  //           },
-  //           cancelledByTables: {
-  //             $addToSet: {
-  //               $cond: [{ $eq: ['$cancelledBy', '$user'] }, '$table._id', null],
-  //             },
-  //           },
-  //           deliveredByTables: {
-  //             $addToSet: {
-  //               $cond: [{ $eq: ['$deliveredBy', '$user'] }, '$table._id', null],
-  //             },
-  //           },
-  //         },
-  //       },
-  //       {
-  //         $project: {
-  //           _id: 0,
-  //           user: '$_id',
-  //           createdByCount: 1,
-  //           preparedByCount: 1,
-  //           cancelledByCount: 1,
-  //           deliveredByCount: 1,
-  //           createdByTableCount: { $size: '$createdByTables' },
-  //           preparedByTableCount: { $size: '$preparedByTables' },
-  //           cancelledByTableCount: { $size: '$cancelledByTables' },
-  //           deliveredByTableCount: { $size: '$deliveredByTables' },
-  //           createdByTables: {
-  //             $filter: {
-  //               input: '$createdByTables',
-  //               as: 'table',
-  //               cond: { $ne: ['$$table', null] },
-  //             },
-  //           },
-  //           preparedByTables: {
-  //             $filter: {
-  //               input: '$preparedByTables',
-  //               as: 'table',
-  //               cond: { $ne: ['$$table', null] },
-  //             },
-  //           },
-  //           cancelledByTables: {
-  //             $filter: {
-  //               input: '$cancelledByTables',
-  //               as: 'table',
-  //               cond: { $ne: ['$$table', null] },
-  //             },
-  //           },
-  //           deliveredByTables: {
-  //             $filter: {
-  //               input: '$deliveredByTables',
-  //               as: 'table',
-  //               cond: { $ne: ['$$table', null] },
-  //             },
-  //           },
-  //         },
-  //       },
-  //     ];
-  //     const results = await this.orderModel.aggregate(pipeline).exec();
-  //     return results;
-  //   } catch (error) {
-  //     throw new HttpException(
-  //       'Failed to fetch orders',
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
+  async findPersonalDatas(query: OrderQueryDto) {
+    const filterQuery: any = {};
+    const { after } = query;
+    if (after) {
+      filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+
+    try {
+      const pipeline = [
+        { $match: filterQuery },
+        {
+          $facet: {
+            createdBy: [
+              {
+                $match: {
+                  createdBy: { $ne: null },
+                  status: { $ne: 'cancelled' },
+                },
+              },
+              {
+                $group: {
+                  _id: '$createdBy',
+                  count: { $sum: 1 },
+                  tables: { $addToSet: '$table' },
+                },
+              },
+              {
+                $project: {
+                  user: '$_id',
+                  createdByCount: '$count',
+                  createdByTables: '$tables',
+                  _id: 0,
+                },
+              },
+            ],
+            preparedBy: [
+              {
+                $match: {
+                  preparedBy: { $ne: null },
+                  status: { $ne: 'cancelled' },
+                },
+              },
+              {
+                $group: {
+                  _id: '$preparedBy',
+                  count: { $sum: 1 },
+                  tables: { $addToSet: '$table' },
+                },
+              },
+              {
+                $project: {
+                  user: '$_id',
+                  preparedByCount: '$count',
+                  preparedByTables: '$tables',
+                  _id: 0,
+                },
+              },
+            ],
+            cancelledBy: [
+              { $match: { cancelledBy: { $ne: null }, status: 'cancelled' } },
+              {
+                $group: {
+                  _id: '$cancelledBy',
+                  count: { $sum: 1 },
+                  tables: { $addToSet: '$table' },
+                },
+              },
+              {
+                $project: {
+                  user: '$_id',
+                  cancelledByCount: '$count',
+                  cancelledByTables: '$tables',
+                  _id: 0,
+                },
+              },
+            ],
+            deliveredBy: [
+              {
+                $match: {
+                  deliveredBy: { $ne: null },
+                  status: { $ne: 'cancelled' },
+                },
+              },
+              {
+                $group: {
+                  _id: '$deliveredBy',
+                  count: { $sum: 1 },
+                  tables: { $addToSet: '$table' },
+                },
+              },
+              {
+                $project: {
+                  user: '$_id',
+                  deliveredByCount: '$count',
+                  deliveredByTables: '$tables',
+                  _id: 0,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $project: {
+            combined: {
+              $concatArrays: [
+                '$createdBy',
+                '$preparedBy',
+                '$cancelledBy',
+                '$deliveredBy',
+              ],
+            },
+          },
+        },
+        { $unwind: '$combined' },
+        {
+          $group: {
+            _id: '$combined.user',
+            user: { $first: '$combined.user' },
+            createdByCount: { $max: '$combined.createdByCount' },
+            preparedByCount: { $max: '$combined.preparedByCount' },
+            cancelledByCount: { $max: '$combined.cancelledByCount' },
+            deliveredByCount: { $max: '$combined.deliveredByCount' },
+            createdByTables: { $push: '$combined.createdByTables' },
+            preparedByTables: { $push: '$combined.preparedByTables' },
+            cancelledByTables: { $push: '$combined.cancelledByTables' },
+            deliveredByTables: { $push: '$combined.deliveredByTables' },
+          },
+        },
+        {
+          $project: {
+            user: 1,
+            createdByCount: { $ifNull: ['$createdByCount', 0] },
+            preparedByCount: { $ifNull: ['$preparedByCount', 0] },
+            cancelledByCount: { $ifNull: ['$cancelledByCount', 0] },
+            deliveredByCount: { $ifNull: ['$deliveredByCount', 0] },
+            createdByTableCount: {
+              $size: {
+                $reduce: {
+                  input: '$createdByTables',
+                  initialValue: [],
+                  in: { $setUnion: ['$$value', '$$this'] },
+                },
+              },
+            },
+            preparedByTableCount: {
+              $size: {
+                $reduce: {
+                  input: '$preparedByTables',
+                  initialValue: [],
+                  in: { $setUnion: ['$$value', '$$this'] },
+                },
+              },
+            },
+            cancelledByTableCount: {
+              $size: {
+                $reduce: {
+                  input: '$cancelledByTables',
+                  initialValue: [],
+                  in: { $setUnion: ['$$value', '$$this'] },
+                },
+              },
+            },
+            deliveredByTableCount: {
+              $size: {
+                $reduce: {
+                  input: '$deliveredByTables',
+                  initialValue: [],
+                  in: { $setUnion: ['$$value', '$$this'] },
+                },
+              },
+            },
+            createdByTables: {
+              $reduce: {
+                input: '$createdByTables',
+                initialValue: [],
+                in: { $setUnion: ['$$value', '$$this'] },
+              },
+            },
+            preparedByTables: {
+              $reduce: {
+                input: '$preparedByTables',
+                initialValue: [],
+                in: { $setUnion: ['$$value', '$$this'] },
+              },
+            },
+            cancelledByTables: {
+              $reduce: {
+                input: '$cancelledByTables',
+                initialValue: [],
+                in: { $setUnion: ['$$value', '$$this'] },
+              },
+            },
+            deliveredByTables: {
+              $reduce: {
+                input: '$deliveredByTables',
+                initialValue: [],
+                in: { $setUnion: ['$$value', '$$this'] },
+              },
+            },
+          },
+        },
+      ];
+
+      const results = await this.orderModel.aggregate(pipeline).exec();
+      return results;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async findOrderByItemId(id: number) {
     const orders = await this.orderModel.find({ item: id });

@@ -165,6 +165,12 @@ export class OrderController {
   findTodayOrders(@Query('after') after: string) {
     return this.orderService.findTodayOrders(after);
   }
+  @Get('/personal')
+  findPersonalData(@Query('after') after: string) {
+    return this.orderService.findPersonalDatas({
+      after: after,
+    });
+  }
   @Get('/table/:id')
   findGivenTableOrders(@Param('id') id: number) {
     return this.orderService.findGivenTableOrders(id);

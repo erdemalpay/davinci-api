@@ -86,6 +86,11 @@ export class TableController {
     return this.tableService.addGameplay(user, id, gameplayDto);
   }
 
+  @Get('/create_count')
+  getAfterGivenDateCreatedNumbers(@Query('after') after: string) {
+    return this.tableService.getAfterGivenDateCreatedNumbers(after);
+  }
+
   @Delete('/:tableId/gameplay/:gameplayId')
   @ApiResponse({ type: TableResponse })
   removeGameplayFromTable(
