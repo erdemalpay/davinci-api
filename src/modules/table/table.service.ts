@@ -279,17 +279,17 @@ export class TableService {
     return table;
   }
   async getAfterGivenDateCreatedNumbers(after: string, before?: string) {
+    console.log('after', after);
+    console.log('before', before);
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
           date: {
-            $gt: after,
-            date: {
-              $gt: after,
-              $lte: before
+            $gte: after,
+            $lte:
+              before !== '' && before !== undefined && before !== null
                 ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
                 : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-            },
           },
         },
       },
