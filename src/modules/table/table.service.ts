@@ -6,6 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { addDays, format } from 'date-fns';
 import { Model, PipelineStage } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
@@ -135,7 +136,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.tableGateway.emitTableChanged(user, updatedTable);
+    this.tableGateway.emitSingleTableChanged(user, updatedTable);
     return updatedTable;
   }
 
@@ -145,7 +146,8 @@ export class TableService {
       { $unset: { finishHour: '' } },
       { new: true },
     );
-    this.tableGateway.emitTableChanged(user, updatedTable);
+
+    this.tableGateway.emitSingleTableChanged(user, updatedTable);
     return updatedTable;
   }
 
@@ -282,7 +284,12 @@ export class TableService {
         $match: {
           date: {
             $gt: after,
-            $lte: before ? before : new Date().toISOString(),
+            date: {
+              $gt: after,
+              $lte: before
+                ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
+                : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+            },
           },
         },
       },

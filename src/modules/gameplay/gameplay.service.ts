@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { addDays, format } from 'date-fns';
 import { Model, PipelineStage } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -273,7 +274,9 @@ export class GameplayService {
         $match: {
           date: {
             $gt: after,
-            $lte: before ? before : new Date().toISOString(),
+            $lte: before
+              ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
+              : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
           },
         },
       },
