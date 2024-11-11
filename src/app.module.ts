@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MongooseModule } from '@nestjs/mongoose';
 import * as config from 'config';
 import { AccountingModule } from './modules/accounting/accounting.module';
@@ -22,6 +23,8 @@ import { ShiftModule } from './modules/shift/shift.module';
 import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
+import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
+
 export interface DBConfig {
   host: string;
   port: number;
@@ -36,6 +39,7 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 
 const modules = [
   ConfigModule.forRoot({ isGlobal: true }),
+  EventEmitterModule.forRoot(),
   ActivityModule,
   AuthModule,
   AssetModule,
@@ -56,6 +60,7 @@ const modules = [
   PanelControlModule,
   OrderModule,
   RedisModule,
+  WhatsappModule,
 ];
 
 if (config.get('migrationEnabled')) {
