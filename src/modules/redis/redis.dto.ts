@@ -3,4 +3,5 @@ export enum RedisKeys {
   AccountingStocks = 'accounting-stocks',
   MenuItems = 'menu-items',
   Discounts = 'discounts',
+  Pages = 'pages',
 }

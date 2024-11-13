@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
@@ -22,11 +24,29 @@ export class PanelControlService {
     @InjectModel(PanelSettings.name)
     private panelSettingsModel: Model<PanelSettings>,
     private readonly panelControlGateway: PanelControlGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   //pages
-  findAllPages() {
-    return this.pageModel.find();
+  async findAllPages() {
+    try {
+      const redisPages = await this.redisService.get(RedisKeys.Pages);
+      if (redisPages) {
+        return redisPages;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve pages from Redis:', error);
+    }
+    try {
+      const pages = await this.pageModel.find();
+      if (pages.length > 0) {
+        await this.redisService.set(RedisKeys.Pages, pages);
+      }
+      return pages;
+    } catch (error) {
+      console.error('Failed to retrieve pages from database:', error);
+      throw new Error('Could not retrieve pages');
+    }
   }
 
   async createPage(user: User, createPageDto: CreatePageDto) {

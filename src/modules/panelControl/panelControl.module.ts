@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { RedisModule } from './../redis/redis.module';
 import { CheckoutCash, CheckoutCashSchema } from './checkoutCash.schema';
 import { Page, PageSchema } from './page.schema';
 import { PanelControlController } from './panelControl.controller';
@@ -14,7 +15,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [mongooseModule, RedisModule],
   providers: [PanelControlService, PanelControlGateway],
   controllers: [PanelControlController],
   exports: [
