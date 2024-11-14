@@ -169,12 +169,15 @@ export class TableService {
     date: string,
     location: number,
   ): Promise<Table[]> {
-    return this.tableModel.find({ date: date, location: location });
+    return this.tableModel.find({
+      date: date,
+      location: location,
+    });
   }
 
   async getByLocation(location: number, date: string): Promise<Table[]> {
     return this.tableModel
-      .find({ location, date })
+      .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
       .populate({
         path: 'gameplays',
         populate: {
@@ -190,6 +193,7 @@ export class TableService {
         date,
         finishHour: { $exists: false },
         isOnlineSale: { $ne: true },
+        status: { $ne: TableStatus.CANCELLED },
       });
       return tables.length;
     } catch (error) {
@@ -289,6 +293,7 @@ export class TableService {
                 ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
                 : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
           },
+          status: { $ne: TableStatus.CANCELLED },
         },
       },
       {
