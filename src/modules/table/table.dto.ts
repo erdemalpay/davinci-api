@@ -74,3 +74,6 @@ export class AggregatedPlayerCountResponse {
   @IsObject()
   countsByLocation: { [key: string]: number };
 }
+export enum TableStatus {
+  CANCELLED = 'cancelled',
+}

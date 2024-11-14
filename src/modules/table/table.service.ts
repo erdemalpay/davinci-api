@@ -18,7 +18,7 @@ import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import { OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
-import { TableDto } from './table.dto';
+import { TableDto, TableStatus } from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
 
@@ -279,8 +279,6 @@ export class TableService {
     return table;
   }
   async getAfterGivenDateCreatedNumbers(after: string, before?: string) {
-    console.log('after', after);
-    console.log('before', before);
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
@@ -330,6 +328,7 @@ export class TableService {
             $gte: startDate,
             $lte: endDate,
           },
+          status: { $ne: TableStatus.CANCELLED },
         },
       },
       {
