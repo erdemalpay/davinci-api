@@ -429,37 +429,36 @@ export class OrderService {
         });
       }
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
-      this.orderGateway.emitOrderCreated(user, order);
+      if (order?.table) {
+        this.orderGateway.emitOrderCreated(user, order);
+      }
     } catch (error) {
       throw new HttpException(
         'Failed to create order',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    let updatedTable;
-    try {
-      if (createOrderDto?.table) {
+    if (createOrderDto?.table) {
+      let updatedTable;
+      try {
         updatedTable = await this.tableService.updateTableOrders(
           user,
           createOrderDto.table,
           order._id,
         );
+      } catch (error) {
+        // Clean up by deleting the order if updating the table fails
+        await this.orderModel.findByIdAndDelete(order._id);
+        this.orderGateway.emitOrderUpdated(user, order);
+        throw new HttpException(
+          'Failed to update table orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
-    } catch (error) {
-      // Clean up by deleting the order if updating the table fails
-      await this.orderModel.findByIdAndDelete(order._id);
-      this.orderGateway.emitOrderUpdated(user, order);
-      throw new HttpException(
-        'Failed to update table orders',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      if (!updatedTable) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
     }
-
-    if (!updatedTable && createOrderDto?.table) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
-    }
-
     return order;
   }
   async updateOrder(user: User, id: number, updates: UpdateQuery<Order>) {
