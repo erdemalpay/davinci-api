@@ -90,6 +90,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String, ref: StockLocation.name })
   stockLocation: string;
+
+  @Prop({ required: false, type: String })
+  stockNote: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

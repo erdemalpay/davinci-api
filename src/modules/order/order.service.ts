@@ -405,7 +405,8 @@ export class OrderService {
               order?.stockLocation ??
               (order?.location === 1 ? 'bahceli' : 'neorama'),
             quantity: consumptionQuantity,
-            status: StockHistoryStatusEnum.ORDERCREATE,
+            status:
+              createOrderDto?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
           });
         }
       }
