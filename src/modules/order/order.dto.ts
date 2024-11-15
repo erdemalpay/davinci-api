@@ -3,7 +3,7 @@ import { OrderCollectionItem } from './collection.schema';
 export class CreateOrderDto {
   location: number;
   item: number;
-  table: number;
+  table?: number;
   quantity: number;
   status: string;
   note?: string;
@@ -84,6 +84,7 @@ export enum OrderStatus {
   SERVED = 'served',
   CANCELLED = 'cancelled',
   AUTOSERVED = 'autoserved',
+  WASTED = 'wasted',
 }
 
 export class OrderQueryDto {

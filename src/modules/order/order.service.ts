@@ -410,8 +410,9 @@ export class OrderService {
         }
       }
       if (
-        order.discountAmount >= order.unitPrice ||
-        order.discountPercentage >= 100
+        (order.discountAmount >= order.unitPrice ||
+          order.discountPercentage >= 100) &&
+        order?.table
       ) {
         await this.createCollection(user, {
           location: order.location,
@@ -438,11 +439,13 @@ export class OrderService {
 
     let updatedTable;
     try {
-      updatedTable = await this.tableService.updateTableOrders(
-        user,
-        createOrderDto.table,
-        order._id,
-      );
+      if (createOrderDto?.table) {
+        updatedTable = await this.tableService.updateTableOrders(
+          user,
+          createOrderDto.table,
+          order._id,
+        );
+      }
     } catch (error) {
       // Clean up by deleting the order if updating the table fails
       await this.orderModel.findByIdAndDelete(order._id);
@@ -453,7 +456,7 @@ export class OrderService {
       );
     }
 
-    if (!updatedTable) {
+    if (!updatedTable && createOrderDto?.table) {
       throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
     }
 

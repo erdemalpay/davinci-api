@@ -22,7 +22,7 @@ export class Order extends Document {
   @Prop({ required: true, type: String, ref: Kitchen.name })
   kitchen: string;
 
-  @Prop({ required: true, type: Number, ref: 'Table' })
+  @Prop({ required: false, type: Number, ref: 'Table' })
   table: number;
 
   @Prop({ required: true, type: Number })
