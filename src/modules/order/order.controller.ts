@@ -97,6 +97,22 @@ export class OrderController {
     return this.orderService.createOrder(user, createOrderDto);
   }
 
+  @Post('/return_order')
+  returnOrder(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      orderId: number;
+      returnQuantity: number;
+    },
+  ) {
+    return this.orderService.returnOrder(
+      user,
+      payload.orderId,
+      payload.returnQuantity,
+    );
+  }
+
   @Post('/table_transfer')
   tableTransfer(
     @ReqUser() user: User,

@@ -24,6 +24,7 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
+  OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
   OrderType,
@@ -462,6 +463,114 @@ export class OrderService {
     }
     return order;
   }
+  async returnOrder(user: User, id: number, returnQuantity: number) {
+    try {
+      const order = await this.orderModel.findById(id).lean();
+      if (!order) {
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      }
+      const statusErrors = {
+        [OrderStatus.CANCELLED]: 'Order is already cancelled',
+        [OrderStatus.WASTED]: 'Order is already wasted',
+        [OrderStatus.RETURNED]: 'Order is already returned',
+      };
+
+      if (statusErrors[order.status]) {
+        throw new HttpException(
+          statusErrors[order.status],
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (order.isReturned) {
+        throw new HttpException(
+          'Order is already returned',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const {
+        preparedAt,
+        preparedBy,
+        deliveredAt,
+        deliveredBy,
+        cancelledAt,
+        cancelledBy,
+        table,
+        ...orderWithoutUnwantedFields
+      } = order;
+      // Create the return order
+      const returnOrder = await this.orderModel.create({
+        ...orderWithoutUnwantedFields,
+        status: OrderStatus.RETURNED,
+        quantity: returnQuantity,
+        paidQuantity: returnQuantity,
+        createdAt: new Date(),
+        createdBy: user._id,
+        unitPrice: -order.unitPrice,
+      });
+
+      const returnOrderDiscountTotal = returnOrder?.discountAmount
+        ? returnOrder?.discountAmount
+        : (returnOrder.unitPrice *
+            returnOrder.quantity *
+            (returnOrder?.discountPercentage ?? 0)) /
+          100;
+
+      const returnOrderTotalAmount =
+        returnOrder.unitPrice * returnOrder.quantity - returnOrderDiscountTotal;
+      //create collection for return order
+      await this.collectionModel.create({
+        location: order.location,
+        amount: returnOrderTotalAmount,
+        status: OrderCollectionStatus.RETURNED,
+        paymentMethod: 'cash',
+        createdAt: new Date(),
+        createdBy: user._id,
+        orders: [
+          {
+            order: returnOrder._id,
+            paidQuantity: returnOrder.quantity,
+          },
+        ],
+      });
+      // increment the stock
+      const populatedReturnOrder = await this.orderModel
+        .findById(returnOrder._id)
+        .populate('item');
+      for (const ingredient of (populatedReturnOrder?.item as any)
+        .itemProduction) {
+        if (ingredient?.isDecrementStock) {
+          const incrementQuantity =
+            ingredient.quantity * populatedReturnOrder?.quantity;
+          await this.accountingService.createStock(user, {
+            product: ingredient.product,
+            location: populatedReturnOrder?.stockLocation,
+            quantity: incrementQuantity,
+            status: StockHistoryStatusEnum.ORDERRETURN,
+          });
+        }
+      }
+      //update the original order status
+      await this.orderModel.findByIdAndUpdate(
+        id,
+        {
+          isReturned: true,
+        },
+        {
+          new: true,
+        },
+      );
+      //emit the return order create
+      this.orderGateway.emitOrderCreated(user, returnOrder);
+      return returnOrder;
+    } catch (error) {
+      console.error('Error in returnOrder:', error);
+      throw new HttpException(
+        error?.message || 'Failed to process the return order',
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async updateOrder(user: User, id: number, updates: UpdateQuery<Order>) {
     // adding activities
     if (updates?.status) {

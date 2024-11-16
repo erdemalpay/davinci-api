@@ -27,7 +27,7 @@ export class Collection extends Document {
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
-  @Prop({ required: true, type: Number, ref: 'Table', index: true })
+  @Prop({ required: false, type: Number, ref: 'Table', index: true })
   table: number;
 
   @Prop({ required: false, type: Date })

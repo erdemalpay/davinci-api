@@ -19,7 +19,7 @@ export class Order extends Document {
   @Prop({ required: true, type: Number, ref: MenuItem.name })
   item: number;
 
-  @Prop({ required: true, type: String, ref: Kitchen.name })
+  @Prop({ required: false, type: String, ref: Kitchen.name })
   kitchen: string;
 
   @Prop({ required: false, type: Number, ref: 'Table' })
@@ -87,6 +87,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Boolean })
   isOnlinePrice: boolean;
+
+  @Prop({ required: false, type: Boolean })
+  isReturned: boolean;
 
   @Prop({ required: false, type: String, ref: StockLocation.name })
   stockLocation: string;

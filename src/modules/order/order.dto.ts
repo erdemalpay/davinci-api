@@ -24,9 +24,10 @@ export class CreateOrderDto {
   discountAmount?: number;
   division?: number;
   isOnlinePrice?: boolean;
+  isReturned?: boolean;
   stockLocation?: string;
   discountNote?: string;
-  kitchen: string;
+  kitchen?: string;
   stockNote?: string;
 }
 export type OrderType = {
@@ -35,7 +36,7 @@ export type OrderType = {
   item: number;
   table?: number;
   quantity: number;
-  kitchen: string;
+  kitchen?: string;
   status: string;
   note?: string;
   unitPrice: number;
@@ -55,6 +56,7 @@ export type OrderType = {
   discountAmount?: number;
   division?: number;
   isOnlinePrice?: boolean;
+  isReturned?: boolean;
   stockLocation?: string;
   discountNote?: string;
   stockNote?: string;
@@ -67,7 +69,7 @@ export class CreateCollectionDto {
   paymentMethod: string;
   orders?: OrderCollectionItem[];
   cancelNote?: string;
-  table: number;
+  table?: number;
   newOrders?: OrderType[];
   stockLocation?: string;
 }
@@ -91,6 +93,12 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
   AUTOSERVED = 'autoserved',
   WASTED = 'wasted',
+  RETURNED = 'returned',
+}
+export enum OrderCollectionStatus {
+  PAID = 'paid',
+  CANCELLED = 'cancelled',
+  RETURNED = 'returned',
 }
 
 export class OrderQueryDto {
