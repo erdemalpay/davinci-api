@@ -59,4 +59,7 @@ export class OrderGateway
   emitCollectionChanged(socketUser: User, collection: any) {
     this.server.emit('collectionChanged', { socketUser, collection });
   }
+  emitTodayOrdersChanged(socketUser: User) {
+    this.server.emit('todayOrdersChanged', { socketUser });
+  }
 }

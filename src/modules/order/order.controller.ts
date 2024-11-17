@@ -96,6 +96,21 @@ export class OrderController {
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(user, createOrderDto);
   }
+  @Post('/create_multiple')
+  createMultipleOrder(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      orders: CreateOrderDto[];
+      tableId: number;
+    },
+  ) {
+    return this.orderService.createMultipleOrder(
+      user,
+      payload.orders,
+      payload.tableId,
+    );
+  }
 
   @Post('/return_order')
   returnOrder(

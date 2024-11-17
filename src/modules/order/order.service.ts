@@ -360,6 +360,112 @@ export class OrderService {
       );
     }
   }
+  async createMultipleOrder(
+    user: User,
+    orders: CreateOrderDto[],
+    tableId: number,
+  ) {
+    const createdOrders: number[] = [];
+    for (const order of orders) {
+      const createdOrder = new this.orderModel({
+        ...order,
+        status: order?.status ?? 'pending',
+        createdBy: user._id,
+        createdAt: new Date(),
+      });
+      if (order?.discount) {
+        const discount = await this.discountModel.findById(order.discount);
+        if (!discount) {
+          throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
+        }
+        order.discount = discount._id;
+        if (discount?.percentage) {
+          order.discountPercentage = discount.percentage;
+          if (order.discountPercentage >= 100) {
+            order.paidQuantity = order.quantity;
+          }
+        }
+        if (discount?.amount) {
+          const discountPerUnit = discount.amount / order.quantity;
+          order.discountAmount = Math.min(discountPerUnit, order.unitPrice);
+          if (order.discountAmount >= order.unitPrice) {
+            order.paidQuantity = order.quantity;
+          }
+        }
+      }
+      try {
+        await createdOrder.save();
+        createdOrders.push(createdOrder._id);
+        const orderWithItem = await createdOrder.populate('item');
+        for (const ingredient of (orderWithItem.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const consumptionQuantity =
+              ingredient.quantity * orderWithItem.quantity;
+            await this.accountingService.consumptStock(user, {
+              product: ingredient.product,
+              location:
+                createdOrder?.stockLocation ??
+                (createdOrder?.location === 1 ? 'bahceli' : 'neorama'),
+              quantity: consumptionQuantity,
+              status:
+                createdOrder?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
+            });
+          }
+        }
+        if (
+          (createdOrder.discountAmount >= createdOrder.unitPrice ||
+            createdOrder.discountPercentage >= 100) &&
+          createdOrder?.table
+        ) {
+          await this.createCollection(user, {
+            location: createdOrder.location,
+            amount: 0,
+            status: 'paid',
+            paymentMethod: 'cash',
+            table: createdOrder.table,
+            orders: [
+              {
+                order: createdOrder._id,
+                paidQuantity: createdOrder.quantity,
+              },
+            ],
+          });
+        }
+        this.activityService.addActivity(
+          user,
+          ActivityType.CREATE_ORDER,
+          createdOrder,
+        );
+      } catch (error) {
+        throw new HttpException(
+          'Failed to create order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      // update table
+      let updatedTable;
+      try {
+        updatedTable = await this.tableService.updateTableOrders(
+          user,
+          tableId,
+          createdOrders,
+        );
+      } catch (error) {
+        throw new HttpException(
+          'Failed to update table orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      if (!updatedTable) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
+    }
+    // to change the orders page in the frontend
+    this.orderGateway.emitTodayOrdersChanged(user);
+    return createdOrders;
+  }
+
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const order = new this.orderModel({
       ...createOrderDto,
@@ -393,7 +499,6 @@ export class OrderService {
 
     try {
       await order.save();
-
       const orderWithItem = await order.populate('item');
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;

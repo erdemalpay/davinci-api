@@ -84,35 +84,42 @@ export class TableService {
     this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
-  async updateTableOrders(user: User, id: number, order: number) {
+  async updateTableOrders(user: User, id: number, order: number | number[]) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
       throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
     }
 
     let updatedTable;
+
     try {
-      updatedTable = await this.tableModel.findByIdAndUpdate(
-        id,
-        { $push: { orders: order } },
-        { new: true },
-      );
+      if (Array.isArray(order)) {
+        updatedTable = await this.tableModel.findByIdAndUpdate(
+          id,
+          { $push: { orders: { $each: order } } },
+          { new: true },
+        );
+      } else {
+        updatedTable = await this.tableModel.findByIdAndUpdate(
+          id,
+          { $push: { orders: order } },
+          { new: true },
+        );
+      }
+      if (!updatedTable) {
+        throw new Error('Update failed or no new data was provided');
+      }
     } catch (error) {
+      console.error('Failed to update table orders:', error.message);
       throw new HttpException(
         'Failed to update table orders',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    if (!updatedTable) {
-      throw new HttpException(
-        'Table not found after update',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
     this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
+
   async close(user: User, id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
     // Close the previous gameplay
