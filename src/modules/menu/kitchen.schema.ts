@@ -16,6 +16,9 @@ export class Kitchen extends Document {
 
   @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
   locations: number[];
+
+  @Prop({ required: true, type: [Number] })
+  soundRoles: number[];
 }
 
 export const KitchenSchema = SchemaFactory.createForClass(Kitchen);

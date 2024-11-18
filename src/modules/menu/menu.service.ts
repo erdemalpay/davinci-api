@@ -510,7 +510,10 @@ export class MenuService {
   }
 
   async createKitchen(user: User, createKitchenDto: CreateKitchenDto) {
-    const kitchen = new this.kitchenModel(createKitchenDto);
+    const kitchen = new this.kitchenModel({
+      ...createKitchenDto,
+      soundRoles: [],
+    });
     kitchen._id = usernamify(createKitchenDto.name);
     await kitchen.save();
     const ordersPage = await this.panelControlService.getPage('orders');
