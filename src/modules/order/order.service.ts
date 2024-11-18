@@ -499,7 +499,7 @@ export class OrderService {
 
     try {
       await order.save();
-      const orderWithItem = await order.populate('item');
+      const orderWithItem = await order.populate('item kitchen');
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
         if (isStockDecrementRequired) {
