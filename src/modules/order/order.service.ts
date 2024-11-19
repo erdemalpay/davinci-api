@@ -366,6 +366,7 @@ export class OrderService {
     tableId: number,
   ) {
     const createdOrders: number[] = [];
+    const soundRoles = new Set<number>();
     for (const order of orders) {
       const createdOrder = new this.orderModel({
         ...order,
@@ -400,7 +401,17 @@ export class OrderService {
       try {
         await createdOrder.save();
         createdOrders.push(createdOrder._id);
-        const orderWithItem = await createdOrder.populate('item');
+        const orderWithItem = await createdOrder.populate('item kitchen');
+        if (
+          (orderWithItem?.kitchen as any)?.soundRoles &&
+          createdOrder.status !== OrderStatus.AUTOSERVED
+        ) {
+          (orderWithItem?.kitchen as any)?.soundRoles.forEach(
+            (role: number) => {
+              soundRoles.add(role);
+            },
+          );
+        }
         for (const ingredient of (orderWithItem.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
@@ -466,7 +477,11 @@ export class OrderService {
       }
     }
     // to change the orders page in the frontend
-    this.orderGateway.emitTodayOrdersChanged(user);
+    this.orderGateway.emitCreateMultipleOrder(
+      user,
+      tableId,
+      Array.from(soundRoles),
+    );
     return createdOrders;
   }
 
