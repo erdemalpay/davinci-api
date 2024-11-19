@@ -31,6 +31,9 @@ export class Table extends Document {
   @Prop({ required: true, type: Boolean, default: false })
   isAutoEntryAdded: boolean;
 
+  @Prop({ required: false, type: String, default: false })
+  type: string;
+
   @Prop({ required: true })
   date: string;
 

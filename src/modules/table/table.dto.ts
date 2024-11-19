@@ -20,6 +20,9 @@ export class TableDto {
   name?: string;
 
   @IsString()
+  type?: string;
+
+  @IsString()
   date?: string;
 
   @IsString()
@@ -52,6 +55,9 @@ export class TableResponse {
   startHour: string;
 
   @IsString()
+  type?: string;
+
+  @IsString()
   finishHour: string;
 
   @IsString()
@@ -76,4 +82,9 @@ export class AggregatedPlayerCountResponse {
 }
 export enum TableStatus {
   CANCELLED = 'cancelled',
+}
+export enum TableTypes {
+  NORMAL = 'normal',
+  TAKEOUT = 'takeout',
+  ONLINE = 'online',
 }
