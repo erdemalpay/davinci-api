@@ -373,23 +373,27 @@ export class OrderService {
         createdBy: user._id,
         createdAt: new Date(),
       });
-      if (order?.discount) {
-        const discount = await this.discountModel.findById(order.discount);
+      if (createdOrder?.discount) {
+        const discount = await this.discountModel.findById(
+          createdOrder.discount,
+        );
         if (!discount) {
           throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
         }
-        order.discount = discount._id;
         if (discount?.percentage) {
-          order.discountPercentage = discount.percentage;
-          if (order.discountPercentage >= 100) {
-            order.paidQuantity = order.quantity;
+          createdOrder.discountPercentage = discount.percentage;
+          if (createdOrder.discountPercentage >= 100) {
+            createdOrder.paidQuantity = createdOrder.quantity;
           }
         }
         if (discount?.amount) {
-          const discountPerUnit = discount.amount / order.quantity;
-          order.discountAmount = Math.min(discountPerUnit, order.unitPrice);
-          if (order.discountAmount >= order.unitPrice) {
-            order.paidQuantity = order.quantity;
+          const discountPerUnit = discount.amount / createdOrder.quantity;
+          createdOrder.discountAmount = Math.min(
+            discountPerUnit,
+            createdOrder.unitPrice,
+          );
+          if (createdOrder.discountAmount >= createdOrder.unitPrice) {
+            createdOrder.paidQuantity = createdOrder.quantity;
           }
         }
       }
