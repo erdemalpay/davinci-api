@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
+import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
@@ -26,6 +26,7 @@ import {
   CreateStockLocationDto,
   CreateVendorDto,
   JoinProductDto,
+  StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
 } from './accounting.dto';
@@ -1641,8 +1642,95 @@ export class AccountingService {
     }
   }
   // Product Stock History
-  findAllProductStockHistories() {
-    return this.productStockHistoryModel.find().sort({ createdAt: -1 });
+  async findAllProductStockHistories(
+    page: number,
+    limit: number,
+    filter: StockHistoryFilter,
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const { product, expenseType, location, status, before, after, sort, asc } =
+      filter;
+    const skip = (pageNum - 1) * limitNum;
+    const productArray = product ? (product as any).split(',') : [];
+    const sortObject = {};
+
+    if (sort) {
+      sortObject[sort] = asc ? Number(asc) : -1;
+    } else {
+      sortObject['createdAt'] = -1;
+    }
+    const pipeline: PipelineStage[] = [
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'product',
+          foreignField: '_id',
+          as: 'productDetails',
+        },
+      },
+      {
+        $unwind: '$productDetails',
+      },
+      {
+        $match: {
+          ...(location && { location: location }),
+          ...(status && { status: status }),
+          ...(product && { product: { $in: productArray } }),
+          ...(expenseType && {
+            'productDetails.expenseType': { $in: [expenseType] },
+          }),
+          ...(before && { createdAt: { $lte: new Date(before) } }),
+          ...(after && { createdAt: { $gte: new Date(after) } }),
+        },
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    // Execute the aggregation pipeline
+    const results = await this.productStockHistoryModel.aggregate(pipeline);
+
+    // If results array is empty, handle it accordingly
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+      };
+    }
+
+    // Return the first element of results which contains all required properties
+    return results[0];
   }
 
   async createProductStockHistory(

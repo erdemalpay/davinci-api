@@ -456,8 +456,28 @@ export class AccountingController {
   }
   // Product Stock History
   @Get('/product-stock-histories')
-  getProductStockHistories() {
-    return this.accountingService.findAllProductStockHistories();
+  getProductStockHistories(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('product') product?: string[],
+    @Query('expenseType') expenseType?: string,
+    @Query('location') location?: string,
+    @Query('status') status?: string,
+    @Query('before') before?: string,
+    @Query('after') after?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
+  ) {
+    return this.accountingService.findAllProductStockHistories(page, limit, {
+      product,
+      expenseType,
+      location,
+      status,
+      before,
+      after,
+      sort,
+      asc,
+    });
   }
 
   @Post('/product-stock-histories')

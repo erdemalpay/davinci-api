@@ -158,3 +158,14 @@ export enum StockHistoryStatusEnum {
   LOSSPRODUCT = 'LOSSPRODUCT',
   ORDERRETURN = 'ORDERRETURN',
 }
+
+export type StockHistoryFilter = {
+  product?: string[];
+  expenseType?: string;
+  location?: string;
+  status?: string;
+  before?: string;
+  after?: string;
+  sort?: string;
+  asc?: number;
+};
