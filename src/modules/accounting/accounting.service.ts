@@ -810,6 +810,9 @@ export class AccountingService {
   findAllInvoices() {
     return this.invoiceModel.find().sort({ _id: -1 });
   }
+  findProductInvoices(product: string) {
+    return this.invoiceModel.find({ product: product });
+  }
   async findAllInvoice(page: number, limit: number, filter: InvoiceFilterType) {
     const pageNum = page || 1;
     const limitNum = limit || 10;

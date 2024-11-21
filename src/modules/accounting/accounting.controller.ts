@@ -317,6 +317,10 @@ export class AccountingController {
       asc,
     });
   }
+  @Get('/product_invoice')
+  findProductInvoices(@Query('product') product: string) {
+    return this.accountingService.findProductInvoices(product);
+  }
 
   @Get('/invoices/updatePayment')
   getUpdateInvoicesPayments() {
