@@ -169,3 +169,15 @@ export type StockHistoryFilter = {
   sort?: string;
   asc?: number;
 };
+
+export type InvoiceFilterType = {
+  product?: string;
+  expenseType?: string;
+  brand?: string;
+  vendor?: string;
+  location?: string;
+  before?: string;
+  after?: string;
+  sort?: string;
+  asc?: number;
+};

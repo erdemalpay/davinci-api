@@ -291,6 +291,33 @@ export class AccountingController {
   getInvoices() {
     return this.accountingService.findAllInvoices();
   }
+  @Get('/invoice')
+  findAllInvoice(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('product') product?: string,
+    @Query('expenseType') expenseType?: string,
+    @Query('location') location?: string,
+    @Query('brand') brand?: string,
+    @Query('vendor') vendor?: string,
+    @Query('before') before?: string,
+    @Query('after') after?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
+  ) {
+    return this.accountingService.findAllInvoice(page, limit, {
+      product,
+      expenseType,
+      location,
+      brand,
+      vendor,
+      before,
+      after,
+      sort,
+      asc,
+    });
+  }
+
   @Get('/invoices/updatePayment')
   getUpdateInvoicesPayments() {
     return this.accountingService.updateInvoicesPayments();

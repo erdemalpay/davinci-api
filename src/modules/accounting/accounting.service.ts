@@ -25,6 +25,7 @@ import {
   CreateStockDto,
   CreateStockLocationDto,
   CreateVendorDto,
+  InvoiceFilterType,
   JoinProductDto,
   StockHistoryFilter,
   StockHistoryStatusEnum,
@@ -808,6 +809,102 @@ export class AccountingService {
   // Invoices
   findAllInvoices() {
     return this.invoiceModel.find().sort({ _id: -1 });
+  }
+  async findAllInvoice(page: number, limit: number, filter: InvoiceFilterType) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const {
+      product,
+      expenseType,
+      location,
+      brand,
+      vendor,
+      before,
+      after,
+      sort,
+      asc,
+    } = filter;
+    const skip = (pageNum - 1) * limitNum;
+    const productArray = product ? product.split(',') : [];
+    const sortObject = {};
+    if (sort) {
+      sortObject[sort] = asc ? Number(asc) : -1;
+    } else {
+      sortObject['_id'] = -1;
+    }
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          ...(location && { location: location }),
+          ...(product && { product: { $in: productArray } }),
+          ...(expenseType && { expenseType: expenseType }),
+          ...(brand && { brand: brand }),
+          ...(vendor && { vendor: vendor }),
+          ...(before && { createdAt: { $lte: new Date(before) } }),
+          ...(after && { createdAt: { $gte: new Date(after) } }),
+        },
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+                generalTotalExpense: { $sum: '$totalExpense' },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+          totalExpenseSum: [
+            {
+              $group: {
+                _id: null,
+                generalTotalExpense: { $sum: '$totalExpense' },
+              },
+            },
+          ],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $unwind: '$totalExpenseSum',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+          generalTotalExpense: '$totalExpenseSum.generalTotalExpense',
+        },
+      },
+    ];
+
+    // Execute the aggregation pipeline
+    const results = await this.invoiceModel.aggregate(pipeline);
+
+    // If results array is empty, handle it accordingly
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+        generalTotalExpense: 0,
+      };
+    }
+
+    // Return the first element of results which contains all required properties
+    return results[0];
   }
 
   async createInvoice(
