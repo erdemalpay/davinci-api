@@ -13,6 +13,7 @@ import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { CreateOrderDto } from './../order/order.dto';
 import {
   AggregatedPlayerCountResponse,
   TableDto,
@@ -51,8 +52,15 @@ export class TableController {
   }
   @Post()
   @ApiResponse({ type: TableResponse })
-  createTable(@ReqUser() user: User, @Body() tableDto: TableDto) {
-    return this.tableService.create(user, tableDto);
+  createTable(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      tableDto: TableDto;
+      orders?: CreateOrderDto[];
+    },
+  ) {
+    return this.tableService.create(user, payload.tableDto, payload.orders);
   }
 
   @Patch('/close/:id')

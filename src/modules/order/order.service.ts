@@ -12,6 +12,7 @@ import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { TableGateway } from '../table/table.gateway';
+import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
@@ -363,7 +364,7 @@ export class OrderService {
   async createMultipleOrder(
     user: User,
     orders: CreateOrderDto[],
-    tableId: number,
+    table: Table,
   ) {
     const createdOrders: number[] = [];
     const soundRoles = new Set<number>();
@@ -373,6 +374,7 @@ export class OrderService {
         status: order?.status ?? 'pending',
         createdBy: user._id,
         createdAt: new Date(),
+        table: table._id,
       });
       if (createdOrder?.discount) {
         const discount = await this.discountModel.findById(
@@ -438,7 +440,7 @@ export class OrderService {
             amount: 0,
             status: 'paid',
             paymentMethod: 'cash',
-            table: createdOrder.table,
+            table: table._id,
             orders: [
               {
                 order: createdOrder._id,
@@ -463,7 +465,7 @@ export class OrderService {
       try {
         updatedTable = await this.tableService.updateTableOrders(
           user,
-          tableId,
+          table._id,
           createdOrders,
         );
       } catch (error) {
@@ -479,7 +481,7 @@ export class OrderService {
     // to change the orders page in the frontend
     this.orderGateway.emitCreateMultipleOrder(
       user,
-      tableId,
+      table,
       Array.from(soundRoles),
     );
     return createdOrders;

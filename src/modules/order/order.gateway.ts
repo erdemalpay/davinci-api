@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 @WebSocketGateway({
   path: '/socket.io',
@@ -62,10 +63,10 @@ export class OrderGateway
   emitTodayOrdersChanged(socketUser: User) {
     this.server.emit('todayOrdersChanged', { socketUser });
   }
-  emitCreateMultipleOrder(socketUser: User, tableId: number, soundRoles: any) {
+  emitCreateMultipleOrder(socketUser: User, table: Table, soundRoles: any) {
     this.server.emit('createMultipleOrder', {
       socketUser,
-      tableId,
+      table,
       soundRoles,
     });
   }

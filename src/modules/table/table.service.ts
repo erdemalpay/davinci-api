@@ -16,9 +16,9 @@ import { GameplayService } from '../gameplay/gameplay.service';
 import { OrderService } from '../order/order.service';
 import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
-import { OrderStatus } from './../order/order.dto';
+import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
-import { TableDto, TableStatus } from './table.dto';
+import { TableDto, TableStatus, TableTypes } from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
 
@@ -35,7 +35,7 @@ export class TableService {
     private readonly panelControlService: PanelControlService,
   ) {}
 
-  async create(user: User, tableDto: TableDto) {
+  async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
     const createdTable = await this.tableModel.create({
       ...tableDto,
       createdBy: user._id,
@@ -66,7 +66,13 @@ export class TableService {
         kitchen: 'bar',
       });
     }
-    this.tableGateway.emitTableChanged(user, createdTable);
+    if (createdTable.type === TableTypes.TAKEOUT) {
+      if (orders) {
+        await this.orderService.createMultipleOrder(user, orders, createdTable);
+      }
+    } else {
+      this.tableGateway.emitTableChanged(user, createdTable);
+    }
     return createdTable;
   }
 

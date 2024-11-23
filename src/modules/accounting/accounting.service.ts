@@ -1348,7 +1348,7 @@ export class AccountingService {
     }
   }
 
-  async findQueryStocks(query: StockQueryDto) {
+  async findQueryStocks(user: User, query: StockQueryDto) {
     const { after } = query;
     const filterQuery = {};
     if (after) {

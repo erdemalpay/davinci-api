@@ -424,8 +424,8 @@ export class AccountingController {
     });
   }
   @Get('/stocks/query')
-  findQueryStocks(@Query('after') after?: string) {
-    return this.accountingService.findQueryStocks({
+  findQueryStocks(@ReqUser() user: User, @Query('after') after?: string) {
+    return this.accountingService.findQueryStocks(user, {
       after: after,
     });
   }

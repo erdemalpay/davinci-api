@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { Table } from '../table/table.schema';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
@@ -102,13 +103,13 @@ export class OrderController {
     @Body()
     payload: {
       orders: CreateOrderDto[];
-      tableId: number;
+      table: Table;
     },
   ) {
     return this.orderService.createMultipleOrder(
       user,
       payload.orders,
-      payload.tableId,
+      payload.table,
     );
   }
 
