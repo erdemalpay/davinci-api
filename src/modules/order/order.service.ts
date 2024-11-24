@@ -406,7 +406,8 @@ export class OrderService {
         const orderWithItem = await createdOrder.populate('item kitchen');
         if (
           (orderWithItem?.kitchen as any)?.soundRoles &&
-          createdOrder.status !== OrderStatus.AUTOSERVED
+          createdOrder.status !== OrderStatus.AUTOSERVED &&
+          createdOrder.status !== OrderStatus.SERVED
         ) {
           (orderWithItem?.kitchen as any)?.soundRoles.forEach(
             (role: number) => {
