@@ -13,6 +13,7 @@ import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
 import { Count, CountSchema } from './count.schema';
 import { CountList, CountListSchema } from './countList.schema';
+import { Expense, ExpenseSchema } from './expense.schema';
 import { ExpenseType, ExpenseTypeSchema } from './expenseType.schema';
 import { Invoice, InvoiceSchema } from './invoice.schema';
 import { Payment, PaymentSchema } from './payment.schema';
@@ -41,6 +42,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Location.name, useFactory: () => LocationSchema },
   { name: PaymentMethod.name, useFactory: () => PaymentMethodSchema },
   createAutoIncrementConfig(Invoice.name, InvoiceSchema),
+  createAutoIncrementConfig(Expense.name, ExpenseSchema),
   createAutoIncrementConfig(ServiceInvoice.name, ServiceInvoiceSchema),
   createAutoIncrementConfig(
     ProductStockHistory.name,

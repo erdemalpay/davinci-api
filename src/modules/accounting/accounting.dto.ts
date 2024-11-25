@@ -121,6 +121,23 @@ export class CreateInvoiceDto {
   paymentMethod?: string;
   isStockIncrement?: boolean;
 }
+export class CreateExpenseDto {
+  product?: string;
+  service?: string;
+  expenseType: string;
+  quantity: number;
+  totalExpense: number;
+  date: string;
+  brand?: string;
+  vendor?: string;
+  location: string | number;
+  isPaid: boolean;
+  paymentMethod?: string;
+  note?: string;
+  type: string;
+  user: string;
+  isStockIncrement?: boolean;
+}
 
 export class CreateServiceInvoiceDto {
   service: string;

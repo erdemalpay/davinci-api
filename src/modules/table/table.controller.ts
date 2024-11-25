@@ -26,7 +26,6 @@ import { TableService } from './table.service';
 export class TableController {
   constructor(private readonly tableService: TableService) {}
 
-  @Public()
   @ApiResponse({ type: [TableResponse] })
   @Get()
   getTables(@Query('location') location: number, @Query('date') date: string) {
