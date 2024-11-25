@@ -189,12 +189,19 @@ export class TableService {
   }
 
   async getByLocation(location: number, date: string): Promise<Table[]> {
+    if (!date || !location) {
+      throw new HttpException(
+        'Date and location are required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     return this.tableModel
       .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
       .populate({
         path: 'gameplays',
         populate: {
           path: 'mentor',
+          select: '-password',
         },
       })
       .exec();
