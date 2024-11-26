@@ -14,18 +14,18 @@ import {
   CreateBrandDto,
   CreateCountDto,
   CreateCountListDto,
+  CreateExpenseDto,
   CreateExpenseTypeDto,
-  CreateInvoiceDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
   CreateServiceDto,
-  CreateServiceInvoiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateVendorDto,
-  InvoiceFilterType,
+  ExpenseFilterType,
+  ExpenseTypes,
   JoinProductDto,
   StockHistoryFilter,
   StockHistoryStatusEnum,
@@ -35,6 +35,7 @@ import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
+import { Expense } from './expense.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Invoice } from './invoice.schema';
 import { Payment } from './payment.schema';
@@ -58,6 +59,7 @@ export class AccountingService {
     private serviceInvoiceModel: Model<ServiceInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
     @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
+    @InjectModel(Expense.name) private expenseModel: Model<Expense>,
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
@@ -171,7 +173,7 @@ export class AccountingService {
     );
     this.accountingGateway.emitStockChanged(user, stayedProduct);
     // update invoices
-    await this.invoiceModel.updateMany(
+    await this.expenseModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
@@ -211,7 +213,7 @@ export class AccountingService {
     ];
 
     // updating the unit price
-    const invoices = await this.invoiceModel
+    const invoices = await this.expenseModel
       .find({ product: stayedProduct })
       .sort({ date: -1 });
     product.unitPrice =
@@ -232,7 +234,7 @@ export class AccountingService {
     const product = await this.productModel.findById(id);
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
-        matchedMenuItem: updates.matchedMenuItem,
+        matchedMenuItem: updates?.matchedMenuItem,
       });
       if (products) {
         for (const existingProduct of products) {
@@ -241,7 +243,7 @@ export class AccountingService {
           });
         }
       }
-      if (product.matchedMenuItem !== updates.matchedMenuItem) {
+      if (product.matchedMenuItem !== updates?.matchedMenuItem) {
         if (product?.matchedMenuItem) {
           await this.menuService.updateProductItem(
             user,
@@ -253,7 +255,7 @@ export class AccountingService {
         }
         await this.menuService.updateProductItem(
           user,
-          updates.matchedMenuItem,
+          updates?.matchedMenuItem,
           {
             matchedProduct: product._id,
           },
@@ -283,7 +285,7 @@ export class AccountingService {
   ) {
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
-        matchedMenuItem: updates.matchedMenuItem,
+        matchedMenuItem: updates?.matchedMenuItem,
       });
       if (products) {
         for (const existingProduct of products) {
@@ -321,7 +323,7 @@ export class AccountingService {
   }
 
   async checkIsProductRemovable(id: string) {
-    const invoices = await this.invoiceModel.find({ product: id });
+    const invoices = await this.expenseModel.find({ product: id });
     const menuItems = await this.menuService.findAllItems();
     const stocks = await this.stockModel.find({ product: id });
     const countlists = await this.countListModel.find();
@@ -387,7 +389,7 @@ export class AccountingService {
   }
 
   async removeService(user: User, id: string) {
-    const invoices = await this.serviceInvoiceModel.find({ service: id });
+    const invoices = await this.expenseModel.find({ service: id });
     if (invoices.length > 0) {
       throw new HttpException(
         'Cannot remove service with invoices',
@@ -398,130 +400,6 @@ export class AccountingService {
     this.accountingGateway.emitServiceChanged(user, service);
     return service;
   }
-  // Service Invoice
-  findAllServiceInvoices() {
-    return this.serviceInvoiceModel.find().sort({ _id: -1 });
-  }
-
-  async createServiceInvoice(
-    user: User,
-    createServiceInvoiceDto: CreateServiceInvoiceDto,
-  ) {
-    try {
-      const ServiceLastInvoice = await this.serviceInvoiceModel
-        .find({ service: createServiceInvoiceDto.service })
-        .sort({ date: -1 })
-        .limit(1);
-      if (
-        !ServiceLastInvoice[0] ||
-        ServiceLastInvoice[0]?.date <= createServiceInvoiceDto.date
-      ) {
-        const updatedUnitPrice = parseFloat(
-          (
-            createServiceInvoiceDto.totalExpense /
-            createServiceInvoiceDto.quantity
-          ).toFixed(4),
-        );
-
-        const service = await this.serviceModel.findByIdAndUpdate(
-          createServiceInvoiceDto.service,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-        this.accountingGateway.emitServiceChanged(user, service);
-      }
-      const invoice = await this.serviceInvoiceModel.create({
-        ...createServiceInvoiceDto,
-        user: user._id,
-      });
-      this.accountingGateway.emitServiceInvoiceChanged(user, invoice);
-
-      if (createServiceInvoiceDto.isPaid) {
-        await this.createPayment(user, {
-          amount: createServiceInvoiceDto.totalExpense,
-          date: createServiceInvoiceDto.date,
-          paymentMethod: createServiceInvoiceDto?.paymentMethod,
-          vendor: createServiceInvoiceDto.vendor,
-          serviceInvoice: invoice._id,
-          location: createServiceInvoiceDto.location as string,
-        });
-      }
-      this.activityService.addActivity(
-        user,
-        ActivityType.CREATE_SERVICEEXPENSE,
-        invoice,
-      );
-      return invoice;
-    } catch (error) {
-      console.log(error);
-      throw new HttpException(
-        'Invoice creation failed.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  async updateServiceInvoice(
-    user: User,
-    id: number,
-    updates: UpdateQuery<ServiceInvoice>,
-  ) {
-    await this.removeServiceInvoice(user, id);
-    await this.createServiceInvoice(user, {
-      service: updates.service,
-      expenseType: updates?.expenseType,
-      quantity: updates?.quantity,
-      totalExpense: updates?.totalExpense,
-      location: updates?.location,
-      date: updates.date,
-      vendor: updates?.vendor,
-      brand: updates?.brand,
-      note: updates?.note,
-      isPaid: updates?.isPaid,
-      paymentMethod: updates?.paymentMethod,
-    });
-  }
-
-  async removeServiceInvoice(user: User, id: number) {
-    const invoice = await this.serviceInvoiceModel.findById(id);
-    if (!invoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-    }
-    const serviceLastInvoice = await this.serviceInvoiceModel
-      .find({ service: invoice.service })
-      .sort({ date: -1 });
-    if (serviceLastInvoice[0]?._id === id) {
-      const service = await this.serviceModel.findByIdAndUpdate(
-        invoice.service,
-        {
-          unitPrice: serviceLastInvoice[1]
-            ? parseFloat(
-                (
-                  serviceLastInvoice[1].totalExpense /
-                  serviceLastInvoice[1].quantity
-                ).toFixed(4),
-              )
-            : 0,
-        },
-        {
-          new: true,
-        },
-      );
-      this.accountingGateway.emitServiceChanged(user, service);
-    }
-    await this.serviceInvoiceModel.findByIdAndRemove(id);
-    this.accountingGateway.emitServiceInvoiceChanged(user, invoice);
-    this.activityService.addActivity(
-      user,
-      ActivityType.DELETE_SERVICEEXPENSE,
-      invoice,
-    );
-    // remove payments
-    await this.paymentModel.deleteMany({ serviceInvoice: id });
-    this.accountingGateway.emitPaymentChanged(user, null);
-    return invoice;
-  }
-
   //   Expense Types
   findAllExpenseTypes() {
     return this.expenseTypeModel.find();
@@ -567,7 +445,7 @@ export class AccountingService {
   }
 
   async removeExpenseType(user: User, id: string) {
-    const invoices = await this.invoiceModel.find({ expenseType: id });
+    const invoices = await this.expenseModel.find({ expenseType: id });
     if (invoices.length > 0) {
       throw new HttpException(
         'Cannot remove expense type with invoices',
@@ -730,11 +608,9 @@ export class AccountingService {
   }
 
   async removePaymentMethod(user: User, id: string) {
-    const invoices = await this.invoiceModel.find({ paymentMethod: id });
-    const ServiceInvoice = await this.serviceInvoiceModel.find({
-      paymentMethod: id,
-    });
-    if (invoices.length > 0 || ServiceInvoice.length > 0) {
+    const invoices = await this.expenseModel.find({ paymentMethod: id });
+
+    if (invoices.length > 0) {
       throw new HttpException(
         'Cannot remove payment method with invoices',
         HttpStatus.BAD_REQUEST,
@@ -807,17 +683,16 @@ export class AccountingService {
     return payment;
   }
   // Invoices
-  findAllInvoices() {
-    return this.invoiceModel.find().sort({ _id: -1 });
+  findProductExpenses(product: string) {
+    return this.expenseModel.find({ product: product });
   }
-  findProductInvoices(product: string) {
-    return this.invoiceModel.find({ product: product });
-  }
-  async findAllInvoice(page: number, limit: number, filter: InvoiceFilterType) {
+  async findAllExpense(page: number, limit: number, filter: ExpenseFilterType) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
     const {
       product,
+      service,
+      type,
       expenseType,
       location,
       brand,
@@ -829,22 +704,25 @@ export class AccountingService {
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
+    const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
-      sortObject['_id'] = -1;
+      sortObject['date'] = -1;
     }
     const pipeline: PipelineStage[] = [
       {
         $match: {
           ...(location && { location: location }),
           ...(product && { product: { $in: productArray } }),
+          ...(service && { service: { $in: serviceArray } }),
           ...(expenseType && { expenseType: expenseType }),
           ...(brand && { brand: brand }),
+          ...(type && { type: type }),
           ...(vendor && { vendor: vendor }),
-          ...(before && { createdAt: { $lte: new Date(before) } }),
-          ...(after && { createdAt: { $gte: new Date(after) } }),
+          ...(before && { date: { $lte: before } }),
+          ...(after && { date: { $gte: after } }),
         },
       },
       {
@@ -892,7 +770,7 @@ export class AccountingService {
     ];
 
     // Execute the aggregation pipeline
-    const results = await this.invoiceModel.aggregate(pipeline);
+    const results = await this.expenseModel.aggregate(pipeline);
 
     // If results array is empty, handle it accordingly
     if (!results.length) {
@@ -910,175 +788,214 @@ export class AccountingService {
     return results[0];
   }
 
-  async createInvoice(
+  async createExpense(
     user: User,
-    createInvoiceDto: CreateInvoiceDto,
+    createExpenseDto: CreateExpenseDto,
     status: string,
   ) {
     try {
-      const ProductLastInvoice = await this.invoiceModel
-        .find({ product: createInvoiceDto.product })
-        .sort({ date: -1 })
-        .limit(1);
+      //update the product unit price
+      if (createExpenseDto.type === ExpenseTypes.STOCKABLE) {
+        const productLastExpense = await this.expenseModel
+          .find({ product: createExpenseDto.product })
+          .sort({ date: -1 })
+          .limit(1);
 
-      if (
-        !ProductLastInvoice[0] ||
-        ProductLastInvoice[0]?.date <= createInvoiceDto.date
-      ) {
-        let updatedUnitPrice: number;
+        if (
+          !productLastExpense[0] ||
+          productLastExpense[0]?.date <= createExpenseDto.date
+        ) {
+          let updatedUnitPrice: number;
 
-        updatedUnitPrice = parseFloat(
-          (createInvoiceDto.totalExpense / createInvoiceDto.quantity).toFixed(
-            4,
-          ),
-        );
+          updatedUnitPrice = parseFloat(
+            (createExpenseDto.totalExpense / createExpenseDto.quantity).toFixed(
+              4,
+            ),
+          );
 
-        const product = await this.productModel.findByIdAndUpdate(
-          createInvoiceDto.product,
-          { $set: { unitPrice: updatedUnitPrice } },
-          { new: true },
-        );
-        await this.accountingGateway.emitProductChanged(user, product);
+          const product = await this.productModel.findByIdAndUpdate(
+            createExpenseDto.product,
+            { $set: { unitPrice: updatedUnitPrice } },
+            { new: true },
+          );
+          await this.accountingGateway.emitProductChanged(user, product);
+        }
+      }
+      //update the service unit price
+      else if (createExpenseDto.type === ExpenseTypes.NONSTOCKABLE) {
+        const ServiceLastInvoice = await this.expenseModel
+          .find({ service: createExpenseDto.service })
+          .sort({ date: -1 })
+          .limit(1);
+        if (
+          !ServiceLastInvoice[0] ||
+          ServiceLastInvoice[0]?.date <= createExpenseDto.date
+        ) {
+          const updatedUnitPrice = parseFloat(
+            (createExpenseDto.totalExpense / createExpenseDto.quantity).toFixed(
+              4,
+            ),
+          );
+
+          const service = await this.serviceModel.findByIdAndUpdate(
+            createExpenseDto.service,
+            { $set: { unitPrice: updatedUnitPrice } },
+            { new: true },
+          );
+          this.accountingGateway.emitServiceChanged(user, service);
+        }
       }
 
-      const invoice = await this.invoiceModel.create({
-        ...createInvoiceDto,
+      const expense = await this.expenseModel.create({
+        ...createExpenseDto,
         user: user._id,
       });
-      this.accountingGateway.emitInvoiceChanged(user, invoice);
-      if (createInvoiceDto?.isStockIncrement) {
-        // adding invoice amount to stock
+      this.accountingGateway.emitExpenseChanged(user, expense);
+      if (
+        createExpenseDto?.isStockIncrement &&
+        createExpenseDto.type === ExpenseTypes.STOCKABLE
+      ) {
+        // adding expense amount to stock
         await this.createStock(user, {
-          product: createInvoiceDto.product,
-          location: createInvoiceDto.location,
-          quantity: createInvoiceDto.quantity,
+          product: createExpenseDto.product,
+          location: createExpenseDto.location,
+          quantity: createExpenseDto.quantity,
           status: status,
         });
       }
-      if (createInvoiceDto.isPaid) {
+      if (createExpenseDto.isPaid) {
         await this.createPayment(user, {
-          amount: createInvoiceDto.totalExpense,
-          date: createInvoiceDto.date,
-          paymentMethod: createInvoiceDto?.paymentMethod,
-          vendor: createInvoiceDto.vendor,
-          invoice: invoice._id,
-          location: createInvoiceDto.location as string,
+          amount: createExpenseDto.totalExpense,
+          date: createExpenseDto.date,
+          paymentMethod: createExpenseDto?.paymentMethod,
+          vendor: createExpenseDto.vendor,
+          ...(createExpenseDto.type === ExpenseTypes.STOCKABLE
+            ? { invoice: expense._id }
+            : { serviceInvoice: expense._id }),
+          location: createExpenseDto.location as string,
         });
       }
       this.activityService.addActivity(
         user,
         ActivityType.CREATE_EXPENSE,
-        invoice,
+        expense,
       );
-      return invoice;
+      return expense;
     } catch (error) {
       console.log(error);
       throw new HttpException(
-        'Invoice creation failed.',
+        'Expense creation failed.',
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
-  async updateInvoice(user: User, id: number, updates: UpdateQuery<Invoice>) {
-    const invoice = await this.invoiceModel.findById(id);
-    if (!invoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
+  async updateExpense(user: User, id: number, updates: UpdateQuery<Expense>) {
+    const expense = await this.expenseModel.findById(id);
+    if (!expense) {
+      throw new HttpException('Expense not found', HttpStatus.BAD_REQUEST);
     }
     if (
-      invoice.product === updates.product &&
-      invoice.quantity === updates.quantity &&
-      invoice.location === updates.location &&
-      invoice.date === updates.date &&
-      (invoice.note !== updates.note ||
-        invoice.totalExpense !== updates.totalExpense ||
-        invoice.brand !== updates.brand ||
-        invoice.vendor !== updates.vendor ||
-        invoice.expenseType !== updates.expenseType ||
-        invoice.paymentMethod !== updates.paymentMethod ||
-        invoice?.isStockIncrement !== updates.isStockIncrement)
+      expense.type === ExpenseTypes.STOCKABLE &&
+      expense.product === updates?.product &&
+      expense.quantity === updates?.quantity &&
+      expense.location === updates?.location &&
+      expense.date === updates?.date &&
+      (expense.note !== updates?.note ||
+        expense.totalExpense !== updates?.totalExpense ||
+        expense.brand !== updates?.brand ||
+        expense.vendor !== updates?.vendor ||
+        expense.expenseType !== updates?.expenseType ||
+        expense.paymentMethod !== updates?.paymentMethod ||
+        expense?.isStockIncrement !== updates?.isStockIncrement)
     ) {
-      const newInvoice = await this.invoiceModel.findByIdAndUpdate(
+      const newExpense = await this.expenseModel.findByIdAndUpdate(
         id,
         {
           $set: {
-            totalExpense: updates.totalExpense,
-            note: updates.note,
-            brand: updates.brand,
-            vendor: updates.vendor,
-            expenseType: updates.expenseType,
-            paymentMethod: updates.paymentMethod,
-            isStockIncrement: updates.isStockIncrement,
+            totalExpense: updates?.totalExpense,
+            note: updates?.note,
+            brand: updates?.brand,
+            vendor: updates?.vendor,
+            expenseType: updates?.expenseType,
+            paymentMethod: updates?.paymentMethod,
+            isStockIncrement: updates?.isStockIncrement,
           },
         },
         { new: true },
       );
-      this.accountingGateway.emitInvoiceChanged(user, newInvoice);
+      this.accountingGateway.emitExpenseChanged(user, newExpense);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
-        invoice,
-        newInvoice,
+        expense,
+        newExpense,
       );
     } else if (
-      invoice.product === updates.product &&
-      invoice.location === updates.location &&
-      invoice.date === updates.date &&
-      (invoice.note !== updates.note ||
-        invoice.totalExpense !== updates.totalExpense ||
-        invoice.brand !== updates.brand ||
-        invoice.vendor !== updates.vendor ||
-        invoice.quantity !== updates.quantity ||
-        invoice.expenseType !== updates.expenseType ||
-        invoice.paymentMethod !== updates.paymentMethod ||
-        invoice?.isStockIncrement !== updates.isStockIncrement)
+      expense.type === ExpenseTypes.STOCKABLE &&
+      expense.product === updates?.product &&
+      expense.location === updates?.location &&
+      expense.date === updates?.date &&
+      (expense.note !== updates?.note ||
+        expense.totalExpense !== updates?.totalExpense ||
+        expense.brand !== updates?.brand ||
+        expense.vendor !== updates?.vendor ||
+        expense.quantity !== updates?.quantity ||
+        expense.expenseType !== updates?.expenseType ||
+        expense.paymentMethod !== updates?.paymentMethod ||
+        expense?.isStockIncrement !== updates?.isStockIncrement)
     ) {
-      const newInvoice = await this.invoiceModel.findByIdAndUpdate(
+      const newExpense = await this.expenseModel.findByIdAndUpdate(
         id,
         {
           $set: {
-            totalExpense: updates.totalExpense,
-            note: updates.note,
-            brand: updates.brand,
-            vendor: updates.vendor,
-            quantity: updates.quantity,
-            expenseType: updates.expenseType,
-            paymentMethod: updates.paymentMethod,
-            isStockIncrement: updates.isStockIncrement,
+            totalExpense: updates?.totalExpense,
+            note: updates?.note,
+            brand: updates?.brand,
+            vendor: updates?.vendor,
+            quantity: updates?.quantity,
+            expenseType: updates?.expenseType,
+            paymentMethod: updates?.paymentMethod,
+            isStockIncrement: updates?.isStockIncrement,
           },
         },
         { new: true },
       );
-      this.accountingGateway.emitInvoiceChanged(user, newInvoice);
+      this.accountingGateway.emitExpenseChanged(user, newExpense);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
-        invoice,
-        newInvoice,
+        expense,
+        newExpense,
       );
-      if (invoice.isStockIncrement || updates.isStockIncrement) {
+      if (
+        (expense.isStockIncrement || updates?.isStockIncrement) &&
+        expense.type === ExpenseTypes.STOCKABLE
+      ) {
         await this.createStock(user, {
-          product: updates.product,
-          location: updates.location,
-          quantity: updates.quantity - invoice.quantity,
+          product: updates?.product,
+          location: updates?.location,
+          quantity: updates?.quantity - expense.quantity,
           status: StockHistoryStatusEnum.EXPENSEUPDATE,
         });
       }
     } else {
-      await this.removeInvoice(
+      await this.removeExpense(
         user,
         id,
         StockHistoryStatusEnum.EXPENSEUPDATEDELETE,
       );
-      await this.createInvoice(
+      await this.createExpense(
         user,
         {
-          product: updates.product,
-          expenseType: updates.expenseType,
-          quantity: updates.quantity,
-          totalExpense: updates.totalExpense,
-          location: updates.location,
-          date: updates.date,
+          type: expense.type,
+          service: updates?.service,
+          product: updates?.product,
+          expenseType: updates?.expenseType,
+          quantity: updates?.quantity,
+          totalExpense: updates?.totalExpense,
+          location: updates?.location,
+          date: updates?.date,
           brand: updates?.brand,
           vendor: updates?.vendor,
           note: updates?.note,
@@ -1086,237 +1003,125 @@ export class AccountingService {
           paymentMethod: updates?.paymentMethod,
           isStockIncrement: updates?.isStockIncrement
             ? updates?.isStockIncrement
-            : invoice?.isStockIncrement ?? false,
+            : expense?.isStockIncrement ?? false,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
     }
   }
 
-  async removeInvoice(user: User, id: number, status: string) {
-    const invoice = await this.invoiceModel.findById(id);
-    if (!invoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
+  async removeExpense(user: User, id: number, status: string) {
+    const expense = await this.expenseModel.findById(id);
+    if (!expense) {
+      throw new HttpException('Expense not found', HttpStatus.BAD_REQUEST);
     }
     // removing from the stock
-    await this.createStock(user, {
-      product: invoice.product,
-      location: invoice.location,
-      quantity: -1 * invoice.quantity,
-      status: status,
-    });
-
-    //remove from the invoice
-    await this.invoiceModel.findByIdAndDelete(id);
-    this.accountingGateway.emitInvoiceChanged(user, invoice);
+    if (expense.type === ExpenseTypes.STOCKABLE) {
+      await this.createStock(user, {
+        product: expense.product,
+        location: expense.location,
+        quantity: -1 * expense.quantity,
+        status: status,
+      });
+    }
+    //remove from the expense
+    await this.expenseModel.findByIdAndDelete(id);
+    this.accountingGateway.emitExpenseChanged(user, expense);
     this.activityService.addActivity(
       user,
       ActivityType.DELETE_EXPENSE,
-      invoice,
+      expense,
     );
     // remove from payments
-    await this.paymentModel.deleteMany({ invoice: id });
+    if (expense.type === ExpenseTypes.STOCKABLE) {
+      await this.paymentModel.deleteMany({ invoice: id });
+    } else if (expense.type === ExpenseTypes.NONSTOCKABLE) {
+      await this.paymentModel.deleteMany({ serviceInvoice: id });
+    }
     this.accountingGateway.emitPaymentChanged(user, null);
-    // updating the unit price
-    const product = await this.productModel.findById(invoice.product);
+    // updating the unit price if the expense is stockable
+    if (expense.type === ExpenseTypes.STOCKABLE) {
+      const product = await this.productModel.findById(expense.product);
+      // updating product unit price
+      const productStocks = await this.stockModel.find({
+        product: expense.product,
+      });
+      const lastExpense = await this.expenseModel
+        .find({ product: expense.product })
+        .sort({ date: -1 })
+        .limit(1);
+      if (productStocks.length > 0) {
+        // calculation the stock overall
+        const { productStockOverallExpense, productStockOverallTotal } =
+          productStocks.reduce(
+            (acc, item) => {
+              const expense =
+                (item.quantity > 0 ? item.quantity : 0) *
+                item.product.unitPrice;
 
-    // updating product unit price
-    const productStocks = await this.stockModel.find({
-      product: invoice.product,
-    });
-    const lastInvoice = await this.invoiceModel
-      .find({ product: invoice.product })
-      .sort({ date: -1 })
-      .limit(1);
-    if (productStocks.length > 0) {
-      // calculation the stock overall
-      const { productStockOverallExpense, productStockOverallTotal } =
-        productStocks.reduce(
-          (acc, item) => {
-            const expense =
-              (item.quantity > 0 ? item.quantity : 0) * item.product.unitPrice;
+              acc.productStockOverallExpense += expense;
 
-            acc.productStockOverallExpense += expense;
+              const total = item.quantity > 0 ? item.quantity : 0;
+              acc.productStockOverallTotal += total;
 
-            const total = item.quantity > 0 ? item.quantity : 0;
-            acc.productStockOverallTotal += total;
+              return acc;
+            },
+            { productStockOverallExpense: 0, productStockOverallTotal: 0 },
+          );
+        product.unitPrice =
+          productStockOverallExpense > 0
+            ? parseFloat(
+                (
+                  (productStockOverallExpense > 0
+                    ? productStockOverallExpense
+                    : 0) /
+                  (productStockOverallTotal > 0 ? productStockOverallTotal : 1)
+                ).toFixed(4),
+              )
+            : lastExpense.length > 0
+            ? parseFloat(
+                (lastExpense[0].totalExpense / lastExpense[0].quantity).toFixed(
+                  4,
+                ),
+              )
+            : 0;
+      } else {
+        product.unitPrice =
+          lastExpense.length > 0
+            ? parseFloat(
+                (lastExpense[0].totalExpense / lastExpense[0].quantity).toFixed(
+                  4,
+                ),
+              )
+            : 0;
+      }
 
-            return acc;
+      await product.save();
+      await this.accountingGateway.emitProductChanged(user, product);
+    }
+    // updating the  service unit price if the expense is non-stockable
+    if (expense.type === ExpenseTypes.NONSTOCKABLE) {
+      const serviceLastExpense = await this.expenseModel
+        .find({ service: expense.service })
+        .sort({ date: -1 });
+      if (serviceLastExpense[0]?._id === id) {
+        await this.serviceModel.findByIdAndUpdate(
+          expense.service,
+          {
+            unitPrice: serviceLastExpense[1]
+              ? parseFloat(
+                  (
+                    serviceLastExpense[1].totalExpense /
+                    serviceLastExpense[1].quantity
+                  ).toFixed(4),
+                )
+              : 0,
           },
-          { productStockOverallExpense: 0, productStockOverallTotal: 0 },
-        );
-      product.unitPrice =
-        productStockOverallExpense > 0
-          ? parseFloat(
-              (
-                (productStockOverallExpense > 0
-                  ? productStockOverallExpense
-                  : 0) /
-                (productStockOverallTotal > 0 ? productStockOverallTotal : 1)
-              ).toFixed(4),
-            )
-          : lastInvoice.length > 0
-          ? parseFloat(
-              (lastInvoice[0].totalExpense / lastInvoice[0].quantity).toFixed(
-                4,
-              ),
-            )
-          : 0;
-    } else {
-      product.unitPrice =
-        lastInvoice.length > 0
-          ? parseFloat(
-              (lastInvoice[0].totalExpense / lastInvoice[0].quantity).toFixed(
-                4,
-              ),
-            )
-          : 0;
-    }
-
-    await product.save();
-    await this.accountingGateway.emitProductChanged(user, product);
-  }
-
-  async transferInvoiceToServiceInvoice(user: User, id: number) {
-    const foundInvoice = await this.invoiceModel.findById(id);
-    if (!foundInvoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-    }
-
-    const product = await this.productModel.findById(foundInvoice.product);
-    if (!product) {
-      throw new HttpException('Product not found', HttpStatus.BAD_REQUEST);
-    }
-    let service = await this.serviceModel.findById(usernamify(product.name));
-    if (!service) {
-      service = await this.createService(user, {
-        name: product.name,
-        unitPrice: product?.unitPrice ?? 0,
-        expenseType: product?.expenseType,
-        vendor: product?.vendor,
-        brand: product?.brand,
-      });
-    }
-
-    const invoices = await this.invoiceModel.find({
-      product: foundInvoice.product,
-    });
-    if (invoices.length === 0) {
-      throw new HttpException(
-        'No invoices found for the product',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    for (const invoice of invoices) {
-      await this.createServiceInvoice(user, {
-        service: service._id,
-        expenseType: invoice?.expenseType,
-        quantity: invoice?.quantity,
-        totalExpense: invoice?.totalExpense,
-        location: invoice?.location,
-        date: invoice.date,
-        vendor: invoice?.vendor,
-        brand: invoice?.brand,
-        note: invoice?.note,
-        isPaid: invoice?.isPaid,
-        paymentMethod: invoice?.paymentMethod,
-      });
-
-      try {
-        await this.invoiceModel.findByIdAndDelete(invoice._id);
-        this.accountingGateway.emitInvoiceChanged(user, invoice);
-      } catch (error) {
-        throw new HttpException(
-          'Failed to remove invoice',
-          HttpStatus.BAD_REQUEST,
+          {
+            new: true,
+          },
         );
       }
-    }
-
-    try {
-      await this.removeProductStocks(user, foundInvoice.product);
-      await this.removeProductStocks(user, usernamify(product.name)); //this is needed for the first product id type which is not including the units
-      await this.removeProduct(user, foundInvoice.product);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to remove the product`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  async transferServiceInvoiceToInvoice(user: User, id: number) {
-    const foundInvoice = await this.serviceInvoiceModel.findById(id);
-    if (!foundInvoice) {
-      throw new HttpException('Invoice not found', HttpStatus.BAD_REQUEST);
-    }
-
-    const service = await this.serviceModel.findById(foundInvoice.service);
-    if (!service) {
-      throw new HttpException('Service not found', HttpStatus.BAD_REQUEST);
-    }
-
-    let product = await this.productModel.findById(usernamify(service.name));
-
-    if (!product) {
-      product = await this.createProduct(user, {
-        name: service.name,
-        unitPrice: service?.unitPrice ?? 0,
-        expenseType: service?.expenseType,
-        vendor: service?.vendor,
-        brand: service?.brand,
-      });
-    }
-
-    const invoices = await this.serviceInvoiceModel.find({
-      service: foundInvoice.service,
-    });
-    if (!invoices.length) {
-      throw new HttpException(
-        'No invoices found for the service',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    for (const invoice of invoices) {
-      await this.createInvoice(
-        user,
-        {
-          product: product._id,
-          expenseType: invoice?.expenseType,
-          quantity: invoice?.quantity,
-          totalExpense: invoice?.totalExpense,
-          location: invoice?.location,
-          date: invoice.date,
-          brand: invoice?.brand,
-          vendor: invoice?.vendor,
-          note: invoice?.note,
-          isPaid: invoice?.isPaid,
-          paymentMethod: invoice?.paymentMethod,
-          isStockIncrement: false,
-        },
-        StockHistoryStatusEnum.TRANSFERSERVICETOINVOICE,
-      );
-
-      try {
-        await this.serviceInvoiceModel.findByIdAndDelete(invoice._id);
-        this.accountingGateway.emitInvoiceChanged(user, invoice);
-      } catch (error) {
-        throw new HttpException(
-          'Failed to remove invoice',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    try {
-      await this.removeService(user, foundInvoice.service);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to remove the service associated with the invoice`,
-        HttpStatus.BAD_REQUEST,
-      );
     }
   }
 
@@ -1549,14 +1354,14 @@ export class AccountingService {
       throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
     }
     if (
-      stock.product === updates.product &&
-      stock.location === updates.location &&
-      stock.quantity !== updates.quantity
+      stock.product === updates?.product &&
+      stock.location === updates?.location &&
+      stock.quantity !== updates?.quantity
     ) {
       await this.createStock(user, {
-        product: updates.product,
-        location: updates.location,
-        quantity: updates.quantity - stock.quantity,
+        product: updates?.product,
+        location: updates?.location,
+        quantity: updates?.quantity - stock.quantity,
         status: StockHistoryStatusEnum.STOCKUPDATE,
       });
     } else {
@@ -1566,9 +1371,9 @@ export class AccountingService {
         StockHistoryStatusEnum.STOCKUPDATEDELETE,
       );
       await this.createStock(user, {
-        product: updates.product,
-        location: updates.location,
-        quantity: updates.quantity,
+        product: updates?.product,
+        location: updates?.location,
+        quantity: updates?.quantity,
         status: StockHistoryStatusEnum.STOCKUPDATEENTRY,
       });
     }
@@ -1883,16 +1688,14 @@ export class AccountingService {
       productInvoices,
       payments,
       productStocks,
-      serviceInvoices,
       cashouts,
       checkouts,
       incomes,
     ] = await Promise.all([
       this.countModel.find({ location: id }),
-      this.invoiceModel.find({ location: id }),
+      this.expenseModel.find({ location: id }),
       this.paymentModel.find({ location: id }),
       this.stockModel.find({ location: id }),
-      this.serviceInvoiceModel.find({ location: id }),
       this.checkoutService.findAllCashout(),
       this.checkoutService.findAllCheckoutControl(),
       this.checkoutService.findAllIncome(),
@@ -1904,7 +1707,6 @@ export class AccountingService {
       productInvoices.length > 0 ||
       payments.length > 0 ||
       productStocks.length > 0 ||
-      serviceInvoices.length > 0 ||
       cashouts.some((cashout) => (cashout.location as any)._id === id) ||
       checkouts.some((checkout) => (checkout.location as any)._id === id) ||
       incomes.some((income) => (income.location as any)._id === id);
@@ -1996,40 +1798,6 @@ export class AccountingService {
     return count;
   }
 
-  async updateInvoicesPayments() {
-    await this.invoiceModel.updateMany(
-      {},
-      {
-        $set: {
-          isPaid: true,
-          paymentMethod: 'credit_card',
-        },
-      },
-    );
-    await this.serviceInvoiceModel.updateMany(
-      {},
-      {
-        $set: {
-          isPaid: true,
-          paymentMethod: 'credit_card',
-        },
-      },
-    );
-  }
-
-  async updateInvoicesUser() {
-    const invoices = await this.invoiceModel.find();
-    for (const invoice of invoices) {
-      invoice.user = 'cem';
-      await invoice.save();
-    }
-    const serviceInvoices = await this.serviceInvoiceModel.find();
-    for (const invoice of serviceInvoices) {
-      invoice.user = 'cem';
-      await invoice.save();
-    }
-  }
-
   async matchProducts() {
     const products = await this.productModel.find();
     const allMenuItems = await this.menuService.findAllItems();
@@ -2044,5 +1812,51 @@ export class AccountingService {
         matchedMenuItem: menuItem._id,
       });
     }
+  }
+  async migrateInvoicesToExpense() {
+    // Fetch all invoices
+    const invoices = await this.invoiceModel.find();
+    const serviceInvoices = await this.serviceInvoiceModel.find();
+
+    // Handle standard invoices
+    const invoiceExpenses = invoices.map((invoice) => {
+      const { _id, ...invoiceData } = invoice.toObject(); // Destructuring to omit _id
+      return {
+        ...invoiceData,
+        type: ExpenseTypes.STOCKABLE, // Add the STOCKABLE type
+      };
+    });
+
+    // Handle service invoices
+    const serviceInvoiceExpenses = serviceInvoices.map((serviceInvoice) => {
+      const { _id, ...serviceInvoiceData } = serviceInvoice.toObject(); // Destructuring to omit _id
+      return {
+        ...serviceInvoiceData,
+        type: ExpenseTypes.NONSTOCKABLE, // Add the NONSTOCKABLE type
+      };
+    });
+
+    // Combine both arrays of expenses
+    const allExpenses = [...invoiceExpenses, ...serviceInvoiceExpenses];
+
+    // Save each new expense to the expense model
+    const errors = []; // Array to collect errors
+    for (const expense of allExpenses) {
+      try {
+        await this.expenseModel.create(expense);
+      } catch (error) {
+        // Log the error and continue with the next item
+        console.error('Failed to save expense:', expense, error);
+        errors.push({ expense, error }); // Collect error details if needed
+      }
+    }
+
+    if (errors.length > 0) {
+      console.log(
+        `${errors.length} expenses failed to save, see errors log for details.`,
+      );
+    }
+
+    return 'Migration completed with some errors. Check logs for details.';
   }
 }

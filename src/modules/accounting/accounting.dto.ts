@@ -124,7 +124,7 @@ export class CreateInvoiceDto {
 export class CreateExpenseDto {
   product?: string;
   service?: string;
-  expenseType: string;
+  expenseType?: string;
   quantity: number;
   totalExpense: number;
   date: string;
@@ -135,8 +135,11 @@ export class CreateExpenseDto {
   paymentMethod?: string;
   note?: string;
   type: string;
-  user: string;
   isStockIncrement?: boolean;
+}
+export enum ExpenseTypes {
+  STOCKABLE = 'STOCKABLE',
+  NONSTOCKABLE = 'NONSTOCKABLE',
 }
 
 export class CreateServiceInvoiceDto {
@@ -189,6 +192,20 @@ export type StockHistoryFilter = {
 
 export type InvoiceFilterType = {
   product?: string;
+  expenseType?: string;
+  brand?: string;
+  vendor?: string;
+  location?: string;
+  before?: string;
+  after?: string;
+  sort?: string;
+  asc?: number;
+};
+
+export type ExpenseFilterType = {
+  product?: string;
+  service?: string;
+  type?: string;
   expenseType?: string;
   brand?: string;
   vendor?: string;

@@ -16,14 +16,13 @@ import {
   CreateBrandDto,
   CreateCountDto,
   CreateCountListDto,
+  CreateExpenseDto,
   CreateExpenseTypeDto,
-  CreateInvoiceDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
   CreateServiceDto,
-  CreateServiceInvoiceDto,
   CreateStockDto,
   CreateStockLocationDto,
   CreateVendorDto,
@@ -34,13 +33,12 @@ import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
+import { Expense } from './expense.schema';
 import { ExpenseType } from './expenseType.schema';
-import { Invoice } from './invoice.schema';
 import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { Service } from './service.schema';
-import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
 import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
@@ -112,36 +110,11 @@ export class AccountingController {
     return this.accountingService.removeService(user, id);
   }
 
-  // service invoices
-  @Get('/service-invoice')
-  getServiceInvoice() {
-    return this.accountingService.findAllServiceInvoices();
+  @Get('/migrate-invoice')
+  migrateInvoice() {
+    return this.accountingService.migrateInvoicesToExpense();
   }
 
-  @Post('/service-invoice')
-  createServiceInvoice(
-    @ReqUser() user: User,
-    @Body() createServiceInvoiceDto: CreateServiceInvoiceDto,
-  ) {
-    return this.accountingService.createServiceInvoice(
-      user,
-      createServiceInvoiceDto,
-    );
-  }
-
-  @Patch('service-invoice/:id')
-  updateServiceInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<ServiceInvoice>,
-  ) {
-    return this.accountingService.updateServiceInvoice(user, id, updates);
-  }
-
-  @Delete('/service-invoice/:id')
-  deleteServiceInvoice(@ReqUser() user: User, @Param('id') id: number) {
-    return this.accountingService.removeServiceInvoice(user, id);
-  }
   // Expense Types
   @Get('/expense-types')
   getExpenseTypes() {
@@ -286,16 +259,13 @@ export class AccountingController {
     return this.accountingService.removePayment(user, id);
   }
 
-  // Invoices
-  @Get('/invoices')
-  getInvoices() {
-    return this.accountingService.findAllInvoices();
-  }
-  @Get('/invoice')
-  findAllInvoice(
+  @Get('/expenses')
+  findAllExpense(
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('product') product?: string,
+    @Query('service') service?: string,
+    @Query('type') type?: string,
     @Query('expenseType') expenseType?: string,
     @Query('location') location?: string,
     @Query('brand') brand?: string,
@@ -305,8 +275,10 @@ export class AccountingController {
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
   ) {
-    return this.accountingService.findAllInvoice(page, limit, {
+    return this.accountingService.findAllExpense(page, limit, {
       product,
+      service,
+      type,
       expenseType,
       location,
       brand,
@@ -317,64 +289,40 @@ export class AccountingController {
       asc,
     });
   }
-  @Get('/product_invoice')
-  findProductInvoices(@Query('product') product: string) {
-    return this.accountingService.findProductInvoices(product);
-  }
 
-  @Get('/invoices/updatePayment')
-  getUpdateInvoicesPayments() {
-    return this.accountingService.updateInvoicesPayments();
-  }
-
-  @Get('/invoices/updateUser')
-  getUpdateInvoicesUser() {
-    return this.accountingService.updateInvoicesUser();
-  }
-
-  @Post('/invoices')
-  createInvoice(
+  @Post('/expenses')
+  createExpense(
     @ReqUser() user: User,
-    @Body() createInvoiceDto: CreateInvoiceDto,
+    @Body() createExpenseDto: CreateExpenseDto,
   ) {
-    return this.accountingService.createInvoice(
+    return this.accountingService.createExpense(
       user,
-      createInvoiceDto,
+      createExpenseDto,
       StockHistoryStatusEnum.EXPENSEENTRY,
     );
   }
 
-  @Patch('/invoices/transfer_to_service_invoice/:id')
-  updateInvoiceToServiceInvoice(
+  @Patch('/expenses/:id')
+  updateExpense(
     @ReqUser() user: User,
     @Param('id') id: number,
+    @Body() updates: UpdateQuery<Expense>,
   ) {
-    return this.accountingService.transferInvoiceToServiceInvoice(user, id);
-  }
-  @Patch('/invoices/transfer_service_invoice_to_invoice/:id')
-  updateServiceInvoiceToInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-  ) {
-    return this.accountingService.transferServiceInvoiceToInvoice(user, id);
+    return this.accountingService.updateExpense(user, id, updates);
   }
 
-  @Patch('/invoices/:id')
-  updateInvoice(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<Invoice>,
-  ) {
-    return this.accountingService.updateInvoice(user, id, updates);
-  }
-
-  @Delete('/invoices/:id')
-  deleteInvoice(@ReqUser() user: User, @Param('id') id: number) {
-    return this.accountingService.removeInvoice(
+  @Delete('/expenses/:id')
+  deleteExpense(@ReqUser() user: User, @Param('id') id: number) {
+    return this.accountingService.removeExpense(
       user,
       id,
       StockHistoryStatusEnum.EXPENSEDELETE,
     );
+  }
+
+  @Get('/product_expense')
+  findProductExpenses(@Query('product') product: string) {
+    return this.accountingService.findProductExpenses(product);
   }
 
   // Stock Location

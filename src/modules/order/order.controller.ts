@@ -120,12 +120,14 @@ export class OrderController {
     payload: {
       orderId: number;
       returnQuantity: number;
+      paymentMethod: string;
     },
   ) {
     return this.orderService.returnOrder(
       user,
       payload.orderId,
       payload.returnQuantity,
+      payload.paymentMethod,
     );
   }
 

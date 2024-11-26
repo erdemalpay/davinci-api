@@ -590,7 +590,12 @@ export class OrderService {
     }
     return order;
   }
-  async returnOrder(user: User, id: number, returnQuantity: number) {
+  async returnOrder(
+    user: User,
+    id: number,
+    returnQuantity: number,
+    paymentMethod: string,
+  ) {
     try {
       const order = await this.orderModel.findById(id).lean();
       if (!order) {
@@ -649,7 +654,7 @@ export class OrderService {
         location: order.location,
         amount: returnOrderTotalAmount,
         status: OrderCollectionStatus.RETURNED,
-        paymentMethod: 'cash',
+        paymentMethod: paymentMethod,
         createdAt: new Date(),
         createdBy: user._id,
         orders: [

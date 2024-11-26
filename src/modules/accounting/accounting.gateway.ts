@@ -62,6 +62,9 @@ export class AccountingGateway
   emitInvoiceChanged(user: User, invoice: any) {
     this.server.emit('invoiceChanged', { user, invoice });
   }
+  emitExpenseChanged(user: User, expense: any) {
+    this.server.emit('expenseChanged', { user, expense });
+  }
 
   emitPaymentChanged(user: User, payment: any) {
     this.server.emit('paymentChanged', { user, payment });
