@@ -1855,8 +1855,15 @@ export class AccountingService {
       console.log(
         `${errors.length} expenses failed to save, see errors log for details.`,
       );
+      return {
+        message:
+          'Migration completed with some errors. Check logs for details.',
+        errors,
+      };
     }
 
-    return 'Migration completed with some errors. Check logs for details.';
+    return {
+      message: 'Migration completed successfully.',
+    };
   }
 }
