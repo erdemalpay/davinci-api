@@ -848,7 +848,8 @@ export class OrderService {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
           status: { $ne: 'CANCELLED' },
-          ...(location && { location: Number(location) }),
+          ...(location !== undefined &&
+            location && { location: Number(location) }),
         },
       },
       {
