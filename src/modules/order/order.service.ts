@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, parseISO } from 'date-fns';
-import { Model, UpdateQuery } from 'mongoose';
+import * as moment from 'moment';
+import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -831,6 +832,107 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  async categoryBasedOrderSummary(
+    user: User,
+    category: number,
+    location?: number,
+  ) {
+    const twelveMonthsAgo = moment()
+      .subtract(12, 'months')
+      .startOf('month')
+      .toDate();
+
+    let pipeline: PipelineStage[] = [
+      {
+        $match: {
+          createdAt: { $gte: twelveMonthsAgo },
+          status: { $ne: 'CANCELLED' },
+          ...(location && { location: Number(location) }),
+        },
+      },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: 'item',
+          foreignField: '_id',
+          as: 'itemDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$itemDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $match: {
+          'itemDetails.category': Number(category),
+        },
+      },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          total: {
+            $sum: {
+              $subtract: [
+                { $multiply: ['$paidQuantity', '$unitPrice'] },
+                {
+                  $cond: {
+                    if: '$discountPercentage',
+                    then: {
+                      $multiply: [
+                        '$discountPercentage',
+                        '$paidQuantity',
+                        '$unitPrice',
+                        0.01,
+                      ],
+                    },
+                    else: {
+                      $multiply: [
+                        { $ifNull: ['$discountAmount', 0] },
+                        '$paidQuantity',
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $sort: { '_id.month': 1 },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: {
+            $arrayElemAt: [
+              [
+                'January',
+                'February',
+                'March',
+                'April',
+                'May',
+                'June',
+                'July',
+                'August',
+                'September',
+                'October',
+                'November',
+                'December',
+              ],
+              { $subtract: ['$_id.month', 1] },
+            ],
+          },
+          total: 1,
+        },
+      },
+    ];
+
+    const results = await this.orderModel.aggregate(pipeline).exec();
+    return results;
   }
 
   // Collections

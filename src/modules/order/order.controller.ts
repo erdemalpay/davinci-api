@@ -31,9 +31,23 @@ export class OrderController {
   findAllOrders() {
     return this.orderService.findAllOrders();
   }
+
   @Get('/query')
   findQueryOrders(@Query('after') after?: string) {
     return this.orderService.findQueryOrders({ after: after });
+  }
+
+  @Get('/category_summary')
+  categoryBasedOrderSummary(
+    @ReqUser() user: User,
+    @Query('category') category?: number,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.categoryBasedOrderSummary(
+      user,
+      category,
+      location,
+    );
   }
 
   @Post('/create_order_for_discount')
