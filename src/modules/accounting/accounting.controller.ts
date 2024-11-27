@@ -274,6 +274,7 @@ export class AccountingController {
     @Query('after') after?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
+    @Query('date') date?: string,
   ) {
     return this.accountingService.findAllExpense(page, limit, {
       product,
@@ -287,6 +288,7 @@ export class AccountingController {
       after,
       sort,
       asc,
+      date,
     });
   }
 

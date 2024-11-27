@@ -7,6 +7,7 @@ import { CheckoutService } from '../checkout/checkout.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
 import {
@@ -689,7 +690,7 @@ export class AccountingService {
   async findAllExpense(page: number, limit: number, filter: ExpenseFilterType) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
-    const {
+    let {
       product,
       service,
       type,
@@ -701,6 +702,7 @@ export class AccountingService {
       after,
       sort,
       asc,
+      date,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
@@ -710,6 +712,13 @@ export class AccountingService {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
       sortObject['date'] = -1;
+    }
+    if (date) {
+      const dateRange = dateRanges[date];
+      if (dateRange) {
+        after = dateRange().after;
+        before = dateRange().before;
+      }
     }
     const pipeline: PipelineStage[] = [
       {
@@ -721,8 +730,9 @@ export class AccountingService {
           ...(brand && { brand: brand }),
           ...(type && { type: type }),
           ...(vendor && { vendor: vendor }),
-          ...(before && { date: { $lte: before } }),
           ...(after && { date: { $gte: after } }),
+          ...(before && { date: { $lte: before } }),
+          ...(after && before && { date: { $gte: after, $lte: before } }),
         },
       },
       {

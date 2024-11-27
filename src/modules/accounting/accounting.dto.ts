@@ -214,4 +214,5 @@ export type ExpenseFilterType = {
   after?: string;
   sort?: string;
   asc?: number;
+  date?: string;
 };
