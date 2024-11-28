@@ -10,7 +10,7 @@ export class CreateCheckoutCashDto {
   description?: string;
   amount: number;
   date: string;
-  location: string;
+  location: number;
 }
 
 export class CreatePanelSettingsDto {

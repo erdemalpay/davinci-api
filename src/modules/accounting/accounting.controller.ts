@@ -24,7 +24,6 @@ import {
   CreateProductStockHistoryDto,
   CreateServiceDto,
   CreateStockDto,
-  CreateStockLocationDto,
   CreateVendorDto,
   JoinProductDto,
   StockHistoryStatusEnum,
@@ -40,7 +39,6 @@ import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
-import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
 
 @Controller('/accounting')
@@ -108,11 +106,6 @@ export class AccountingController {
   @Delete('/services/:id')
   deleteService(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeService(user, id);
-  }
-
-  @Get('/migrate-invoice')
-  migrateInvoice() {
-    return this.accountingService.migrateInvoicesToExpense();
   }
 
   // Expense Types
@@ -326,36 +319,6 @@ export class AccountingController {
   findProductExpenses(@Query('product') product: string) {
     return this.accountingService.findProductExpenses(product);
   }
-
-  // Stock Location
-  @Get('/stock-locations')
-  getStockLocations() {
-    return this.accountingService.findAllStockLocations();
-  }
-  @Post('/stock-locations')
-  createStockLocation(
-    @ReqUser() user: User,
-    @Body() createStockLocationDto: CreateStockLocationDto,
-  ) {
-    return this.accountingService.createStockLocation(
-      user,
-      createStockLocationDto,
-    );
-  }
-
-  @Patch('/stock-locations/:id')
-  updateStockLocation(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<StockLocation>,
-  ) {
-    return this.accountingService.updateStockLocation(user, id, updates);
-  }
-
-  @Delete('/stock-locations/:id')
-  deleteStockLocation(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeStockLocation(user, id);
-  }
   // Stocks
   @Get('/stocks')
   getStock() {
@@ -558,5 +521,34 @@ export class AccountingController {
   @Get('/match-products')
   matchProducts() {
     return this.accountingService.matchProducts();
+  }
+  @Get('/migrate-count-locations')
+  migrateCountLocations() {
+    return this.accountingService.migrateCountLocations();
+  }
+
+  @Get('/migrate-countList-locations')
+  migrateCountListLocations() {
+    return this.accountingService.migrateCountListLocations();
+  }
+
+  @Get('/migrate-expense-locations')
+  migrateExpenseLocations() {
+    return this.accountingService.migrateExpenseLocations();
+  }
+
+  @Get('/migrate-payment-locations')
+  migratePaymentLocations() {
+    return this.accountingService.migratePaymentLocations();
+  }
+
+  @Get('/migrate-productStockHistory-locations')
+  migrateProductStockHistoryLocations() {
+    return this.accountingService.migrateProductStockHistoryLocations();
+  }
+
+  @Get('/migrate-stock-locations')
+  migrateStockLocations() {
+    return this.accountingService.migrateStockLocations();
   }
 }

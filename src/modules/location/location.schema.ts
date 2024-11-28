@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 
@@ -12,6 +12,9 @@ export class Location extends Document {
 
   @Prop({ required: true, default: true })
   active: boolean;
+
+  @Prop({ required: true, default: true })
+  type: number[];
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);

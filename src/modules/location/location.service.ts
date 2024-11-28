@@ -19,12 +19,15 @@ export class LocationService {
     return location;
   }
 
-  findAll() {
-    return this.locationModel.find();
+  findStoreLocations() {
+    return this.locationModel.find({ type: { $in: [1] } });
+  }
+  findStockLocations() {
+    return this.locationModel.find({ type: { $in: [2] } });
   }
 
   async checkDefaultLocations() {
-    const locations = await this.findAll();
+    const locations = await this.findStoreLocations();
     if (locations.length > 0) {
       return;
     }

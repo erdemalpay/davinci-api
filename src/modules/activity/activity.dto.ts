@@ -9,8 +9,8 @@ import { Order } from '../order/order.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
-import { Invoice } from './../accounting/invoice.schema';
-import { ServiceInvoice } from './../accounting/serviceInvoice.schema';
+
+import { Expense } from '../accounting/expense.schema';
 import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
 import { MenuItem } from './../menu/item.schema';
@@ -82,17 +82,17 @@ export type ActivityTypePayload = {
   [ActivityType.CREATE_STOCK]: Stock;
   [ActivityType.DELETE_STOCK]: Stock;
   [ActivityType.UPDATE_STOCK]: { currentStock: Stock; newStock: Stock };
-  [ActivityType.CREATE_EXPENSE]: Invoice;
-  [ActivityType.DELETE_EXPENSE]: Invoice;
+  [ActivityType.CREATE_EXPENSE]: Expense;
+  [ActivityType.DELETE_EXPENSE]: Expense;
   [ActivityType.UPDATE_EXPENSE]: {
-    currentExpense: Invoice;
-    newExpense: Invoice;
+    currentExpense: Expense;
+    newExpense: Expense;
   };
-  [ActivityType.CREATE_SERVICEEXPENSE]: ServiceInvoice;
-  [ActivityType.DELETE_SERVICEEXPENSE]: ServiceInvoice;
+  [ActivityType.CREATE_SERVICEEXPENSE]: Expense;
+  [ActivityType.DELETE_SERVICEEXPENSE]: Expense;
   [ActivityType.UPDATE_SERVICEEXPENSE]: {
-    currentExpense: ServiceInvoice;
-    newExpense: ServiceInvoice;
+    currentExpense: Expense;
+    newExpense: Expense;
   };
   [ActivityType.CREATE_EXPENSETYPE]: ExpenseType;
   [ActivityType.DELETE_EXPENSETYPE]: ExpenseType;

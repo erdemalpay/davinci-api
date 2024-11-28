@@ -25,7 +25,7 @@ export class CreateOrderDto {
   division?: number;
   isOnlinePrice?: boolean;
   isReturned?: boolean;
-  stockLocation?: string;
+  stockLocation?: number;
   discountNote?: string;
   kitchen?: string;
   stockNote?: string;
@@ -57,7 +57,7 @@ export type OrderType = {
   division?: number;
   isOnlinePrice?: boolean;
   isReturned?: boolean;
-  stockLocation?: string;
+  stockLocation?: number;
   discountNote?: string;
   stockNote?: string;
 };
@@ -71,7 +71,7 @@ export class CreateCollectionDto {
   cancelNote?: string;
   table?: number;
   newOrders?: OrderType[];
-  stockLocation?: string;
+  stockLocation?: number;
 }
 
 export class CreateDiscountDto {

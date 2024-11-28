@@ -4,7 +4,6 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
-import { StockLocation } from './../accounting/stockLocation.schema';
 import { Kitchen } from './../menu/kitchen.schema';
 import { Discount } from './discount.schema';
 
@@ -91,8 +90,8 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isReturned: boolean;
 
-  @Prop({ required: false, type: String, ref: StockLocation.name })
-  stockLocation: string;
+  @Prop({ required: false, type: String, ref: Location.name })
+  stockLocation: any;
 
   @Prop({ required: false, type: String })
   stockNote: string;

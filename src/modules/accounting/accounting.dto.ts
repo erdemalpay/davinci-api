@@ -23,7 +23,7 @@ export class CreatePaymentDto {
   serviceInvoice?: number;
   paymentMethod: string;
   date: string;
-  location: string;
+  location: number;
   amount: number;
 }
 
@@ -60,7 +60,7 @@ export class CreateCountListDto {
 
 export class CreateCountDto {
   user: string;
-  location: string;
+  location: number;
   isCompleted: boolean;
   createdAt: Date;
   products: CountProductDto[];
@@ -130,7 +130,7 @@ export class CreateExpenseDto {
   date: string;
   brand?: string;
   vendor?: string;
-  location: string | number;
+  location: number;
   isPaid: boolean;
   paymentMethod?: string;
   note?: string;
