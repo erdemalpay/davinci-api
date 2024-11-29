@@ -13,11 +13,13 @@ import { MenuController } from './menu.controller';
 import { MenuGateway } from './menu.gateway';
 import { MenuService } from './menu.service';
 import { Popular, PopularSchema } from './popular.schema';
+import { UpperCategory, UpperCategorySchema } from './upperCategory.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(MenuItem.name, MenuItemSchema),
   createAutoIncrementConfig(MenuCategory.name, MenuCategorySchema),
   createAutoIncrementConfig(Popular.name, PopularSchema),
+  createAutoIncrementConfig(UpperCategory.name, UpperCategorySchema),
   { name: Kitchen.name, useFactory: () => KitchenSchema },
 ]);
 

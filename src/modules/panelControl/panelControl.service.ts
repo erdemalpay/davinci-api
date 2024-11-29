@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
-import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { convertStockLocation } from './../../utils/stockLocation';
@@ -31,18 +30,7 @@ export class PanelControlService {
   //pages
   async findAllPages() {
     try {
-      const redisPages = await this.redisService.get(RedisKeys.Pages);
-      if (redisPages) {
-        return redisPages;
-      }
-    } catch (error) {
-      console.error('Failed to retrieve pages from Redis:', error);
-    }
-    try {
       const pages = await this.pageModel.find();
-      if (pages.length > 0) {
-        await this.redisService.set(RedisKeys.Pages, pages);
-      }
       return pages;
     } catch (error) {
       console.error('Failed to retrieve pages from database:', error);
@@ -78,17 +66,24 @@ export class PanelControlService {
   }
 
   async createMultiplePages(user: User, createPageDto: CreatePageDto[]) {
+    console.log('createMultiplePages', createPageDto);
     const pagesWithIds = createPageDto.map((page) => ({
       ...page,
       _id: usernamify(page.name),
     }));
-    const idsToRemove = pagesWithIds.map((page) => page._id);
-    const page = await this.pageModel.find({ _id: { $in: idsToRemove } });
-    if (page) {
-      await this.pageModel.deleteMany({ _id: { $in: idsToRemove } });
+    for (const page of pagesWithIds) {
+      const foundPage = await this.pageModel.findById(page._id);
+      if (foundPage) {
+        await this.pageModel.findByIdAndUpdate(foundPage._id, page, {
+          new: true,
+        });
+      } else {
+        await this.pageModel.create(page);
+      }
     }
-    await this.pageModel.insertMany(pagesWithIds);
+
     this.panelControlGateway.emitPageChanged(user, pagesWithIds);
+    console.log('here');
     return pagesWithIds;
   }
 

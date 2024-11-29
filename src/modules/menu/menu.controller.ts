@@ -19,8 +19,10 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { MenuService } from './menu.service';
+import { UpperCategory } from './upperCategory.schema';
 
 @Controller('/menu')
 export class MenuController {
@@ -169,5 +171,33 @@ export class MenuController {
   @Delete('/kitchens/:id')
   deleteKitchen(@ReqUser() user: User, @Param('id') id: string) {
     return this.menuService.removeKitchen(user, id);
+  }
+
+  //upper category
+  @Get('/upper_categories')
+  getUpperCategories() {
+    return this.menuService.findAllUpperCategories();
+  }
+
+  @Post('/upper_categories')
+  createUpperCategory(
+    @ReqUser() user: User,
+    @Body() createUpperCategoryDto: CreateUpperCategoryDto,
+  ) {
+    return this.menuService.createUpperCategory(user, createUpperCategoryDto);
+  }
+
+  @Patch('/upper_categories/:id')
+  updateUpperCategory(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<UpperCategory>,
+  ) {
+    return this.menuService.updateUpperCategory(user, id, updates);
+  }
+
+  @Delete('/upper_categories/:id')
+  deleteUpperCategory(@ReqUser() user: User, @Param('id') id: number) {
+    return this.menuService.removeUpperCategory(user, id);
   }
 }

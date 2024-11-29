@@ -1,3 +1,5 @@
+import { CategoryGroup } from './upperCategory.schema';
+
 export class CreateCategoryDto {
   name: string;
   locations: number[];
@@ -25,4 +27,9 @@ export class CreateKitchenDto {
 
 export class CreatePopularDto {
   item: number;
+}
+
+export class CreateUpperCategoryDto {
+  name: string;
+  categoryGroup: CategoryGroup[];
 }

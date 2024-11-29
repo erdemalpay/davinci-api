@@ -18,9 +18,11 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
+import { UpperCategory } from './upperCategory.schema';
 
 export class MenuService {
   constructor(
@@ -29,6 +31,8 @@ export class MenuService {
     @InjectModel(MenuItem.name) private itemModel: Model<MenuItem>,
     @InjectModel(Popular.name) private popularModel: Model<Popular>,
     @InjectModel(Kitchen.name) private kitchenModel: Model<Kitchen>,
+    @InjectModel(UpperCategory.name)
+    private upperCategoryModel: Model<UpperCategory>,
     private readonly menuGateway: MenuGateway,
     private readonly panelControlService: PanelControlService,
     @Inject(forwardRef(() => OrderService))
@@ -542,5 +546,42 @@ export class MenuService {
     await kitchen.remove();
     this.menuGateway.emitKitchenChanged(user, kitchen);
     return kitchen;
+  }
+
+  //upper category
+  async findAllUpperCategories() {
+    return this.upperCategoryModel.find();
+  }
+
+  async createUpperCategory(
+    user: User,
+    createUpperCategoryDto: CreateUpperCategoryDto,
+  ) {
+    const upperCategory = await this.upperCategoryModel.create(
+      createUpperCategoryDto,
+    );
+    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    return upperCategory;
+  }
+
+  async updateUpperCategory(
+    user: User,
+    id: number,
+    updates: UpdateQuery<UpperCategory>,
+  ) {
+    const upperCategory = await this.upperCategoryModel.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true },
+    );
+    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    return upperCategory;
+  }
+
+  async removeUpperCategory(user: User, id: number) {
+    const upperCategory = await this.upperCategoryModel.findById(id);
+    await upperCategory.remove();
+    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    return upperCategory;
   }
 }

@@ -59,4 +59,8 @@ export class MenuGateway
   emitCategoryChanged(user: User, category: any) {
     this.server.emit('categoryChanged', { user, category });
   }
+
+  emitUpperCategoryChanged(user: User, upperCategory: any) {
+    this.server.emit('upperCategoryChanged', { user, upperCategory });
+  }
 }
