@@ -149,7 +149,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.tableGateway.emitSingleTableChanged(user, updatedTable);
+    this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
 

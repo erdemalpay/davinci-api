@@ -103,4 +103,9 @@ export class PanelControlController {
       createPanelSettingsDto,
     );
   }
+
+  @Get('/migrate-checkoutCash-locations')
+  migrateCheckoutCashLocations() {
+    return this.panelControlService.migrateCheckoutCashLocations();
+  }
 }

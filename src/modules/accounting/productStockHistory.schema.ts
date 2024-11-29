@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { Product } from './product.schema';
-import { StockLocation } from './stockLocation.schema';
 
 @Schema({ _id: false })
 export class ProductStockHistory extends Document {
@@ -13,8 +13,8 @@ export class ProductStockHistory extends Document {
   @Prop({ required: true, type: String, ref: Product.name })
   product: string;
 
-  @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string | number;
+  @Prop({ required: true, type: String, ref: Location.name })
+  location: any;
 
   @Prop({ required: true, type: Number })
   change: number;

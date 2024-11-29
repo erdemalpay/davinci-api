@@ -9,6 +9,11 @@ export class LocationController {
   @Get()
   @Public()
   findAll() {
-    return this.locationService.findAll();
+    return this.locationService.findStoreLocations();
+  }
+
+  @Get('/stock')
+  findStockLocations() {
+    return this.locationService.findStockLocations();
   }
 }

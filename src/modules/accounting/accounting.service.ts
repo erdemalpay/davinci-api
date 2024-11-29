@@ -8,6 +8,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { dateRanges } from './../../utils/dateRanges';
+import { convertStockLocation } from './../../utils/stockLocation';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
 import {
@@ -23,7 +24,6 @@ import {
   CreateProductStockHistoryDto,
   CreateServiceDto,
   CreateStockDto,
-  CreateStockLocationDto,
   CreateVendorDto,
   ExpenseFilterType,
   ExpenseTypes,
@@ -38,15 +38,12 @@ import { Count } from './count.schema';
 import { CountList } from './countList.schema';
 import { Expense } from './expense.schema';
 import { ExpenseType } from './expenseType.schema';
-import { Invoice } from './invoice.schema';
 import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
 import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
-import { ServiceInvoice } from './serviceInvoice.schema';
 import { Stock } from './stock.schema';
-import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
 
 const path = require('path');
@@ -56,10 +53,7 @@ export class AccountingService {
     @InjectModel(Product.name)
     private productModel: Model<Product>,
     @InjectModel(Service.name) private serviceModel: Model<Service>,
-    @InjectModel(ServiceInvoice.name)
-    private serviceInvoiceModel: Model<ServiceInvoice>,
     @InjectModel(ExpenseType.name) private expenseTypeModel: Model<ExpenseType>,
-    @InjectModel(Invoice.name) private invoiceModel: Model<Invoice>,
     @InjectModel(Expense.name) private expenseModel: Model<Expense>,
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
@@ -70,8 +64,6 @@ export class AccountingService {
     private paymentMethodModel: Model<PaymentMethod>,
     @InjectModel(ProductStockHistory.name)
     private productStockHistoryModel: Model<ProductStockHistory>,
-    @InjectModel(StockLocation.name)
-    private stockLocationModel: Model<StockLocation>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
     private readonly menuService: MenuService,
     private readonly activityService: ActivityService,
@@ -882,7 +874,7 @@ export class AccountingService {
           ...(createExpenseDto.type === ExpenseTypes.STOCKABLE
             ? { invoice: expense._id }
             : { serviceInvoice: expense._id }),
-          location: createExpenseDto.location as string,
+          location: createExpenseDto.location,
         });
       }
       this.activityService.addActivity(
@@ -1662,76 +1654,7 @@ export class AccountingService {
     );
     return productStockHistory.save();
   }
-  // stockLocation
-  findAllStockLocations() {
-    return this.stockLocationModel.find();
-  }
-  createStockLocation(
-    user: User,
-    createStockLocationDto: CreateStockLocationDto,
-  ) {
-    const stockLocation = new this.stockLocationModel(createStockLocationDto);
-    stockLocation._id = usernamify(stockLocation.name);
-    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
-    return stockLocation.save();
-  }
 
-  async updateStockLocation(
-    user: User,
-    id: string,
-    updates: UpdateQuery<StockLocation>,
-  ) {
-    const stockLocation = await this.stockLocationModel.findByIdAndUpdate(
-      id,
-      updates,
-      {
-        new: true,
-      },
-    );
-    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
-    return stockLocation;
-  }
-
-  async removeStockLocation(user: User, id: string) {
-    const [
-      counts,
-      productInvoices,
-      payments,
-      productStocks,
-      cashouts,
-      checkouts,
-      incomes,
-    ] = await Promise.all([
-      this.countModel.find({ location: id }),
-      this.expenseModel.find({ location: id }),
-      this.paymentModel.find({ location: id }),
-      this.stockModel.find({ location: id }),
-      this.checkoutService.findAllCashout(),
-      this.checkoutService.findAllCheckoutControl(),
-      this.checkoutService.findAllIncome(),
-    ]);
-
-    // Check if any of the fetched data is associated with the location
-    const hasRelatedRecords =
-      counts.length > 0 ||
-      productInvoices.length > 0 ||
-      payments.length > 0 ||
-      productStocks.length > 0 ||
-      cashouts.some((cashout) => (cashout.location as any)._id === id) ||
-      checkouts.some((checkout) => (checkout.location as any)._id === id) ||
-      incomes.some((income) => (income.location as any)._id === id);
-
-    // Throw an error if the location is associated with any records
-    if (hasRelatedRecords) {
-      throw new HttpException(
-        'Cannot remove a location',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const stockLocation = await this.stockLocationModel.findByIdAndRemove(id);
-    this.accountingGateway.emitStockLocationChanged(user, stockLocation);
-    return stockLocation;
-  }
   // countlist
   async createCountList(user: User, createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
@@ -1823,57 +1746,167 @@ export class AccountingService {
       });
     }
   }
-  async migrateInvoicesToExpense() {
-    // Fetch all invoices
-    const invoices = await this.invoiceModel.find();
-    const serviceInvoices = await this.serviceInvoiceModel.find();
 
-    // Handle standard invoices
-    const invoiceExpenses = invoices.map((invoice) => {
-      const { _id, ...invoiceData } = invoice.toObject(); // Destructuring to omit _id
-      return {
-        ...invoiceData,
-        type: ExpenseTypes.STOCKABLE, // Add the STOCKABLE type
-      };
-    });
+  async migrateCountLocations() {
+    const counts = await this.countModel.find();
+    let errors = [];
+    let errorCount = 0;
 
-    // Handle service invoices
-    const serviceInvoiceExpenses = serviceInvoices.map((serviceInvoice) => {
-      const { _id, ...serviceInvoiceData } = serviceInvoice.toObject(); // Destructuring to omit _id
-      return {
-        ...serviceInvoiceData,
-        type: ExpenseTypes.NONSTOCKABLE, // Add the NONSTOCKABLE type
-      };
-    });
-
-    // Combine both arrays of expenses
-    const allExpenses = [...invoiceExpenses, ...serviceInvoiceExpenses];
-
-    // Save each new expense to the expense model
-    const errors = []; // Array to collect errors
-    for (const expense of allExpenses) {
+    for (const count of counts) {
       try {
-        await this.expenseModel.create(expense);
+        const location = convertStockLocation(count.location as any);
+        await this.countModel.findByIdAndUpdate(
+          count._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
       } catch (error) {
-        // Log the error and continue with the next item
-        console.error('Failed to save expense:', expense, error);
-        errors.push({ expense, error }); // Collect error details if needed
+        errorCount++;
+        errors.push({ count, error });
       }
     }
 
-    if (errors.length > 0) {
-      console.log(
-        `${errors.length} expenses failed to save, see errors log for details.`,
-      );
-      return {
-        message:
-          'Migration completed with some errors. Check logs for details.',
-        errors,
-      };
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+  async migrateCountListLocations() {
+    const countLists = await this.countListModel.find();
+    let errors = [];
+    let errorCount = 0;
+
+    for (const countList of countLists) {
+      try {
+        const locations = countList.locations.map((location) =>
+          convertStockLocation(location as any),
+        );
+        const newProducts = countList.products.map((item) => {
+          return {
+            ...item,
+            locations: item.locations.map((location) =>
+              convertStockLocation(location as any),
+            ),
+          };
+        });
+        await this.countListModel.findByIdAndUpdate(
+          countList._id,
+          { locations: locations, products: newProducts },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ countList, error });
+      }
     }
 
     return {
-      message: 'Migration completed successfully.',
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+  async migrateExpenseLocations() {
+    const expenses = await this.expenseModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const expense of expenses) {
+      try {
+        const location = convertStockLocation(expense.location as any);
+        await this.expenseModel.findByIdAndUpdate(
+          expense._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ expense, error });
+      }
+    }
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+
+  async migratePaymentLocations() {
+    const payments = await this.paymentModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const payment of payments) {
+      try {
+        const location = convertStockLocation(payment.location as any);
+        await this.paymentModel.findByIdAndUpdate(
+          payment._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ payment: payment, error });
+      }
+    }
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+
+  async migrateProductStockHistoryLocations() {
+    const stockHistories = await this.productStockHistoryModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const stockHistory of stockHistories) {
+      try {
+        const location = convertStockLocation(stockHistory.location as any);
+        await this.productStockHistoryModel.findByIdAndUpdate(
+          stockHistory._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ stockHistory: stockHistory, error });
+      }
+    }
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+
+  async migrateStockLocations() {
+    const stocks = await this.stockModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const stock of stocks) {
+      try {
+        const location = convertStockLocation(stock.location as any);
+        await this.stockModel.findByIdAndUpdate(
+          stock._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ stock: stock, error });
+      }
+    }
+
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
     };
   }
 }

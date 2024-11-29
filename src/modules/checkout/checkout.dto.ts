@@ -1,18 +1,18 @@
 export class CreateIncomeDto {
-  location: string;
+  location: number;
   date: string;
   amount: number;
 }
 
 export class CreateCashoutDto {
-  location: string;
+  location: number;
   date: string;
   amount: number;
   description: string;
 }
 
 export class CreateCheckoutControlDto {
-  location: string;
+  location: number;
   date: string;
   amount: number;
 }

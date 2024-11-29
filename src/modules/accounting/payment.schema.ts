@@ -1,11 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
-import { Invoice } from './invoice.schema';
+import { Expense } from './expense.schema';
 import { PaymentMethod } from './paymentMethod.schema';
-import { ServiceInvoice } from './serviceInvoice.schema';
-import { StockLocation } from './stockLocation.schema';
 import { Vendor } from './vendor.schema';
 
 @Schema({ _id: false })
@@ -16,13 +15,13 @@ export class Payment extends Document {
   @Prop({ required: true, type: String, ref: Vendor.name })
   vendor: string;
 
-  @Prop({ required: false, type: String, ref: Invoice.name })
+  @Prop({ required: false, type: String, ref: Expense.name })
   invoice: number;
 
-  @Prop({ required: true, type: String, ref: StockLocation.name })
-  location: string;
+  @Prop({ required: true, type: String, ref: Location.name })
+  location: any;
 
-  @Prop({ required: false, type: String, ref: ServiceInvoice.name })
+  @Prop({ required: false, type: String, ref: Expense.name })
   serviceInvoice: number;
 
   @Prop({ required: true, type: String, ref: User.name })

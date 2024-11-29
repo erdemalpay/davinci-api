@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
+import { convertStockLocation } from './../../utils/stockLocation';
 import { Cashout } from './cashout.schema';
 import {
   CreateCashoutDto,
@@ -107,5 +108,84 @@ export class CheckoutService {
     );
     this.checkoutGateway.emitCheckoutControlChanged(user, checkoutControl);
     return checkoutControl;
+  }
+
+  async migrateIncomeLocations() {
+    const incomes = await this.incomeModel.find();
+    let errors = [];
+    let errorCount = 0;
+    console.log(incomes);
+    for (const income of incomes) {
+      try {
+        const location = convertStockLocation(income.location as any);
+        await this.incomeModel.findByIdAndUpdate(
+          income._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ income: income, error });
+      }
+    }
+
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+
+  async migrateCheckoutControlLocations() {
+    const checkoutControls = await this.checkoutControlModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const checkoutControl of checkoutControls) {
+      try {
+        const location = convertStockLocation(checkoutControl.location as any);
+        await this.checkoutControlModel.findByIdAndUpdate(
+          checkoutControl._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ checkoutControl: checkoutControl, error });
+      }
+    }
+
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
+  }
+
+  async migrateCashoutLocations() {
+    const cashouts = await this.cashoutModel.find();
+    let errors = [];
+    let errorCount = 0;
+    for (const cashout of cashouts) {
+      try {
+        const location = convertStockLocation(cashout.location as any);
+        await this.cashoutModel.findByIdAndUpdate(
+          cashout._id,
+          { location: location },
+          {
+            new: true,
+          },
+        );
+      } catch (error) {
+        errorCount++;
+        errors.push({ cashout: cashout, error });
+      }
+    }
+
+    return {
+      message: `Migration completed with ${errorCount} errors.`,
+      errors,
+    };
   }
 }
