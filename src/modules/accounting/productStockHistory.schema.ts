@@ -13,8 +13,8 @@ export class ProductStockHistory extends Document {
   @Prop({ required: true, type: String, ref: Product.name })
   product: string;
 
-  @Prop({ required: true, type: String, ref: Location.name })
-  location: any;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
 
   @Prop({ required: true, type: Number })
   change: number;

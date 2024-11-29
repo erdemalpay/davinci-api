@@ -51,8 +51,8 @@ export class Collection extends Document {
   @Prop([OrderCollectionItem])
   orders: OrderCollectionItem[];
 
-  @Prop({ required: false, type: String, ref: Location.name })
-  stockLocation: any;
+  @Prop({ required: false, type: Number, ref: Location.name })
+  stockLocation: number;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);

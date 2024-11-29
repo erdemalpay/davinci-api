@@ -12,8 +12,8 @@ export class Stock extends Document {
   @Prop({ required: true, type: String, ref: Product.name })
   product: Product;
 
-  @Prop({ required: true, type: String, ref: Location.name })
-  location: any;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
 
   @Prop({ required: true, type: Number })
   quantity: number;

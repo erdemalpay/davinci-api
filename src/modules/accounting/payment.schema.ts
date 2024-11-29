@@ -18,8 +18,8 @@ export class Payment extends Document {
   @Prop({ required: false, type: String, ref: Expense.name })
   invoice: number;
 
-  @Prop({ required: true, type: String, ref: Location.name })
-  location: any;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
 
   @Prop({ required: false, type: String, ref: Expense.name })
   serviceInvoice: number;

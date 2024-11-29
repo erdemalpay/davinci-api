@@ -1402,7 +1402,7 @@ export class AccountingService {
   async updateStockForStockCount(
     user: User,
     product: string,
-    location: string,
+    location: number,
     quantity: number,
     currentCountId: number,
   ) {
@@ -1659,7 +1659,7 @@ export class AccountingService {
   async createCountList(user: User, createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);
-    countList.locations = ['bahceli', 'neorama'];
+    countList.locations = [1, 2];
     countList.active = true;
     await countList.save();
     this.accountingGateway.emitCountListChanged(user, countList);

@@ -90,8 +90,8 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isReturned: boolean;
 
-  @Prop({ required: false, type: String, ref: Location.name })
-  stockLocation: any;
+  @Prop({ required: false, type: Number, ref: Location.name })
+  stockLocation: number;
 
   @Prop({ required: false, type: String })
   stockNote: string;

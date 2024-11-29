@@ -39,8 +39,8 @@ export class Expense extends Document {
   @Prop({ required: false, type: String, ref: Vendor.name })
   vendor: string;
 
-  @Prop({ required: true, type: String, ref: Location.name })
-  location: any;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
 
   @Prop({ required: true, type: Boolean })
   isPaid: boolean;

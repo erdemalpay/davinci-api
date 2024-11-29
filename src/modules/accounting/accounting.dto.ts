@@ -102,7 +102,7 @@ export class CreateProductStockHistoryDto {
 
 export class ConsumptStockDto {
   product: string;
-  location: string;
+  location: number;
   quantity: number;
   status?: string;
 }

@@ -7,8 +7,8 @@ export class CountListsProduct {
   @Prop({ required: true, type: Number, ref: Product.name })
   product: string;
 
-  @Prop({ required: true, type: [{ type: String, ref: Location.name }] })
-  locations: any[];
+  @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
+  locations: number[];
 }
 
 @Schema({ _id: false })
@@ -22,8 +22,8 @@ export class CountList extends Document {
   @Prop({ required: true, type: Boolean })
   active: boolean;
 
-  @Prop({ required: true, type: [{ type: String, ref: Location.name }] })
-  locations: any[];
+  @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
+  locations: number[];
 
   @Prop([CountListsProduct])
   products: CountListsProduct[];

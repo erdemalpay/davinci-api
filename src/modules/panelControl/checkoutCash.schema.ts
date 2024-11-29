@@ -18,8 +18,8 @@ export class CheckoutCash extends Document {
   @Prop({ required: true, type: String })
   date: string;
 
-  @Prop({ required: true, type: String, ref: Location.name })
-  location: any;
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
 
   @Prop({ required: true, type: String, ref: User.name })
   user: string;

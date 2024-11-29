@@ -478,7 +478,7 @@ export class AccountingController {
     @Body()
     payload: {
       product: string;
-      location: string;
+      location: number;
       quantity: number;
       currentCountId: number;
     },
