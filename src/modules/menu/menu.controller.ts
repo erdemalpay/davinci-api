@@ -30,8 +30,17 @@ export class MenuController {
 
   @Public()
   @Get('/categories')
-  getCategories() {
+  getActiveCategories() {
+    return this.menuService.findActiveCategories();
+  }
+
+  @Get('/categories-all')
+  getAllCategories() {
     return this.menuService.findAllCategories();
+  }
+  @Get('/update-category-active')
+  updateCategoriesActiveness() {
+    return this.menuService.updateCategoriesActiveness();
   }
 
   @Public()

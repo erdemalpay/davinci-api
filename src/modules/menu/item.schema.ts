@@ -38,7 +38,7 @@ export class MenuItem extends Document {
   order: number;
 
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
-  category: MenuCategory;
+  category: MenuCategory | number;
 
   @Prop({ required: true, type: Number, default: 0 })
   price: number;

@@ -56,7 +56,8 @@ export class MenuGateway
     this.server.emit('kitchenChanged', { user, kitchen });
   }
 
-  emitCategoryChanged(user: User, category: any) {
+  async emitCategoryChanged(user: User, category: any) {
+    await this.redisService.reset(RedisKeys.MenuItems);
     this.server.emit('categoryChanged', { user, category });
   }
 

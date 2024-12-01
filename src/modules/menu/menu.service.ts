@@ -46,8 +46,12 @@ export class MenuService {
   findAllCategories() {
     return this.categoryModel.find().sort({ order: 'asc' });
   }
+  findActiveCategories() {
+    return this.categoryModel.find({ active: true }).sort({ order: 'asc' });
+  }
 
   async findAllItems() {
+    //this returns the category active items
     try {
       // Attempt to retrieve items from Redis cache
       const redisItems = await this.redisService.get(RedisKeys.MenuItems);
@@ -59,12 +63,16 @@ export class MenuService {
     }
 
     try {
-      // Query the database for items, sorted by category and order
-      const items = await this.itemModel
-        .find()
+      const activeCategories = await this.findActiveCategories();
+      const allItems = await this.itemModel
+        .find({})
         .sort({ category: 1, order: 1 })
         .exec();
-
+      const items = allItems.filter((item) =>
+        activeCategories.some(
+          (category) => category._id === (item.category as number),
+        ),
+      );
       // If items are found, cache them in Redis
       if (items.length > 0) {
         await this.redisService.set(RedisKeys.MenuItems, items);
@@ -91,6 +99,7 @@ export class MenuService {
       ...createCategoryDto,
       order: lastCategory ? lastCategory.order + 1 : 1,
       locations: [1, 2],
+      active: true,
     });
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
@@ -583,5 +592,10 @@ export class MenuService {
     await upperCategory.remove();
     this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
     return upperCategory;
+  }
+
+  // update categories active
+  async updateCategoriesActiveness() {
+    await this.categoryModel.updateMany({}, { active: true });
   }
 }
