@@ -597,5 +597,6 @@ export class MenuService {
   // update categories active
   async updateCategoriesActiveness() {
     await this.categoryModel.updateMany({}, { active: true });
+    await this.redisService.reset(RedisKeys.MenuItems);
   }
 }
