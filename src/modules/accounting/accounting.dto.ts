@@ -207,6 +207,7 @@ export type ExpenseFilterType = {
   service?: string;
   type?: string;
   expenseType?: string;
+  paymentMethod?: string;
   brand?: string;
   vendor?: string;
   location?: string;

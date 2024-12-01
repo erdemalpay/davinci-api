@@ -55,7 +55,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find()
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
       return orders;
     } catch (error) {
@@ -74,7 +74,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find(filterQuery)
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .sort({ createdAt: -1 })
         .exec();
       return orders;
@@ -318,7 +318,7 @@ export class OrderService {
         .find({
           createdAt: { $gte: start, $lte: end }, // Only orders on 'after' date
         })
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
       return orders;
     } catch (error) {
@@ -352,7 +352,7 @@ export class OrderService {
     try {
       const tableOrders = await this.orderModel
         .find({ table: tableId })
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
 
       return tableOrders;
@@ -938,7 +938,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find()
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
       return collections;
     } catch (error) {
@@ -957,7 +957,7 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find(filterQuery)
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
       return collections;
     } catch (error) {
@@ -1020,7 +1020,7 @@ export class OrderService {
     try {
       const tableCollection = await this.collectionModel
         .find({ table: tableId })
-        .populate('table', 'date _id name isOnlineSale finishHour')
+        .populate('table', 'date _id name isOnlineSale finishHour type')
         .exec();
 
       return tableCollection;
@@ -1034,7 +1034,6 @@ export class OrderService {
 
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;
-
     const collection = new this.collectionModel({
       ...filteredCollectionDto, // Use the filtered object
       createdBy: user._id,
@@ -1099,7 +1098,6 @@ export class OrderService {
 
     try {
       const discounts = await this.discountModel.find().exec();
-
       if (discounts.length > 0) {
         await this.redisService.set(RedisKeys.Discounts, discounts);
       }
