@@ -708,7 +708,7 @@ export class AccountingService {
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
-      sortObject['date'] = -1;
+      sortObject['_id'] = -1;
     }
     if (date) {
       const dateRange = dateRanges[date];
@@ -819,7 +819,7 @@ export class AccountingService {
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
-      sortObject['date'] = -1;
+      sortObject['_id'] = -1;
     }
     if (date) {
       const dateRange = dateRanges[date];
