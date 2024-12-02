@@ -21,6 +21,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   imports: [mongooseModule],
   providers: [CheckoutService, CheckoutGateway],
   controllers: [CheckoutController],
-  exports: [mongooseModule, CheckoutService, CheckoutModule, CheckoutGateway],
+  exports: [CheckoutService, CheckoutGateway],
 })
 export class CheckoutModule {}

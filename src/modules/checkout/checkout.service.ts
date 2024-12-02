@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
+import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
+import { dateRanges } from './../../utils/dateRanges';
 import { Cashout } from './cashout.schema';
 import {
+  CheckoutFilterType,
   CreateCashoutDto,
   CreateCheckoutControlDto,
   CreateIncomeDto,
@@ -72,8 +74,33 @@ export class CheckoutService {
   }
 
   // CheckoutControl
-  findAllCheckoutControl() {
-    return this.checkoutControlModel.find().sort({ date: 1 });
+  async findAllCheckoutControl(filter: CheckoutFilterType) {
+    let { user, location, date } = filter;
+    let after = '';
+    let before = '';
+    if (date) {
+      const dateRange = dateRanges[date];
+      if (dateRange) {
+        after = dateRange().after;
+        before = dateRange().before;
+      }
+    }
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          ...(location && { location: Number(location) }),
+          ...(user && { user: user }),
+          ...(after && { date: { $gte: after } }),
+          ...(before && { date: { $lte: before } }),
+          ...(after && before && { date: { $gte: after, $lte: before } }),
+        },
+      },
+      {
+        $sort: { date: 1 },
+      },
+    ];
+    const results = await this.checkoutControlModel.aggregate(pipeline);
+    return results;
   }
   async createCheckoutControl(
     user: User,

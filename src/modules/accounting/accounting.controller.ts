@@ -253,7 +253,7 @@ export class AccountingController {
   }
 
   @Get('/expenses')
-  findAllExpense(
+  findAllExpenseWithPagination(
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('product') product?: string,
@@ -270,7 +270,39 @@ export class AccountingController {
     @Query('asc') asc?: number,
     @Query('date') date?: string,
   ) {
-    return this.accountingService.findAllExpense(page, limit, {
+    return this.accountingService.findAllExpenseWithPagination(page, limit, {
+      product,
+      service,
+      type,
+      expenseType,
+      paymentMethod,
+      location,
+      brand,
+      vendor,
+      before,
+      after,
+      sort,
+      asc,
+      date,
+    });
+  }
+  @Get('/expenses-without-pagination')
+  findAllExpenseWithoutPagination(
+    @Query('product') product?: string,
+    @Query('service') service?: string,
+    @Query('type') type?: string,
+    @Query('expenseType') expenseType?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('location') location?: string,
+    @Query('brand') brand?: string,
+    @Query('vendor') vendor?: string,
+    @Query('before') before?: string,
+    @Query('after') after?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
+    @Query('date') date?: string,
+  ) {
+    return this.accountingService.findAllExpenseWithoutPagination({
       product,
       service,
       type,

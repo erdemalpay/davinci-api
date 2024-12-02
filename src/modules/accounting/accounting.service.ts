@@ -24,8 +24,9 @@ import {
   CreateServiceDto,
   CreateStockDto,
   CreateVendorDto,
-  ExpenseFilterType,
   ExpenseTypes,
+  ExpenseWithPaginateFilterType,
+  ExpenseWithoutPaginateFilterType,
   JoinProductDto,
   StockHistoryFilter,
   StockHistoryStatusEnum,
@@ -678,7 +679,11 @@ export class AccountingService {
   findProductExpenses(product: string) {
     return this.expenseModel.find({ product: product });
   }
-  async findAllExpense(page: number, limit: number, filter: ExpenseFilterType) {
+  async findAllExpenseWithPagination(
+    page: number,
+    limit: number,
+    filter: ExpenseWithPaginateFilterType,
+  ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
     let {
@@ -715,7 +720,7 @@ export class AccountingService {
     const pipeline: PipelineStage[] = [
       {
         $match: {
-          ...(location && { location: location }),
+          ...(location && { location: Number(location) }),
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
           ...(expenseType && { expenseType: expenseType }),
@@ -789,6 +794,63 @@ export class AccountingService {
 
     // Return the first element of results which contains all required properties
     return results[0];
+  }
+  async findAllExpenseWithoutPagination(
+    filter: ExpenseWithoutPaginateFilterType,
+  ) {
+    let {
+      product,
+      service,
+      type,
+      expenseType,
+      paymentMethod,
+      location,
+      brand,
+      vendor,
+      before,
+      after,
+      sort,
+      asc,
+      date,
+    } = filter;
+    const productArray = product ? product.split(',') : [];
+    const serviceArray = service ? service.split(',') : [];
+    const sortObject = {};
+    if (sort) {
+      sortObject[sort] = asc ? Number(asc) : -1;
+    } else {
+      sortObject['date'] = -1;
+    }
+    if (date) {
+      const dateRange = dateRanges[date];
+      if (dateRange) {
+        after = dateRange().after;
+        before = dateRange().before;
+      }
+    }
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          ...(location && { location: Number(location) }),
+          ...(product && { product: { $in: productArray } }),
+          ...(service && { service: { $in: serviceArray } }),
+          ...(expenseType && { expenseType: expenseType }),
+          ...(paymentMethod && { paymentMethod: paymentMethod }),
+          ...(brand && { brand: brand }),
+          ...(type && { type: type }),
+          ...(vendor && { vendor: vendor }),
+          ...(after && { date: { $gte: after } }),
+          ...(before && { date: { $lte: before } }),
+          ...(after && before && { date: { $gte: after, $lte: before } }),
+        },
+      },
+      {
+        $sort: sortObject,
+      },
+    ];
+
+    const results = await this.expenseModel.aggregate(pipeline);
+    return results;
   }
 
   async createExpense(

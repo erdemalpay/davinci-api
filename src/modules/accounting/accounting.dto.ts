@@ -202,7 +202,22 @@ export type InvoiceFilterType = {
   asc?: number;
 };
 
-export type ExpenseFilterType = {
+export type ExpenseWithPaginateFilterType = {
+  product?: string;
+  service?: string;
+  type?: string;
+  expenseType?: string;
+  paymentMethod?: string;
+  brand?: string;
+  vendor?: string;
+  location?: string;
+  before?: string;
+  after?: string;
+  sort?: string;
+  asc?: number;
+  date?: string;
+};
+export type ExpenseWithoutPaginateFilterType = {
   product?: string;
   service?: string;
   type?: string;

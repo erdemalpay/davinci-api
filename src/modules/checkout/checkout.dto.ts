@@ -16,3 +16,9 @@ export class CreateCheckoutControlDto {
   date: string;
   amount: number;
 }
+
+export type CheckoutFilterType = {
+  user?: string;
+  location?: string;
+  date?: string;
+};

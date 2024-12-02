@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
@@ -80,8 +81,16 @@ export class CheckoutController {
 
   // CheckoutControl
   @Get('/checkout-control')
-  getCheckoutControl() {
-    return this.checkoutService.findAllCheckoutControl();
+  getCheckoutControl(
+    @Query('user') user?: string,
+    @Query('location') location?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.checkoutService.findAllCheckoutControl({
+      user,
+      location,
+      date,
+    });
   }
 
   @Post('/checkout-control')
