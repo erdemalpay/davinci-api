@@ -19,6 +19,7 @@ import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
+import { MenuService } from './../menu/menu.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
@@ -34,7 +35,6 @@ import {
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
-
 @Injectable()
 export class OrderService {
   constructor(
@@ -43,6 +43,8 @@ export class OrderService {
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
+    @Inject(forwardRef(() => MenuService))
+    private readonly menuService: MenuService,
     private readonly orderGateway: OrderGateway,
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
@@ -834,15 +836,34 @@ export class OrderService {
   }
   async categoryBasedOrderSummary(
     user: User,
-    category: number,
+    category?: number,
     location?: number,
+    upperCategory?: number,
   ) {
     const twelveMonthsAgo = moment()
       .subtract(12, 'months')
       .startOf('month')
       .toDate();
-
-    let pipeline: PipelineStage[] = [
+    let foundUpperCategory;
+    if (upperCategory) {
+      foundUpperCategory = await this.menuService.findSingleUpperCategory(
+        Number(upperCategory),
+      );
+    }
+    let matchStage;
+    if (upperCategory) {
+      const categoryGroupArray = foundUpperCategory?.categoryGroup?.map(
+        (categoryGroup) => categoryGroup?.category,
+      );
+      matchStage = {
+        $match: {
+          $expr: {
+            $in: ['$itemDetails.category', categoryGroupArray],
+          },
+        },
+      };
+    }
+    let categoryPipeline: PipelineStage[] = [
       {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
@@ -930,8 +951,121 @@ export class OrderService {
         },
       },
     ];
-
-    const results = await this.orderModel.aggregate(pipeline).exec();
+    let upperCategoryPipeline: PipelineStage[] = [
+      {
+        $match: {
+          createdAt: { $gte: twelveMonthsAgo },
+          status: { $ne: 'CANCELLED' },
+          ...(location !== undefined && { location: Number(location) }),
+        },
+      },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: 'item',
+          foreignField: '_id',
+          as: 'itemDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$itemDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      matchStage,
+      {
+        $addFields: {
+          discountMultiplier: {
+            $cond: {
+              if: upperCategory,
+              then: {
+                $reduce: {
+                  input: foundUpperCategory?.categoryGroup,
+                  initialValue: 1,
+                  in: {
+                    $cond: [
+                      { $eq: ['$$this.category', '$itemDetails.category'] },
+                      { $divide: [{ $toDecimal: '$$this.percentage' }, 100] },
+                      '$$value',
+                    ],
+                  },
+                },
+              },
+              else: 1,
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          total: {
+            $sum: {
+              $subtract: [
+                {
+                  $multiply: [
+                    '$paidQuantity',
+                    '$unitPrice',
+                    '$discountMultiplier',
+                  ],
+                },
+                {
+                  $cond: {
+                    if: '$discountPercentage',
+                    then: {
+                      $multiply: [
+                        '$discountPercentage',
+                        '$paidQuantity',
+                        '$unitPrice',
+                        0.01,
+                      ],
+                    },
+                    else: {
+                      $multiply: [
+                        { $ifNull: ['$discountAmount', 0] },
+                        '$paidQuantity',
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $sort: { '_id.month': 1 },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: {
+            $arrayElemAt: [
+              [
+                'January',
+                'February',
+                'March',
+                'April',
+                'May',
+                'June',
+                'July',
+                'August',
+                'September',
+                'October',
+                'November',
+                'December',
+              ],
+              { $subtract: ['$_id.month', 1] },
+            ],
+          },
+          total: { $toInt: '$total' },
+        },
+      },
+    ];
+    const results = upperCategory
+      ? await this.orderModel.aggregate(upperCategoryPipeline).exec()
+      : await this.orderModel.aggregate(categoryPipeline).exec();
     return results;
   }
 

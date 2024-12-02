@@ -42,11 +42,13 @@ export class OrderController {
     @ReqUser() user: User,
     @Query('category') category?: number,
     @Query('location') location?: number,
+    @Query('upperCategory') upperCategory?: number,
   ) {
     return this.orderService.categoryBasedOrderSummary(
       user,
       category,
       location,
+      upperCategory,
     );
   }
 

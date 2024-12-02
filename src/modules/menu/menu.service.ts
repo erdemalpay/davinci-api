@@ -561,6 +561,9 @@ export class MenuService {
   async findAllUpperCategories() {
     return this.upperCategoryModel.find();
   }
+  findSingleUpperCategory(id: number) {
+    return this.upperCategoryModel.findById(id);
+  }
 
   async createUpperCategory(
     user: User,

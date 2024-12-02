@@ -6,6 +6,7 @@ import { GameplayModule } from '../gameplay/gameplay.module';
 import { RedisModule } from '../redis/redis.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { MenuModule } from './../menu/menu.module';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
 import { OrderController } from './order.controller';
@@ -24,10 +25,11 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     mongooseModule,
 
     ActivityModule,
+    GameplayModule,
     RedisModule,
     forwardRef(() => AccountingModule),
     forwardRef(() => TableModule),
-    GameplayModule,
+    forwardRef(() => MenuModule),
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderGateway],
