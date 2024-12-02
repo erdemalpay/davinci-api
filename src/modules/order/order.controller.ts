@@ -320,14 +320,4 @@ export class OrderController {
   deleteDiscount(@ReqUser() user: User, @Param('id') id: number) {
     return this.orderService.removeDiscount(user, id);
   }
-
-  @Get('/migrate-collection-locations')
-  migrateCollectionStockLocations() {
-    return this.orderService.migrateCollectionStockLocations();
-  }
-
-  @Get('/migrate-order-locations')
-  migrateOrderStockLocations() {
-    return this.orderService.migrateOrderStockLocations();
-  }
 }

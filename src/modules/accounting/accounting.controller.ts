@@ -524,33 +524,4 @@ export class AccountingController {
   matchProducts() {
     return this.accountingService.matchProducts();
   }
-  @Get('/migrate-count-locations')
-  migrateCountLocations() {
-    return this.accountingService.migrateCountLocations();
-  }
-
-  @Get('/migrate-countList-locations')
-  migrateCountListLocations() {
-    return this.accountingService.migrateCountListLocations();
-  }
-
-  @Get('/migrate-expense-locations')
-  migrateExpenseLocations() {
-    return this.accountingService.migrateExpenseLocations();
-  }
-
-  @Get('/migrate-payment-locations')
-  migratePaymentLocations() {
-    return this.accountingService.migratePaymentLocations();
-  }
-
-  @Get('/migrate-productStockHistory-locations')
-  migrateProductStockHistoryLocations() {
-    return this.accountingService.migrateProductStockHistoryLocations();
-  }
-
-  @Get('/migrate-stock-locations')
-  migrateStockLocations() {
-    return this.accountingService.migrateStockLocations();
-  }
 }

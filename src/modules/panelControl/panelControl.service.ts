@@ -4,7 +4,6 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
-import { convertStockLocation } from './../../utils/stockLocation';
 import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
 import {
@@ -164,30 +163,5 @@ export class PanelControlService {
     );
     this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
     return newPanelSetting;
-  }
-
-  async migrateCheckoutCashLocations() {
-    const checkoutCashs = await this.checkoutCashModel.find();
-    let errors = [];
-    let errorCount = 0;
-    for (const checkoutCash of checkoutCashs) {
-      try {
-        const location = convertStockLocation(checkoutCash.location as any);
-        await this.checkoutCashModel.findByIdAndUpdate(
-          checkoutCash._id,
-          { location: location },
-          {
-            new: true,
-          },
-        );
-      } catch (error) {
-        errorCount++;
-        errors.push({ checkoutCash: checkoutCash, error });
-      }
-    }
-    return {
-      message: `Migration completed with ${errorCount} errors.`,
-      errors,
-    };
   }
 }

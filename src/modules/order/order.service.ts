@@ -16,7 +16,6 @@ import { TableGateway } from '../table/table.gateway';
 import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
-import { convertStockLocation } from './../../utils/stockLocation';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
@@ -1594,56 +1593,5 @@ export class OrderService {
     }
 
     return orders;
-  }
-  async migrateCollectionStockLocations() {
-    const collections = await this.collectionModel.find();
-    let errors = [];
-    let errorCount = 0;
-    for (const collection of collections) {
-      try {
-        const location = convertStockLocation(collection.stockLocation as any);
-        await this.collectionModel.findByIdAndUpdate(
-          collection._id,
-          { stockLocation: location },
-          {
-            new: true,
-          },
-        );
-      } catch (error) {
-        errorCount++;
-        errors.push({ collection: collection, error });
-      }
-    }
-
-    return {
-      message: `Migration completed with ${errorCount} errors.`,
-      errors,
-    };
-  }
-
-  async migrateOrderStockLocations() {
-    const orders = await this.orderModel.find();
-    let errors = [];
-    let errorCount = 0;
-    for (const order of orders) {
-      try {
-        const location = convertStockLocation(order.stockLocation as any);
-        await this.orderModel.findByIdAndUpdate(
-          order._id,
-          { stockLocation: location },
-          {
-            new: true,
-          },
-        );
-      } catch (error) {
-        errorCount++;
-        errors.push({ order: order, error });
-      }
-    }
-
-    return {
-      message: `Migration completed with ${errorCount} errors.`,
-      errors,
-    };
   }
 }

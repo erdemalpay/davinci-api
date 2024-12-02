@@ -108,17 +108,4 @@ export class CheckoutController {
   deleteCheckoutControl(@ReqUser() user: User, @Param('id') id: string) {
     return this.checkoutService.removeCheckoutControl(user, id);
   }
-
-  @Get('/migrate-income-locations')
-  migrateIncomeLocations() {
-    return this.checkoutService.migrateIncomeLocations();
-  }
-  @Get('/migrate-checkoutControl-locations')
-  migrateCheckoutControlLocations() {
-    return this.checkoutService.migrateCheckoutControlLocations();
-  }
-  @Get('/migrate-cashout-locations')
-  migrateCashoutLocations() {
-    return this.checkoutService.migrateCashoutLocations();
-  }
 }
