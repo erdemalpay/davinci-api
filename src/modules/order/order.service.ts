@@ -93,7 +93,10 @@ export class OrderService {
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
     if (before) {
-      filterQuery['createdAt'] = { $lte: new Date(before) };
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: new Date(before),
+      };
     }
 
     try {
