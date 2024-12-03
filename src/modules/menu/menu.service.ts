@@ -551,7 +551,6 @@ export class MenuService {
     ordersPage.tabs = ordersPage.tabs.filter(
       (tab) => tab.name !== kitchen.name,
     );
-
     await kitchen.remove();
     this.menuGateway.emitKitchenChanged(user, kitchen);
     return kitchen;

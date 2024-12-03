@@ -22,6 +22,9 @@ export class User extends Document {
   name: string;
 
   @Prop({ type: String })
+  cafeId: string;
+
+  @Prop({ type: String })
   fullName: string;
 
   @Prop({ type: String, required: true })

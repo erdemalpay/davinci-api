@@ -3,7 +3,7 @@ import { addHours, format } from 'date-fns';
 import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
 import { CreateVisitDto } from './create.visit.dto';
-import { VisitDto } from './visit.dto';
+import { CafeVisitDto, VisitDto } from './visit.dto';
 import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
 
@@ -79,4 +79,6 @@ export class VisitService {
       };
     });
   }
+
+  async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {}
 }
