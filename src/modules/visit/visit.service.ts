@@ -84,6 +84,9 @@ export class VisitService {
 
   async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {
     const user = await this.userService.findByCafeId(cafeVisitDto.userData);
+    if (!user) {
+      throw new Error('User not found');
+    }
     const visit = await this.visitModel.create({
       user: user._id,
       location: cafeVisitDto.location,
