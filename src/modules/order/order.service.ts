@@ -435,25 +435,6 @@ export class OrderService {
             });
           }
         }
-        if (
-          (createdOrder.discountAmount >= createdOrder.unitPrice ||
-            createdOrder.discountPercentage >= 100) &&
-          createdOrder?.table
-        ) {
-          await this.createCollection(user, {
-            location: createdOrder.location,
-            amount: 0,
-            status: 'paid',
-            paymentMethod: 'cash',
-            table: table._id,
-            orders: [
-              {
-                order: createdOrder._id,
-                paidQuantity: createdOrder.quantity,
-              },
-            ],
-          });
-        }
         this.activityService.addActivity(
           user,
           ActivityType.CREATE_ORDER,
@@ -539,25 +520,6 @@ export class OrderService {
               createOrderDto?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
           });
         }
-      }
-      if (
-        (order.discountAmount >= order.unitPrice ||
-          order.discountPercentage >= 100) &&
-        order?.table
-      ) {
-        await this.createCollection(user, {
-          location: order.location,
-          amount: 0,
-          status: 'paid',
-          paymentMethod: 'cash',
-          table: order.table,
-          orders: [
-            {
-              order: order._id,
-              paidQuantity: order.quantity,
-            },
-          ],
-        });
       }
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
       if (order?.table) {
@@ -1398,24 +1360,6 @@ export class OrderService {
             },
           );
           this.orderGateway.emitOrderUpdated(user, updatedOrder);
-          if (
-            (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= oldOrder?.unitPrice)
-          ) {
-            await this.createCollection(user, {
-              location: oldOrder?.location,
-              amount: 0,
-              status: 'paid',
-              paymentMethod: 'cash',
-              table: oldOrder?.table,
-              orders: [
-                {
-                  order: oldOrder?._id,
-                  paidQuantity: orderItem.selectedQuantity,
-                },
-              ],
-            });
-          }
         } catch (error) {
           throw new HttpException(
             'Failed to update order',
@@ -1450,24 +1394,6 @@ export class OrderService {
         try {
           await newOrder.save();
           this.orderGateway.emitOrderCreated(user, newOrder);
-          if (
-            (discountPercentage && discountPercentage >= 100) ||
-            (discountAmount && discountAmount >= oldOrder?.unitPrice)
-          ) {
-            await this.createCollection(user, {
-              location: newOrder.location,
-              amount: 0,
-              status: 'paid',
-              paymentMethod: 'cash',
-              table: newOrder.table,
-              orders: [
-                {
-                  order: newOrder._id,
-                  paidQuantity: newOrder.quantity,
-                },
-              ],
-            });
-          }
         } catch (error) {
           throw new HttpException(
             'Failed to create order',
