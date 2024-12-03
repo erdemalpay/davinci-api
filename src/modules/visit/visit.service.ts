@@ -2,8 +2,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format } from 'date-fns';
 import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
+import { UserService } from '../user/user.service';
 import { CreateVisitDto } from './create.visit.dto';
-import { CafeVisitDto, VisitDto } from './visit.dto';
+import { CafeVisitDto, VisitDto, VisitTypes } from './visit.dto';
 import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
 
@@ -11,6 +12,7 @@ export class VisitService {
   constructor(
     @InjectModel(Visit.name) private visitModel: Model<Visit>,
     private readonly visitGateway: VisitGateway,
+    private readonly userService: UserService,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -80,5 +82,20 @@ export class VisitService {
     });
   }
 
-  async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {}
+  async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {
+    const user = await this.userService.findByCafeId(cafeVisitDto.userData);
+    const visit = await this.visitModel.create({
+      user: user._id,
+      location: cafeVisitDto.location,
+      date: cafeVisitDto.date,
+      ...(cafeVisitDto?.type === VisitTypes.ENTRY && {
+        startHour: cafeVisitDto.hour,
+      }),
+      ...(cafeVisitDto?.type === VisitTypes.EXIT && {
+        finishHour: cafeVisitDto.hour,
+      }),
+    });
+    this.visitGateway.emitVisitChanged(user, visit);
+    return visit;
+  }
 }

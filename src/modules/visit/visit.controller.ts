@@ -11,6 +11,7 @@ import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateVisitDto } from './create.visit.dto';
+import { CafeVisitDto } from './visit.dto';
 import { VisitService } from './visit.service';
 @Controller('/visits')
 export class VisitController {
@@ -41,6 +42,10 @@ export class VisitController {
   @Post()
   createVisit(@ReqUser() user: User, @Body() createVisitDto: CreateVisitDto) {
     return this.visitService.create(user, createVisitDto);
+  }
+  @Post('/cafe')
+  createVisitFromCafe(@Body() cafeVisitDto: CafeVisitDto) {
+    return this.visitService.createVisitFromCafe(cafeVisitDto);
   }
 
   @Patch('/finish/:id')

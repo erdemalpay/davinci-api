@@ -238,4 +238,9 @@ export class UserService implements OnModuleInit {
 
     console.log('Created default roles.'); // eslint-disable-line no-console
   }
+
+  async findByCafeId(cafeId: string) {
+    const users = await this.userModel.find({ cafeId: cafeId });
+    return users[0];
+  }
 }
