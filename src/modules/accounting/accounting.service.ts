@@ -1237,7 +1237,7 @@ export class AccountingService {
         const productStockHistory = stockHistory.filter(
           (history) =>
             history.product.toString() === stock.product.toString() &&
-            history.location.toString() === stock.location.toString(),
+            history.location === stock.location,
         );
         let changeSum = productStockHistory.reduce(
           (acc, history) => acc + history.change * -1,
@@ -1249,7 +1249,7 @@ export class AccountingService {
         filteredStocks.push({
           _id: stock._id,
           product: stock.product,
-          location: stock.location,
+          location: Number(stock.location),
           quantity: stock.quantity,
         });
       }
@@ -1267,8 +1267,8 @@ export class AccountingService {
       const products = await this.findActiveProducts();
       const locationMap = {
         '0': '',
-        '1': 'bahceli',
-        '2': 'neorama',
+        '1': 1,
+        '2': 2,
       };
       const stockLocation = locationMap[location] || '';
 
@@ -1297,7 +1297,7 @@ export class AccountingService {
           const productStockHistory = stockHistory?.filter(
             (stockHistory) =>
               stockHistory.product.toString() === stock.product.toString() &&
-              stockHistory.location.toString() === stock.location.toString(),
+              stockHistory.location === stock.location,
           );
           let changeSum = productStockHistory?.reduce(
             (acc, history) => acc + history.change * -1,
@@ -1309,7 +1309,7 @@ export class AccountingService {
           filteredStocks.push({
             _id: stock._id,
             product: stock.product,
-            location: stock.location,
+            location: Number(stock.location),
             quantity: stock.quantity,
           });
         }
@@ -1644,7 +1644,7 @@ export class AccountingService {
       },
       {
         $match: {
-          ...(location && { location: location }),
+          ...(location && { location: Number(location) }),
           ...(status && { status: status }),
           ...(product && { product: { $in: productArray } }),
           ...(expenseType && {
