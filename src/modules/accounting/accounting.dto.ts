@@ -188,6 +188,8 @@ export type StockHistoryFilter = {
   after?: string;
   sort?: string;
   asc?: number;
+  vendor?: string;
+  brand?: string;
 };
 
 export type InvoiceFilterType = {

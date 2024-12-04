@@ -447,6 +447,8 @@ export class AccountingController {
     @Query('after') after?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
   ) {
     return this.accountingService.findAllProductStockHistories(page, limit, {
       product,
@@ -457,6 +459,8 @@ export class AccountingController {
       after,
       sort,
       asc,
+      vendor,
+      brand,
     });
   }
 

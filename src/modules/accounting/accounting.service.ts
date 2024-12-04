@@ -1309,13 +1309,7 @@ export class AccountingService {
     try {
       const { after, before, location } = query;
       const products = await this.findActiveProducts();
-      const locationMap = {
-        '0': '',
-        '1': 1,
-        '2': 2,
-      };
-      const stockLocation = locationMap[location] || '';
-
+      const stockLocation = location ? Number(location) : null;
       let afterFilterQuery = {};
       let beforeFilterQuery = {};
       afterFilterQuery['createdAt'] = { $gte: new Date(after) };
@@ -1663,8 +1657,18 @@ export class AccountingService {
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
-    const { product, expenseType, location, status, before, after, sort, asc } =
-      filter;
+    const {
+      product,
+      expenseType,
+      location,
+      status,
+      before,
+      after,
+      sort,
+      asc,
+      vendor,
+      brand,
+    } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? (product as any).split(',') : [];
     const sortObject = {};
@@ -1693,6 +1697,12 @@ export class AccountingService {
           ...(product && { product: { $in: productArray } }),
           ...(expenseType && {
             'productDetails.expenseType': { $in: [expenseType] },
+          }),
+          ...(vendor && {
+            'productDetails.vendor': { $in: [vendor] },
+          }),
+          ...(brand && {
+            'productDetails.brand': { $in: [brand] },
           }),
           ...(before && { createdAt: { $lte: new Date(before) } }),
           ...(after && { createdAt: { $gte: new Date(after) } }),
