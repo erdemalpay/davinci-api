@@ -1,9 +1,10 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
+import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
@@ -25,8 +26,8 @@ import {
   CreateStockDto,
   CreateVendorDto,
   ExpenseTypes,
-  ExpenseWithPaginateFilterType,
   ExpenseWithoutPaginateFilterType,
+  ExpenseWithPaginateFilterType,
   JoinProductDto,
   StockHistoryFilter,
   StockHistoryStatusEnum,
@@ -69,6 +70,8 @@ export class AccountingService {
     private readonly activityService: ActivityService,
     private readonly checkoutService: CheckoutService,
     private readonly accountingGateway: AccountingGateway,
+    @Inject(forwardRef(() => LocationService))
+    private readonly locationService: LocationService,
     private readonly redisService: RedisService,
   ) {}
   //   Products
@@ -700,11 +703,13 @@ export class AccountingService {
       sort,
       asc,
       date,
+      search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
     const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
+    const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
@@ -716,6 +721,17 @@ export class AccountingService {
         after = dateRange().after;
         before = dateRange().before;
       }
+    }
+    let searchedPaymentMethodsIds = [];
+    let searchedLocationIds = [];
+    if (search) {
+      searchedPaymentMethodsIds = await this.paymentMethodModel
+        .find({ name: { $regex: new RegExp(search, 'i') } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
+      searchedLocationIds = await this.locationService.searchLocationIds(
+        search,
+      );
     }
     const pipeline: PipelineStage[] = [
       {
@@ -731,6 +747,23 @@ export class AccountingService {
           ...(after && { date: { $gte: after } }),
           ...(before && { date: { $lte: before } }),
           ...(after && before && { date: { $gte: after, $lte: before } }),
+          ...(searchedPaymentMethodsIds.length > 0 && {}),
+          ...(regexSearch
+            ? {
+                $or: [
+                  { note: { $regex: new RegExp(search, 'i') } },
+                  { type: { $regex: new RegExp(search, 'i') } },
+                  { brand: { $regex: regexSearch } },
+                  { vendor: { $regex: regexSearch } },
+                  { user: { $regex: regexSearch } },
+                  { product: { $regex: regexSearch } },
+                  { service: { $regex: regexSearch } },
+                  { expenseType: { $regex: regexSearch } },
+                  { paymentMethod: { $in: searchedPaymentMethodsIds } },
+                  { location: { $in: searchedLocationIds } },
+                ],
+              }
+            : {}),
         },
       },
       {

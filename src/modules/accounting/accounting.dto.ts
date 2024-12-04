@@ -216,6 +216,7 @@ export type ExpenseWithPaginateFilterType = {
   sort?: string;
   asc?: number;
   date?: string;
+  search?: string;
 };
 export type ExpenseWithoutPaginateFilterType = {
   product?: string;
@@ -231,4 +232,5 @@ export type ExpenseWithoutPaginateFilterType = {
   sort?: string;
   asc?: number;
   date?: string;
+  search?: string;
 };

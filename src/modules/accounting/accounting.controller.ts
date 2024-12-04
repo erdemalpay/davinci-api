@@ -269,6 +269,7 @@ export class AccountingController {
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
     @Query('date') date?: string,
+    @Query('search') search?: string,
   ) {
     return this.accountingService.findAllExpenseWithPagination(page, limit, {
       product,
@@ -284,6 +285,7 @@ export class AccountingController {
       sort,
       asc,
       date,
+      search,
     });
   }
   @Get('/expenses-without-pagination')

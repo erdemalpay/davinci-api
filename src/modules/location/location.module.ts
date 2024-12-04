@@ -14,5 +14,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   imports: [mongooseModule],
   controllers: [LocationController],
   providers: [LocationService, LocationGateway],
+  exports: [LocationService],
 })
 export class LocationModule {}

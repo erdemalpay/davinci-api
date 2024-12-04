@@ -42,4 +42,11 @@ export class LocationService {
 
     console.log('Created default locations.'); // eslint-disable-line no-console
   }
+  async searchLocationIds(search: string) {
+    const searchLocationIds = await this.locationModel
+      .find({ name: { $regex: new RegExp(search, 'i') } })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
+    return searchLocationIds;
+  }
 }
