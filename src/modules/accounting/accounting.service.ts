@@ -724,6 +724,7 @@ export class AccountingService {
     }
     let searchedPaymentMethodsIds = [];
     let searchedLocationIds = [];
+    let searchedExpenses = [];
     if (search) {
       searchedPaymentMethodsIds = await this.paymentMethodModel
         .find({ name: { $regex: new RegExp(search, 'i') } })
@@ -732,7 +733,16 @@ export class AccountingService {
       searchedLocationIds = await this.locationService.searchLocationIds(
         search,
       );
+      if (Number(search)) {
+        searchedExpenses = await this.expenseModel
+          .find({
+            _id: Number(search),
+          })
+          .select('_id')
+          .then((docs) => docs.map((doc) => doc._id));
+      }
     }
+
     const pipeline: PipelineStage[] = [
       {
         $match: {
@@ -761,6 +771,7 @@ export class AccountingService {
                   { expenseType: { $regex: regexSearch } },
                   { paymentMethod: { $in: searchedPaymentMethodsIds } },
                   { location: { $in: searchedLocationIds } },
+                  { _id: { $in: searchedExpenses } },
                 ],
               }
             : {}),
