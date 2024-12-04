@@ -1706,6 +1706,7 @@ export class AccountingService {
           }),
           ...(before && { createdAt: { $lte: new Date(before) } }),
           ...(after && { createdAt: { $gte: new Date(after) } }),
+          ...(after && before && { date: { $gte: after, $lte: before } }),
         },
       },
       {
