@@ -2,6 +2,7 @@ export class CreateIncomeDto {
   location: number;
   date: string;
   amount: number;
+  note: string;
 }
 
 export class CreateCashoutDto {
