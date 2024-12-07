@@ -1,7 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
+  Param,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -11,6 +15,20 @@ import { AssetService } from './asset.service';
 @Controller('asset')
 export class AssetController {
   constructor(private readonly assetService: AssetService) {}
+
+  @Get('/folders')
+  getAllFolders() {
+    return this.assetService.getAllFolders();
+  }
+
+  @Get('/folder/images')
+  getFolderImages(@Query('folderName') folderName: string) {
+    return this.assetService.getFolderImages(folderName);
+  }
+  @Delete('image/*')
+  deleteImage(@Param('0') path: string) {
+    return this.assetService.deleteImage(path);
+  }
 
   @Post('upload')
   @UseInterceptors(
