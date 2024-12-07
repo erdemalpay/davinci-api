@@ -67,7 +67,9 @@ export class OrderService {
     }
   }
   async findQueryOrders(query: OrderQueryDto) {
-    const filterQuery = {};
+    const filterQuery = {
+      quantity: { $gt: 0 },
+    };
     const { after } = query;
     if (after) {
       filterQuery['createdAt'] = { $gte: new Date(after) };
@@ -822,6 +824,7 @@ export class OrderService {
           $expr: {
             $in: ['$itemDetails.category', categoryGroupArray],
           },
+          quantity: { $gt: 0 },
         },
       };
     }
