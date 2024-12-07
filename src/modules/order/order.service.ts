@@ -377,6 +377,9 @@ export class OrderService {
     const createdOrders: number[] = [];
     const soundRoles = new Set<number>();
     for (const order of orders) {
+      if (order.quantity <= 0) {
+        continue;
+      }
       const createdOrder = new this.orderModel({
         ...order,
         status: order?.status ?? 'pending',
@@ -476,6 +479,12 @@ export class OrderService {
   }
 
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
+    if (createOrderDto.quantity <= 0) {
+      throw new HttpException(
+        'Quantity must be greater than 0',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const order = new this.orderModel({
       ...createOrderDto,
       status: createOrderDto?.status ?? 'pending',
@@ -1262,6 +1271,12 @@ export class OrderService {
       // Destructure oldOrder to exclude the _id field
       const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
       // Create new order without the _id field
+      if (orderDataWithoutId.quantity <= 0) {
+        throw new HttpException(
+          'Quantity must be greater than 0',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const newOrder = new this.orderModel({
         ...orderDataWithoutId,
         quantity: orderItem.selectedQuantity,
@@ -1373,6 +1388,12 @@ export class OrderService {
         // Destructure oldOrder to exclude the _id field
         const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
         // Create new order without the _id field
+        if (orderDataWithoutId.quantity <= 0) {
+          throw new HttpException(
+            'Quantity must be greater than 0',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
         const newOrder = new this.orderModel({
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
@@ -1473,6 +1494,12 @@ export class OrderService {
       }
     } else {
       const { _id, ...orderDataWithoutId } = order.toObject();
+      if (orderDataWithoutId.quantity <= 0) {
+        throw new HttpException(
+          'Quantity must be greater than 0',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const newOrder = new this.orderModel({
         ...orderDataWithoutId,
         quantity: cancelQuantity,
@@ -1581,6 +1608,12 @@ export class OrderService {
         // Destructure oldOrder to exclude the _id field
         const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
         // Create new order without the _id field
+        if (orderDataWithoutId.quantity <= 0) {
+          throw new HttpException(
+            'Quantity must be greater than 0',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
         const newOrder = new this.orderModel({
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
