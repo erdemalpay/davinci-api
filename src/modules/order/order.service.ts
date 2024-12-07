@@ -844,6 +844,7 @@ export class OrderService {
           status: { $ne: 'CANCELLED' },
           ...(location !== undefined &&
             location && { location: Number(location) }),
+          quantity: { $gt: 0 },
         },
       },
       {
