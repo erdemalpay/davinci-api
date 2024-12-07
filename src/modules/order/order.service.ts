@@ -948,7 +948,7 @@ export class OrderService {
                   in: {
                     $cond: [
                       { $eq: ['$$this.category', '$itemDetails.category'] },
-                      { $divide: [{ $toDecimal: '$$this.percentage' }, 100] },
+                      { $divide: ['$$this.percentage', 100] },
                       '$$value',
                     ],
                   },
