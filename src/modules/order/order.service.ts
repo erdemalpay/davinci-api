@@ -70,9 +70,20 @@ export class OrderService {
     const filterQuery = {
       quantity: { $gt: 0 },
     };
-    const { after } = query;
+    const { after, before } = query;
     if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
+      const startDate = new Date(after);
+      startDate.setUTCHours(0, 0, 0, 0);
+
+      filterQuery['createdAt'] = { $gte: startDate };
+    }
+    if (before) {
+      const endDate = new Date(before);
+      endDate.setUTCHours(23, 59, 59, 999);
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: endDate,
+      };
     }
     try {
       const orders = await this.orderModel
@@ -1061,9 +1072,19 @@ export class OrderService {
   }
   async findQueryCollections(query: CollectionQueryDto) {
     const filterQuery = {};
-    const { after } = query;
+    const { after, before } = query;
     if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
+      const startDate = new Date(after);
+      startDate.setUTCHours(0, 0, 0, 0);
+      filterQuery['createdAt'] = { $gte: startDate };
+    }
+    if (before) {
+      const endDate = new Date(before);
+      endDate.setUTCHours(23, 59, 59, 999);
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: endDate,
+      };
     }
     try {
       const collections = await this.collectionModel

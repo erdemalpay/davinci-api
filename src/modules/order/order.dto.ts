@@ -108,6 +108,7 @@ export class OrderQueryDto {
 
 export class CollectionQueryDto {
   after?: string;
+  before?: string;
 }
 export class SummaryCollectionQueryDto {
   after?: string;

@@ -33,8 +33,11 @@ export class OrderController {
   }
 
   @Get('/query')
-  findQueryOrders(@Query('after') after?: string) {
-    return this.orderService.findQueryOrders({ after: after });
+  findQueryOrders(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.orderService.findQueryOrders({ after, before });
   }
 
   @Get('/category_summary')
@@ -252,8 +255,14 @@ export class OrderController {
     return this.orderService.findAllCollections();
   }
   @Get('/collection/query')
-  findQueryCollections(@Query('after') after?: string) {
-    return this.orderService.findQueryCollections({ after: after });
+  findQueryCollections(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.orderService.findQueryCollections({
+      after,
+      before,
+    });
   }
 
   @Get('/collection/summary/query')
