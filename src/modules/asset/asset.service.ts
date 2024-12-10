@@ -109,14 +109,69 @@ export class AssetService {
     }
   }
 
-  async deleteImage(publicId: string) {
+  deleteImage = async (url) => {
     try {
-      const result = await cloudinary.v2.uploader.destroy(encodeURI(publicId));
+      // Step 1: Decode the URL
+      const decodedUrl = decodeURIComponent(url);
+
+      // Step 2: Extract the public_id
+      const regex = /\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/;
+      const match = regex.exec(decodedUrl);
+
+      if (!match || !match[1]) {
+        throw new Error('Invalid Cloudinary URL: Could not extract public_id.');
+      }
+
+      const publicId = match[1]; // Extracted public_id
+      console.log('Extracted public_id:', publicId);
+
+      // Step 3: Delete the image using the public_id
+      const result = await cloudinary.v2.uploader.destroy(publicId);
+      console.log('Image deleted:', result);
       this.assetGateway.emitAssetChanged(result);
       return result;
     } catch (error) {
-      console.error('Error deleting image:', error);
+      console.error('Error deleting image:', error.message);
       throw error;
     }
-  }
+  };
+
+  uploadImages = async (
+    files: Array<Express.Multer.File>,
+    foldername: string,
+  ) => {
+    const uploadPromises = files.map((file) => {
+      const options = {
+        public_id: `${file.originalname}`,
+        use_filename: true,
+        unique_filename: false,
+        overwrite: true,
+        folder: foldername,
+        transformation: {
+          crop: 'scale',
+          width: 800,
+          height: 800,
+        },
+      };
+
+      return new Promise((resolve, reject) => {
+        let cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+          options,
+          (error, result) => {
+            if (error) {
+              console.log('Upload Error:', error);
+              reject(error);
+            } else {
+              console.log('Upload Result:', result);
+              resolve(result);
+            }
+          },
+        );
+
+        streamifier.createReadStream(file.buffer).pipe(cld_upload_stream);
+      });
+    });
+
+    return Promise.all(uploadPromises);
+  };
 }
