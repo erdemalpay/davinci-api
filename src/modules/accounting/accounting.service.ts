@@ -1943,6 +1943,27 @@ export class AccountingService {
             if (foundBrand.length > 0) {
               newBrand.push(foundBrand[0]._id);
             }
+            if (expenseTypeArray?.length > newExpenseTypes?.length) {
+              errorDatas.push({
+                ...addDto,
+                errorNote: 'Expense types are not written correctly',
+              });
+              continue;
+            }
+            if (vendorArray?.length > newVendor?.length) {
+              errorDatas.push({
+                ...addDto,
+                errorNote: 'Vendors are not written correctly',
+              });
+              continue;
+            }
+            if (brandArray?.length > newBrand?.length) {
+              errorDatas.push({
+                ...addDto,
+                errorNote: 'Brands are not written correctly',
+              });
+              continue;
+            }
           }
           // if expenseType is not found it will not be created
           if (newExpenseTypes.length === 0) {
