@@ -632,8 +632,18 @@ export class MenuService {
       id,
       {
         matchedProduct: product,
+        itemProduction: [
+          {
+            quantity: 1,
+            product: product,
+            isDecrementStock: true,
+          },
+        ],
       },
       { new: true },
     );
+  }
+  deleteMenuItem(id: number) {
+    return this.itemModel.findByIdAndDelete(id);
   }
 }

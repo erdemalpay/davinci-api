@@ -174,4 +174,14 @@ export class AssetService {
 
     return Promise.all(uploadPromises);
   };
+
+  async getImageWithPublicID(publicId: string) {
+    try {
+      const result = await cloudinary.v2.api.resource(publicId);
+      return result.secure_url ? result.secure_url : '';
+    } catch (error) {
+      console.error('Error fetching image:', error);
+      throw Error(error);
+    }
+  }
 }

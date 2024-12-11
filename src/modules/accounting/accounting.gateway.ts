@@ -106,4 +106,10 @@ export class AccountingGateway
   emitVendorChanged(user: User, vendor: any) {
     this.server.emit('vendorChanged', { user, vendor });
   }
+
+  async emitBulkProductAndMenuItemChanged() {
+    await this.redisService.reset(RedisKeys.AccountingProducts);
+    await this.redisService.reset(RedisKeys.MenuItems);
+    this.server.emit('bulkProductAndMenuItemChanged');
+  }
 }

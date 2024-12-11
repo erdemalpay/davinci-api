@@ -246,4 +246,5 @@ export class AddMultipleProductAndMenuItemDto {
   price?: number;
   onlinePrice?: number;
   description?: string;
+  image?: string;
 }
