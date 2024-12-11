@@ -236,3 +236,14 @@ export type ExpenseWithoutPaginateFilterType = {
   date?: string;
   search?: string;
 };
+
+export class AddMultipleProductAndMenuItemDto {
+  name: string;
+  expenseType?: string;
+  brand?: string;
+  vendor?: string;
+  category?: string;
+  price?: number;
+  onlinePrice?: number;
+  description?: string;
+}

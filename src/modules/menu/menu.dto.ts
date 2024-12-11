@@ -19,6 +19,13 @@ export class CreateItemDto {
   onlinePrice?: number;
   matchedProduct?: string;
 }
+export class CreateBulkItemDto {
+  name: string;
+  category: number;
+  price: number;
+  description?: string;
+  onlinePrice?: number;
+}
 export class CreateKitchenDto {
   name: string;
   isConfirmationRequired: boolean;

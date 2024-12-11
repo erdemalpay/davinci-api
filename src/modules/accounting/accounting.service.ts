@@ -12,6 +12,7 @@ import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
 import {
+  AddMultipleProductAndMenuItemDto,
   ConsumptStockDto,
   CreateBrandDto,
   CreateCountDto,
@@ -1862,6 +1863,129 @@ export class AccountingService {
       await this.updateProduct(null, product._id, {
         matchedMenuItem: menuItem._id,
       });
+    }
+  }
+
+  async addMultipleProductAndMenuItem(
+    addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
+  ) {
+    let errorDatas = [];
+    for (const addDto of addMultipleProductAndMenuItemDto) {
+      const {
+        name,
+        expenseType,
+        brand,
+        vendor,
+        category,
+        price,
+        onlinePrice,
+        description,
+      } = addDto;
+      //  if name field is not provided it will not be created
+      if (!name) {
+        errorDatas.push(addDto);
+        continue;
+      }
+      let isProductCreated = false;
+      let isMenuItemCreated = false;
+      let newProduct;
+      let newMenuItem;
+      // spliting the multiple entries
+      const expenseTypeArray = expenseType ? expenseType.split(',') : [];
+      const vendorArray = vendor ? vendor.split(',') : [];
+      const brandArray = brand ? brand.split(',') : [];
+
+      //  if expenseType is provided it will create a product
+      if (expenseTypeArray?.length > 0) {
+        let newExpenseTypes = [];
+        let newVendor = [];
+        let newBrand = [];
+        // find the ids of the expenseType, vendor and brand
+        for (const expTypeName of expenseTypeArray) {
+          const foundExpenseType = await this.expenseTypeModel.find({
+            name: expTypeName,
+          });
+          if (foundExpenseType.length > 0) {
+            newExpenseTypes.push(foundExpenseType[0]._id);
+          }
+        }
+        for (const vendorName of vendorArray) {
+          const foundVendor = await this.vendorModel.find({
+            name: vendorName,
+          });
+          if (foundVendor.length > 0) {
+            newVendor.push(foundVendor[0]._id);
+          }
+        }
+        for (const brandName of brandArray) {
+          const foundBrand = await this.brandModel.find({
+            name: brandName,
+          });
+          if (foundBrand.length > 0) {
+            newBrand.push(foundBrand[0]._id);
+          }
+        }
+        // if expenseType is not found it will not be created
+        if (newExpenseTypes.length === 0) {
+          errorDatas.push(addDto);
+          continue;
+        }
+        const product = await this.productModel.find({ name: name });
+        // if product already exists it will not be created
+        if (product.length > 0) {
+          errorDatas.push(addDto);
+          continue;
+        }
+        newProduct = new this.productModel({
+          name,
+          expenseType: newExpenseTypes,
+          brand: newBrand,
+          vendor: newVendor,
+          deleted: false,
+        });
+        newProduct._id = usernamify(name);
+        await newProduct.save();
+        isProductCreated = true;
+      }
+      //if category and price provided then the menuItem will be created
+      if (category && price) {
+        const foundCategory = await this.menuService.findCategoryByName(
+          category,
+        );
+        // if category is not found it will not be created
+        if (!foundCategory) {
+          errorDatas.push(addDto);
+          continue;
+        }
+        const menuItem = await this.menuService.findItemByName(name);
+        // if menuItem already exists it will not be created
+        if (menuItem) {
+          errorDatas.push(addDto);
+          continue;
+        }
+        newMenuItem = await this.menuService.createBulkMenuItemWithProduct({
+          name: name,
+          category: foundCategory._id,
+          price: price,
+          ...(onlinePrice ? { onlinePrice } : {}),
+          ...(description ? { description } : {}),
+        });
+        isMenuItemCreated = true;
+      }
+      // if product and menuItem is created then the product will be matched with the menuItem
+      if (isProductCreated && isMenuItemCreated && newProduct && newMenuItem) {
+        await this.productModel.findByIdAndUpdate(
+          newProduct._id,
+          {
+            matchedMenuItem: newMenuItem._id,
+          },
+          { new: true },
+        );
+        await this.menuService.updateForBulkItem(
+          newMenuItem._id,
+          newProduct._id,
+        );
+      }
     }
   }
 }

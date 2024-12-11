@@ -1,5 +1,6 @@
 import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
@@ -14,6 +15,7 @@ import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
 import { Kitchen } from './kitchen.schema';
 import {
+  CreateBulkItemDto,
   CreateCategoryDto,
   CreateItemDto,
   CreateKitchenDto,
@@ -600,5 +602,38 @@ export class MenuService {
   async updateCategoriesActiveness() {
     await this.categoryModel.updateMany({}, { active: true });
     await this.redisService.reset(RedisKeys.MenuItems);
+  }
+  async findCategoryByName(name: string) {
+    return this.categoryModel.findOne({ name: name });
+  }
+
+  async findItemByName(name: string) {
+    return this.itemModel.findOne({ name: name });
+  }
+  async createBulkMenuItemWithProduct(createBulkItemDto: CreateBulkItemDto) {
+    const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
+    const item = new this.itemModel({
+      ...createBulkItemDto,
+      order: lastItem ? lastItem.order + 1 : 1,
+      locations: [1, 2],
+      itemPriceHistory: [
+        {
+          price: createBulkItemDto.price,
+          date: format(new Date(), 'yyyy-MM-dd'),
+        },
+      ],
+    });
+    await item.save();
+    return item;
+  }
+
+  async updateForBulkItem(id: number, product: string) {
+    await this.itemModel.findByIdAndUpdate(
+      id,
+      {
+        matchedProduct: product,
+      },
+      { new: true },
+    );
   }
 }

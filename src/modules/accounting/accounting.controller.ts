@@ -12,6 +12,7 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import {
+  AddMultipleProductAndMenuItemDto,
   ConsumptStockDto,
   CreateBrandDto,
   CreateCountDto,
@@ -66,6 +67,17 @@ export class AccountingController {
   joinProduct(@ReqUser() user: User, @Body() joinProductDto: JoinProductDto) {
     return this.accountingService.joinProducts(user, joinProductDto);
   }
+
+  @Post('/products/bulk')
+  createBulkProductAndItem(
+    @Body()
+    addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
+  ) {
+    return this.accountingService.addMultipleProductAndMenuItem(
+      addMultipleProductAndMenuItemDto,
+    );
+  }
+
   @Patch('/products/:id')
   updateCategory(
     @ReqUser() user: User,
