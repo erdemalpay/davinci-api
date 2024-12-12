@@ -15,6 +15,9 @@ export class Location extends Document {
 
   @Prop({ required: true, default: true })
   type: number[];
+
+  @Prop({ required: false, index: true })
+  tableCount: string;
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
