@@ -1127,8 +1127,8 @@ export class AccountingService {
     if (!expense) {
       throw new HttpException('Expense not found', HttpStatus.BAD_REQUEST);
     }
-    // removing from the stock
-    if (expense.type === ExpenseTypes.STOCKABLE) {
+    // removing from the stock in case isStockIncrement is true
+    if (expense.type === ExpenseTypes.STOCKABLE && expense.isStockIncrement) {
       await this.createStock(user, {
         product: expense.product,
         location: expense.location,
