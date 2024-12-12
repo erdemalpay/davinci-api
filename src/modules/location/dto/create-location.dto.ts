@@ -1,3 +1,3 @@
-export class CreateLocationDto {
+export class CreateStockLocationDto {
   name: string;
 }

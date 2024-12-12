@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
+import { CreateStockLocationDto } from './dto/create-location.dto';
 import { Location } from './location.schema';
 import { LocationService } from './location.service';
 @Controller('location')
@@ -9,8 +10,18 @@ export class LocationController {
 
   @Get()
   @Public()
-  findAll() {
+  findStoreLocations() {
     return this.locationService.findStoreLocations();
+  }
+
+  @Post()
+  createStockLocation(@Body() createStockLocation: CreateStockLocationDto) {
+    return this.locationService.createStockLocation(createStockLocation);
+  }
+
+  @Get('/all')
+  findAllLocations() {
+    return this.locationService.findAllLocations();
   }
 
   @Get('/stock')

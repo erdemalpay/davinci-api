@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
-import { CreateLocationDto } from './dto/create-location.dto';
+import { CreateStockLocationDto } from './dto/create-location.dto';
 import { LocationGateway } from './location.gateway';
 import { Location } from './location.schema';
 @Injectable()
@@ -13,7 +13,7 @@ export class LocationService {
     this.checkDefaultLocations();
   }
 
-  create(createLocationDto: CreateLocationDto) {
+  create(createLocationDto: CreateStockLocationDto) {
     const location = this.locationModel.create(createLocationDto);
     this.locationGateway.emitLocationChanged(location);
     return location;
@@ -25,16 +25,18 @@ export class LocationService {
   findStockLocations() {
     return this.locationModel.find({ type: { $in: [2] } });
   }
-
+  findAllLocations() {
+    return this.locationModel.find();
+  }
   async checkDefaultLocations() {
     const locations = await this.findStoreLocations();
     if (locations.length > 0) {
       return;
     }
-    const location1: CreateLocationDto = {
+    const location1: CreateStockLocationDto = {
       name: 'Bahçeli',
     };
-    const location2: CreateLocationDto = {
+    const location2: CreateStockLocationDto = {
       name: 'Neorama',
     };
     await this.create(location1);
@@ -51,8 +53,22 @@ export class LocationService {
   }
 
   async updateLocation(id: number, updates: UpdateQuery<Location>) {
+    // in case if someone try to update from postman or something
+    if (updates?.type) {
+      delete updates.type;
+    }
     const location = await this.locationModel.findByIdAndUpdate(id, updates, {
       new: true,
+    });
+    this.locationGateway.emitLocationChanged(location);
+    return location;
+  }
+
+  async createStockLocation(createStockLocationDto: CreateStockLocationDto) {
+    const location = await this.locationModel.create({
+      ...createStockLocationDto,
+      type: [2],
+      active: true,
     });
     this.locationGateway.emitLocationChanged(location);
     return location;
