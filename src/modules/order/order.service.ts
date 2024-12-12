@@ -1259,12 +1259,35 @@ export class OrderService {
     return discount;
   }
   async updateDiscount(user: User, id: number, updates: UpdateQuery<Discount>) {
-    const discount = await this.discountModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+    const foundDiscount = await this.discountModel.findById(id);
+    if (!foundDiscount) {
+      throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
+    }
+    const unsetFields: Record<string, 1> = {};
+    if (foundDiscount?.percentage && updates.amount) {
+      unsetFields.percentage = 1;
+      delete updates.percentage;
+    }
+    if (foundDiscount?.amount && updates.percentage) {
+      unsetFields.amount = 1;
+      delete updates.amount;
+    }
+    const updateQuery: UpdateQuery<Discount> = { ...updates };
+    if (Object.keys(unsetFields).length > 0) {
+      updateQuery.$unset = unsetFields;
+    }
+    const discount = await this.discountModel.findByIdAndUpdate(
+      id,
+      updateQuery,
+      {
+        new: true,
+      },
+    );
+
     this.orderGateway.emitDiscountChanged(user, discount);
     return discount;
   }
+
   async removeDiscount(user: User, id: number) {
     const orders = await this.orderModel.find({ discount: id });
     if (orders.length > 0) {
