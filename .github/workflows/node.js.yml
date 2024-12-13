@@ -28,6 +28,8 @@ jobs:
           echo CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} >> .env
           echo CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} >> .env
           echo CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }} >> .env
+          echo IKAS_CLIENT_ID=${{ secrets.IKAS_CLIENT_ID}} >> .env
+          echo IKAS_API_SECRET=${{secrets.IKAS_API_SECRET}} >> .env
       - name: Create ssh folder
         run: mkdir ~/.ssh
       - name: Adding private key
