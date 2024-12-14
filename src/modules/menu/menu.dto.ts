@@ -18,6 +18,8 @@ export class CreateItemDto {
   order: number;
   onlinePrice?: number;
   matchedProduct?: string;
+  productCategories?: string[];
+  productImages?: string[];
 }
 export class CreateBulkItemDto {
   name: string;
