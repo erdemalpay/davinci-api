@@ -21,6 +21,7 @@ import {
   CreateExpenseTypeDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
+  CreateProductCategoryDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
   CreateServiceDto,
@@ -38,6 +39,7 @@ import { ExpenseType } from './expenseType.schema';
 import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
+import { ProductCategory } from './productCategory.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { Vendor } from './vendor.schema';
@@ -90,6 +92,37 @@ export class AccountingController {
   @Delete('/products/:id')
   deleteCategory(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removeProduct(user, id);
+  }
+  // Product Categories
+
+  @Get('/product-categories')
+  getProductCategories() {
+    return this.accountingService.findAllProductCategory();
+  }
+
+  @Post('/product-categories')
+  createProductCategory(
+    @ReqUser() user: User,
+    @Body() createProductCategoryDto: CreateProductCategoryDto,
+  ) {
+    return this.accountingService.createProductCategory(
+      user,
+      createProductCategoryDto,
+    );
+  }
+
+  @Patch('/product-categories/:id')
+  updateProductCategory(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<ProductCategory>,
+  ) {
+    return this.accountingService.updateProductCategory(user, id, updates);
+  }
+
+  @Delete('/product-categories/:id')
+  deleteProductCategory(@ReqUser() user: User, @Param('id') id: string) {
+    return this.accountingService.removeProductCategory(user, id);
   }
 
   // Services

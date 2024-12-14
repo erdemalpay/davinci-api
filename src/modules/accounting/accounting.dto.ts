@@ -9,6 +9,11 @@ export class CreateProductDto {
   matchedMenuItem?: number;
 }
 
+export class CreateProductCategoryDto {
+  name: string;
+  ikasId?: string;
+}
+
 export class CreateServiceDto {
   name: string;
   expenseType: string[];

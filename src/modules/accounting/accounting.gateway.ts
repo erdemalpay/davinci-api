@@ -112,4 +112,8 @@ export class AccountingGateway
     await this.redisService.reset(RedisKeys.MenuItems);
     this.server.emit('bulkProductAndMenuItemChanged');
   }
+
+  emitProductCategoryChanged(user: User, productCategory: any) {
+    this.server.emit('productCategoryChanged', { user, productCategory });
+  }
 }

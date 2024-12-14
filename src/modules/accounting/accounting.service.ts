@@ -22,6 +22,7 @@ import {
   CreateExpenseTypeDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
+  CreateProductCategoryDto,
   CreateProductDto,
   CreateProductStockHistoryDto,
   CreateServiceDto,
@@ -44,6 +45,7 @@ import { ExpenseType } from './expenseType.schema';
 import { Payment } from './payment.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Product } from './product.schema';
+import { ProductCategory } from './productCategory.schema';
 import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
@@ -61,6 +63,8 @@ export class AccountingService {
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(Vendor.name) private vendorModel: Model<Vendor>,
+    @InjectModel(ProductCategory.name)
+    private productCategoryModel: Model<ProductCategory>,
     @InjectModel(CountList.name) private countListModel: Model<CountList>,
     @InjectModel(Count.name) private countModel: Model<Count>,
     @InjectModel(PaymentMethod.name)
@@ -559,6 +563,48 @@ export class AccountingService {
     this.activityService.addActivity(user, ActivityType.DELETE_VENDOR, vendor);
     this.accountingGateway.emitVendorChanged(user, vendor);
     return vendor;
+  }
+
+  // Product Category
+  findAllProductCategory() {
+    return this.productCategoryModel.find();
+  }
+
+  async createProductCategory(
+    user: User,
+    createProductCategoryDto: CreateProductCategoryDto,
+  ) {
+    const productCategory = new this.productCategoryModel(
+      createProductCategoryDto,
+    );
+    productCategory._id = usernamify(productCategory.name);
+    await productCategory.save();
+    this.accountingGateway.emitProductCategoryChanged(user, productCategory);
+    return productCategory;
+  }
+
+  async updateProductCategory(
+    user: User,
+    id: string,
+    updates: UpdateQuery<ProductCategory>,
+  ) {
+    // const oldProductCategory = await this.productCategoryModel.findById(id);
+    const newProductCategory =
+      await this.productCategoryModel.findByIdAndUpdate(id, updates, {
+        new: true,
+      });
+
+    this.accountingGateway.emitProductCategoryChanged(user, newProductCategory);
+    return newProductCategory;
+  }
+
+  async removeProductCategory(user: User, id: string) {
+    // TODO : check will be added here before removing
+    const productCategory = await this.productCategoryModel.findByIdAndRemove(
+      id,
+    );
+    this.accountingGateway.emitProductCategoryChanged(user, productCategory);
+    return productCategory;
   }
 
   // payment methods

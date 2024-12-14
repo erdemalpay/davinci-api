@@ -21,6 +21,10 @@ import { Payment, PaymentSchema } from './payment.schema';
 import { PaymentMethod, PaymentMethodSchema } from './paymentMethod.schema';
 import { Product, ProductSchema } from './product.schema';
 import {
+  ProductCategory,
+  ProductCategorySchema,
+} from './productCategory.schema';
+import {
   ProductStockHistory,
   ProductStockHistorySchema,
 } from './productStockHistory.schema';
@@ -39,6 +43,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Count.name, useFactory: () => CountSchema },
   { name: Location.name, useFactory: () => LocationSchema },
   { name: PaymentMethod.name, useFactory: () => PaymentMethodSchema },
+  { name: ProductCategory.name, useFactory: () => ProductCategorySchema },
   createAutoIncrementConfig(Expense.name, ExpenseSchema),
   createAutoIncrementConfig(
     ProductStockHistory.name,
