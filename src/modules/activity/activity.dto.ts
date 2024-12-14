@@ -1,19 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
+import { Expense } from '../accounting/expense.schema';
 import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
-import { Order } from '../order/order.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
-
-import { Expense } from '../accounting/expense.schema';
 import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
 import { MenuItem } from './../menu/item.schema';
+import { Order } from './../order/order.schema';
 
 export class ActivityDto {
   @IsNumber()
@@ -64,6 +63,7 @@ export enum ActivityType {
   GAME_LEARNED_ADD = 'GAME_LEARNED_ADD',
   GAME_LEARNED_REMOVE = 'GAME_LEARNED_REMOVE',
   UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
+  ORDER_DISCOUNT = 'ORDER_DISCOUNT',
 }
 
 export type ActivityTypePayload = {
@@ -130,6 +130,7 @@ export type ActivityTypePayload = {
     currentMenuItem: MenuItem;
     newMenuItem: MenuItem;
   };
+  [ActivityType.ORDER_DISCOUNT]: Order;
 };
 
 export class ActivityQueryDto {

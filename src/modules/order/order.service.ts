@@ -456,6 +456,13 @@ export class OrderService {
           ActivityType.CREATE_ORDER,
           createdOrder,
         );
+        if (createdOrder?.discount) {
+          this.activityService.addActivity(
+            user,
+            ActivityType.ORDER_DISCOUNT,
+            createdOrder,
+          );
+        }
       } catch (error) {
         throw new HttpException(
           'Failed to create order',
@@ -544,6 +551,13 @@ export class OrderService {
         }
       }
       this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
+      if (order.discount) {
+        this.activityService.addActivity(
+          user,
+          ActivityType.ORDER_DISCOUNT,
+          order,
+        );
+      }
       if (order?.table) {
         this.orderGateway.emitOrderCreated(user, order);
       }
@@ -714,6 +728,14 @@ export class OrderService {
           order,
         );
       }
+      if (updates.discount) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.ORDER_DISCOUNT,
+          order,
+        );
+      }
+
       if (updates?.status === OrderStatus.CANCELLED) {
         const oldOrder = await this.orderModel.findById(id).populate('item');
 
@@ -1422,6 +1444,11 @@ export class OrderService {
               discountNote: discountNote ?? '',
             },
           );
+          await this.activityService.addActivity(
+            user,
+            ActivityType.ORDER_DISCOUNT,
+            updatedOrder,
+          );
           this.orderGateway.emitOrderUpdated(user, updatedOrder);
         } catch (error) {
           throw new HttpException(
@@ -1462,6 +1489,11 @@ export class OrderService {
         });
         try {
           await newOrder.save();
+          await this.activityService.addActivity(
+            user,
+            ActivityType.ORDER_DISCOUNT,
+            newOrder,
+          );
           this.orderGateway.emitOrderCreated(user, newOrder);
         } catch (error) {
           throw new HttpException(
