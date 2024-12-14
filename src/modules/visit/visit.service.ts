@@ -88,12 +88,14 @@ export class VisitService {
       throw new Error('User not found');
     }
     if (cafeVisitDto?.type === VisitTypes.ENTRY) {
-      const lastVisit = await this.visitModel.findOne({
-        user: user._id,
-        date: cafeVisitDto.date,
-        location: cafeVisitDto.location,
-      });
-      if (lastVisit) {
+      const lastVisit = await this.visitModel
+        .findOne({
+          user: user._id,
+          date: cafeVisitDto.date,
+          location: cafeVisitDto.location,
+        })
+        .sort({ startHour: -1 });
+      if (lastVisit && !(lastVisit.finishHour)) {
         return lastVisit;
       }
     }
