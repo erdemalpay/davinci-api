@@ -35,7 +35,7 @@ export class IkasService {
       this.isTokenExpired(ikasToken.createdAt, ikasToken.expiresIn)
     ) {
       const apiUrl = 'https://davinci.myikas.com/api/admin/oauth/token';
-
+      await this.redisService.reset(RedisKeys.IkasToken);
       try {
         const response = await this.httpService
           .post(apiUrl, this.tokenPayload, {
@@ -63,14 +63,21 @@ export class IkasService {
 
     const query = {
       query: `{
-        listProduct {
-          data {
-            id
-            name
-            createdAt
+    listProduct {
+      data {
+        id
+        name
+        createdAt
+        variants {
+          id
+          images {
+             fileName
+             imageId
           }
         }
-      }`,
+      }
+    }
+  }`,
     };
 
     try {
