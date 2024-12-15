@@ -57,50 +57,65 @@ export class IkasService {
     }
     return ikasToken.token;
   }
-  async getAllProducts(): Promise<any> {
+  async getAllProducts() {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
-    const query = {
-      query: `{
-    listProduct {
-      data {
-        id
-        name
-        createdAt
-        variants {
-          id
-          images {
-             fileName
-             imageId
+    const fetchBatch = async (page: number): Promise<any[]> => {
+      const query = {
+        query: `{
+        listProduct(pagination: { page: ${page}, limit: 50 }) {
+          data {
+            id
+            name
+            createdAt
+            variants {
+              id
+              images {
+                fileName
+                imageId
+              }
+            }
           }
         }
-      }
-    }
-  }`,
-    };
+      }`,
+      };
 
-    try {
-      const response = await this.httpService
-        .post(apiUrl, query, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        .toPromise();
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
 
-      return response.data;
-    } catch (error) {
-      if (error.response) {
+        return response.data.data.listProduct.data;
+      } catch (error) {
         console.error(
           'Error fetching products:',
-          JSON.stringify(error.response.data),
+          JSON.stringify(error.response?.data || error.message),
         );
-      } else {
-        console.error('Error fetching products:', error.message);
+        throw new Error('Unable to fetch products from Ikas.');
       }
-      throw new Error('Unable to fetch products from Ikas.');
+    };
+
+    const allProducts: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const batch = await fetchBatch(page);
+
+      if (batch.length === 0) {
+        hasMore = false;
+      } else {
+        allProducts.push(...batch);
+        page += 1;
+      }
     }
+
+    return allProducts;
   }
 }
