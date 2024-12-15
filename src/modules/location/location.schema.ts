@@ -16,7 +16,7 @@ export class Location extends Document {
   @Prop({ required: false, index: true })
   activityNote: string;
 
-  @Prop({ required: true, default: true })
+  @Prop({ required: true, default: [1] })
   type: number[];
 
   @Prop({ required: false, index: true })
