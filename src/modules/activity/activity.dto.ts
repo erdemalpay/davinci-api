@@ -64,6 +64,7 @@ export enum ActivityType {
   GAME_LEARNED_REMOVE = 'GAME_LEARNED_REMOVE',
   UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
   ORDER_DISCOUNT = 'ORDER_DISCOUNT',
+  ORDER_DISCOUNT_CANCEL = 'ORDER_DISCOUNT_CANCEL',
 }
 
 export type ActivityTypePayload = {
@@ -131,6 +132,7 @@ export type ActivityTypePayload = {
     newMenuItem: MenuItem;
   };
   [ActivityType.ORDER_DISCOUNT]: Order;
+  [ActivityType.ORDER_DISCOUNT_CANCEL]: Order;
 };
 
 export class ActivityQueryDto {

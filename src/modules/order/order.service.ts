@@ -1549,7 +1549,11 @@ export class OrderService {
     cancelQuantity: number,
   ) {
     const order = await this.orderModel.findById(orderId);
-    this.activityService.addActivity(user, ActivityType.ORDER_DISCOUNT, order);
+    this.activityService.addActivity(
+      user,
+      ActivityType.ORDER_DISCOUNT_CANCEL,
+      order,
+    );
     if (!order) {
       throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
     }
