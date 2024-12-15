@@ -119,4 +119,10 @@ export class TableController {
   ) {
     return this.tableService.update(user, id, tableDto);
   }
+
+  @Get('/:id')
+  @ApiResponse({ type: TableResponse })
+  getTableById(@Param('id') id: number) {
+    return this.tableService.getTableById(id);
+  }
 }

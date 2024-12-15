@@ -90,6 +90,7 @@ export class TableService {
     this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
+
   async updateTableOrders(user: User, id: number, order: number | number[]) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
