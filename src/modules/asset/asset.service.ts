@@ -92,20 +92,33 @@ export class AssetService {
     }
   };
 
-  async getFolderImages(folderName: string) {
-    try {
-      const result = await cloudinary.v2.search
-        .expression(`folder:${folderName}`)
-        .sort_by('public_id', 'desc')
-        .execute();
+  async getFolderImages(
+    folderName: string,
+  ): Promise<{ url: string; publicId: string }[]> {
+    const allImages = [];
+    let nextCursor: string | undefined;
 
-      const images = await result?.resources?.map((image) => {
-        return { url: image.secure_url, publicId: image.public_id };
-      });
-      return images;
+    try {
+      do {
+        const result = await cloudinary.v2.search
+          .expression(`folder:${folderName}`)
+          .sort_by('public_id', 'desc')
+          .max_results(50) // Ensure we fetch 50 images per page
+          .next_cursor(nextCursor) // Pass the next_cursor if available
+          .execute();
+
+        const images = result.resources.map((image) => ({
+          url: image.secure_url,
+          publicId: image.public_id,
+        }));
+        allImages.push(...images);
+
+        nextCursor = result.next_cursor;
+      } while (nextCursor);
+      return allImages;
     } catch (error) {
       console.error('Error fetching images:', error);
-      throw Error(error);
+      throw new Error(error.message || 'Error fetching images');
     }
   }
 
