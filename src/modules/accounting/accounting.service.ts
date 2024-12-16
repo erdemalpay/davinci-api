@@ -4,6 +4,7 @@ import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
+import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -80,6 +81,7 @@ export class AccountingService {
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
+    private readonly ikasService: IkasService,
   ) {}
   //   Products
   findActiveProducts() {
@@ -581,6 +583,19 @@ export class AccountingService {
     await productCategory.save();
     this.accountingGateway.emitProductCategoryChanged(user, productCategory);
     return productCategory;
+  }
+
+  async createIkasProductCategories(user: User) {
+    const ikasCategories = await this.ikasService.getAllCategories();
+    for (const category of ikasCategories) {
+      const productCategory = new this.productCategoryModel({
+        name: category.name,
+        ikasId: category.id,
+      });
+      productCategory._id = usernamify(productCategory.name);
+      await productCategory.save();
+    }
+    this.accountingGateway.emitProductCategoryChanged(user, '');
   }
 
   async updateProductCategory(
