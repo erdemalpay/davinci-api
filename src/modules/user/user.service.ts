@@ -10,6 +10,8 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { GameService } from '../game/game.service';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { CreateUserDto } from './user.dto';
@@ -27,6 +29,7 @@ export class UserService implements OnModuleInit {
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
     private readonly userGateway: UserGateway,
+    private readonly redisService: RedisService,
   ) {
     this.checkDefaultUser();
   }
@@ -130,6 +133,27 @@ export class UserService implements OnModuleInit {
   async getAll(filterInactives = true): Promise<User[]> {
     const query = filterInactives ? { active: true } : {};
     return this.userModel.find(query).populate('role').sort({ _id: 1 });
+  }
+  async findAllUsers() {
+    try {
+      const redisUsers = await this.redisService.get(RedisKeys.Users);
+      if (redisUsers) {
+        return redisUsers;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve users from Redis:', error);
+    }
+    try {
+      const users = await this.userModel.find({ active: true }).exec();
+      if (users.length > 0) {
+        // Store retrieved users in Redis for caching
+        await this.redisService.set(RedisKeys.Users, users);
+      }
+      return users;
+    } catch (error) {
+      console.error('Failed to retrieve users from database:', error);
+      throw new Error('Could not retrieve users');
+    }
   }
 
   async getRoles(): Promise<Role[]> {

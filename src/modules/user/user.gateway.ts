@@ -8,8 +8,9 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
-
+import { RedisKeys } from './../redis/redis.dto';
 @WebSocketGateway({
   path: '/socket.io',
   transports: ['websocket'],
@@ -23,6 +24,7 @@ export class UserGateway
 {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('UserGateway');
+  constructor(private readonly redisService: RedisService) {}
 
   afterInit(server: Server) {
     this.logger.log('Init');
@@ -41,7 +43,8 @@ export class UserGateway
     return 'Hello world!';
   }
 
-  emitUserChanged(user: User) {
+  async emitUserChanged(user: User) {
+    await this.redisService.reset(RedisKeys.Users);
     this.server.emit('userChanged', { user });
   }
 }

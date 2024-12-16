@@ -5,4 +5,5 @@ export enum RedisKeys {
   Discounts = 'discounts',
   Pages = 'pages',
   IkasToken = 'ikas-token',
+  Users = 'users',
 }
