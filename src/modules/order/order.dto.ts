@@ -72,6 +72,7 @@ export class CreateCollectionDto {
   table?: number;
   newOrders?: OrderType[];
   stockLocation?: number;
+  createdBy: string;
 }
 
 export class CreateDiscountDto {

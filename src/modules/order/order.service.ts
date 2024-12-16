@@ -16,6 +16,7 @@ import { TableGateway } from '../table/table.gateway';
 import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
+import { UserService } from '../user/user.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
@@ -45,6 +46,8 @@ export class OrderService {
     private readonly tableService: TableService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
+    @Inject(forwardRef(() => UserService))
+    private readonly userService: UserService,
     private readonly orderGateway: OrderGateway,
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
@@ -391,13 +394,15 @@ export class OrderService {
       if (order.quantity <= 0) {
         continue;
       }
+
       const createdOrder = new this.orderModel({
         ...order,
         status: order?.status ?? 'pending',
-        createdBy: user._id,
+        createdBy: order?.createdBy ?? user._id,
         createdAt: new Date(),
         table: table._id,
       });
+      const users = await this.userService.findAllUsers();
       if (createdOrder?.discount) {
         const discount = await this.discountModel.findById(
           createdOrder.discount,
@@ -452,13 +457,13 @@ export class OrderService {
           }
         }
         this.activityService.addActivity(
-          user,
+          users.find((user) => user._id === createdOrder.createdBy),
           ActivityType.CREATE_ORDER,
           createdOrder,
         );
         if (createdOrder?.discount) {
           this.activityService.addActivity(
-            user,
+            users.find((user) => user._id === createdOrder.createdBy),
             ActivityType.ORDER_DISCOUNT,
             createdOrder,
           );
@@ -497,6 +502,7 @@ export class OrderService {
   }
 
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
+    const users = await this.userService.findAllUsers();
     if (createOrderDto.quantity <= 0) {
       throw new HttpException(
         'Quantity must be greater than 0',
@@ -506,7 +512,7 @@ export class OrderService {
     const order = new this.orderModel({
       ...createOrderDto,
       status: createOrderDto?.status ?? 'pending',
-      createdBy: user._id,
+      createdBy: createOrderDto?.createdBy ?? user._id,
       createdAt: new Date(),
     });
     if (createOrderDto?.discount) {
@@ -550,7 +556,11 @@ export class OrderService {
           });
         }
       }
-      this.activityService.addActivity(user, ActivityType.CREATE_ORDER, order);
+      this.activityService.addActivity(
+        users.find((user) => user._id === order.createdBy),
+        ActivityType.CREATE_ORDER,
+        order,
+      );
       if (order.discount) {
         this.activityService.addActivity(
           user,
@@ -636,7 +646,7 @@ export class OrderService {
         quantity: returnQuantity,
         paidQuantity: returnQuantity,
         createdAt: new Date(),
-        createdBy: user._id,
+        createdBy: orderWithoutUnwantedFields?.createdBy ?? user._id,
         unitPrice: -order.unitPrice,
       });
 
@@ -656,7 +666,7 @@ export class OrderService {
         status: OrderCollectionStatus.RETURNED,
         paymentMethod: paymentMethod,
         createdAt: new Date(),
-        createdBy: user._id,
+        createdBy: orderWithoutUnwantedFields?.createdBy ?? user._id,
         orders: [
           {
             order: returnOrder._id,
@@ -1190,7 +1200,7 @@ export class OrderService {
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;
     const collection = new this.collectionModel({
       ...filteredCollectionDto, // Use the filtered object
-      createdBy: user._id,
+      createdBy: createCollectionDto.createdBy ?? user._id,
       createdAt: new Date(),
     });
 

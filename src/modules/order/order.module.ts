@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { RedisModule } from '../redis/redis.module';
+import { UserModule } from '../user/user.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
 import { MenuModule } from './../menu/menu.module';
@@ -30,6 +31,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => AccountingModule),
     forwardRef(() => TableModule),
     forwardRef(() => MenuModule),
+    forwardRef(() => UserModule),
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderGateway],
