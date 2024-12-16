@@ -118,4 +118,44 @@ export class IkasService {
 
     return allProducts;
   }
+
+  async getAllCategories(): Promise<any[]> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const fetchCategories = async (): Promise<any[]> => {
+      const query = {
+        query: `{
+        listCategory {
+          id
+          name
+          description
+          parentId
+          categoryPath
+        }
+      }`,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listCategory; // Return the list of categories
+      } catch (error) {
+        console.error(
+          'Error fetching categories:',
+          JSON.stringify(error.response?.data || error.message),
+        );
+        throw new Error('Unable to fetch categories from Ikas.');
+      }
+    };
+
+    return await fetchCategories(); // Fetch and return all categories
+  }
 }

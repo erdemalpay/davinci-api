@@ -9,4 +9,9 @@ export class IkasController {
   async getAllProducts() {
     return this.ikasService.getAllProducts();
   }
+
+  @Get('/category')
+  async getAllCategories() {
+    return this.ikasService.getAllCategories();
+  }
 }
