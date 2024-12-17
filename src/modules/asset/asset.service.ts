@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
 import * as streamifier from 'streamifier';
+import { MenuService } from '../menu/menu.service';
 import { User } from '../user/user.schema';
 import { AssetGateway } from './asset.gateway';
 
@@ -12,8 +13,8 @@ export class AssetService {
   constructor(
     configService: ConfigService,
     private readonly assetGateway: AssetGateway,
-  ) // private readonly menuService: MenuService,
-  {
+    private readonly menuService: MenuService,
+  ) {
     // Require the cloudinary library
 
     // Return "https" URLs by setting secure: true
@@ -193,9 +194,11 @@ export class AssetService {
 
       const imageUrls = await Promise.all(uploadPromises);
 
-      // if (itemId) {
-      //   await this.menuService.updateItem(user, itemId, { images: imageUrls });
-      // }
+      if (itemId) {
+        await this.menuService.updateItem(user, itemId, {
+          productImages: imageUrls,
+        });
+      }
 
       return imageUrls;
     } catch (error) {

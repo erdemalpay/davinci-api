@@ -59,8 +59,13 @@ export class AssetController {
     @UploadedFiles() files: Array<Express.Multer.File>,
     @ReqUser() user: User,
     @Body('foldername') foldername: string,
-    @Body('itemId') itemId?: number,
+    @Body('itemId') itemId?: string,
   ) {
-    return this.assetService.uploadImages(user, files, foldername, itemId);
+    return this.assetService.uploadImages(
+      user,
+      files,
+      foldername,
+      Number(itemId),
+    );
   }
 }
