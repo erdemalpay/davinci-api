@@ -11,6 +11,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { AssetService } from './asset.service';
 
 @Controller('asset')
@@ -55,9 +57,10 @@ export class AssetController {
   )
   uploadFiles(
     @UploadedFiles() files: Array<Express.Multer.File>,
+    @ReqUser() user: User,
     @Body('foldername') foldername: string,
+    @Body('itemId') itemId?: number,
   ) {
-    console.log(files);
-    return this.assetService.uploadImages(files, foldername);
+    return this.assetService.uploadImages(user, files, foldername, itemId);
   }
 }

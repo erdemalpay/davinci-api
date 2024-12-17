@@ -4,6 +4,7 @@ import { AssetGateway } from './asset.gateway';
 import { AssetService } from './asset.service';
 
 @Module({
+  // imports: [MongooseModule, forwardRef(() => MenuModule)],
   providers: [AssetService, AssetGateway],
   exports: [AssetService, AssetGateway],
   controllers: [AssetController],

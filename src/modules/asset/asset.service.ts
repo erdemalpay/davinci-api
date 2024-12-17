@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
 import * as streamifier from 'streamifier';
+import { User } from '../user/user.schema';
 import { AssetGateway } from './asset.gateway';
+
 const api = cloudinary.v2;
 
 @Injectable()
@@ -10,7 +12,8 @@ export class AssetService {
   constructor(
     configService: ConfigService,
     private readonly assetGateway: AssetGateway,
-  ) {
+  ) // private readonly menuService: MenuService,
+  {
     // Require the cloudinary library
 
     // Return "https" URLs by setting secure: true
@@ -150,42 +153,55 @@ export class AssetService {
   };
 
   uploadImages = async (
+    user: User,
     files: Array<Express.Multer.File>,
     foldername: string,
+    itemId?: number,
   ) => {
-    const uploadPromises = files.map((file) => {
-      const options = {
-        public_id: `${file.originalname}`,
-        use_filename: true,
-        unique_filename: false,
-        overwrite: true,
-        folder: foldername,
-        transformation: {
-          crop: 'scale',
-          width: 800,
-          height: 800,
-        },
-      };
-
-      return new Promise((resolve, reject) => {
-        let cld_upload_stream = cloudinary.v2.uploader.upload_stream(
-          options,
-          (error, result) => {
-            if (error) {
-              console.log('Upload Error:', error);
-              reject(error);
-            } else {
-              console.log('Upload Result:', result);
-              resolve(result);
-            }
+    try {
+      const uploadPromises = files.map((file) => {
+        const options = {
+          public_id: `${file.originalname}`,
+          use_filename: true,
+          unique_filename: false,
+          overwrite: true,
+          folder: foldername,
+          transformation: {
+            crop: 'scale',
+            width: 800,
+            height: 800,
           },
-        );
+        };
 
-        streamifier.createReadStream(file.buffer).pipe(cld_upload_stream);
+        return new Promise((resolve, reject) => {
+          const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+            options,
+            (error, result) => {
+              if (error) {
+                console.log('Upload Error:', error);
+                reject(error);
+              } else {
+                console.log('Upload Result:', result);
+                resolve(result?.secure_url); // Return only the image URL
+              }
+            },
+          );
+
+          streamifier.createReadStream(file.buffer).pipe(cld_upload_stream);
+        });
       });
-    });
 
-    return Promise.all(uploadPromises);
+      const imageUrls = await Promise.all(uploadPromises);
+
+      // if (itemId) {
+      //   await this.menuService.updateItem(user, itemId, { images: imageUrls });
+      // }
+
+      return imageUrls;
+    } catch (error) {
+      console.error('Error uploading images or updating item:', error);
+      throw error;
+    }
   };
 
   async getImageWithPublicID(publicId: string) {
