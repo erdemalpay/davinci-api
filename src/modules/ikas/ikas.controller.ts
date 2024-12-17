@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { IkasService } from './ikas.service';
 
 @Controller('ikas')
@@ -6,12 +6,17 @@ export class IkasController {
   constructor(private readonly ikasService: IkasService) {}
 
   @Get('/product')
-  async getAllProducts() {
+  getAllProducts() {
     return this.ikasService.getAllProducts();
   }
 
+  @Post('/product')
+  createProduct(@Body() product: any) {
+    return this.ikasService.createProduct(product);
+  }
+
   @Get('/category')
-  async getAllCategories() {
+  getAllCategories() {
     return this.ikasService.getAllCategories();
   }
 }

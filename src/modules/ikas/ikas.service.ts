@@ -61,24 +61,92 @@ export class IkasService {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
+    // Function to fetch a batch of products
     const fetchBatch = async (page: number): Promise<any[]> => {
       const query = {
-        query: `{
-        listProduct(pagination: { page: ${page}, limit: 50 }) {
-          data {
-            id
-            name
-            createdAt
-            variants {
-              id
-              images {
-                fileName
-                imageId
-              }
-            }
+        query: `
+  {
+    listProduct(pagination: { page: ${page}, limit: 50 }) {
+      data {
+        id
+        name
+        description
+        shortDescription
+        weight
+        baseUnit {
+          type  
+        }
+        brandId
+        categoryIds
+        googleTaxonomyId
+        salesChannelIds
+        tagIds
+        translations {
+          locale
+          name
+          description
+        }
+        metaData {
+          id
+          canonicals
+          description
+          disableIndex
+          metadataOverrides {
+            description
+            language
+            pageTitle
+            storefrontId
+          }
+          pageTitle
+          slug
+          targetType
+          translations {
+            locale
+            description
+            pageTitle
+            slug
           }
         }
-      }`,
+        productOptionSetId
+        productVariantTypes {
+          order
+          variantTypeId
+          variantValueIds
+        }
+        type
+        variants {
+          id
+          attributes {
+            productAttributeId
+            productAttributeOptionId
+            value
+          }
+          barcodeList
+          fileId
+          hsCode
+          images {
+            fileName
+            imageId
+            isMain
+            isVideo
+            order
+          }
+          isActive
+          prices {
+            currency
+            sellPrice
+            discountPrice
+            buyPrice
+          }
+          sku
+          unit {
+            type
+          }
+          weight
+        }
+      }
+    }
+  }`,
       };
 
       try {
@@ -157,5 +225,63 @@ export class IkasService {
     };
 
     return await fetchCategories(); // Fetch and return all categories
+  }
+
+  async createProduct(productInput: any): Promise<any> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const saveProductMutation = async (): Promise<any> => {
+      const data = {
+        query: `
+        mutation {
+          saveProduct(input: {
+            name: "${productInput.name}",
+            type: ${productInput.type}, 
+            salesChannelIds: ${JSON.stringify(productInput.salesChannelIds)}, 
+            variants: [
+              {
+                isActive: ${productInput.variants[0].isActive},
+                prices: [
+                  { sellPrice: ${productInput.variants[0].prices[0].sellPrice} }
+                ]
+              }
+            ]
+          }) {
+            name
+            type
+            salesChannelIds
+            variants {
+              isActive
+              prices {
+                sellPrice
+              }
+            }
+          }
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, data, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.saveProduct; // Return the saved product
+      } catch (error) {
+        console.error(
+          'Error saving product:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to save product to Ikas.');
+      }
+    };
+
+    return await saveProductMutation(); // Execute the mutation and return the result
   }
 }
