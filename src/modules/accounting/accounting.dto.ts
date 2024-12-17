@@ -7,6 +7,7 @@ export class CreateProductDto {
   vendor?: string[];
   unitPrice?: number;
   matchedMenuItem?: number;
+  ikasId?: string;
 }
 
 export class CreateProductCategoryDto {

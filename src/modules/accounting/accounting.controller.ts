@@ -100,11 +100,6 @@ export class AccountingController {
     return this.accountingService.findAllProductCategory();
   }
 
-  @Get('/ikas-categories')
-  CreateIkasCategories(@ReqUser() user: User) {
-    return this.accountingService.createIkasProductCategories(user);
-  }
-
   @Post('/product-categories')
   createProductCategory(
     @ReqUser() user: User,

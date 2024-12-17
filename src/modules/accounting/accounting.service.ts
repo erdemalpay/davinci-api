@@ -585,19 +585,6 @@ export class AccountingService {
     return productCategory;
   }
 
-  async createIkasProductCategories(user: User) {
-    const ikasCategories = await this.ikasService.getAllCategories();
-    for (const category of ikasCategories) {
-      const productCategory = new this.productCategoryModel({
-        name: category.name,
-        ikasId: category.id,
-      });
-      productCategory._id = usernamify(productCategory.name);
-      await productCategory.save();
-    }
-    this.accountingGateway.emitProductCategoryChanged(user, '');
-  }
-
   async updateProductCategory(
     user: User,
     id: string,
