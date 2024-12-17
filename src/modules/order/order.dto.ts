@@ -82,6 +82,7 @@ export class CreateDiscountDto {
   isNoteRequired?: boolean;
   isOnlineOrder?: boolean;
   status?: string;
+  note?: string;
 }
 export enum OrderDiscountStatus {
   DELETED = 'deleted',

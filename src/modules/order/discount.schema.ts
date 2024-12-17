@@ -16,6 +16,9 @@ export class Discount extends Document {
   @Prop({ required: false, type: Number })
   amount: number;
 
+  @Prop({ required: false, type: String })
+  note: string;
+
   @Prop({ required: false, type: Boolean, default: false })
   isOnlineOrder: boolean;
 
