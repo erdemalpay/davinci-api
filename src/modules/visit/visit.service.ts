@@ -1,5 +1,5 @@
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, format } from 'date-fns';
+import { addHours, format, subDays } from 'date-fns';
 import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
@@ -7,6 +7,7 @@ import { CreateVisitDto } from './create.visit.dto';
 import { CafeVisitDto, VisitDto, VisitTypes } from './visit.dto';
 import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 export class VisitService {
   constructor(
@@ -85,7 +86,7 @@ export class VisitService {
   async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {
     const user = await this.userService.findByCafeId(cafeVisitDto.userData);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
     if (cafeVisitDto?.type === VisitTypes.ENTRY) {
       const lastVisit = await this.visitModel
@@ -98,32 +99,42 @@ export class VisitService {
       if (lastVisit && !(lastVisit.finishHour)) {
         return lastVisit;
       }
+      const visit = await this.visitModel.create({
+        user: user._id,
+        location: cafeVisitDto.location,
+        date: cafeVisitDto.date,
+        startHour: cafeVisitDto.hour,
+      });
+      this.visitGateway.emitVisitChanged(user, visit);
+      return visit;
     }
     if (cafeVisitDto?.type === VisitTypes.EXIT) {
+      const previousDay = format(subDays(new Date(cafeVisitDto.date), 1), 'yyyy-MM-dd');
       const lastVisit = await this.visitModel
         .findOne({
           user: user._id,
-          date: cafeVisitDto.date,
           location: cafeVisitDto.location,
+          $or: [
+            { date: cafeVisitDto.date },
+            { date: previousDay, startHour: { $gt: cafeVisitDto.hour } }
+          ],
         })
-        .sort({ startHour: -1 });
+        .sort({ date: -1, startHour: -1 });
       if (lastVisit) {
         await lastVisit.updateOne({ finishHour: cafeVisitDto.hour });
+        this.visitGateway.emitVisitChanged(user, lastVisit);
         return lastVisit;
       }
-    }
-    const visit = await this.visitModel.create({
-      user: user._id,
-      location: cafeVisitDto.location,
-      date: cafeVisitDto.date,
-      ...(cafeVisitDto?.type === VisitTypes.ENTRY && {
+      const visit = await this.visitModel.create({
+        user: user._id,
+        location: cafeVisitDto.location,
+        date: cafeVisitDto.date,
         startHour: cafeVisitDto.hour,
-      }),
-      ...(cafeVisitDto?.type === VisitTypes.EXIT && {
         finishHour: cafeVisitDto.hour,
-      }),
-    });
-    this.visitGateway.emitVisitChanged(user, visit);
-    return visit;
+      });
+      this.visitGateway.emitVisitChanged(user, visit);
+      return visit;
+    }
+    throw new BadRequestException();
   }
 }
