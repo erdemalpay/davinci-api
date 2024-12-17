@@ -1240,6 +1240,13 @@ export class OrderService {
         new: true,
       },
     );
+    if (updates.status === OrderCollectionStatus.CANCELLED) {
+      this.activityService.addActivity(
+        user,
+        ActivityType.CANCEL_PAYMENT,
+        collection,
+      );
+    }
     this.orderGateway.emitCollectionChanged(user, collection);
     return collection;
   }

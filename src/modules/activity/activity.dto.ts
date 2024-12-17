@@ -65,6 +65,7 @@ export enum ActivityType {
   UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
   ORDER_DISCOUNT = 'ORDER_DISCOUNT',
   ORDER_DISCOUNT_CANCEL = 'ORDER_DISCOUNT_CANCEL',
+  CANCEL_PAYMENT = 'CANCEL_PAYMENT',
 }
 
 export type ActivityTypePayload = {
@@ -133,6 +134,7 @@ export type ActivityTypePayload = {
   };
   [ActivityType.ORDER_DISCOUNT]: Order;
   [ActivityType.ORDER_DISCOUNT_CANCEL]: Order;
+  [ActivityType.CANCEL_PAYMENT]: Collection;
 };
 
 export class ActivityQueryDto {
