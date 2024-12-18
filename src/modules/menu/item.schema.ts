@@ -67,6 +67,9 @@ export class MenuItem extends Document {
 
   @Prop([PriceHistory])
   priceHistory: PriceHistory[];
+
+  @Prop({ required: false, type: String })
+  ikasId: string;
 }
 
 export const MenuItemSchema = SchemaFactory.createForClass(MenuItem);

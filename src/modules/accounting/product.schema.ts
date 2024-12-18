@@ -13,9 +13,6 @@ export class Product extends Document {
   @Prop({ required: true, type: String })
   name: string;
 
-  @Prop({ required: false, type: String })
-  ikasId: string;
-
   @Prop({ type: Number })
   unitPrice: number;
 

@@ -20,6 +20,7 @@ export class CreateItemDto {
   matchedProduct?: string;
   productCategories?: string[];
   productImages?: string[];
+  ikasId?: string;
 }
 export class CreateBulkItemDto {
   name: string;
