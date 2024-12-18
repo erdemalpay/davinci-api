@@ -144,7 +144,11 @@ export class UserService implements OnModuleInit {
       console.error('Failed to retrieve users from Redis:', error);
     }
     try {
-      const users = await this.userModel.find({ active: true }).exec();
+      const users = await this.userModel
+        .find({ active: true })
+        .populate('role')
+        .sort({ _id: 1 })
+        .exec();
       if (users.length > 0) {
         // Store retrieved users in Redis for caching
         await this.redisService.set(RedisKeys.Users, users);
