@@ -6,6 +6,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
@@ -43,6 +44,7 @@ const modules = [
   AssetModule,
   IkasModule,
   DbModule,
+  ChecklistModule,
   GameModule,
   GameplayModule,
   LocationModule,
