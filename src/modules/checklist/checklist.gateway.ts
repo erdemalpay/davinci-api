@@ -44,4 +44,8 @@ export class ChecklistGateway
   emitChecklistChanged(user: User, checklist: any) {
     this.server.emit('checklistChanged', { user, checklist });
   }
+
+  emitCheckChanged(user: User, check: any) {
+    this.server.emit('checkChanged', { user, check });
+  }
 }

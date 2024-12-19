@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { User } from '../user/user.schema';
-import { CreateChecklistDto } from './checklist.dto';
+import { Check } from './check.schema';
+import { CreateCheckDto, CreateChecklistDto } from './checklist.dto';
 import { ChecklistGateway } from './checklist.gateway';
 import { Checklist } from './checklist.schema';
 
@@ -12,6 +13,7 @@ export class ChecklistService {
   constructor(
     @InjectModel(Checklist.name)
     private checklistModel: Model<Checklist>,
+    @InjectModel(Check.name) private checkModel: Model<Check>,
     private checklistGateway: ChecklistGateway,
   ) {}
 
@@ -41,16 +43,53 @@ export class ChecklistService {
     return checklist;
   }
 
-  //   async removeChecklist(user: User, id: string) {
-  //     const counts = await this.countModel.find({ Checklist: id });
-  //     if (counts.length > 0) {
-  //       throw new HttpException(
-  //         'Cannot remove a count list',
-  //         HttpStatus.BAD_REQUEST,
-  //       );
-  //     }
-  //     const Checklist = await this.checklistModel.findByIdAndRemove(id);
-  //     this.checklistGateway.emitChecklistChanged(user, Checklist);
-  //     return Checklist;
-  //   }
+  async removeChecklist(user: User, id: string) {
+    const checks = await this.checkModel.find({ checklist: id });
+    if (checks.length > 0) {
+      throw new HttpException(
+        'Cannot remove a checklist',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const checklist = await this.checklistModel.findByIdAndRemove(id);
+    this.checklistGateway.emitChecklistChanged(user, checklist);
+    return checklist;
+  }
+
+  findAllChecks() {
+    return this.checkModel.find().sort({ isCompleted: 1, completedAt: -1 });
+  }
+
+  async createCheck(user: User, createCheckDto: CreateCheckDto) {
+    const checks = await this.checkModel.find({
+      isCompleted: false,
+      user: createCheckDto.user,
+      location: createCheckDto.location,
+      checklist: createCheckDto.checklist,
+    });
+    if (checks.length > 0) {
+      throw new HttpException(
+        'Check already exists and not finished',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const check = new this.checkModel(createCheckDto);
+    check._id = usernamify(check.user + new Date().toISOString());
+    this.checklistGateway.emitCheckChanged(user, check);
+    return check.save();
+  }
+
+  async updateCheck(user: User, id: string, updates: UpdateQuery<Check>) {
+    const check = await this.checkModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    this.checklistGateway.emitCheckChanged(user, check);
+    return check;
+  }
+
+  async removeCheck(user: User, id: string) {
+    const check = await this.checkModel.findByIdAndRemove(id);
+    this.checklistGateway.emitCheckChanged(user, check);
+    return check;
+  }
 }
