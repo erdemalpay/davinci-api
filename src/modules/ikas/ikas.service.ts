@@ -271,7 +271,7 @@ export class IkasService {
             },
           })
           .toPromise();
-
+        console.log(response);
         return response.data.data.saveProduct; // Return the saved product
       } catch (error) {
         console.error(
@@ -281,7 +281,57 @@ export class IkasService {
         throw new Error('Unable to save product to Ikas.');
       }
     };
-
-    return await saveProductMutation(); // Execute the mutation and return the result
+    const savedProduct = await saveProductMutation();
+    if (productInput.images) {
+      const allProducts = await this.getAllProducts();
+      const product = allProducts.find((p) => p.name === productInput.name);
+      if (product) {
+        const variantId = product.variants[0].id;
+        await this.createProductImages(variantId, productInput.images);
+      }
+    }
+    return savedProduct;
   }
+
+  async createProductImages(variantId: string, imageArray: string[]) {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/product/upload/image';
+
+    const uploadImagesMutation = async () => {
+      for (let i = 0; i < imageArray.length; i++) {
+        const isMain = i === 0;
+        const imageData = {
+          productImage: {
+            variantIds: [variantId],
+            url: imageArray[i],
+            order: i.toString(),
+            isMain: isMain.toString(),
+          },
+        };
+        try {
+          const response = await this.httpService
+            .post(apiUrl, imageData, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+            })
+            .toPromise();
+          console.log(`Image ${i + 1} uploaded successfully`, response.data);
+        } catch (error) {
+          console.error(
+            `Error uploading image ${i + 1}:`,
+            JSON.stringify(error.response?.data || error.message, null, 2),
+          );
+          throw new Error(`Unable to upload image ${i + 1} to Ikas.`);
+        }
+      }
+    };
+    await uploadImagesMutation(); // Execute the mutation and handle all images
+  }
+
+  // Example usage:
+  // const variantId = 'your_variant_id_here';
+  // const imageArray = ['http://example.com/image1.jpg', 'http://example.com/image2.jpg', 'http://example.com/image3.jpg'];
+  // await this.createProductImages(variantId, imageArray);
 }
