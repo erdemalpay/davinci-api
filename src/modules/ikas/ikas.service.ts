@@ -327,11 +327,6 @@ export class IkasService {
         }
       }
     };
-    await uploadImagesMutation(); // Execute the mutation and handle all images
+    await uploadImagesMutation();
   }
-
-  // Example usage:
-  // const variantId = 'your_variant_id_here';
-  // const imageArray = ['http://example.com/image1.jpg', 'http://example.com/image2.jpg', 'http://example.com/image3.jpg'];
-  // await this.createProductImages(variantId, imageArray);
 }
