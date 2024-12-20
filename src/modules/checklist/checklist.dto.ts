@@ -1,7 +1,8 @@
+import { CheckDuty } from './check.schema';
+
 export class CreateChecklistDto {
   name: string;
-  active: boolean;
-  locations: number[];
+  duties?: string[];
 }
 
 export class CreateCheckDto {
@@ -9,6 +10,7 @@ export class CreateCheckDto {
   user: string;
   location: number;
   checklist: string;
+  duties: CheckDuty[];
   isCompleted: boolean;
   createdAt: Date;
 }

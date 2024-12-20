@@ -16,6 +16,9 @@ export class Checklist extends Document {
 
   @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
   locations: number[];
+
+  @Prop({ required: false, type: [String] })
+  duties: string[];
 }
 
 export const ChecklistSchema = SchemaFactory.createForClass(Checklist);

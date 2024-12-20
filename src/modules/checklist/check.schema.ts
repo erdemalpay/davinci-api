@@ -5,6 +5,14 @@ import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { Checklist } from './checklist.schema';
 
+export class CheckDuty {
+  @Prop({ required: true, type: String })
+  duty: string;
+
+  @Prop({ required: true, type: Boolean })
+  isCompleted: boolean;
+}
+
 @Schema({ _id: false })
 export class Check extends Document {
   @Prop({ type: String })
@@ -21,6 +29,9 @@ export class Check extends Document {
 
   @Prop({ required: true, type: Date })
   createdAt: Date;
+
+  @Prop([CheckDuty])
+  duties: CheckDuty[];
 
   @Prop({ required: false, type: Date })
   completedAt: Date;
