@@ -446,9 +446,9 @@ export class OrderService {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const consumptionQuantity =
-              ingredient.quantity * orderWithItem.quantity;
+              ingredient?.quantity * orderWithItem.quantity;
             await this.accountingService.consumptStock(user, {
-              product: ingredient.product,
+              product: ingredient?.product,
               location: createdOrder?.stockLocation ?? createdOrder?.location,
               quantity: consumptionQuantity,
               status:
@@ -546,9 +546,9 @@ export class OrderService {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
         if (isStockDecrementRequired) {
           const consumptionQuantity =
-            ingredient.quantity * orderWithItem.quantity;
+            ingredient?.quantity * orderWithItem.quantity;
           await this.accountingService.consumptStock(user, {
-            product: ingredient.product,
+            product: ingredient?.product,
             location: order?.stockLocation ?? order?.location,
             quantity: consumptionQuantity,
             status:
@@ -682,9 +682,9 @@ export class OrderService {
         .itemProduction) {
         if (ingredient?.isDecrementStock) {
           const incrementQuantity =
-            ingredient.quantity * populatedReturnOrder?.quantity;
+            ingredient?.quantity * populatedReturnOrder?.quantity;
           await this.accountingService.createStock(user, {
-            product: ingredient.product,
+            product: ingredient?.product,
             location: populatedReturnOrder?.stockLocation,
             quantity: incrementQuantity,
             status: StockHistoryStatusEnum.ORDERRETURN,
@@ -752,9 +752,9 @@ export class OrderService {
         for (const ingredient of (oldOrder?.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
-            const incrementQuantity = ingredient.quantity * oldOrder?.quantity;
+            const incrementQuantity = ingredient?.quantity * oldOrder?.quantity;
             await this.accountingService.createStock(user, {
-              product: ingredient.product,
+              product: ingredient?.product,
               location: oldOrder?.stockLocation,
               quantity: incrementQuantity,
               status: StockHistoryStatusEnum.ORDERCANCEL,
@@ -772,6 +772,52 @@ export class OrderService {
           user,
           ActivityType.ADD_ORDER,
           order,
+        );
+      }
+    }
+    if (updates?.quantity) {
+      const oldOrder = await (
+        await this.orderModel.findById(id)
+      ).populate('item');
+      if (oldOrder?.quantity < updates?.quantity) {
+        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const incrementQuantity =
+              ingredient?.quantity * (updates?.quantity - oldOrder?.quantity);
+            await this.accountingService.consumptStock(user, {
+              product: ingredient?.product,
+              location: oldOrder?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.ORDERCREATE,
+            });
+          }
+        }
+        await this.activityService.addActivity(user, ActivityType.ADD_ORDER, {
+          ...oldOrder,
+          quantity: updates?.quantity,
+        });
+      } else if (updates?.quantity < oldOrder?.quantity) {
+        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const incrementQuantity =
+              ingredient?.quantity * (oldOrder?.quantity - updates?.quantity);
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: oldOrder?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.ORDERCANCEL,
+            });
+          }
+        }
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CANCEL_ORDER,
+          {
+            ...oldOrder,
+            quantity: updates?.quantity,
+          },
         );
       }
     }
