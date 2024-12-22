@@ -248,10 +248,12 @@ export class IkasService {
               }
             ]
           }) {
+            id
             name
             type
             salesChannelIds
             variants {
+              id
               isActive
               prices {
                 sellPrice

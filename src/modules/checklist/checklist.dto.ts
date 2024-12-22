@@ -1,8 +1,9 @@
 import { CheckDuty } from './check.schema';
+import { ChecklistDuty } from './checklist.schema';
 
 export class CreateChecklistDto {
   name: string;
-  duties?: string[];
+  duties?: ChecklistDuty[];
 }
 
 export class CreateCheckDto {
