@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 
-export class CheckDuty {
+export class ChecklistDuty {
   @Prop({ required: true, type: String })
   duty: string;
 
@@ -25,8 +25,8 @@ export class Checklist extends Document {
   @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
   locations: number[];
 
-  @Prop([CheckDuty])
-  duties: CheckDuty[];
+  @Prop([ChecklistDuty])
+  duties: ChecklistDuty[];
 }
 
 export const ChecklistSchema = SchemaFactory.createForClass(Checklist);
