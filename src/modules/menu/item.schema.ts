@@ -47,8 +47,8 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: Number })
   onlinePrice: number;
 
-  @Prop({ required: false, type: Number, default: true })
-  shownInMenu: number;
+  @Prop({ required: false, type: Boolean, default: true })
+  shownInMenu: boolean;
 
   @Prop({ required: true, default: [] })
   locations: number[];
