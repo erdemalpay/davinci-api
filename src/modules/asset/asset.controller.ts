@@ -50,9 +50,9 @@ export class AssetController {
 
   @Post('uploads')
   @UseInterceptors(
-    FilesInterceptor('files', 10, {
+    FilesInterceptor('files', 250, {
       // Allow up to 10 files
-      limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
+      limits: { fileSize: 1024 * 1024 * 100 }, // 5MB file size limit
     }),
   )
   uploadFiles(
