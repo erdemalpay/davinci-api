@@ -23,7 +23,7 @@ export class IkasController {
 
   @Public()
   @Post('/order-create-webhook')
-  createOrderWebhook() {
-    return this.ikasService.orderCreateWebHook();
+  createOrderWebhook(@Body() data?: any) {
+    return this.ikasService.orderCreateWebHook(data);
   }
 }
