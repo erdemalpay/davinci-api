@@ -291,6 +291,47 @@ export class IkasService {
     return savedProduct;
   }
 
+  async getAllWebhooks(): Promise<any[]> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const fetchWebhooks = async (): Promise<any[]> => {
+      const query = {
+        query: `{
+        listWebhook {
+          createdAt
+          deleted
+          endpoint
+          id
+          scope
+          updatedAt
+        }
+      }`,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listWebhook; // Return the list of webhooks
+      } catch (error) {
+        console.error(
+          'Error fetching webhooks:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to fetch webhooks from Ikas.');
+      }
+    };
+
+    return await fetchWebhooks(); // Fetch and return all webhooks
+  }
+
   async createOrderWebhook(): Promise<any> {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
@@ -301,7 +342,7 @@ export class IkasService {
         mutation {
           saveWebhook(
             input: {
-              scopes: ["store/order/created"]
+              scopes: ["store/order/updated"]
               endpoint: "https://api-staging.davinciboardgame.com/ikas/order-create-webhook"
             }
           ) {
@@ -373,6 +414,7 @@ export class IkasService {
     await uploadImagesMutation();
   }
   async orderCreateWebHook(data?: any) {
+    console.log(data);
     return {
       message: 'kral',
       data: data ?? {},

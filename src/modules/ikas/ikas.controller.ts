@@ -21,6 +21,16 @@ export class IkasController {
     return this.ikasService.getAllCategories();
   }
 
+  @Get('/webhook')
+  getAllWebhooks() {
+    return this.ikasService.getAllWebhooks();
+  }
+
+  @Post('/create-order')
+  createOrderWebhooks() {
+    return this.ikasService.createOrderWebhook();
+  }
+
   @Public()
   @Post('/order-create-webhook')
   createOrderWebhook(@Body() data?: any) {
