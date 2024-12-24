@@ -285,14 +285,55 @@ export class IkasService {
     };
     const savedProduct = await saveProductMutation();
     if (productInput.images) {
-      const allProducts = await this.getAllProducts();
-      const product = allProducts.find((p) => p.name === productInput.name);
-      if (product) {
-        const variantId = product.variants[0].id;
-        await this.createProductImages(variantId, productInput.images);
-      }
+      const variantId = savedProduct.variants[0].id;
+      await this.createProductImages(variantId, productInput.images);
     }
     return savedProduct;
+  }
+
+  async createOrderWebhook(): Promise<any> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const saveWebhookMutation = async (): Promise<any> => {
+      const data = {
+        query: `
+        mutation {
+          saveWebhook(
+            input: {
+              scopes: ["store/order/created"]
+              endpoint: "https://api-staging.davinciboardgame.com/ikas/order-create-webhook"
+            }
+          ) {
+            id
+            scope
+          }
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, data, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+        console.log(response);
+        return response.data.data.saveWebhook; // Return the saved webhook
+      } catch (error) {
+        console.error(
+          'Error saving webhook:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to save webhook to Ikas.');
+      }
+    };
+
+    const savedWebhook = await saveWebhookMutation();
+    return savedWebhook;
   }
 
   async createProductImages(variantId: string, imageArray: string[]) {
@@ -330,5 +371,11 @@ export class IkasService {
       }
     };
     await uploadImagesMutation();
+  }
+  async orderCreateWebHook(data?: any) {
+    return {
+      message: 'Order created successfully',
+      data: data ?? {},
+    };
   }
 }

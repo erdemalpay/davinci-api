@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Public } from '../auth/public.decorator';
 import { IkasService } from './ikas.service';
 
 @Controller('ikas')
@@ -18,5 +19,11 @@ export class IkasController {
   @Get('/category')
   getAllCategories() {
     return this.ikasService.getAllCategories();
+  }
+
+  @Public()
+  @Post('/order-create-webhook')
+  createOrderWebhook() {
+    return this.ikasService.orderCreateWebHook();
   }
 }
