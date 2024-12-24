@@ -24,7 +24,8 @@
     "http://localhost:3000",
     "https://davinci-nextjs.vercel.app",
     "https://yervarmi-davinci-git-v2-erdemalpay.vercel.app",
-    "https://yervarmi.davinciboardgame.com"
+    "https://yervarmi.davinciboardgame.com",
+    "https://davinciboardgame.myikas.com"
   ],
   "migrationEnabled": false
 }
