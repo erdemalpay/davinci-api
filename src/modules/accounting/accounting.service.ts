@@ -81,6 +81,7 @@ export class AccountingService {
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
+    @Inject(forwardRef(() => IkasService))
     private readonly ikasService: IkasService,
   ) {}
   //   Products
@@ -112,6 +113,10 @@ export class AccountingService {
       console.error('Failed to retrieve products from database:', error);
       throw new Error('Could not retrieve products');
     }
+  }
+  async findProductByIkasId(id: string) {
+    const product = await this.productModel.findOne({ ikasId: id });
+    return product;
   }
 
   async createProduct(user: User, createProductDto: CreateProductDto) {

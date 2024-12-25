@@ -1,8 +1,13 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { UserService } from '../user/user.service';
+import { AccountingGateway } from './../accounting/accounting.gateway';
+import { AccountingService } from './../accounting/accounting.service';
 import { IkasGateway } from './ikas.gateway';
 
 @Injectable()
@@ -14,6 +19,11 @@ export class IkasService {
     private readonly ikasGateway: IkasGateway,
     private readonly redisService: RedisService,
     private readonly httpService: HttpService,
+    @Inject(forwardRef(() => AccountingService))
+    private readonly accountingService: AccountingService,
+    @Inject(forwardRef(() => AccountingGateway))
+    private readonly userService: UserService,
+    private readonly locationService: LocationService,
   ) {
     this.tokenPayload = {
       grant_type: 'client_credentials',
@@ -62,7 +72,7 @@ export class IkasService {
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
     // Function to fetch a batch of products
-    const fetchBatch = async (page: number): Promise<any[]> => {
+    const fetchBatch = async (page: number) => {
       const query = {
         query: `
   {
@@ -187,11 +197,11 @@ export class IkasService {
     return allProducts;
   }
 
-  async getAllCategories(): Promise<any[]> {
+  async getAllCategories() {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
-    const fetchCategories = async (): Promise<any[]> => {
+    const fetchCategories = async () => {
       const query = {
         query: `{
         listCategory {
@@ -225,6 +235,72 @@ export class IkasService {
     };
 
     return await fetchCategories(); // Fetch and return all categories
+  }
+
+  async getAllStockLocations() {
+    const token = await this.getToken(); // Fetch the authentication token
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const fetchStockLocations = async () => {
+      const query = {
+        query: `{
+        listStockLocation {
+          address {
+            address
+            city {
+              code
+              id
+              name
+            }
+            country {
+              code
+              id
+              name
+            }
+            district {
+              code
+              id
+              name
+            }
+            phone
+            postalCode
+            state {
+              code
+              id
+              name
+            }
+          }
+          createdAt
+          deleted
+          id
+          name
+          type
+          updatedAt
+        }
+      }`,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listStockLocation; // Return the list of stock locations
+      } catch (error) {
+        console.error(
+          'Error fetching stock locations:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to fetch stock locations from Ikas.');
+      }
+    };
+
+    return await fetchStockLocations(); // Fetch and return all stock locations
   }
 
   async createProduct(productInput: any): Promise<any> {
@@ -291,11 +367,11 @@ export class IkasService {
     return savedProduct;
   }
 
-  async getAllWebhooks(): Promise<any[]> {
+  async getAllWebhooks() {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
-    const fetchWebhooks = async (): Promise<any[]> => {
+    const fetchWebhooks = async () => {
       const query = {
         query: `{
         listWebhook {
@@ -332,7 +408,7 @@ export class IkasService {
     return await fetchWebhooks(); // Fetch and return all webhooks
   }
 
-  async createOrderWebhook(): Promise<any> {
+  async createOrderWebhook() {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
@@ -376,6 +452,45 @@ export class IkasService {
     const savedWebhook = await saveWebhookMutation();
     return savedWebhook;
   }
+  async deleteWebhook(scopes: string[]) {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const deleteWebhookMutation = async () => {
+      // Serialize the scopes array into a GraphQL-friendly format
+      const serializedScopes = JSON.stringify(scopes);
+
+      const data = {
+        query: `
+        mutation {
+          deleteWebhook(scopes: ${serializedScopes})
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, data, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+        console.log('Webhook deleted:', response.data);
+        return response.data.data.deleteWebhook; // Return the result of deletion
+      } catch (error) {
+        console.error(
+          'Error deleting webhook:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to delete webhook from Ikas.');
+      }
+    };
+
+    const deleteResult = await deleteWebhookMutation();
+    return deleteResult;
+  }
 
   async createProductImages(variantId: string, imageArray: string[]) {
     const token = await this.getToken();
@@ -413,11 +528,32 @@ export class IkasService {
     };
     await uploadImagesMutation();
   }
+
   async orderCreateWebHook(data?: any) {
-    console.log(data);
-    return {
-      message: 'kral',
-      data: data ?? {},
-    };
+    if (!data.merchantId) {
+      throw new Error(`Invalid request`);
+    }
+    const orderLineItems = data?.data?.orderLineItems ?? [];
+    const constantUser = await this.userService.findById('dv'); //this is required to consumpt stock
+
+    if (orderLineItems.length > 0) {
+      for (const orderLineItem of orderLineItems) {
+        const { productId, quantity, stockLocationId } = orderLineItem.variant;
+        const foundProduct = await this.accountingService.findProductByIkasId(
+          productId,
+        );
+        const foundLocation = await this.locationService.findByIkasId(
+          stockLocationId,
+        );
+        if (foundProduct && foundLocation) {
+          await this.accountingService.consumptStock(constantUser, {
+            product: foundProduct._id,
+            location: foundLocation._id,
+            quantity: quantity,
+            status: StockHistoryStatusEnum.IKASORDERCREATE,
+          });
+        }
+      }
+    }
   }
 }

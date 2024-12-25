@@ -28,6 +28,10 @@ export class LocationService {
   findAllLocations() {
     return this.locationModel.find();
   }
+  async findByIkasId(id: string) {
+    const location = await this.locationModel.findOne({ ikasId: id });
+    return location;
+  }
   async checkDefaultLocations() {
     const locations = await this.findStoreLocations();
     if (locations.length > 0) {

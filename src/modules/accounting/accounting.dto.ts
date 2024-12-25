@@ -182,6 +182,7 @@ export enum StockHistoryStatusEnum {
   STOCKTRANSFER = 'STOCKTRANSFER',
   LOSSPRODUCT = 'LOSSPRODUCT',
   ORDERRETURN = 'ORDERRETURN',
+  IKASORDERCREATE = 'IKASORDERCREATE',
 }
 
 export type StockHistoryFilter = {

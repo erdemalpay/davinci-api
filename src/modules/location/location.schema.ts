@@ -21,6 +21,9 @@ export class Location extends Document {
 
   @Prop({ required: false, index: true })
   tableCount: string;
+
+  @Prop({ required: false, type: String })
+  ikasId: string;
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);

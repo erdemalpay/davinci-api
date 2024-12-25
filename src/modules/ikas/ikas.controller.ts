@@ -21,6 +21,11 @@ export class IkasController {
     return this.ikasService.getAllCategories();
   }
 
+  @Get('/stock-location')
+  getAllStockLocations() {
+    return this.ikasService.getAllStockLocations();
+  }
+
   @Get('/webhook')
   getAllWebhooks() {
     return this.ikasService.getAllWebhooks();
@@ -29,6 +34,11 @@ export class IkasController {
   @Post('/create-order')
   createOrderWebhooks() {
     return this.ikasService.createOrderWebhook();
+  }
+
+  @Post('/delete-webhook')
+  deleteWebhook(@Body() scopes: string[]) {
+    return this.ikasService.deleteWebhook(scopes);
   }
 
   @Public()
