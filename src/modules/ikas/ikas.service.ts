@@ -8,6 +8,7 @@ import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
 import { AccountingGateway } from './../accounting/accounting.gateway';
 import { AccountingService } from './../accounting/accounting.service';
+import { MenuService } from './../menu/menu.service';
 import { IkasGateway } from './ikas.gateway';
 
 @Injectable()
@@ -21,6 +22,9 @@ export class IkasService {
     private readonly httpService: HttpService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+
+    @Inject(forwardRef(() => MenuService))
+    private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingGateway))
     private readonly userService: UserService,
     private readonly locationService: LocationService,
@@ -539,15 +543,14 @@ export class IkasService {
     if (orderLineItems.length > 0) {
       for (const orderLineItem of orderLineItems) {
         const { productId, quantity, stockLocationId } = orderLineItem.variant;
-        const foundProduct = await this.accountingService.findProductByIkasId(
-          productId,
-        );
+        const foundMenuItem = await this.menuService.findByIkasId(productId);
+
         const foundLocation = await this.locationService.findByIkasId(
           stockLocationId,
         );
-        if (foundProduct && foundLocation) {
+        if (foundMenuItem.matchedProduct && foundLocation) {
           await this.accountingService.consumptStock(constantUser, {
-            product: foundProduct._id,
+            product: foundMenuItem.matchedProduct,
             location: foundLocation._id,
             quantity: quantity,
             status: StockHistoryStatusEnum.IKASORDERCREATE,

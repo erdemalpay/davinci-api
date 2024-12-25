@@ -142,6 +142,11 @@ export class MenuService {
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
+
+  async findByIkasId(id: string) {
+    const item = await this.itemModel.findOne({ ikasId: id });
+    return item;
+  }
   async findItemById(id: number) {
     const item = await this.itemModel.findById(id);
     return item;
