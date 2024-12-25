@@ -544,11 +544,10 @@ export class IkasService {
       for (const orderLineItem of orderLineItems) {
         const { productId, quantity, stockLocationId } = orderLineItem.variant;
         const foundMenuItem = await this.menuService.findByIkasId(productId);
-
         const foundLocation = await this.locationService.findByIkasId(
           stockLocationId,
         );
-        if (foundMenuItem.matchedProduct && foundLocation) {
+        if (foundMenuItem?.matchedProduct && foundLocation) {
           await this.accountingService.consumptStock(constantUser, {
             product: foundMenuItem.matchedProduct,
             location: foundLocation._id,
