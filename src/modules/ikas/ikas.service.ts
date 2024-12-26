@@ -6,7 +6,6 @@ import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
-import { AccountingGateway } from './../accounting/accounting.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { IkasGateway } from './ikas.gateway';
@@ -25,7 +24,6 @@ export class IkasService {
 
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
-    @Inject(forwardRef(() => AccountingGateway))
     private readonly userService: UserService,
     private readonly locationService: LocationService,
   ) {
@@ -535,14 +533,15 @@ export class IkasService {
 
   async orderCreateWebHook(data?: any) {
     if (!data.merchantId) {
-      throw new Error(`Invalid request`);
+      throw new Error('Invalid request');
     }
     const orderLineItems = data?.data?.orderLineItems ?? [];
-    const constantUser = await this.userService.findById('dv'); //this is required to consumpt stock
+    const constantUser = await this.userService.findByIdWithoutPopulate('dv'); //this is required to consumpt stock
 
     if (orderLineItems.length > 0) {
       for (const orderLineItem of orderLineItems) {
-        const { productId, quantity, stockLocationId } = orderLineItem.variant;
+        const { quantity, stockLocationId } = orderLineItem;
+        const { productId } = orderLineItem.variant;
         const foundMenuItem = await this.menuService.findByIkasId(productId);
         const foundLocation = await this.locationService.findByIkasId(
           stockLocationId,

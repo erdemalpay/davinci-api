@@ -126,8 +126,14 @@ export class UserService implements OnModuleInit {
     return updateResult;
   }
 
-  async findById(id: string): Promise<User | undefined> {
-    return this.userModel.findById(id).populate('role');
+  async findById(id: string) {
+    const user = await this.userModel.findById(id).populate('role');
+    return user;
+  }
+
+  async findByIdWithoutPopulate(id: string) {
+    const user = await this.userModel.findById(id);
+    return user;
   }
 
   async getAll(filterInactives = true): Promise<User[]> {
