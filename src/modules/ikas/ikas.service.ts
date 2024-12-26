@@ -532,9 +532,15 @@ export class IkasService {
   }
 
   async orderCreateWebHook(data?: any) {
-    console.log(data);
     if (!data.merchantId) {
       throw new Error('Invalid request');
+    }
+    if (typeof data?.data === 'string') {
+      try {
+        data.data = JSON.parse(data.data);
+      } catch (error) {
+        throw new Error('Invalid JSON format in data');
+      }
     }
     const orderLineItems = data?.data?.orderLineItems ?? [];
     const constantUser = await this.userService.findByIdWithoutPopulate('dv'); //this is required to consumpt stock
