@@ -60,6 +60,7 @@ export type OrderType = {
   stockLocation?: number;
   discountNote?: string;
   stockNote?: string;
+  ikasId?: string;
 };
 
 export class CreateCollectionDto {
@@ -73,6 +74,7 @@ export class CreateCollectionDto {
   newOrders?: OrderType[];
   stockLocation?: number;
   createdBy: string;
+  ikasId?: string;
 }
 
 export class CreateDiscountDto {

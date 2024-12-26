@@ -1,13 +1,13 @@
 import { HttpService } from '@nestjs/axios';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
+import { OrderService } from './../order/order.service';
 import { IkasGateway } from './ikas.gateway';
 
 @Injectable()
@@ -21,7 +21,8 @@ export class IkasService {
     private readonly httpService: HttpService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
-
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     private readonly userService: UserService,
@@ -542,30 +543,74 @@ export class IkasService {
         throw new Error('Invalid JSON format in data');
       }
     }
+    console.log(data);
     const orderLineItems = data?.data?.orderLineItems ?? [];
     const constantUser = await this.userService.findByIdWithoutPopulate('dv'); //this is required to consumpt stock
 
-    if (orderLineItems.length > 0) {
-      for (const orderLineItem of orderLineItems) {
-        const { quantity, stockLocationId } = orderLineItem;
-        const { productId } = orderLineItem.variant;
-        const foundMenuItem = await this.menuService.findByIkasId(productId);
-        const foundLocation = await this.locationService.findByIkasId(
-          stockLocationId,
-        );
-        if (
-          foundMenuItem?.matchedProduct &&
-          foundLocation &&
-          data?.data?.status === 'CREATED'
-        ) {
-          await this.accountingService.consumptStock(constantUser, {
-            product: foundMenuItem.matchedProduct,
-            location: foundLocation._id,
-            quantity: quantity,
-            status: StockHistoryStatusEnum.IKASORDERCREATE,
-          });
-        }
-      }
-    }
+    // if (orderLineItems.length > 0) {
+    //   for (const orderLineItem of orderLineItems) {
+    //     const { quantity, stockLocationId,id,finalPrice } = orderLineItem;
+    //     const { productId } = orderLineItem.variant;
+    //     const foundMenuItem = await this.menuService.findByIkasId(productId);
+    //     const foundLocation = await this.locationService.findByIkasId(
+    //       stockLocationId,
+    //     );
+    //     if (
+    //       foundMenuItem?.matchedProduct &&
+    //       foundLocation &&
+    //       data?.data?.status === 'CREATED'
+    //     ) {
+    //       const createOrderObject = {
+    //         item: foundMenuItem._id,
+    //         quantity: quantity,
+    //         note: '',
+    //         category: foundMenuItem.category,
+    //         discount: undefined,
+    //         discountNote: '',
+    //         isOnlinePrice: false,
+    //         location: foundLocation._id,
+    //         unitPrice: finalPrice,//this is the discount added amount coming from ikas
+    //         paidQuantity: quantity,
+    //         deliveredAt: new Date(),
+    //         deliveredBy: constantUser?._id,
+    //         preparedAt: new Date(),
+    //         preparedBy: constantUser?._id,
+    //         status: OrderStatus.AUTOSERVED,
+    //         stockLocation: foundLocation._id,
+    //         createdAt: new Date(),
+    //         createdBy: constantUser?._id,
+    //         stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
+    //         ikasId: id,
+    //       };
+    //       const order = await this.orderService.createOrder(
+    //         constantUser,
+    //         createOrderObject,
+    //       );
+    //       const createdCollection = {
+    //         location: foundLocation._id,
+    //         paymentMethod: 'credit_card',
+    //         amount: finalPrice*quantity,
+    //         status: OrderCollectionStatus.PAID,
+    //         orders:
+    //           totalMoneySpend >= totalAmount - discountAmount
+    //             ? tableOrders
+    //                 ?.filter((order) => order.paidQuantity !== order.quantity)
+    //                 ?.map((order) => {
+    //                   return {
+    //                     order: order._id,
+    //                     paidQuantity: order.quantity - order.paidQuantity,
+    //                   };
+    //                 })
+    //             : temporaryOrders?.map((order) => ({
+    //                 order: order.order._id,
+    //                 paidQuantity: order.quantity,
+    //               })),
+    //         ...(newOrders && { newOrders: newOrders }),
+    //         createdBy: user._id,
+    //       };
+    //       console.log(order);
+    //     }
+    //   }
+    // }
   }
 }

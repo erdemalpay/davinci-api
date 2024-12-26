@@ -53,6 +53,9 @@ export class Collection extends Document {
 
   @Prop({ required: false, type: Number, ref: Location.name })
   stockLocation: number;
+
+  @Prop({ required: false, type: String })
+  ikasId: string;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);

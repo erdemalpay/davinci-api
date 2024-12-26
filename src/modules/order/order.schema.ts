@@ -95,6 +95,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String })
   stockNote: string;
+
+  @Prop({ required: false, type: String })
+  ikasId: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
