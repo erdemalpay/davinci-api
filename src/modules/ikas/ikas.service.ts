@@ -2,11 +2,14 @@ import { HttpService } from '@nestjs/axios';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from '../location/location.service';
+import { OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
+import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
+import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
 import { IkasGateway } from './ikas.gateway';
 
@@ -533,84 +536,129 @@ export class IkasService {
   }
 
   async orderCreateWebHook(data?: any) {
-    if (!data.merchantId) {
-      throw new Error('Invalid request');
-    }
-    if (typeof data?.data === 'string') {
-      try {
-        data.data = JSON.parse(data.data);
-      } catch (error) {
-        throw new Error('Invalid JSON format in data');
+    try {
+      if (!data?.merchantId) {
+        throw new Error('Invalid request: Missing merchantId');
       }
-    }
-    console.log(data);
-    const orderLineItems = data?.data?.orderLineItems ?? [];
-    const constantUser = await this.userService.findByIdWithoutPopulate('dv'); //this is required to consumpt stock
 
-    // if (orderLineItems.length > 0) {
-    //   for (const orderLineItem of orderLineItems) {
-    //     const { quantity, stockLocationId,id,finalPrice } = orderLineItem;
-    //     const { productId } = orderLineItem.variant;
-    //     const foundMenuItem = await this.menuService.findByIkasId(productId);
-    //     const foundLocation = await this.locationService.findByIkasId(
-    //       stockLocationId,
-    //     );
-    //     if (
-    //       foundMenuItem?.matchedProduct &&
-    //       foundLocation &&
-    //       data?.data?.status === 'CREATED'
-    //     ) {
-    //       const createOrderObject = {
-    //         item: foundMenuItem._id,
-    //         quantity: quantity,
-    //         note: '',
-    //         category: foundMenuItem.category,
-    //         discount: undefined,
-    //         discountNote: '',
-    //         isOnlinePrice: false,
-    //         location: foundLocation._id,
-    //         unitPrice: finalPrice,//this is the discount added amount coming from ikas
-    //         paidQuantity: quantity,
-    //         deliveredAt: new Date(),
-    //         deliveredBy: constantUser?._id,
-    //         preparedAt: new Date(),
-    //         preparedBy: constantUser?._id,
-    //         status: OrderStatus.AUTOSERVED,
-    //         stockLocation: foundLocation._id,
-    //         createdAt: new Date(),
-    //         createdBy: constantUser?._id,
-    //         stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
-    //         ikasId: id,
-    //       };
-    //       const order = await this.orderService.createOrder(
-    //         constantUser,
-    //         createOrderObject,
-    //       );
-    //       const createdCollection = {
-    //         location: foundLocation._id,
-    //         paymentMethod: 'credit_card',
-    //         amount: finalPrice*quantity,
-    //         status: OrderCollectionStatus.PAID,
-    //         orders:
-    //           totalMoneySpend >= totalAmount - discountAmount
-    //             ? tableOrders
-    //                 ?.filter((order) => order.paidQuantity !== order.quantity)
-    //                 ?.map((order) => {
-    //                   return {
-    //                     order: order._id,
-    //                     paidQuantity: order.quantity - order.paidQuantity,
-    //                   };
-    //                 })
-    //             : temporaryOrders?.map((order) => ({
-    //                 order: order.order._id,
-    //                 paidQuantity: order.quantity,
-    //               })),
-    //         ...(newOrders && { newOrders: newOrders }),
-    //         createdBy: user._id,
-    //       };
-    //       console.log(order);
-    //     }
-    //   }
-    // }
+      if (typeof data?.data === 'string') {
+        try {
+          data.data = JSON.parse(data.data);
+        } catch (error) {
+          throw new Error('Invalid JSON format in data');
+        }
+      }
+
+      console.log('Received data:', data);
+
+      const orderLineItems = data?.data?.orderLineItems ?? [];
+      const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
+
+      if (!constantUser) {
+        throw new Error('Constant user not found');
+      }
+
+      if (orderLineItems.length === 0) {
+        console.log('No order line items to process');
+        return;
+      }
+
+      for (const orderLineItem of orderLineItems) {
+        try {
+          const { quantity, stockLocationId, id, finalPrice } = orderLineItem;
+          const { productId } = orderLineItem.variant;
+
+          if (!productId || !stockLocationId || !quantity) {
+            throw new Error('Invalid order line item data');
+          }
+
+          const foundMenuItem = await this.menuService.findByIkasId(productId);
+          if (!foundMenuItem?.matchedProduct) {
+            console.log(`Menu item not found for productId: ${productId}`);
+            continue;
+          }
+
+          const foundLocation = await this.locationService.findByIkasId(
+            stockLocationId,
+          );
+          if (!foundLocation) {
+            console.log(
+              `Location not found for stockLocationId: ${stockLocationId}`,
+            );
+            continue;
+          }
+
+          if (data?.data?.status !== 'CREATED') {
+            console.log(`Skipping item as status is not 'CREATED'`);
+            continue;
+          }
+
+          const createOrderObject = {
+            item: foundMenuItem._id,
+            quantity: quantity,
+            note: '',
+            category: foundMenuItem.category,
+            discount: undefined,
+            discountNote: '',
+            isOnlinePrice: false,
+            location: foundLocation._id,
+            unitPrice: finalPrice,
+            paidQuantity: quantity,
+            deliveredAt: new Date(),
+            deliveredBy: constantUser?._id,
+            preparedAt: new Date(),
+            preparedBy: constantUser?._id,
+            status: OrderStatus.AUTOSERVED,
+            stockLocation: foundLocation._id,
+            createdAt: new Date(),
+            createdBy: constantUser?._id,
+            stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
+            ikasId: id,
+          };
+
+          try {
+            const order = await this.orderService.createOrder(
+              constantUser,
+              createOrderObject,
+            );
+            console.log('Order created:', order);
+
+            const createdCollection = {
+              location: foundLocation._id,
+              paymentMethod: 'credit_card',
+              amount: data.data.netTotalFinalPrice,
+              status: OrderCollectionStatus.PAID,
+              orders: [
+                {
+                  order: order._id,
+                  paidQuantity: quantity,
+                },
+              ],
+              createdBy: constantUser._id,
+              ikasId: id, //this is ikas order id
+            };
+
+            try {
+              const collection = await this.orderService.createCollection(
+                constantUser,
+                createdCollection,
+              );
+              console.log('Collection created:', collection);
+            } catch (collectionError) {
+              console.error(
+                'Error creating collection:',
+                collectionError.message,
+              );
+            }
+          } catch (orderError) {
+            console.error('Error creating order:', orderError.message);
+          }
+        } catch (itemError) {
+          console.error('Error processing order line item:', itemError.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error in orderCreateWebHook:', error.message);
+    }
   }
 }
