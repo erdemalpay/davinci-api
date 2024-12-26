@@ -532,6 +532,7 @@ export class IkasService {
   }
 
   async orderCreateWebHook(data?: any) {
+    console.log(data);
     if (!data.merchantId) {
       throw new Error('Invalid request');
     }
