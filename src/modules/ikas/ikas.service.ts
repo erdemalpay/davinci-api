@@ -546,7 +546,11 @@ export class IkasService {
         const foundLocation = await this.locationService.findByIkasId(
           stockLocationId,
         );
-        if (foundMenuItem?.matchedProduct && foundLocation) {
+        if (
+          foundMenuItem?.matchedProduct &&
+          foundLocation &&
+          data?.data?.status === 'CREATED'
+        ) {
           await this.accountingService.consumptStock(constantUser, {
             product: foundMenuItem.matchedProduct,
             location: foundLocation._id,
