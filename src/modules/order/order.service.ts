@@ -20,6 +20,7 @@ import { UserService } from '../user/user.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
+import { IkasService } from './../ikas/ikas.service';
 import { MenuService } from './../menu/menu.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
@@ -48,6 +49,8 @@ export class OrderService {
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
+    @Inject(forwardRef(() => IkasService))
+    private readonly ikasService: IkasService,
     private readonly orderGateway: OrderGateway,
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
@@ -455,6 +458,25 @@ export class OrderService {
                 createdOrder?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
             });
           }
+          if (
+            (orderWithItem.item as any).ikasId &&
+            (orderWithItem.item as any).matchedProduct
+          ) {
+            const foundProductStock =
+              await this.accountingService.findProductStock(
+                (orderWithItem.item as any).matchedProduct,
+              );
+            const foundLocationStock = foundProductStock?.find(
+              (stock) => stock.location === order?.location,
+            );
+            if (foundLocationStock) {
+              this.ikasService.updateProductStock(
+                (orderWithItem.item as any).ikasId,
+                orderWithItem?.stockLocation,
+                foundLocationStock.quantity,
+              );
+            }
+          }
         }
         this.activityService.addActivity(
           users.find((user) => user._id === createdOrder.createdBy),
@@ -558,6 +580,26 @@ export class OrderService {
             status:
               createOrderDto?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
           });
+        }
+        if (
+          !isIkasOrder &&
+          (orderWithItem.item as any).ikasId &&
+          (orderWithItem.item as any).matchedProduct
+        ) {
+          const foundProductStock =
+            await this.accountingService.findProductStock(
+              (orderWithItem.item as any).matchedProduct,
+            );
+          const foundLocationStock = foundProductStock?.find(
+            (stock) => stock.location === order?.location,
+          );
+          if (foundLocationStock) {
+            this.ikasService.updateProductStock(
+              (orderWithItem.item as any).ikasId,
+              order.location,
+              foundLocationStock.quantity,
+            );
+          }
         }
       }
       this.activityService.addActivity(
@@ -694,6 +736,26 @@ export class OrderService {
             status: StockHistoryStatusEnum.ORDERRETURN,
           });
         }
+        if (
+          (populatedReturnOrder.item as any).ikasId &&
+          (populatedReturnOrder.item as any).matchedProduct
+        ) {
+          const foundProductStock =
+            await this.accountingService.findProductStock(
+              (populatedReturnOrder.item as any).matchedProduct,
+            );
+          const foundLocationStock = foundProductStock?.find(
+            (stock) => stock.location === order?.location,
+          );
+
+          if (foundLocationStock) {
+            this.ikasService.updateProductStock(
+              (populatedReturnOrder.item as any).ikasId,
+              order.location,
+              foundLocationStock.quantity,
+            );
+          }
+        }
       }
       //update the original order status
       await this.orderModel.findByIdAndUpdate(
@@ -764,6 +826,25 @@ export class OrderService {
               status: StockHistoryStatusEnum.ORDERCANCEL,
             });
           }
+          if (
+            (oldOrder.item as any).ikasId &&
+            (oldOrder.item as any).matchedProduct
+          ) {
+            const foundProductStock =
+              await this.accountingService.findProductStock(
+                (oldOrder.item as any).matchedProduct,
+              );
+            const foundLocationStock = foundProductStock?.find(
+              (stock) => stock.location === order?.location,
+            );
+            if (foundLocationStock) {
+              this.ikasService.updateProductStock(
+                (oldOrder.item as any).ikasId,
+                oldOrder?.stockLocation,
+                foundLocationStock.quantity,
+              );
+            }
+          }
         }
         await this.activityService.addActivity(
           user,
@@ -796,6 +877,25 @@ export class OrderService {
               status: StockHistoryStatusEnum.ORDERCREATE,
             });
           }
+          if (
+            (oldOrder.item as any).ikasId &&
+            (oldOrder.item as any).matchedProduct
+          ) {
+            const foundProductStock =
+              await this.accountingService.findProductStock(
+                (oldOrder.item as any).matchedProduct,
+              );
+            const foundLocationStock = foundProductStock?.find(
+              (stock) => stock.location === oldOrder?.location,
+            );
+            if (foundLocationStock) {
+              this.ikasService.updateProductStock(
+                (oldOrder.item as any).ikasId,
+                oldOrder?.stockLocation,
+                foundLocationStock.quantity,
+              );
+            }
+          }
         }
         await this.activityService.addActivity(user, ActivityType.ADD_ORDER, {
           ...oldOrder,
@@ -813,6 +913,25 @@ export class OrderService {
               quantity: incrementQuantity,
               status: StockHistoryStatusEnum.ORDERCANCEL,
             });
+          }
+          if (
+            (oldOrder.item as any).ikasId &&
+            (oldOrder.item as any).matchedProduct
+          ) {
+            const foundProductStock =
+              await this.accountingService.findProductStock(
+                (oldOrder.item as any).matchedProduct,
+              );
+            const foundLocationStock = foundProductStock?.find(
+              (stock) => stock.location === oldOrder?.location,
+            );
+            if (foundLocationStock) {
+              this.ikasService.updateProductStock(
+                (oldOrder.item as any).ikasId,
+                oldOrder?.stockLocation,
+                foundLocationStock.quantity,
+              );
+            }
           }
         }
         await this.activityService.addActivity(

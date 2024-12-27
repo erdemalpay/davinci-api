@@ -111,6 +111,12 @@ export class AccountingService {
       throw new Error('Could not retrieve products');
     }
   }
+
+  async findProductById(id: string) {
+    const product = await this.productModel.findOne({ _id: id });
+    return product;
+  }
+
   async findProductByIkasId(id: string) {
     const product = await this.productModel.findOne({ ikasId: id });
     return product;
@@ -1313,6 +1319,10 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+  async findProductStock(productId: string) {
+    const stocks = await this.stockModel.find({ product: productId });
+    return stocks;
   }
 
   async findQueryStocks(user: User, query: StockQueryDto) {

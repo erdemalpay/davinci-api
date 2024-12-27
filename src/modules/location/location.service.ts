@@ -32,6 +32,12 @@ export class LocationService {
     const location = await this.locationModel.findOne({ ikasId: id });
     return location;
   }
+
+  async findLocationById(id: number) {
+    const location = await this.locationModel.findOne({ _id: id });
+    return location;
+  }
+
   async checkDefaultLocations() {
     const locations = await this.findStoreLocations();
     if (locations.length > 0) {

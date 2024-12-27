@@ -16,9 +16,20 @@ export class IkasController {
     return this.ikasService.createProduct(product);
   }
 
-  @Patch('/product')
-  updateProduct(@Body() product: any) {
-    return this.ikasService.updateProduct(product);
+  @Patch('/product-stock')
+  updateProductStock(
+    @Body()
+    payload: {
+      productId: string;
+      stockLocationId: number;
+      stockCount: number;
+    },
+  ) {
+    return this.ikasService.updateProductStock(
+      payload.productId,
+      payload.stockLocationId,
+      payload.stockCount,
+    );
   }
 
   @Get('/category')

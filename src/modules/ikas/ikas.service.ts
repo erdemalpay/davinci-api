@@ -19,7 +19,6 @@ export class IkasService {
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly httpService: HttpService,
-
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
@@ -312,11 +311,11 @@ export class IkasService {
     return await fetchStockLocations(); // Fetch and return all stock locations
   }
 
-  async createProduct(productInput: any): Promise<any> {
+  async createProduct(productInput: any) {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
-    const saveProductMutation = async (): Promise<any> => {
+    const saveProductMutation = async () => {
       const data = {
         query: `
         mutation {
@@ -375,30 +374,42 @@ export class IkasService {
     }
     return savedProduct;
   }
-  async updateProduct(productInput: any): Promise<any> {
+  async updateProductStock(
+    productId: string,
+    stockLocationId: number,
+    stockCount: number,
+  ): Promise<boolean> {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-
-    const saveProductMutation = async (): Promise<any> => {
+    const allProducts = await this.getAllProducts();
+    const foundProduct = allProducts.find(
+      (product) => product.id === productId,
+    );
+    const foundStockLocation = await this.locationService.findLocationById(
+      stockLocationId,
+    );
+    if (!foundStockLocation.ikasId) {
+      throw new Error(
+        `Stock Location with ID ${stockLocationId} does not have ikas id`,
+      );
+    }
+    if (!foundProduct) {
+      throw new Error(`Product with ID ${productId} not found`);
+    }
+    const updateProductStockMutation = async (): Promise<boolean> => {
       const data = {
         query: `
         mutation {
-          saveProduct(input: {
-            id: ${productInput.id},
-            name: "${productInput.name}",
-          }) {
-            id
-            name
-            type
-            salesChannelIds
-            variants {
-              id
-              isActive
-              prices {
-                sellPrice
+          saveProductStockLocations(input: {
+            productStockLocationInputs: [
+              {
+                productId: "${productId}",
+                stockCount: ${stockCount},
+                stockLocationId: "${foundStockLocation.ikasId}",
+                variantId: "${foundProduct.variants[0].id}"
               }
-            }
-          }
+            ]
+          })
         }
       `,
       };
@@ -412,18 +423,24 @@ export class IkasService {
             },
           })
           .toPromise();
-        console.log(response);
-        return response.data.data.saveProduct; // Return the saved product
+
+        if (response.data.data.saveProductStockLocations) {
+          console.log('Stock updated successfully.');
+          return true; // Return true if the mutation succeeds
+        } else {
+          console.error('Failed to update stock: Mutation returned false.');
+          return false; // Return false if the mutation fails
+        }
       } catch (error) {
         console.error(
-          'Error saving product:',
+          'Error updating stock:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new Error('Unable to save product to Ikas.');
+        throw new Error('Unable to update product stock.');
       }
     };
-    const savedProduct = await saveProductMutation();
-    return savedProduct;
+
+    return await updateProductStockMutation();
   }
 
   async getAllWebhooks() {
@@ -471,7 +488,7 @@ export class IkasService {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
-    const saveWebhookMutation = async (): Promise<any> => {
+    const saveWebhookMutation = async () => {
       const data = {
         query: `
         mutation {
