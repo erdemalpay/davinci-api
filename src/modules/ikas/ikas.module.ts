@@ -3,7 +3,6 @@ import { forwardRef, Module } from '@nestjs/common';
 import { UserModule } from 'src/modules/user/user.module';
 import { OrderModule } from '../order/order.module';
 import { RedisModule } from '../redis/redis.module';
-import { AccountingModule } from './../accounting/accounting.module';
 import { LocationModule } from './../location/location.module';
 import { MenuModule } from './../menu/menu.module';
 import { IkasController } from './ikas.controller';
@@ -14,10 +13,9 @@ import { IkasService } from './ikas.service';
   imports: [
     RedisModule,
     HttpModule,
-    forwardRef(() => AccountingModule),
     UserModule,
     LocationModule,
-    MenuModule,
+    forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),
   ],
   providers: [IkasService, IkasGateway],

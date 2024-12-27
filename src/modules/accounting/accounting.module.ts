@@ -4,7 +4,6 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { GameModule } from 'src/modules/game/game.module';
 import { ActivityModule } from '../activity/activity.module';
 import { AssetModule } from '../asset/asset.module';
-import { IkasModule } from '../ikas/ikas.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { CheckoutModule } from './../checkout/checkout.module';
@@ -62,7 +61,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     RedisModule,
     AssetModule,
     forwardRef(() => LocationModule),
-    forwardRef(() => IkasModule),
+
     forwardRef(() => MenuModule),
   ],
   providers: [AccountingService, AccountingGateway],

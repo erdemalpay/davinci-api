@@ -4,7 +4,6 @@ import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
-import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -81,8 +80,6 @@ export class AccountingService {
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
-    @Inject(forwardRef(() => IkasService))
-    private readonly ikasService: IkasService,
   ) {}
   //   Products
   findActiveProducts() {

@@ -7,6 +7,7 @@ import { RedisModule } from '../redis/redis.module';
 import { UserModule } from '../user/user.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { IkasModule } from './../ikas/ikas.module';
 import { MenuModule } from './../menu/menu.module';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
@@ -32,6 +33,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => TableModule),
     forwardRef(() => MenuModule),
     forwardRef(() => UserModule),
+    forwardRef(() => IkasModule),
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderGateway],

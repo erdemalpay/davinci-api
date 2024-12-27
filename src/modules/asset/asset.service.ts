@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
 import * as streamifier from 'streamifier';
@@ -13,6 +13,7 @@ export class AssetService {
   constructor(
     configService: ConfigService,
     private readonly assetGateway: AssetGateway,
+    @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
   ) {
     // Require the cloudinary library

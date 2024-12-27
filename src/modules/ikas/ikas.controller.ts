@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { IkasService } from './ikas.service';
 
@@ -14,6 +14,11 @@ export class IkasController {
   @Post('/product')
   createProduct(@Body() product: any) {
     return this.ikasService.createProduct(product);
+  }
+
+  @Patch('/product')
+  updateProduct(@Body() product: any) {
+    return this.ikasService.updateProduct(product);
   }
 
   @Get('/category')

@@ -7,11 +7,9 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
-import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
-import { IkasGateway } from './ikas.gateway';
 
 @Injectable()
 export class IkasService {
@@ -19,11 +17,9 @@ export class IkasService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly ikasGateway: IkasGateway,
     private readonly redisService: RedisService,
     private readonly httpService: HttpService,
-    @Inject(forwardRef(() => AccountingService))
-    private readonly accountingService: AccountingService,
+
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
@@ -130,12 +126,19 @@ export class IkasService {
           variantValueIds
         }
         type
+        totalStock
         variants {
           id
           attributes {
             productAttributeId
             productAttributeOptionId
             value
+          }
+          stocks{
+            id
+            productId
+            stockCount
+            stockLocationId
           }
           barcodeList
           fileId
@@ -370,6 +373,56 @@ export class IkasService {
       const variantId = savedProduct.variants[0].id;
       await this.createProductImages(variantId, productInput.images);
     }
+    return savedProduct;
+  }
+  async updateProduct(productInput: any): Promise<any> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const saveProductMutation = async (): Promise<any> => {
+      const data = {
+        query: `
+        mutation {
+          saveProduct(input: {
+            id: ${productInput.id},
+            name: "${productInput.name}",
+          }) {
+            id
+            name
+            type
+            salesChannelIds
+            variants {
+              id
+              isActive
+              prices {
+                sellPrice
+              }
+            }
+          }
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, data, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+        console.log(response);
+        return response.data.data.saveProduct; // Return the saved product
+      } catch (error) {
+        console.error(
+          'Error saving product:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        throw new Error('Unable to save product to Ikas.');
+      }
+    };
+    const savedProduct = await saveProductMutation();
     return savedProduct;
   }
 
@@ -615,11 +668,11 @@ export class IkasService {
             stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
             ikasId: id,
           };
-
           try {
             const order = await this.orderService.createOrder(
               constantUser,
               createOrderObject,
+              true,
             );
             console.log('Order created:', order);
 
