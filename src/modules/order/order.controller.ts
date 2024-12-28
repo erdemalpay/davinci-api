@@ -114,7 +114,7 @@ export class OrderController {
 
   @Post()
   createOrder(@ReqUser() user: User, @Body() createOrderDto: CreateOrderDto) {
-    return this.orderService.createOrder(user, createOrderDto, false);
+    return this.orderService.createOrder(user, createOrderDto);
   }
   @Post('/create_multiple')
   createMultipleOrder(
