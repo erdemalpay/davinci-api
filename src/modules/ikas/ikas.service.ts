@@ -692,7 +692,6 @@ export class IkasService {
             const order = await this.orderService.createOrder(
               constantUser,
               createOrderObject,
-              true,
             );
             console.log('Order created:', order);
 
