@@ -501,11 +501,7 @@ export class OrderService {
     return createdOrders;
   }
 
-  async createOrder(
-    user: User,
-    createOrderDto: CreateOrderDto,
-    isIkasOrder?: boolean,
-  ) {
+  async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const users = await this.userService.findAllUsers();
     if (createOrderDto.quantity <= 0) {
       throw new HttpException(

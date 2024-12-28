@@ -692,7 +692,6 @@ export class IkasService {
             const order = await this.orderService.createOrder(
               constantUser,
               createOrderObject,
-              true,
             );
             console.log('Order created:', order);
 
@@ -752,6 +751,12 @@ export class IkasService {
 
           for (const stock of productStocks) {
             try {
+              if (!item.ikasId) {
+                console.error(
+                  `Product ${item.matchedProduct} does not have an Ikas ID`,
+                );
+                continue;
+              }
               await this.updateProductStock(
                 item.ikasId,
                 stock.location,
