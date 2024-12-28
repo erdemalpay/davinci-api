@@ -151,6 +151,10 @@ export class MenuService {
     const item = await this.itemModel.findById(id);
     return item;
   }
+  async findByMatchedProduct(id: string) {
+    const item = await this.itemModel.findOne({ matchedProduct: id });
+    return item;
+  }
   async createItem(user: User, createItemDto: CreateItemDto) {
     try {
       const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });

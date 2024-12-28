@@ -434,8 +434,8 @@ export class AccountingController {
     @ReqUser() user: User,
     @Body()
     payload: {
-      currentStockLocation: string;
-      transferredStockLocation: string;
+      currentStockLocation: number;
+      transferredStockLocation: number;
       product: string;
       quantity: number;
     },

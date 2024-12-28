@@ -379,6 +379,7 @@ export class IkasService {
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
+    console.log(productId, stockLocationId, stockCount);
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
     const allProducts = await this.getAllProducts();

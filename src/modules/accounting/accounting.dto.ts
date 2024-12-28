@@ -91,14 +91,14 @@ export class CreatePaymentMethodDto {
 
 export class CreateStockDto {
   product: string;
-  location: string | number;
+  location: number;
   quantity: number;
   status: string;
 }
 
 export class CreateProductStockHistoryDto {
   product: string;
-  location: string | number;
+  location: number;
   change: number;
   currentAmount: number;
   status: string;
@@ -117,7 +117,7 @@ export class CreateInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
-  location: string | number;
+  location: number;
   date: string;
   brand?: string;
   vendor?: string;
@@ -152,7 +152,7 @@ export class CreateServiceInvoiceDto {
   expenseType: string;
   quantity: number;
   totalExpense: number;
-  location: string | number;
+  location: number;
   date: string;
   vendor?: string;
   brand?: string;

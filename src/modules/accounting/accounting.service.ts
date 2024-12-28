@@ -4,6 +4,7 @@ import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
+import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -78,6 +79,8 @@ export class AccountingService {
     private readonly accountingGateway: AccountingGateway,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
+    @Inject(forwardRef(() => IkasService))
+    private readonly ikasService: IkasService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
   ) {}
@@ -1460,7 +1463,17 @@ export class AccountingService {
       }
     }
   }
-
+  async updateIkasStock(productId: string, location: number, quantity: number) {
+    const menuItem = await this.menuService.findByMatchedProduct(productId);
+    if (!menuItem || !menuItem.ikasId) {
+      return;
+    }
+    await this.ikasService.updateProductStock(
+      menuItem.ikasId,
+      location,
+      quantity,
+    );
+  }
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
@@ -1491,6 +1504,11 @@ export class AccountingService {
         existingStock,
         newStock,
       );
+      this.updateIkasStock(
+        createStockDto.product,
+        createStockDto.location,
+        oldQuantity + createStockDto.quantity,
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -1511,6 +1529,11 @@ export class AccountingService {
         status,
         currentAmount: 0,
       });
+      this.updateIkasStock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
     }
   }
 
@@ -1593,8 +1616,8 @@ export class AccountingService {
   }
   async stockTransfer(
     user: User,
-    currentStockLocation: string,
-    transferredStockLocation: string,
+    currentStockLocation: number,
+    transferredStockLocation: number,
     product: string,
     quantity: number,
   ) {
@@ -1638,6 +1661,7 @@ export class AccountingService {
         user: user._id,
       });
       const deletedStock = await this.stockModel.findByIdAndRemove(id);
+      this.updateIkasStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -1700,6 +1724,11 @@ export class AccountingService {
         ActivityType.UPDATE_STOCK,
         stock,
         newStock,
+      );
+      this.updateIkasStock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
       );
       return stock;
     } else {
