@@ -7,6 +7,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { UserService } from '../user/user.service';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
+import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
@@ -23,6 +24,8 @@ export class IkasService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
+    @Inject(forwardRef(() => AccountingService))
+    private readonly accountingService: AccountingService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
   ) {
@@ -379,7 +382,6 @@ export class IkasService {
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
-    console.log(productId, stockLocationId, stockCount);
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
     const allProducts = await this.getAllProducts();
@@ -730,6 +732,50 @@ export class IkasService {
       }
     } catch (error) {
       console.error('Error in orderCreateWebHook:', error.message);
+    }
+  }
+
+  async updateAllProductStocks() {
+    try {
+      const ikasItems = await this.menuService.getAllIkasItems();
+      console.log('Fetched Ikas Items:', ikasItems);
+
+      for (const item of ikasItems) {
+        try {
+          const productStocks = await this.accountingService.findProductStock(
+            item.matchedProduct,
+          );
+          console.log(
+            `Fetched product stocks for ${item.ikasId}:`,
+            productStocks,
+          );
+
+          for (const stock of productStocks) {
+            try {
+              await this.updateProductStock(
+                item.ikasId,
+                stock.location,
+                stock.quantity,
+              );
+              console.log(
+                `Stock updated for product ${item.ikasId}, location ${stock.location}`,
+              );
+            } catch (stockError) {
+              console.error(
+                `Error updating stock for product ${item.ikasId}, location ${stock.location}:`,
+                stockError.message,
+              );
+            }
+          }
+        } catch (productStockError) {
+          console.error(
+            `Error fetching product stocks for ${item.ikasId}:`,
+            productStockError.message,
+          );
+        }
+      }
+    } catch (ikasItemsError) {
+      console.error('Error fetching Ikas items:', ikasItemsError.message);
     }
   }
 }
