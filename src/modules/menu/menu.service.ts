@@ -151,6 +151,14 @@ export class MenuService {
     const item = await this.itemModel.findById(id);
     return item;
   }
+
+  async getAllIkasItems() {
+    const items = await this.itemModel.find({
+      ikasId: { $ne: null },
+      matchedProduct: { $ne: null },
+    });
+    return items;
+  }
   async findByMatchedProduct(id: string) {
     const item = await this.itemModel.findOne({ matchedProduct: id });
     return item;

@@ -57,6 +57,11 @@ export class IkasController {
     return this.ikasService.deleteWebhook(scopes);
   }
 
+  @Post('/update-all-stocks')
+  updateAllStocks() {
+    return this.ikasService.updateAllProductStocks();
+  }
+
   @Public()
   @Post('/order-create-webhook')
   createOrderWebhook(@Body() data?: any) {
