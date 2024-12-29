@@ -1,9 +1,9 @@
 import {
+  forwardRef,
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format } from 'date-fns';
@@ -14,6 +14,7 @@ import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { OrderService } from '../order/order.service';
+import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
@@ -22,12 +23,21 @@ import { TableDto, TableStatus, TableTypes } from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
 
+export enum ReservationStatusEnum {
+  WAITING = 'Waiting',
+  COMING = 'Coming',
+  NOT_COMING = 'Not coming',
+  NOT_RESPONDED = 'Not responded',
+  CAME = 'Already came',
+}
+
 @Injectable()
 export class TableService {
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
+    private readonly reservationService: ReservationService,
     private readonly menuService: MenuService,
     private readonly tableGateway: TableGateway,
     @Inject(forwardRef(() => OrderService))
@@ -216,7 +226,19 @@ export class TableService {
         isOnlineSale: { $ne: true },
         status: { $ne: TableStatus.CANCELLED },
       });
-      return tables.length;
+      const comingReservations = await this.reservationService.find({
+        location,
+        date,
+        status: ReservationStatusEnum.COMING,
+      });
+      const waitingReservations = await this.reservationService.find({
+        location,
+        date,
+        status: ReservationStatusEnum.WAITING,
+      });
+      return (
+        tables.length + comingReservations.length + waitingReservations.length
+      );
     } catch (error) {
       console.error('Error retrieving tables:', error);
       throw new Error('Failed to retrieve table availability.');

@@ -61,6 +61,12 @@ export class ReservationService {
     return this.reservationModel.findOne(query);
   }
 
+  async find(
+    query: Partial<ReservationDto>,
+  ): Promise<Reservation[] | undefined> {
+    return this.reservationModel.find(query);
+  }
+
   async getByLocation(location: number, date: string): Promise<Reservation[]> {
     return this.reservationModel.find({ location, date });
   }
