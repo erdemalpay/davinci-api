@@ -1,10 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityModule } from '../activity/activity.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { MenuModule } from '../menu/menu.module';
 import { OrderModule } from '../order/order.module';
+import { ReservationModule } from '../reservation/reservation.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
 import { TableController } from './table.controller';
 import { TableGateway } from './table.gateway';
@@ -23,6 +24,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     PanelControlModule,
     forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),
+    forwardRef(() => ReservationModule),
   ],
   providers: [TableService, TableGateway],
   exports: [TableService, TableGateway],

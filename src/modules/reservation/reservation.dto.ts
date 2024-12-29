@@ -30,6 +30,9 @@ export class ReservationDto {
 
   @IsString()
   approvedHour?: string;
+
+  @IsString()
+  status?: string;
 }
 
 export class ReservationResponse {
