@@ -382,9 +382,13 @@ export class IkasService {
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
     const allProducts = await this.getAllProducts();
+
     const foundProduct = allProducts.find(
       (product) => product.id === productId,
     );
@@ -697,7 +701,7 @@ export class IkasService {
 
             const createdCollection = {
               location: foundLocation._id,
-              paymentMethod: 'credit_card',
+              paymentMethod: 'kutuoyunual',
               amount: data.data.netTotalFinalPrice,
               status: OrderCollectionStatus.PAID,
               orders: [
