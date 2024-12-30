@@ -154,7 +154,7 @@ export class MenuService {
 
   async getAllIkasItems() {
     const items = await this.itemModel.find({
-      ikasId: { $ne: null },
+      ikasId: { $nin: [null, ''] },
       matchedProduct: { $ne: null },
     });
     return items;
