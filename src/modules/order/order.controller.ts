@@ -132,6 +132,17 @@ export class OrderController {
     );
   }
 
+  @Post('/cancel-ikas-order')
+  cancelIkasOrder(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      ikasId: string;
+    },
+  ) {
+    return this.orderService.cancelIkasOrder(user, payload.ikasId);
+  }
+
   @Post('/return_order')
   returnOrder(
     @ReqUser() user: User,

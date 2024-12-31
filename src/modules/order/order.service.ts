@@ -840,6 +840,45 @@ export class OrderService {
         });
     }
   }
+  async cancelIkasOrder(user: User, ikasId: string) {
+    try {
+      const order = await this.orderModel.findOne({ ikasId: ikasId });
+      const collection = await this.collectionModel.findOne({ ikasId: ikasId });
+      if (!order || !collection) {
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      }
+      if (
+        order.status === OrderStatus.CANCELLED ||
+        collection.status === OrderCollectionStatus.CANCELLED
+      ) {
+        throw new HttpException(
+          'Order already cancelled',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      await this.updateOrder(user, order._id, {
+        status: OrderStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelledBy: user._id,
+      });
+      await this.collectionModel.findByIdAndUpdate(
+        collection._id,
+        {
+          status: OrderCollectionStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledBy: user._id,
+        },
+        { new: true },
+      );
+      return { message: 'Order cancelled successfully' };
+    } catch (error) {
+      console.error('Error cancelling ikas order:', error);
+      throw new HttpException(
+        'Failed to cancel order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async updateMultipleOrders(
     user: User,
