@@ -1066,14 +1066,16 @@ export class AccountingService {
     if (!expense) {
       throw new HttpException('Expense not found', HttpStatus.BAD_REQUEST);
     }
+    if (expense?.totalExpense !== updates?.totalExpense) {
+    }
     if (
       expense.type === ExpenseTypes.STOCKABLE &&
       expense.product === updates?.product &&
       expense.quantity === updates?.quantity &&
       expense.location === updates?.location &&
+      expense.totalExpense === updates?.totalExpense &&
       expense.date === updates?.date &&
       (expense.note !== updates?.note ||
-        expense.totalExpense !== updates?.totalExpense ||
         expense.brand !== updates?.brand ||
         expense.vendor !== updates?.vendor ||
         expense.expenseType !== updates?.expenseType ||
@@ -1084,7 +1086,6 @@ export class AccountingService {
         id,
         {
           $set: {
-            totalExpense: updates?.totalExpense,
             note: updates?.note,
             brand: updates?.brand,
             vendor: updates?.vendor,
@@ -1107,11 +1108,11 @@ export class AccountingService {
       expense.product === updates?.product &&
       expense.location === updates?.location &&
       expense.date === updates?.date &&
+      expense.totalExpense === updates?.totalExpense &&
+      expense.quantity === updates?.quantity &&
       (expense.note !== updates?.note ||
-        expense.totalExpense !== updates?.totalExpense ||
         expense.brand !== updates?.brand ||
         expense.vendor !== updates?.vendor ||
-        expense.quantity !== updates?.quantity ||
         expense.expenseType !== updates?.expenseType ||
         expense.paymentMethod !== updates?.paymentMethod ||
         expense?.isStockIncrement !== updates?.isStockIncrement)
@@ -1120,7 +1121,6 @@ export class AccountingService {
         id,
         {
           $set: {
-            totalExpense: updates?.totalExpense,
             note: updates?.note,
             brand: updates?.brand,
             vendor: updates?.vendor,
