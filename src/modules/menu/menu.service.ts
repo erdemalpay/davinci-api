@@ -221,7 +221,8 @@ export class MenuService {
     price: number,
     category: number,
     name: string,
-    stockLocation: number,
+    oldStockLocation: number,
+    newStockLocation: number,
   ) {
     try {
       const item = await this.itemModel.findById(itemId);
@@ -237,8 +238,9 @@ export class MenuService {
           const foundProduct = await this.accountingService.findProductById(
             item.matchedProduct,
           );
+          delete foundProduct.matchedMenuItem;
           matchedProduct = await this.accountingService.createProduct(user, {
-            ...foundProduct,
+            ...foundProduct.toObject(),
             name: name,
           });
         } catch (error) {
@@ -248,18 +250,26 @@ export class MenuService {
           );
         }
       }
-
       // Deleting old item images
       delete item.imageUrl;
       delete item.productImages;
-
+      delete item.itemProduction;
       // Creating a new item
       const newItemData = {
         ...item.toObject(),
         name,
         category,
         price,
-        ...(matchedProduct && { matchedProduct: matchedProduct._id }),
+        ...(matchedProduct && {
+          matchedProduct: matchedProduct._id,
+          itemProduction: [
+            {
+              product: matchedProduct._id,
+              quantity: 1,
+              isDecrementStock: true,
+            },
+          ],
+        }),
       };
 
       const newItem = await this.itemModel.create(newItemData);
@@ -280,7 +290,7 @@ export class MenuService {
           item.matchedProduct,
         );
         const foundLocationStock = foundStock.find(
-          (stock) => stock.location === stockLocation,
+          (stock) => stock.location === oldStockLocation,
         );
 
         if (foundLocationStock) {
@@ -289,8 +299,8 @@ export class MenuService {
             foundLocationStock._id,
             {
               product: item.matchedProduct,
-              location: stockLocation,
-              quantity: stockQuantity,
+              location: oldStockLocation,
+              quantity: foundLocationStock.quantity - stockQuantity,
             },
           );
         }
@@ -299,11 +309,13 @@ export class MenuService {
       // Creating a new stock for the new product
       await this.accountingService.createStock(user, {
         product: newItem.matchedProduct,
-        location: stockLocation,
+        location: newStockLocation,
         quantity: stockQuantity,
         status: StockHistoryStatusEnum.STOCKENTRY,
       });
+      await this.menuGateway.emitItemChanged(user, newItem);
     } catch (error) {
+      console.log(error);
       throw new HttpException(
         'Error creating damaged item',
         HttpStatus.INTERNAL_SERVER_ERROR,

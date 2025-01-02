@@ -45,6 +45,7 @@ export class MenuGateway
 
   async emitItemChanged(user: User, item: any) {
     await this.redisService.reset(RedisKeys.MenuItems);
+    await this.redisService.reset(RedisKeys.AccountingProducts);
     this.server.emit('itemChanged', { user, item });
   }
 
