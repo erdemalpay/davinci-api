@@ -126,7 +126,6 @@ export class OrderService {
                 $match: {
                   createdBy: { $ne: null },
                   status: { $ne: 'cancelled' },
-                  ikasId: { $ne: null, $nin: [''] },
                 },
               },
               {
