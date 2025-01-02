@@ -61,9 +61,29 @@ export class MenuController {
   createItem(@ReqUser() user: User, @Body() createItemDto: CreateItemDto) {
     return this.menuService.createItem(user, createItemDto);
   }
-  @Get('/items/setOrder')
-  setOrder(@ReqUser() user: User) {
-    return this.menuService.setOrder(user);
+
+  @Post('/items/create-damaged-item')
+  createDamagedItem(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      itemId: number;
+      stockQuantity: number;
+      price: number;
+      category: number;
+      name: string;
+      stockLocation: number;
+    },
+  ) {
+    return this.menuService.createDamagedItem(
+      user,
+      payload.itemId,
+      payload.stockQuantity,
+      payload.price,
+      payload.category,
+      payload.name,
+      payload.stockLocation,
+    );
   }
   @Patch('/items/update_bulk')
   updateMultipleItems(

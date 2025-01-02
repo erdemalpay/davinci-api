@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { OrderService } from '../order/order.service';
@@ -209,6 +210,102 @@ export class MenuService {
       console.error('Error creating item:', error);
       throw new HttpException(
         `Error creating item: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async createDamagedItem(
+    user: User,
+    itemId: number,
+    stockQuantity: number,
+    price: number,
+    category: number,
+    name: string,
+    stockLocation: number,
+  ) {
+    try {
+      const item = await this.itemModel.findById(itemId);
+      if (!item) {
+        throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
+      }
+
+      let matchedProduct = null;
+
+      // Handling matched product
+      if (item.matchedProduct) {
+        try {
+          const foundProduct = await this.accountingService.findProductById(
+            item.matchedProduct,
+          );
+          matchedProduct = await this.accountingService.createProduct(user, {
+            ...foundProduct,
+            name: name,
+          });
+        } catch (error) {
+          throw new HttpException(
+            'Failed to handle matched product',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+
+      // Deleting old item images
+      delete item.imageUrl;
+      delete item.productImages;
+
+      // Creating a new item
+      const newItemData = {
+        ...item.toObject(),
+        name,
+        category,
+        price,
+        ...(matchedProduct && { matchedProduct: matchedProduct._id }),
+      };
+
+      const newItem = await this.itemModel.create(newItemData);
+
+      if (matchedProduct) {
+        await this.accountingService.updateItemProduct(
+          user,
+          matchedProduct._id,
+          {
+            matchedMenuItem: newItem._id,
+          },
+        );
+      }
+
+      // Handling stock
+      if (item.matchedProduct) {
+        const foundStock = await this.accountingService.findProductStock(
+          item.matchedProduct,
+        );
+        const foundLocationStock = foundStock.find(
+          (stock) => stock.location === stockLocation,
+        );
+
+        if (foundLocationStock) {
+          await this.accountingService.updateStock(
+            user,
+            foundLocationStock._id,
+            {
+              product: item.matchedProduct,
+              location: stockLocation,
+              quantity: stockQuantity,
+            },
+          );
+        }
+      }
+
+      // Creating a new stock for the new product
+      await this.accountingService.createStock(user, {
+        product: newItem.matchedProduct,
+        location: stockLocation,
+        quantity: stockQuantity,
+        status: StockHistoryStatusEnum.STOCKENTRY,
+      });
+    } catch (error) {
+      throw new HttpException(
+        'Error creating damaged item',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
