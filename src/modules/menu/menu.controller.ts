@@ -72,7 +72,8 @@ export class MenuController {
       price: number;
       category: number;
       name: string;
-      stockLocation: number;
+      oldStockLocation: number;
+      newStockLocation: number;
     },
   ) {
     return this.menuService.createDamagedItem(
@@ -82,7 +83,8 @@ export class MenuController {
       payload.price,
       payload.category,
       payload.name,
-      payload.stockLocation,
+      payload.oldStockLocation,
+      payload.newStockLocation,
     );
   }
   @Patch('/items/update_bulk')
