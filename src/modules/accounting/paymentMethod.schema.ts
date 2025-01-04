@@ -13,6 +13,9 @@ export class PaymentMethod extends Document {
   @Prop({ required: true, type: Boolean })
   isConstant: boolean;
 
+  @Prop({ required: false, type: String })
+  ikasId: string;
+
   @Prop({ required: false, type: Boolean, default: false })
   isOnlineOrder: boolean;
 }
