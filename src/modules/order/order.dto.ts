@@ -29,6 +29,8 @@ export class CreateOrderDto {
   discountNote?: string;
   kitchen?: string;
   stockNote?: string;
+  paymentMethod?: string;
+  ikasId?: string;
 }
 export type OrderType = {
   _id: number;
@@ -61,6 +63,7 @@ export type OrderType = {
   discountNote?: string;
   stockNote?: string;
   ikasId?: string;
+  paymentMethod?: string;
 };
 
 export class CreateCollectionDto {

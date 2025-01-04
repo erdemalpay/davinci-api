@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Location } from '../location/location.schema';
 import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
@@ -92,6 +93,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Number, ref: Location.name })
   stockLocation: number;
+
+  @Prop({ required: false, type: String, ref: PaymentMethod.name })
+  paymentMethod: string;
 
   @Prop({ required: false, type: String })
   stockNote: string;
