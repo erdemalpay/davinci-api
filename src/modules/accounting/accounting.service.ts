@@ -1003,10 +1003,6 @@ export class AccountingService {
         let foundBrand;
         if (brand) {
           foundBrand = await this.brandModel.findOne({ name: brand });
-          if (!foundBrand) {
-            errorDatas.push({ ...expenseDto, errorNote: 'Brand not found' });
-            continue;
-          }
         }
         const foundVendor = await this.vendorModel.findOne({ name: vendor });
         if (!foundVendor) {
@@ -1030,25 +1026,34 @@ export class AccountingService {
           });
           continue;
         }
+        if (!date) {
+          errorDatas.push({
+            ...expenseDto,
+            errorNote: 'Date is missing',
+          });
+          continue;
+        }
+        const dateParts = date.split('-');
+        const adjustedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
         const totalExpense =
           Number(price) + Number(kdv) * (Number(price) / 100);
         const type = ExpenseTypes.STOCKABLE;
         await this.createExpense(
           user,
           {
-            date: date,
+            date: adjustedDate,
             product: foundProduct._id,
             expenseType: foundExpenseType._id,
             location: foundLocation._id,
             brand: foundBrand ? foundBrand._id : null,
             vendor: foundVendor._id,
             paymentMethod: foundPaymentMethod._id,
-            quantity: quantity,
+            quantity: Number(quantity),
             isPaid: true,
-            totalExpense: totalExpense,
+            totalExpense: Number(totalExpense),
             note: note,
             type: type,
-            isStockIncrement: isStockIncrement ?? false,
+            isStockIncrement: Boolean(isStockIncrement) ?? false,
           },
           StockHistoryStatusEnum.EXPENSEENTRY,
           true,
@@ -1058,6 +1063,9 @@ export class AccountingService {
         errorDatas.push({ ...expenseDto, errorNote: 'Error occured' });
       }
     }
+    this.accountingGateway.emitExpenseChanged(user);
+    this.accountingGateway.emitProductChanged(user);
+    return errorDatas;
   }
   async createExpense(
     user: User,
