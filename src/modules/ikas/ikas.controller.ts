@@ -41,6 +41,10 @@ export class IkasController {
   getAllStockLocations() {
     return this.ikasService.getAllStockLocations();
   }
+  @Get('/sales-channel')
+  getAllSalesChannels() {
+    return this.ikasService.getAllSalesChannels();
+  }
 
   @Get('/webhook')
   getAllWebhooks() {

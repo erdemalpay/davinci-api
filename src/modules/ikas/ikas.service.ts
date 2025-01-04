@@ -313,6 +313,54 @@ export class IkasService {
 
     return await fetchStockLocations(); // Fetch and return all stock locations
   }
+  async getAllSalesChannels() {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const fetchSalesChannels = async () => {
+      const query = {
+        query: `{
+          listSalesChannel {
+            createdAt
+            deleted
+            id
+            name
+            priceListId
+            stockLocations {
+              order
+            }
+            paymentGateways {
+              order
+            }
+            type
+            updatedAt
+          }
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listSalesChannel; // Return the list of sales channels
+      } catch (error) {
+        console.error(
+          'Error fetching sales channels:',
+          JSON.stringify(error.response?.data || error.message),
+        );
+        throw new Error('Unable to fetch sales channels from Ikas.');
+      }
+    };
+
+    return await fetchSalesChannels(); // Fetch and return all sales channels
+  }
 
   async createProduct(productInput: any) {
     const token = await this.getToken();
