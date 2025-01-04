@@ -21,6 +21,7 @@ import {
   CreateCountListDto,
   CreateExpenseDto,
   CreateExpenseTypeDto,
+  CreateMultipleExpenseDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductCategoryDto,
@@ -958,11 +959,111 @@ export class AccountingService {
     const results = await this.expenseModel.aggregate(pipeline);
     return results;
   }
-
+  async createMultipleExpense(
+    user: User,
+    createExpenseDto: CreateMultipleExpenseDto[],
+  ) {
+    let errorDatas = [];
+    for (const expenseDto of createExpenseDto) {
+      try {
+        const {
+          date,
+          product,
+          expenseType,
+          location,
+          brand,
+          vendor,
+          paymentMethod,
+          quantity,
+          price,
+          kdv,
+          isStockIncrement,
+          note,
+        } = expenseDto;
+        const foundProduct = await this.productModel.findOne({ name: product });
+        if (!foundProduct) {
+          errorDatas.push({ ...expenseDto, errorNote: 'Product not found' });
+          continue;
+        }
+        const foundExpenseType = await this.expenseTypeModel.findOne({
+          name: expenseType,
+        });
+        if (!foundExpenseType) {
+          errorDatas.push({
+            ...expenseDto,
+            errorNote: 'Expense type not found',
+          });
+          continue;
+        }
+        const foundLocation = await this.locationService.findByName(location);
+        if (!foundLocation) {
+          errorDatas.push({ ...expenseDto, errorNote: 'Location not found' });
+          continue;
+        }
+        let foundBrand;
+        if (brand) {
+          foundBrand = await this.brandModel.findOne({ name: brand });
+          if (!foundBrand) {
+            errorDatas.push({ ...expenseDto, errorNote: 'Brand not found' });
+            continue;
+          }
+        }
+        const foundVendor = await this.vendorModel.findOne({ name: vendor });
+        if (!foundVendor) {
+          errorDatas.push({ ...expenseDto, errorNote: 'Vendor not found' });
+          continue;
+        }
+        const foundPaymentMethod = await this.paymentMethodModel.findOne({
+          name: paymentMethod,
+        });
+        if (!foundPaymentMethod) {
+          errorDatas.push({
+            ...expenseDto,
+            errorNote: 'Payment method not found',
+          });
+          continue;
+        }
+        if (!quantity || !kdv || !price) {
+          errorDatas.push({
+            ...expenseDto,
+            errorNote: 'Quantity, price or kdv is missing',
+          });
+          continue;
+        }
+        const totalExpense =
+          Number(price) + Number(kdv) * (Number(price) / 100);
+        const type = ExpenseTypes.STOCKABLE;
+        await this.createExpense(
+          user,
+          {
+            date: date,
+            product: foundProduct._id,
+            expenseType: foundExpenseType._id,
+            location: foundLocation._id,
+            brand: foundBrand ? foundBrand._id : null,
+            vendor: foundVendor._id,
+            paymentMethod: foundPaymentMethod._id,
+            quantity: quantity,
+            isPaid: true,
+            totalExpense: totalExpense,
+            note: note,
+            type: type,
+            isStockIncrement: isStockIncrement ?? false,
+          },
+          StockHistoryStatusEnum.EXPENSEENTRY,
+          true,
+        );
+      } catch (e) {
+        console.log(e);
+        errorDatas.push({ ...expenseDto, errorNote: 'Error occured' });
+      }
+    }
+  }
   async createExpense(
     user: User,
     createExpenseDto: CreateExpenseDto,
     status: string,
+    isMultipleCreate?: boolean,
   ) {
     try {
       //update the product unit price
@@ -989,7 +1090,9 @@ export class AccountingService {
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
           );
-          await this.accountingGateway.emitProductChanged(user, product);
+          if (!isMultipleCreate) {
+            await this.accountingGateway.emitProductChanged(user, product);
+          }
         }
       }
       //update the service unit price
@@ -1021,7 +1124,9 @@ export class AccountingService {
         ...createExpenseDto,
         user: user._id,
       });
-      this.accountingGateway.emitExpenseChanged(user, expense);
+      if (!isMultipleCreate) {
+        this.accountingGateway.emitExpenseChanged(user, expense);
+      }
       if (
         createExpenseDto?.isStockIncrement &&
         createExpenseDto.type === ExpenseTypes.STOCKABLE
