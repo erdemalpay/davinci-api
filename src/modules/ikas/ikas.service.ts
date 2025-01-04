@@ -702,7 +702,7 @@ export class IkasService {
             const createdCollection = {
               location: foundLocation._id,
               paymentMethod: 'kutuoyunual',
-              amount: data.data.netTotalFinalPrice,
+              amount: finalPrice,
               status: OrderCollectionStatus.PAID,
               orders: [
                 {
