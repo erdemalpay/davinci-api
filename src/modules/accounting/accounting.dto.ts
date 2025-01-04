@@ -142,6 +142,20 @@ export class CreateExpenseDto {
   type: string;
   isStockIncrement?: boolean;
 }
+export class CreateMultipleExpenseDto {
+  date: string;
+  product: string;
+  expenseType: string;
+  location: string;
+  brand?: string;
+  vendor: string;
+  paymentMethod: string;
+  quantity: number;
+  price: number;
+  kdv: number;
+  isStockIncrement: boolean;
+  note?: string;
+}
 export enum ExpenseTypes {
   STOCKABLE = 'STOCKABLE',
   NONSTOCKABLE = 'NONSTOCKABLE',

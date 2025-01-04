@@ -19,6 +19,7 @@ import {
   CreateCountListDto,
   CreateExpenseDto,
   CreateExpenseTypeDto,
+  CreateMultipleExpenseDto,
   CreatePaymentDto,
   CreatePaymentMethodDto,
   CreateProductCategoryDto,
@@ -295,6 +296,13 @@ export class AccountingController {
   @Delete('/payments/:id')
   deletePayment(@ReqUser() user: User, @Param('id') id: string) {
     return this.accountingService.removePayment(user, id);
+  }
+  @Post('/expenses/create-multiple')
+  createMultipleExpense(
+    @ReqUser() user: User,
+    @Body() createExpenseDto: CreateMultipleExpenseDto[],
+  ) {
+    return this.accountingService.createMultipleExpense(user, createExpenseDto);
   }
 
   @Get('/expenses')
