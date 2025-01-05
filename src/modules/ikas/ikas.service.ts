@@ -717,7 +717,10 @@ export class IkasService {
             console.log(`Skipping item as status is not 'CREATED'`);
             continue;
           }
-
+          const foundPaymentMethod =
+            await this.accountingService.findPaymentMethodByIkasId(
+              data?.data?.salesChannelId,
+            );
           const createOrderObject = {
             item: foundMenuItem._id,
             quantity: quantity,
@@ -739,6 +742,9 @@ export class IkasService {
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
             ikasId: id,
+            ...(foundPaymentMethod && {
+              paymentMethod: foundPaymentMethod._id,
+            }),
           };
           try {
             const order = await this.orderService.createOrder(
@@ -749,7 +755,7 @@ export class IkasService {
 
             const createdCollection = {
               location: foundLocation._id,
-              paymentMethod: 'kutuoyunual',
+              paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
               amount: finalPrice,
               status: OrderCollectionStatus.PAID,
               orders: [

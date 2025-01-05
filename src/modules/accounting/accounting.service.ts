@@ -625,6 +625,10 @@ export class AccountingService {
   findAllPaymentMethods() {
     return this.paymentMethodModel.find();
   }
+  async findPaymentMethodByIkasId(id: string) {
+    const paymentMethod = await this.paymentMethodModel.findOne({ ikasId: id });
+    return paymentMethod;
+  }
 
   async createPaymentMethod(
     user: User,
