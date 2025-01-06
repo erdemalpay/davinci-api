@@ -586,7 +586,20 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, item);
     return item;
   }
-
+  // this is used for bulk update in menu page
+  async updateBulkItems(
+    user: User,
+    itemIds: number[],
+    updates: UpdateQuery<MenuItem>,
+  ) {
+    const items = await this.itemModel.find({ _id: { $in: itemIds } });
+    if (!items.length) {
+      throw new Error('Items not found');
+    }
+    await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
+    this.menuGateway.emitItemChanged(user, items);
+    return items;
+  }
   // popular
   async findAllPopular() {
     return this.popularModel.find().sort({ order: 'asc' });

@@ -87,6 +87,22 @@ export class MenuController {
       payload.newStockLocation,
     );
   }
+  // this is for the bulk update of items in menu page
+  @Post('/items/update-bulk-items')
+  updateBulkItems(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      itemIds: number[];
+      updates: UpdateQuery<MenuItem>;
+    },
+  ) {
+    return this.menuService.updateBulkItems(
+      user,
+      payload.itemIds,
+      payload.updates,
+    );
+  }
   @Patch('/items/update_bulk')
   updateMultipleItems(
     @ReqUser() user: User,
