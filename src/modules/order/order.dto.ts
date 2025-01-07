@@ -75,7 +75,6 @@ export class CreateCollectionDto {
   cancelNote?: string;
   table?: number;
   newOrders?: OrderType[];
-  stockLocation?: number;
   createdBy: string;
   ikasId?: string;
 }

@@ -51,9 +51,6 @@ export class Collection extends Document {
   @Prop([OrderCollectionItem])
   orders: OrderCollectionItem[];
 
-  @Prop({ required: false, type: Number, ref: Location.name })
-  stockLocation: number;
-
   @Prop({ required: false, type: String })
   ikasId: string;
 }
