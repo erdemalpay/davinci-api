@@ -305,6 +305,10 @@ export class AccountingController {
     return this.accountingService.createMultipleExpense(user, createExpenseDto);
   }
 
+  @Post('/stocks/create-all-product')
+  createStockForAllLocations(@ReqUser() user: User) {
+    return this.accountingService.createStockForAllLocations(user);
+  }
   @Get('/expenses')
   findAllExpenseWithPagination(
     @Query('page') page: number,

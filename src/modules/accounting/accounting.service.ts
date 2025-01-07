@@ -2276,4 +2276,40 @@ export class AccountingService {
     this.accountingGateway.emitBulkProductAndMenuItemChanged();
     return errorDatas;
   }
+  async createStockForAllLocations(user: User) {
+    try {
+      const products = await (
+        await this.productModel.find()
+      ).filter((product) => !product?.deleted);
+      const locations = await this.locationService.findAllLocations();
+      const stocks = await this.stockModel.find();
+
+      const createStockTasks = [];
+      for (const product of products) {
+        for (const location of locations) {
+          const stockExists = stocks.find(
+            (stock) =>
+              (stock.product as any) === product._id &&
+              Number(stock.location) === location._id,
+          );
+
+          if (!stockExists) {
+            const newStock = new this.stockModel({
+              product: product._id,
+              location: location._id,
+              quantity: 0,
+            });
+            const stockId = usernamify(product._id + String(location._id));
+            newStock._id = stockId;
+            createStockTasks.push(newStock.save());
+          }
+        }
+      }
+      await Promise.all(createStockTasks);
+      this.accountingGateway.emitStockChanged(user, '');
+      console.log('All missing stocks created.');
+    } catch (error) {
+      console.error('Failed to create stocks:', error);
+    }
+  }
 }
