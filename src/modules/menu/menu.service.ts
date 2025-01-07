@@ -116,6 +116,20 @@ export class MenuService {
     const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    if (updates.locations) {
+      const items = await this.itemModel.find({ category: id });
+      await Promise.all(
+        items.map(async (item) => {
+          const filteredLocations = item.locations.filter((location) =>
+            updates.locations.includes(location),
+          );
+          await this.itemModel.findByIdAndUpdate(item._id, {
+            locations: filteredLocations,
+          });
+        }),
+      );
+      this.menuGateway.emitItemChanged(user, items);
+    }
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
