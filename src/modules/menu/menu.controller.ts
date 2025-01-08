@@ -33,6 +33,10 @@ export class MenuController {
   getActiveCategories() {
     return this.menuService.findActiveCategories();
   }
+  @Get('/items/update-ikas-categories')
+  updateItemIkasCategories() {
+    return this.menuService.updateItemIkasCategories();
+  }
 
   @Get('/categories-all')
   getAllCategories() {

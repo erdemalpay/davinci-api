@@ -11,6 +11,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { AccountingService } from './../accounting/accounting.service';
+import { IkasService } from './../ikas/ikas.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
@@ -42,6 +43,8 @@ export class MenuService {
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+    @Inject(forwardRef(() => IkasService))
+    private readonly IkasService: IkasService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
   ) {}
@@ -342,7 +345,6 @@ export class MenuService {
     if (!item) {
       throw new Error('Item not found');
     }
-
     if (updates?.matchedProduct) {
       const items = await this.itemModel.find({
         matchedProduct: updates.matchedProduct,
@@ -799,5 +801,47 @@ export class MenuService {
   }
   deleteMenuItem(id: number) {
     return this.itemModel.findByIdAndDelete(id);
+  }
+  async updateItemIkasCategories() {
+    try {
+      const ikasProducts = await this.IkasService.getAllProducts();
+      const ikasItems = await this.getAllIkasItems();
+      const ikasCategories =
+        await this.accountingService.findAllProductCategory();
+
+      for (const ikasItem of ikasItems) {
+        const ikasProduct = ikasProducts.find(
+          (product) => product.id === ikasItem.ikasId,
+        );
+
+        if (!ikasProduct) {
+          console.warn(
+            `No matching product found for IkasItem ID: ${ikasItem.ikasId}`,
+          );
+          continue; // Skip this iteration if no matching product is found
+        }
+
+        const foundCategories = ikasCategories.filter((category) =>
+          ikasProduct.categoryIds.includes(category.ikasId),
+        );
+
+        if (foundCategories.length > 0) {
+          await this.itemModel.findByIdAndUpdate(
+            ikasItem._id,
+            {
+              productCategories: foundCategories.map(
+                (category) => category._id,
+              ),
+            },
+            { new: true },
+          );
+        }
+      }
+
+      this.menuGateway.emitItemChanged();
+    } catch (error) {
+      console.error('Failed to update Ikas categories:', error);
+      throw error;
+    }
   }
 }
