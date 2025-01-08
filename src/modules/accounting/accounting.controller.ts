@@ -457,7 +457,7 @@ export class AccountingController {
       payload.currentStockLocation,
       payload.transferredStockLocation,
       payload.product,
-      payload.quantity,
+      Number(payload.quantity),
     );
   }
 
