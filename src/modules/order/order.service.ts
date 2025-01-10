@@ -1315,26 +1315,35 @@ export class OrderService {
     updates: UpdateQuery<Collection>,
   ) {
     const { newOrders, ...filteredUpdates } = updates;
-    if (newOrders) {
-      await this.updateOrders(user, newOrders);
-    }
-    const collection = await this.collectionModel.findByIdAndUpdate(
-      id,
-      updates,
-      {
-        new: true,
-      },
-    );
-    if (updates.status === OrderCollectionStatus.CANCELLED) {
-      this.activityService.addActivity(
-        user,
-        ActivityType.CANCEL_PAYMENT,
-        collection,
+
+    try {
+      if (newOrders) {
+        await this.updateOrders(user, newOrders);
+      }
+      const collection = await this.collectionModel.findByIdAndUpdate(
+        id,
+        filteredUpdates,
+        {
+          new: true,
+        },
+      );
+      if (filteredUpdates.status === OrderCollectionStatus.CANCELLED) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CANCEL_PAYMENT,
+          collection,
+        );
+      }
+      this.orderGateway.emitCollectionChanged(user, collection);
+      return collection;
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      throw new Error(
+        'Failed to update collection due to an error in updating orders or saving changes.',
       );
     }
-    this.orderGateway.emitCollectionChanged(user, collection);
-    return collection;
   }
+
   async removeCollection(user: User, id: number) {
     const collection = await this.collectionModel.findByIdAndRemove(id);
 
