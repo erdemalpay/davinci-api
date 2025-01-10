@@ -40,6 +40,11 @@ export class OrderController {
     return this.orderService.findQueryOrders({ after, before });
   }
 
+  @Get('/update-table-date')
+  updateOrderTableDates() {
+    return this.orderService.updateOrderTableDates();
+  }
+
   @Get('/category_summary')
   categoryBasedOrderSummary(
     @ReqUser() user: User,

@@ -53,6 +53,9 @@ export class Collection extends Document {
 
   @Prop({ required: false, type: String })
   ikasId: string;
+
+  @Prop({ required: false, type: Date })
+  tableDate: Date;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);

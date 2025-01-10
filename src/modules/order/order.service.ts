@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, parseISO } from 'date-fns';
-import * as moment from 'moment';
+import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { RedisKeys } from '../redis/redis.dto';
@@ -78,13 +78,13 @@ export class OrderService {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
 
-      filterQuery['createdAt'] = { $gte: startDate };
+      filterQuery['tableDate'] = { $gte: startDate };
     }
     if (before) {
       const endDate = new Date(before);
       endDate.setUTCHours(23, 59, 59, 999);
-      filterQuery['createdAt'] = {
-        ...filterQuery['createdAt'],
+      filterQuery['tableDate'] = {
+        ...filterQuery['tableDate'],
         $lte: endDate,
       };
     }
@@ -1193,13 +1193,13 @@ export class OrderService {
     if (after) {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
-      filterQuery['createdAt'] = { $gte: startDate };
+      filterQuery['tableDate'] = { $gte: startDate };
     }
     if (before) {
       const endDate = new Date(before);
       endDate.setUTCHours(23, 59, 59, 999);
-      filterQuery['createdAt'] = {
-        ...filterQuery['createdAt'],
+      filterQuery['tableDate'] = {
+        ...filterQuery['tableDate'],
         $lte: endDate,
       };
     }
@@ -1873,5 +1873,44 @@ export class OrderService {
     }
 
     return orders;
+  }
+
+  async updateOrderTableDates() {
+    try {
+      // Fetch orders with necessary fields
+      const orders = await this.orderModel.find({}).populate({
+        path: 'table',
+        select: 'date', // Only fetch the 'date' field from the 'table' document
+      });
+
+      for (const order of orders) {
+        // Convert date to Europe/Istanbul timezone, or use UTC as a fallback
+        order.tableDate = order.table
+          ? new Date((order.table as any).date)
+          : order.createdAt; // Convert createdAt to Date object directly
+
+        await order.save();
+      }
+
+      // Fetch collections with necessary fields
+      const collections = await this.collectionModel.find({}).populate({
+        path: 'table',
+        select: 'date',
+      });
+
+      for (const collection of collections) {
+        // Similarly, handle dates for collections
+        collection.tableDate = collection.table
+          ? new Date((collection.table as any).date)
+          : collection.createdAt; // Use createdAt as Date object
+
+        await collection.save();
+      }
+
+      console.log('Updated orders and collections with table dates.');
+    } catch (error) {
+      console.error('Failed to update table dates:', error);
+      throw new Error('Failed to update table dates');
+    }
   }
 }

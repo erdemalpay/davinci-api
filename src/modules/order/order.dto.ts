@@ -30,6 +30,7 @@ export class CreateOrderDto {
   kitchen?: string;
   stockNote?: string;
   paymentMethod?: string;
+  tableDate?: Date;
   ikasId?: string;
 }
 export type OrderType = {
@@ -64,6 +65,7 @@ export type OrderType = {
   stockNote?: string;
   ikasId?: string;
   paymentMethod?: string;
+  tableDate?: Date;
 };
 
 export class CreateCollectionDto {
@@ -77,6 +79,7 @@ export class CreateCollectionDto {
   newOrders?: OrderType[];
   createdBy: string;
   ikasId?: string;
+  tableDate?: Date;
 }
 
 export class CreateDiscountDto {
