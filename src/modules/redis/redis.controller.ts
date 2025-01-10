@@ -1,11 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { RedisService } from './redis.service';
 
 @Controller('/redis')
 export class RedisController {
   constructor(private readonly redisService: RedisService) {}
 
-  @Get('/clear-cache')
+  @Post('/clear-cache')
   clearCache() {
     return this.redisService.resetAll();
   }
