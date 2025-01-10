@@ -444,9 +444,10 @@ export class IkasService {
       stockLocationId,
     );
     if (!foundStockLocation.ikasId) {
-      throw new Error(
+      console.log(
         `Stock Location with ID ${stockLocationId} does not have ikas id`,
       );
+      return;
     }
     if (!foundProduct) {
       throw new Error(`Product with ID ${productId} not found`);
