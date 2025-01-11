@@ -397,6 +397,9 @@ export class IkasService {
   }
 
   async createProduct(productInput: any) {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
     console.log('productInput', productInput);

@@ -61,7 +61,12 @@ export class MenuController {
     return this.menuService.createCategory(user, createCategoryDto);
   }
 
-  @Post('/create-ikas-products')
+  @Post('/items')
+  createItem(@ReqUser() user: User, @Body() createItemDto: CreateItemDto) {
+    return this.menuService.createItem(user, createItemDto);
+  }
+
+  @Post('/items/create-ikas-products')
   createIkasProducts(
     @ReqUser() user: User,
     @Body()
@@ -70,11 +75,6 @@ export class MenuController {
     },
   ) {
     return this.menuService.createMultipleIkasProduct(user, payload.itemIds);
-  }
-
-  @Post('/items')
-  createItem(@ReqUser() user: User, @Body() createItemDto: CreateItemDto) {
-    return this.menuService.createItem(user, createItemDto);
   }
 
   @Post('/items/create-damaged-item')
