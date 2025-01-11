@@ -397,6 +397,7 @@ export class IkasService {
   }
 
   async createProduct(productInput: any) {
+    // this condition can be removed to test in staging
     if (process.env.NODE_ENV !== 'production') {
       return;
     }
