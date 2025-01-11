@@ -844,4 +844,32 @@ export class MenuService {
       throw error;
     }
   }
+
+  async createMultipleIkasProduct(user: User, itemIds: Array<number>) {
+    const items = await this.itemModel.find({
+      _id: { $in: itemIds },
+    });
+    let failedItems = [];
+    const ikasCategories =
+      await this.accountingService.findAllProductCategory();
+    for (const item of items) {
+      try {
+        const ikasCategoryIds = item?.productCategories
+          ?.map((catId) => ikasCategories.find((c) => c._id === catId)?.ikasId)
+          ?.filter((ikasId) => ikasId !== undefined); // Ensure undefined values are filtered out
+        item.productCategories = ikasCategoryIds;
+        await this.IkasService.createItemProduct(user, item);
+      } catch (error) {
+        console.error(
+          'Failed to create Ikas product for item ID ' + item._id + ':',
+          error,
+        );
+        failedItems.push(item._id);
+      }
+    }
+    if (failedItems.length > 0) {
+      console.log('Items that failed to create:', failedItems);
+    }
+    return failedItems;
+  }
 }

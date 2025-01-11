@@ -2,9 +2,11 @@ import { HttpService } from '@nestjs/axios';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from '../location/location.service';
+import { MenuItem } from '../menu/item.schema';
 import { OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
@@ -361,11 +363,43 @@ export class IkasService {
 
     return await fetchSalesChannels(); // Fetch and return all sales channels
   }
+  async createItemProduct(user: User, item: MenuItem) {
+    try {
+      const createIkasProductItem = {
+        name: item.name,
+        type: 'PHYSICAL',
+        categoryIds: item.productCategories ?? [],
+        salesChannelIds: [
+          '9c66aacf-bab6-4189-905b-2c90f404388a',
+          'a311f416-e485-433f-8589-ed5e334bcc4b',
+          '38348181-957d-4964-a9e8-81d8cd6482b4',
+          '2df1fdbd-e6d6-471d-96de-33fad5dfa944',
+          '9b9a1d9f-2b98-433d-8f58-e56bd169db97',
+        ],
+        variants: [
+          {
+            isActive: true,
+            prices: [{ sellPrice: item.price }],
+          },
+        ],
+        images: [item?.imageUrl, ...(item?.productImages || [])],
+      };
+      const ikasProduct = await this.createProduct(createIkasProductItem);
+      if (ikasProduct) {
+        await this.menuService.updateItem(user, item._id, {
+          ikasId: ikasProduct.id,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create item product:', error);
+      throw new Error('Failed to process item product due to an error.');
+    }
+  }
 
   async createProduct(productInput: any) {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-
+    console.log('productInput', productInput);
     const saveProductMutation = async () => {
       const data = {
         query: `
@@ -373,6 +407,7 @@ export class IkasService {
           saveProduct(input: {
             name: "${productInput.name}",
             type: ${productInput.type}, 
+            categoryIds: ${JSON.stringify(productInput.categoryIds)}, 
             salesChannelIds: ${JSON.stringify(productInput.salesChannelIds)}, 
             variants: [
               {
@@ -386,6 +421,7 @@ export class IkasService {
             id
             name
             type
+            categoryIds
             salesChannelIds
             variants {
               id
@@ -419,7 +455,7 @@ export class IkasService {
       }
     };
     const savedProduct = await saveProductMutation();
-    if (productInput.images) {
+    if (productInput.images && productInput.images.length > 0) {
       const variantId = savedProduct.variants[0].id;
       await this.createProductImages(variantId, productInput.images);
     }
