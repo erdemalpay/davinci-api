@@ -1585,6 +1585,10 @@ export class AccountingService {
     if (!menuItem || !menuItem.ikasId) {
       return;
     }
+    const foundLocation = await this.locationService.findLocationById(location);
+    if (!foundLocation.ikasId) {
+      return;
+    }
     await this.ikasService.updateProductStock(
       menuItem.ikasId,
       location,
