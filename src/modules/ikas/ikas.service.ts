@@ -591,7 +591,7 @@ export class IkasService {
           saveWebhook(
             input: {
               scopes: ["store/order/updated"]
-              endpoint: "https://apiv2.davinciboardgame.com/ikas/order-cancel-webhook"
+              endpoint: "https://api-staging.davinciboardgame.com/ikas/order-cancel-webhook"
             }
           ) {
             id
@@ -728,7 +728,10 @@ export class IkasService {
         console.log('No order line items to process');
         return;
       }
-
+      if (data?.data?.status !== 'CREATED') {
+        console.log(`Skipping item as status is not 'CREATED'`);
+        return;
+      }
       for (const orderLineItem of orderLineItems) {
         try {
           const { quantity, stockLocationId, id, finalPrice } = orderLineItem;
@@ -754,10 +757,6 @@ export class IkasService {
             continue;
           }
 
-          if (data?.data?.status !== 'CREATED') {
-            console.log(`Skipping item as status is not 'CREATED'`);
-            continue;
-          }
           const foundPaymentMethod =
             await this.accountingService.findPaymentMethodByIkasId(
               data?.data?.salesChannelId,
@@ -859,6 +858,10 @@ export class IkasService {
       }
       if (orderLineItems.length === 0) {
         console.log('No order line items to process');
+        return;
+      }
+      if (data?.data?.status !== 'CANCELLED') {
+        console.log(`Skipping item as status is not 'CANCELLED'`);
         return;
       }
       for (const orderLineItem of orderLineItems) {
