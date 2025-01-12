@@ -591,7 +591,7 @@ export class IkasService {
           saveWebhook(
             input: {
               scopes: ["store/order/updated"]
-              endpoint: "https://api-staging.davinciboardgame.com/ikas/order-create-webhook"
+              endpoint: "https://api-staging.davinciboardgame.com/ikas/order-update-webhook"
             }
           ) {
             id
@@ -824,6 +824,48 @@ export class IkasService {
           } catch (orderError) {
             console.error('Error creating order:', orderError.message);
           }
+        } catch (itemError) {
+          console.error('Error processing order line item:', itemError.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error in orderCreateWebHook:', error.message);
+    }
+  }
+
+  async orderCancelWebHook(data?: any) {
+    try {
+      if (!data?.merchantId) {
+        throw new Error('Invalid request: Missing merchantId');
+      }
+
+      if (typeof data?.data === 'string') {
+        try {
+          data.data = JSON.parse(data.data);
+        } catch (error) {
+          throw new Error('Invalid JSON format in data');
+        }
+      }
+
+      console.log('Received data:', data);
+
+      const orderLineItems = data?.data?.orderLineItems ?? [];
+      const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
+
+      if (!constantUser) {
+        throw new Error('Constant user not found');
+      }
+      if (orderLineItems.length === 0) {
+        console.log('No order line items to process');
+        return;
+      }
+      for (const orderLineItem of orderLineItems) {
+        try {
+          const { id } = orderLineItem;
+          if (!id) {
+            throw new Error('Invalid order line item data');
+          }
+          await this.orderService.cancelIkasOrder(constantUser, id);
         } catch (itemError) {
           console.error('Error processing order line item:', itemError.message);
         }

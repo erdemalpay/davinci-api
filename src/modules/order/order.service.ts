@@ -500,7 +500,6 @@ export class OrderService {
     );
     return createdOrders;
   }
-
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const users = await this.userService.findAllUsers();
     if (createOrderDto.quantity <= 0) {
@@ -857,6 +856,7 @@ export class OrderService {
       }
       await this.updateOrder(user, order._id, {
         status: OrderStatus.CANCELLED,
+        paidQuantity: 0,
         cancelledAt: new Date(),
         cancelledBy: user._id,
       });
