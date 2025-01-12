@@ -71,4 +71,10 @@ export class IkasController {
   createOrderWebhook(@Body() data?: any) {
     return this.ikasService.orderCreateWebHook(data);
   }
+
+  @Public()
+  @Post('/order-cancel-webhook')
+  orderCancelWebHook(@Body() data?: any) {
+    return this.ikasService.orderCancelWebHook(data);
+  }
 }
