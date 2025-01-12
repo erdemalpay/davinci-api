@@ -780,6 +780,7 @@ export class IkasService {
             status: OrderStatus.AUTOSERVED,
             stockLocation: foundLocation._id,
             createdAt: new Date(),
+            tableDate: new Date(),
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
             ikasId: id,
@@ -806,6 +807,7 @@ export class IkasService {
                 },
               ],
               createdBy: constantUser._id,
+              tableDate: new Date(),
               ikasId: id, //this is ikas order id
             };
 
