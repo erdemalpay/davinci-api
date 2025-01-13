@@ -39,4 +39,7 @@ export class IkasGateway
   handleMessage(client: Socket, payload: string): string {
     return 'Hello world!';
   }
+  emitIkasProductStockChanged() {
+    this.server.emit('ikasProductStockChanged');
+  }
 }

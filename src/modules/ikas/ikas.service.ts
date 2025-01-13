@@ -13,6 +13,7 @@ import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
+import { IkasGateway } from './ikas.gateway';
 
 @Injectable()
 export class IkasService {
@@ -30,6 +31,7 @@ export class IkasService {
     private readonly accountingService: AccountingService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
+    private readonly ikasGateway: IkasGateway,
   ) {
     this.tokenPayload = {
       grant_type: 'client_credentials',
@@ -389,6 +391,7 @@ export class IkasService {
         await this.menuService.updateItem(user, item._id, {
           ikasId: ikasProduct.id,
         });
+        // TODO :here the stock update needs to be added
       }
     } catch (error) {
       console.error('Failed to create item product:', error);
@@ -466,13 +469,13 @@ export class IkasService {
     return savedProduct;
   }
   async updateProductStock(
-    productId: string,
+    productId: string, //this is the ikas id for the product
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
+    // if (process.env.NODE_ENV !== 'production') {
+    //   return;
+    // }
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
     const allProducts = await this.getAllProducts();
@@ -522,6 +525,7 @@ export class IkasService {
 
         if (response.data.data.saveProductStockLocations) {
           console.log('Stock updated successfully.');
+          await this.ikasGateway.emitIkasProductStockChanged();
           return true; // Return true if the mutation succeeds
         } else {
           console.error('Failed to update stock: Mutation returned false.');
