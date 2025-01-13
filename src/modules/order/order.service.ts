@@ -1922,4 +1922,17 @@ export class OrderService {
       throw new Error('Failed to update table dates');
     }
   }
+  async updateLocationForOrdersWithIkasId() {
+    try {
+      const updateResult = await this.orderModel.updateMany(
+        { ikasId: { $exists: true } },
+        { $set: { location: 6 } },
+      );
+      console.log(updateResult);
+      return updateResult;
+    } catch (error) {
+      console.error('Error updating orders with ikasId:', error);
+      throw error; // Or handle it more gracefully as needed
+    }
+  }
 }

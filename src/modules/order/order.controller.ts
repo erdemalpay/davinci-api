@@ -45,6 +45,11 @@ export class OrderController {
     return this.orderService.updateOrderTableDates();
   }
 
+  @Get('/update-ikas-order-location')
+  updateLocationForOrdersWithIkasId() {
+    return this.orderService.updateLocationForOrdersWithIkasId();
+  }
+
   @Get('/category_summary')
   categoryBasedOrderSummary(
     @ReqUser() user: User,

@@ -595,7 +595,7 @@ export class IkasService {
           saveWebhook(
             input: {
               scopes: ["store/order/updated"]
-              endpoint: "https://api-staging.davinciboardgame.com/ikas/order-cancel-webhook"
+              endpoint: "https://apiv2.davinciboardgame.com/ikas/order-cancel-webhook"
             }
           ) {
             id
