@@ -1928,7 +1928,11 @@ export class OrderService {
         { ikasId: { $exists: true } },
         { $set: { location: 6 } },
       );
-      console.log(updateResult);
+      const collectionUpdateResult = await this.collectionModel.updateMany(
+        { ikasId: { $exists: true } },
+        { $set: { location: 6 } },
+      );
+      console.log(updateResult, collectionUpdateResult);
       return updateResult;
     } catch (error) {
       console.error('Error updating orders with ikasId:', error);

@@ -74,6 +74,7 @@ export class TableService {
         paidQuantity: 0,
         unitPrice: menuItem.price,
         kitchen: 'bar',
+        tableDate: new Date(tableDto.date),
       });
     }
     if (createdTable.type === TableTypes.TAKEOUT) {
