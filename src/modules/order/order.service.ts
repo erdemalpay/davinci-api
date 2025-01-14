@@ -105,7 +105,7 @@ export class OrderService {
 
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: any = {};
-    const { after, before } = query;
+    const { after, before, eliminatedDiscounts } = query;
     if (after) {
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
@@ -114,6 +114,12 @@ export class OrderService {
         ...filterQuery['createdAt'],
         $lte: new Date(before),
       };
+    }
+    if (eliminatedDiscounts) {
+      const discountArray = eliminatedDiscounts
+        ? eliminatedDiscounts.split(',').map(Number)
+        : [];
+      filterQuery['discount'] = { $nin: discountArray };
     }
 
     try {

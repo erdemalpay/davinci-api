@@ -114,6 +114,7 @@ export enum OrderCollectionStatus {
 export class OrderQueryDto {
   after?: string;
   before?: string;
+  eliminatedDiscounts?: string;
 }
 
 export class CollectionQueryDto {

@@ -243,10 +243,12 @@ export class OrderController {
   findPersonalData(
     @Query('after') after: string,
     @Query('before') before?: string,
+    @Query('eliminatedDiscounts') eliminatedDiscounts?: string,
   ) {
     return this.orderService.findPersonalDatas({
       after: after,
       before: before,
+      eliminatedDiscounts: eliminatedDiscounts,
     });
   }
   @Get('/table/:id')
