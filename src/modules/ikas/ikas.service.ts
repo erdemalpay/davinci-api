@@ -801,7 +801,7 @@ export class IkasService {
             const createdCollection = {
               location: foundLocation._id,
               paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
-              amount: finalPrice,
+              amount: finalPrice * quantity,
               status: OrderCollectionStatus.PAID,
               orders: [
                 {

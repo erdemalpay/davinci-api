@@ -856,7 +856,6 @@ export class OrderService {
       }
       await this.updateOrder(user, order._id, {
         status: OrderStatus.CANCELLED,
-        paidQuantity: 0,
         cancelledAt: new Date(),
         cancelledBy: user._id,
       });
