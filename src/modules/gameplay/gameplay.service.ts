@@ -23,7 +23,10 @@ export class GameplayService {
   ) {}
 
   async create(user: User, createGameplayDto: GameplayDto) {
-    const gameplay = await this.gameplayModel.create(createGameplayDto);
+    const gameplay = await this.gameplayModel.create({
+      ...createGameplayDto,
+      createdBy: user,
+    });
     this.gameplayGateway.emitGameplayChanged(user, gameplay);
     return gameplay;
   }

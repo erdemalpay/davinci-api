@@ -11,9 +11,6 @@ export class GameplayDto {
   mentor: string;
 
   @IsString()
-  createdBy: string;
-
-  @IsString()
   date: string;
 
   @IsString()
