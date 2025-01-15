@@ -47,6 +47,9 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: Number })
   onlinePrice: number;
 
+  @Prop({ required: false, type: Number })
+  ikasDiscountedPrice: number;
+
   @Prop({ required: false, type: Boolean, default: true })
   shownInMenu: boolean;
 

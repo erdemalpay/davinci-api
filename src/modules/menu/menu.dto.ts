@@ -17,6 +17,7 @@ export class CreateItemDto {
   locations: number[];
   order: number;
   onlinePrice?: number;
+  ikasDiscountedPrice?: number;
   shownInMenu?: boolean;
   matchedProduct?: string;
   productCategories?: string[];
