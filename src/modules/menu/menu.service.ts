@@ -10,6 +10,7 @@ import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { AccountingGateway } from './../accounting/accounting.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
@@ -47,6 +48,7 @@ export class MenuService {
     private readonly IkasService: IkasService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
+    private readonly accountingGateway: AccountingGateway,
   ) {}
 
   findAllCategories() {
@@ -255,9 +257,11 @@ export class MenuService {
           const foundProduct = await this.accountingService.findProductById(
             item.matchedProduct,
           );
-          delete foundProduct.matchedMenuItem;
+          const objectFoundProduct = foundProduct.toObject();
+          delete objectFoundProduct.matchedMenuItem;
+          delete objectFoundProduct._id;
           matchedProduct = await this.accountingService.createProduct(user, {
-            ...foundProduct.toObject(),
+            ...(objectFoundProduct as any),
             name: name,
           });
         } catch (error) {
@@ -267,16 +271,20 @@ export class MenuService {
           );
         }
       }
+      const objectItem = item.toObject();
       // Deleting old item images
-      delete item.imageUrl;
-      delete item.productImages;
-      delete item.itemProduction;
+      delete objectItem.imageUrl;
+      delete objectItem.productImages;
+      delete objectItem.itemProduction;
+      delete objectItem.ikasId;
+      delete objectItem.priceHistory;
       // Creating a new item
       const newItemData = {
-        ...item.toObject(),
+        ...objectItem,
         name,
         category,
         price,
+        priceHistory: [{ price: objectItem.price, date: new Date() }],
         ...(matchedProduct && {
           matchedProduct: matchedProduct._id,
           itemProduction: [
@@ -288,9 +296,7 @@ export class MenuService {
           ],
         }),
       };
-
       const newItem = await this.itemModel.create(newItemData);
-
       if (matchedProduct) {
         await this.accountingService.updateItemProduct(
           user,

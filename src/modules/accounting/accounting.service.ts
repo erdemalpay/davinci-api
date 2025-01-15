@@ -144,7 +144,6 @@ export class AccountingService {
       product._id = usernamify(product.name);
       await product.save();
 
-      await this.accountingGateway.emitProductChanged(user, product);
       if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
           user,
@@ -154,6 +153,7 @@ export class AccountingService {
           },
         );
       }
+      await this.accountingGateway.emitProductChanged(user, product);
       return product;
     } catch (error) {
       throw new HttpException(
@@ -319,6 +319,7 @@ export class AccountingService {
         new: true,
       },
     );
+    console.log('product changed');
     await this.accountingGateway.emitProductChanged(user, updatedProduct);
     return updatedProduct;
   }
