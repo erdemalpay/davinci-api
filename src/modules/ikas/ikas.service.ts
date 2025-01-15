@@ -369,6 +369,7 @@ export class IkasService {
     try {
       const createIkasProductItem = {
         name: item.name,
+        description: item.description,
         type: 'PHYSICAL',
         categoryIds: item.productCategories ?? [],
         salesChannelIds: [
@@ -424,6 +425,7 @@ export class IkasService {
         mutation {
           saveProduct(input: {
             name: "${productInput.name}",
+            description: "${productInput.description}",
             type: ${productInput.type}, 
             categoryIds: ${JSON.stringify(productInput.categoryIds)}, 
             salesChannelIds: ${JSON.stringify(productInput.salesChannelIds)}, 
@@ -442,6 +444,7 @@ export class IkasService {
           }) {
             id
             name
+            description
             type
             categoryIds
             salesChannelIds
