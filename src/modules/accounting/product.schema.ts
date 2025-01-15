@@ -5,6 +5,14 @@ import { Brand } from './brand.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Vendor } from './vendor.schema';
 
+export class BaseQuantityByLocation {
+  @Prop({ required: true, type: Number })
+  quantity: number;
+
+  @Prop({ required: true, type: Number, ref: 'Location' })
+  location: string;
+}
+
 @Schema({ _id: false })
 export class Product extends Document {
   @Prop({ type: String })
@@ -30,6 +38,9 @@ export class Product extends Document {
 
   @Prop({ required: false, type: Number, ref: 'MenuItem' })
   matchedMenuItem: number;
+
+  @Prop([BaseQuantityByLocation])
+  baseQuantities: BaseQuantityByLocation[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

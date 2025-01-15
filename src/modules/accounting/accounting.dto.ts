@@ -1,4 +1,5 @@
 import { CountListsProduct } from './countList.schema';
+import { BaseQuantityByLocation } from './product.schema';
 
 export class CreateProductDto {
   name: string;
@@ -7,6 +8,7 @@ export class CreateProductDto {
   vendor?: string[];
   unitPrice?: number;
   matchedMenuItem?: number;
+  baseQuantities?: BaseQuantityByLocation[];
 }
 
 export class CreateProductCategoryDto {
