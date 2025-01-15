@@ -14,9 +14,11 @@ import { OrderController } from './order.controller';
 import { OrderGateway } from './order.gateway';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
+import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
+  createAutoIncrementConfig(OrderGroup.name, OrderGroupSchema),
   createAutoIncrementConfig(Collection.name, CollectionSchema),
   createAutoIncrementConfig(Discount.name, DiscountSchema),
 ]);
@@ -24,7 +26,6 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     mongooseModule,
-
     ActivityModule,
     GameplayModule,
     RedisModule,

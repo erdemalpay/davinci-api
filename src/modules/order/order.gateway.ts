@@ -70,4 +70,7 @@ export class OrderGateway
       soundRoles,
     });
   }
+  emitOrderGroupChanged() {
+    this.server.emit('orderGroupChanged');
+  }
 }

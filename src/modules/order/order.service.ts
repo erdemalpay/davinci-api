@@ -36,12 +36,14 @@ import {
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
+import { OrderGroup } from './orderGroup.schema';
 @Injectable()
 export class OrderService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
+    @InjectModel(OrderGroup.name) private orderGroupModel: Model<OrderGroup>,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
     @Inject(forwardRef(() => MenuService))
@@ -102,7 +104,6 @@ export class OrderService {
       );
     }
   }
-
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: any = {};
     const { after, before, eliminatedDiscounts } = query;
@@ -400,7 +401,6 @@ export class OrderService {
       if (order.quantity <= 0) {
         continue;
       }
-
       const createdOrder = new this.orderModel({
         ...order,
         status: order?.status ?? 'pending',
@@ -498,6 +498,15 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
     }
+    const orderGroupModel = new this.orderGroupModel({
+      orders: createdOrders,
+      table: table._id,
+      createdBy: user._id,
+      createdAt: new Date(),
+      tableDate: new Date(table.date) ?? new Date(),
+    });
+    await orderGroupModel.save();
+    this.orderGateway.emitOrderGroupChanged();
     // to change the orders page in the frontend
     this.orderGateway.emitCreateMultipleOrder(
       user,
@@ -546,6 +555,15 @@ export class OrderService {
 
     try {
       await order.save();
+      const orderGroupModel = new this.orderGroupModel({
+        orders: [order._id],
+        table: order?.table,
+        createdBy: user._id,
+        createdAt: order.createdAt,
+        tableDate: order?.tableDate ?? order.createdAt,
+      });
+      await orderGroupModel.save();
+      this.orderGateway.emitOrderGroupChanged();
       const orderWithItem = await order.populate('item kitchen');
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
