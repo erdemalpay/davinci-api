@@ -391,7 +391,13 @@ export class IkasService {
         await this.menuService.updateItem(user, item._id, {
           ikasId: ikasProduct.id,
         });
-        // TODO :here the stock update needs to be added
+        const productStock = await this.accountingService.findProductStock(
+          item.matchedProduct,
+        );
+        const storeStock = productStock.find((stock) => stock.location === 6);
+        if (storeStock) {
+          await this.updateProductStock(ikasProduct.id, 6, storeStock.quantity);
+        }
       }
     } catch (error) {
       console.error('Failed to create item product:', error);
