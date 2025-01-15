@@ -927,7 +927,7 @@ export class OrderService {
   }
   async updateOrders(user: User, orders: OrderType[]) {
     if (!orders?.length || orders?.length === 0) {
-      return;
+      throw new HttpException('No orders to update', HttpStatus.BAD_REQUEST);
     }
     try {
       await Promise.all(
