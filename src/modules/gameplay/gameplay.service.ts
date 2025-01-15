@@ -271,7 +271,7 @@ export class GameplayService {
 
     return this.gameplayModel.aggregate(aggregation).exec();
   }
-  async getAfterGivenDateMentorCounts(after: string, before?: string) {
+  async getAfterGivenDateCreatedByCounts(after: string, before?: string) {
     const endDate =
       before !== '' && before !== undefined && before !== null
         ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
@@ -288,14 +288,14 @@ export class GameplayService {
       },
       {
         $group: {
-          _id: '$mentor', // Group directly by mentor field
+          _id: '$createdBy', // Group directly by createdBy field
           gameplayCount: { $sum: 1 },
         },
       },
       {
         $project: {
           _id: 0,
-          mentor: '$_id',
+          createdBy: '$_id',
           gameplayCount: 1,
         },
       },
@@ -304,7 +304,6 @@ export class GameplayService {
     const results = await this.gameplayModel
       .aggregate(aggregationPipeline)
       .exec();
-
     return results;
   }
 

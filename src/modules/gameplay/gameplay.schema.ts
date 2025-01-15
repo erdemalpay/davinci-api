@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Game } from '../game/game.schema';
@@ -18,6 +18,9 @@ export class Gameplay extends Document {
 
   @Prop({ required: true, type: String, ref: User.name })
   mentor: User;
+
+  @Prop({ required: true, type: String, ref: User.name })
+  createdBy: User;
 
   @Prop({ required: true })
   date: string;

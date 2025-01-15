@@ -96,11 +96,11 @@ export class GameplayController {
   }
 
   @Get('/create_count')
-  getAfterGivenDateMentorCounts(
+  getAfterGivenDateCreatedByCounts(
     @Query('after') after: string,
     @Query('before') before?: string,
   ) {
-    return this.gameplayService.getAfterGivenDateMentorCounts(after, before);
+    return this.gameplayService.getAfterGivenDateCreatedByCounts(after, before);
   }
 
   @Get(':id')
