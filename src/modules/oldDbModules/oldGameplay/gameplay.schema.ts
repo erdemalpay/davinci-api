@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Game } from '../oldGame/game.schema';
 import { User } from '../oldUser/user.schema';
@@ -10,6 +10,9 @@ export class Gameplay extends Document {
 
   @Prop({ required: true, type: Types.ObjectId, ref: User.name })
   mentor: User;
+
+  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
+  createdBy: User;
 
   @Prop({ required: true })
   date: string;
