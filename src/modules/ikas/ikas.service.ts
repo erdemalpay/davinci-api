@@ -381,7 +381,12 @@ export class IkasService {
         variants: [
           {
             isActive: true,
-            prices: [{ sellPrice: item.price }],
+            prices: [
+              {
+                sellPrice: item.price,
+                discountPrice: item?.ikasDiscountedPrice ?? null,
+              },
+            ],
           },
         ],
         images: [item?.imageUrl, ...(item?.productImages || [])],
@@ -426,7 +431,11 @@ export class IkasService {
               {
                 isActive: ${productInput.variants[0].isActive},
                 prices: [
-                  { sellPrice: ${productInput.variants[0].prices[0].sellPrice} }
+                  { sellPrice: ${productInput.variants[0].prices[0].sellPrice},
+                    discountPrice: ${
+                      productInput.variants[0].prices[0].discountPrice
+                    }
+                  }
                 ]
               }
             ]
@@ -441,6 +450,7 @@ export class IkasService {
               isActive
               prices {
                 sellPrice
+                discountPrice
               }
             }
           }
