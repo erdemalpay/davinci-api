@@ -74,7 +74,7 @@ export class AccountingGateway
     this.server.emit('paymentMethodChanged', { user, paymentMethod });
   }
 
-  async emitProductChanged(user: User, product?: any) {
+  async emitProductChanged(user?: User, product?: any) {
     await this.redisService.reset(RedisKeys.AccountingProducts);
     this.server.emit('productChanged', { user, product });
   }

@@ -305,6 +305,13 @@ export class AccountingController {
     return this.accountingService.createMultipleExpense(user, createExpenseDto);
   }
 
+  @Post('/product/update-base-quantities')
+  updateProductsBaseQuantities(
+    @Body() items: { [key: number]: string; name: string }[],
+  ) {
+    return this.accountingService.updateProductsBaseQuantities(items);
+  }
+
   @Post('/stocks/create-all-product')
   createStockForAllLocations(@ReqUser() user: User) {
     return this.accountingService.createStockForAllLocations(user);
