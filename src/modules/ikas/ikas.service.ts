@@ -369,7 +369,7 @@ export class IkasService {
     try {
       const createIkasProductItem = {
         name: item.name,
-        description: item.description,
+        description: item.description.trim(),
         type: 'PHYSICAL',
         categoryIds: item.productCategories ?? [],
         salesChannelIds: [
