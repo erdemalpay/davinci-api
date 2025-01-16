@@ -283,7 +283,7 @@ export class MenuService {
         ...objectItem,
         name,
         category,
-        price,
+        ikasDiscountedPrice: price,
         priceHistory: [{ price: objectItem.price, date: new Date() }],
         ...(matchedProduct && {
           matchedProduct: matchedProduct._id,
