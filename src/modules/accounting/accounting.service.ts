@@ -37,6 +37,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
@@ -2130,6 +2131,93 @@ export class AccountingService {
       }
     }
     this.accountingGateway.emitProductChanged();
+  }
+
+  async updateMultipleProduct(
+    updateMultipleProductDto: UpdateMultipleProduct[],
+  ) {
+    let errorDatas = [];
+    for (const updateDto of updateMultipleProductDto) {
+      try {
+        const { name, expenseType, brand, vendor } = updateDto;
+        //  if name field is not provided it will not be created
+        if (!name) {
+          errorDatas.push({
+            ...updateDto,
+            errorNote: 'Name field not provided',
+          });
+          continue;
+        }
+        // spliting the multiple entries
+        const expenseTypeArray = expenseType ? expenseType.split(',') : [];
+        const vendorArray = vendor ? vendor.split(',') : [];
+        const brandArray = brand ? brand.split(',') : [];
+        let newExpenseTypes = [];
+        let newVendor = [];
+        let newBrand = [];
+        // find the ids of the expenseType, vendor and brand
+        for (const expTypeName of expenseTypeArray) {
+          const foundExpenseType = await this.expenseTypeModel.find({
+            name: expTypeName,
+          });
+          if (foundExpenseType.length > 0) {
+            newExpenseTypes.push(foundExpenseType[0]._id);
+          }
+        }
+        for (const vendorName of vendorArray) {
+          const foundVendor = await this.vendorModel.find({
+            name: vendorName,
+          });
+          if (foundVendor.length > 0) {
+            newVendor.push(foundVendor[0]._id);
+          }
+        }
+        for (const brandName of brandArray) {
+          const foundBrand = await this.brandModel.find({
+            name: brandName,
+          });
+          if (foundBrand.length > 0) {
+            newBrand.push(foundBrand[0]._id);
+          }
+        }
+        if (expenseTypeArray?.length > newExpenseTypes?.length) {
+          errorDatas.push({
+            ...updateDto,
+            errorNote: 'Expense types are not written correctly',
+          });
+          continue;
+        }
+        if (vendorArray?.length > newVendor?.length) {
+          errorDatas.push({
+            ...updateDto,
+            errorNote: 'Vendors are not written correctly',
+          });
+          continue;
+        }
+        if (brandArray?.length > newBrand?.length) {
+          errorDatas.push({
+            ...updateDto,
+            errorNote: 'Brands are not written correctly',
+          });
+          continue;
+        }
+
+        await this.productModel.findOneAndUpdate(
+          { name: name, deleted: false },
+          {
+            ...(newExpenseTypes.length > 0 && { expenseType: newExpenseTypes }),
+            ...(newVendor.length > 0 && { vendor: newVendor }),
+            ...(newBrand.length > 0 && { brand: newBrand }),
+          },
+          { new: true },
+        );
+      } catch (e) {
+        console.log(e);
+        errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
+      }
+    }
+    this.accountingGateway.emitProductChanged();
+    return errorDatas;
   }
   async addMultipleProductAndMenuItem(
     addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],

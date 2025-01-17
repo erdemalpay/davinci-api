@@ -30,6 +30,7 @@ import {
   CreateVendorDto,
   JoinProductDto,
   StockHistoryStatusEnum,
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { AccountingService } from './accounting.service';
 import { Brand } from './brand.schema';
@@ -78,6 +79,16 @@ export class AccountingController {
   ) {
     return this.accountingService.addMultipleProductAndMenuItem(
       addMultipleProductAndMenuItemDto,
+    );
+  }
+
+  @Post('/products/update-multiple')
+  updateMultipleProduct(
+    @Body()
+    updateMultipleProductDto: UpdateMultipleProduct[],
+  ) {
+    return this.accountingService.updateMultipleProduct(
+      updateMultipleProductDto,
     );
   }
 

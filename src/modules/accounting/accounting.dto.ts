@@ -271,3 +271,9 @@ export class AddMultipleProductAndMenuItemDto {
   description?: string;
   image?: string;
 }
+export class UpdateMultipleProduct {
+  name: string;
+  expenseType?: string;
+  brand?: string;
+  vendor?: string;
+}
