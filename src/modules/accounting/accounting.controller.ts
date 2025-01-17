@@ -192,6 +192,13 @@ export class AccountingController {
   createBrand(@ReqUser() user: User, @Body() createBrandDto: CreateBrandDto) {
     return this.accountingService.createBrand(user, createBrandDto);
   }
+  @Post('/brands/multiple')
+  createMultipleBrand(
+    @ReqUser() user: User,
+    @Body() createBrandDtos: CreateBrandDto[],
+  ) {
+    return this.accountingService.createMultipleBrand(user, createBrandDtos);
+  }
 
   @Patch('/brands/:id')
   updateBrand(

@@ -44,7 +44,7 @@ export class AccountingGateway
     return 'Hello world!';
   }
 
-  emitBrandChanged(user: User, brand: any) {
+  emitBrandChanged(user?: User, brand?: any) {
     this.server.emit('brandChanged', { user, brand });
   }
 

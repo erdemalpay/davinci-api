@@ -500,6 +500,32 @@ export class AccountingService {
     this.accountingGateway.emitBrandChanged(user, brand);
     return brand;
   }
+  async createMultipleBrand(user: User, createBrandDtos: CreateBrandDto[]) {
+    const brandCreationResults = createBrandDtos.map(async (createBrandDto) => {
+      try {
+        const brand = new this.brandModel(createBrandDto);
+        brand._id = usernamify(brand.name);
+        await brand.save();
+        this.activityService.addActivity(
+          user,
+          ActivityType.CREATE_BRAND,
+          brand,
+        );
+        return { success: true, brand: brand, error: null };
+      } catch (error) {
+        console.error('Error creating brand:', error);
+        return { success: false, brand: null, error: error };
+      }
+    });
+    const brands = await Promise.all(brandCreationResults);
+    const successfulBrands = brands
+      .filter((result) => result.success)
+      .map((result) => result.brand);
+    if (successfulBrands.length > 0) {
+      this.accountingGateway.emitBrandChanged(user, successfulBrands);
+    }
+    return brands;
+  }
 
   async updateBrand(user: User, id: string, updates: UpdateQuery<Brand>) {
     const oldBrand = await this.brandModel.findById(id);
@@ -2105,7 +2131,6 @@ export class AccountingService {
     }
     this.accountingGateway.emitProductChanged();
   }
-
   async addMultipleProductAndMenuItem(
     addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
   ) {
