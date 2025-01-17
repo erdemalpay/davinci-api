@@ -2081,7 +2081,6 @@ export class AccountingService {
   async updateProductsBaseQuantities(
     items: { [key: number]: string; name: string }[],
   ) {
-    console.log(items);
     const products = await this.productModel
       .find({ deleted: { $ne: true } })
       .exec();
@@ -2101,7 +2100,6 @@ export class AccountingService {
           return acc;
         }, []);
         foundProduct.baseQuantities = newBaseQuantities;
-        console.log('foundProduct', foundProduct);
         await foundProduct.save();
       }
     }
