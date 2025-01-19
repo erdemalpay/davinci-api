@@ -1,5 +1,5 @@
-import { IsString, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, IsString } from 'class-validator';
 
 export class GameDto {
   @IsNumber()
@@ -17,4 +17,7 @@ export class GameDto {
 
   @ApiProperty()
   expansion: boolean;
+
+  @IsNumber()
+  narrationDurationPoint?: number;
 }

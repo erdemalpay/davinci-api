@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from '../../lib/purifySchema';
 @Schema({ _id: false })
@@ -20,6 +20,9 @@ export class Game extends Document {
 
   @Prop({ required: true, default: [] })
   locations: number[];
+
+  @Prop({ required: false, type: Number })
+  narrationDurationPoint: number;
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);
