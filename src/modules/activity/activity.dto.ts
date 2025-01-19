@@ -6,6 +6,7 @@ import { Stock } from '../accounting/stock.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
+import { Reservation } from '../reservation/reservation.schema';
 import { Table } from '../table/table.schema';
 import { Brand } from './../accounting/brand.schema';
 import { ExpenseType } from './../accounting/expenseType.schema';
@@ -66,6 +67,8 @@ export enum ActivityType {
   ORDER_DISCOUNT = 'ORDER_DISCOUNT',
   ORDER_DISCOUNT_CANCEL = 'ORDER_DISCOUNT_CANCEL',
   CANCEL_PAYMENT = 'CANCEL_PAYMENT',
+  CREATE_RESERVATION = 'CREATE_RESERVATION',
+  UPDATE_RESERVATION = 'UPDATE_RESERVATION',
 }
 
 export type ActivityTypePayload = {
@@ -135,6 +138,11 @@ export type ActivityTypePayload = {
   [ActivityType.ORDER_DISCOUNT]: Order;
   [ActivityType.ORDER_DISCOUNT_CANCEL]: Order;
   [ActivityType.CANCEL_PAYMENT]: Collection;
+  [ActivityType.CREATE_RESERVATION]: Reservation;
+  [ActivityType.UPDATE_RESERVATION]: {
+    currentReservation: Reservation;
+    newReservation: Reservation;
+  };
 };
 
 export class ActivityQueryDto {
