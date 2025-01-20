@@ -251,6 +251,17 @@ export class OrderController {
       eliminatedDiscounts: eliminatedDiscounts,
     });
   }
+
+  @Get('/personal/collection')
+  findPersonalCollectionNumbers(
+    @Query('after') after: string,
+    @Query('before') before?: string,
+  ) {
+    return this.orderService.findPersonalCollectionNumbers({
+      after: after,
+      before: before,
+    });
+  }
   @Get('/table/:id')
   findGivenTableOrders(@Param('id') id: number) {
     return this.orderService.findGivenTableOrders(id);

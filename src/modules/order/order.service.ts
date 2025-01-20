@@ -104,6 +104,46 @@ export class OrderService {
       );
     }
   }
+  async findPersonalCollectionNumbers(query: OrderQueryDto) {
+    const filterQuery: any = {};
+    const { after, before } = query;
+    if (after) {
+      filterQuery['createdAt'] = { $gte: new Date(after) };
+    }
+    if (before) {
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: new Date(before),
+      };
+    }
+    filterQuery['status'] = { $ne: OrderCollectionStatus.CANCELLED };
+    try {
+      const pipeline = [
+        { $match: filterQuery },
+        {
+          $group: {
+            _id: '$createdBy',
+            totalCollections: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            createdBy: '$_id',
+            totalCollections: 1,
+          },
+        },
+      ];
+      const results = await this.collectionModel.aggregate(pipeline).exec();
+      return results;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch personal collection numbers',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: any = {};
     const { after, before, eliminatedDiscounts } = query;
