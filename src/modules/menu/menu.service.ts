@@ -542,7 +542,7 @@ export class MenuService {
         !item?.matchedProduct ||
         item.matchedProduct !== updates.matchedProduct
       ) {
-        updates.itemProduction = updates.itemProduction = [
+        updates.itemProduction = [
           ...item.itemProduction.filter(
             (itemProductionItem) =>
               ![item.matchedProduct, updates.matchedProduct].includes(

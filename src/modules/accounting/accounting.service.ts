@@ -320,7 +320,6 @@ export class AccountingService {
         new: true,
       },
     );
-    console.log('product changed');
     await this.accountingGateway.emitProductChanged(user, updatedProduct);
     return updatedProduct;
   }
@@ -2101,6 +2100,7 @@ export class AccountingService {
         continue;
       }
       await this.updateProduct(null, product._id, {
+        ...product,
         matchedMenuItem: menuItem._id,
       });
     }
