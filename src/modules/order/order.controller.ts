@@ -252,7 +252,7 @@ export class OrderController {
     });
   }
 
-  @Get('/personal-collection')
+  @Get('/personal_collection')
   findPersonalCollectionNumbers(
     @Query('after') after: string,
     @Query('before') before?: string,
