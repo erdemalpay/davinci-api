@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Location } from 'src/modules/location/location.schema';
 import { User } from 'src/modules/user/user.schema';
 
 @Schema({ _id: false, timestamps: true })
