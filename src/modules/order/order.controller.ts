@@ -239,6 +239,7 @@ export class OrderController {
   findTodayOrders(@Query('after') after: string) {
     return this.orderService.findTodayOrders(after);
   }
+
   @Get('/personal')
   findPersonalData(
     @Query('after') after: string,
