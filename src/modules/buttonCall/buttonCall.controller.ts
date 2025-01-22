@@ -14,7 +14,6 @@ export class ButtonCallController {
   @ApiResponse({ type: [ButtonCall] })
   @Get()
   getButtonCalls(@Query('date') date: string) {
-    console.log(date);
     return this.buttonCallService.findByDate(date);
   }
   @ApiResponse({ type: ButtonCall })
