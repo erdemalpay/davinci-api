@@ -141,10 +141,17 @@ export class AccountingService {
           }
         }
       }
+      const locations = await this.locationService.findAllLocations();
+
       const product = new this.productModel(createProductDto);
       product._id = usernamify(product.name);
+      product.baseQuantities = locations.map((location) => {
+        return {
+          location: location._id,
+          quantity: 0,
+        };
+      });
       await product.save();
-
       if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
           user,
@@ -2343,6 +2350,13 @@ export class AccountingService {
             brand: newBrand,
             vendor: newVendor,
             deleted: false,
+          });
+          const locations = await this.locationService.findAllLocations();
+          newProduct.baseQuantities = locations.map((location) => {
+            return {
+              location: location._id,
+              quantity: 0,
+            };
           });
           newProduct._id = usernamify(name);
           await newProduct.save();

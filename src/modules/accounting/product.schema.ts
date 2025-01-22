@@ -10,7 +10,7 @@ export class BaseQuantityByLocation {
   quantity: number;
 
   @Prop({ required: true, type: Number, ref: 'Location' })
-  location: string;
+  location: number;
 }
 
 @Schema({ _id: false })
