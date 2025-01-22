@@ -6,7 +6,6 @@ import { ButtonCallController } from './buttonCall.controller';
 import { UserModule } from '../user/user.module';
 import { ButtonCallGateway } from './buttonCall.gateway';
 import { UdpModule } from '../udp/udp.module';
-import { UdpService } from '../udp/udp.service';
 
 @Module({
   imports: [

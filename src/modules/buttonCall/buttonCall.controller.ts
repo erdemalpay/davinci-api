@@ -1,7 +1,7 @@
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { ButtonCallService} from './buttonCall.service';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { User } from '../user/user.schema';
@@ -23,7 +23,6 @@ export class ButtonCallController {
     @ReqUser() user: User, /// UPDATE THIS!!! GET JUST $ID LIKE */$ID
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
-    console.log(user, closeButtonCallDto);
     return this.buttonCallService.close(user, closeButtonCallDto, true);
   }
 }
