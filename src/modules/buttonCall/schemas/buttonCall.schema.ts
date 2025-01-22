@@ -1,71 +1,33 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { HydratedDocument } from 'mongoose';
+import { User } from 'src/modules/oldDbModules/oldUser/user.schema';
 
-export type ButtonCallDocument = HydratedDocument<ButtonCall>;
-
-@Schema({
-  timestamps: true,
-  versionKey: false,
-})
+@Schema({ _id: false, timestamps: true })
 export class ButtonCall {
+  @Prop({ type: Number })
+  _id: number;
 
-  @Prop({
-    required: true,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-  })
+  @Prop({ required: true, type: String })
   tableName: string;
 
-  @Prop({
-    required: true,
-    type: mongoose.Schema.Types.Number,
-    autopopulate: true,
-  })
+  @Prop({ required: true, type: Number, ref: Location.name })
   location: number;
 
-  @Prop({
-    required: true,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-  })
+  @Prop({ required: true, type: String })
   date: string;
 
-  @Prop({
-    required: true,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-  })
+  @Prop({ required: true, type: String })
   startHour: string;
 
-  @Prop({
-    required: false,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-    default: '',
-  })
+  @Prop({ required: false, type: String })
   finishHour: string;
 
-  @Prop({
-    required: false,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-    default: '',
-  })
+  @Prop({ required: false, type: String })
   duration: string;
 
-  @Prop({
-    required: true,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-  })
+  @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;
 
-  @Prop({
-    required: false,
-    type: mongoose.Schema.Types.String,
-    autopopulate: true,
-    default: '',
-  })
+  @Prop({ required: false, type: String, ref: User.name })
   cancelledBy: string;
 }
 

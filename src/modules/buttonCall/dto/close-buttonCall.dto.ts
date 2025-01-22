@@ -1,12 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsMongoId, IsNotEmpty, IsOptional } from 'class-validator';
-import { Types } from 'mongoose';
+import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
 
 export class CloseButtonCallDto {
   @ApiProperty()
   @IsNotEmpty()
-  @IsMongoId()
-  readonly _id: Types.ObjectId;
+  @IsNumber()
+  readonly _id: number;
 
   @ApiProperty()
   @IsOptional()

@@ -4,7 +4,7 @@ import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 export class CreateButtonCallDto {
   @ApiProperty()
   @IsNotEmpty()
-  @IsNumber()
+  @IsString()
   readonly tableName: string;
 
   @ApiProperty()
