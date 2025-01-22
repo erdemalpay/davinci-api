@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model } from 'mongoose';
@@ -7,7 +8,6 @@ import { CreateVisitDto } from './create.visit.dto';
 import { CafeVisitDto, VisitDto, VisitTypes } from './visit.dto';
 import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 export class VisitService {
   constructor(
@@ -70,7 +70,10 @@ export class VisitService {
         { date: { $gte: startDate, $lte: endDate } },
         { __v: false, _id: false },
       )
-      .populate('user')
+      .populate({
+        path: 'user',
+        select: '-password',
+      })
       .sort({ date: 1, location: 1 })
       .lean();
 
@@ -96,7 +99,7 @@ export class VisitService {
           location: cafeVisitDto.location,
         })
         .sort({ startHour: -1 });
-      if (lastVisit && !(lastVisit.finishHour)) {
+      if (lastVisit && !lastVisit.finishHour) {
         return lastVisit;
       }
       const visit = await this.visitModel.create({
@@ -109,14 +112,17 @@ export class VisitService {
       return visit;
     }
     if (cafeVisitDto?.type === VisitTypes.EXIT) {
-      const previousDay = format(subDays(new Date(cafeVisitDto.date), 1), 'yyyy-MM-dd');
+      const previousDay = format(
+        subDays(new Date(cafeVisitDto.date), 1),
+        'yyyy-MM-dd',
+      );
       const lastVisit = await this.visitModel
         .findOne({
           user: user._id,
           location: cafeVisitDto.location,
           $or: [
             { date: cafeVisitDto.date },
-            { date: previousDay, startHour: { $gt: cafeVisitDto.hour } }
+            { date: previousDay, startHour: { $gt: cafeVisitDto.hour } },
           ],
         })
         .sort({ date: -1, startHour: -1 });
