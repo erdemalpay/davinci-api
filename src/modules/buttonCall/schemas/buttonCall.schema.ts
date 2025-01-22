@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { User } from 'src/modules/oldDbModules/oldUser/user.schema';
+import { User } from 'src/modules/user/user.schema';
 
 @Schema({ _id: false, timestamps: true })
 export class ButtonCall {
