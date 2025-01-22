@@ -1,9 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from 'src/modules/location/location.schema';
 import { User } from 'src/modules/user/user.schema';
 
 @Schema({ _id: false, timestamps: true })
-export class ButtonCall {
+export class ButtonCall extends Document {
   @Prop({ type: Number })
   _id: number;
 
@@ -33,3 +35,4 @@ export class ButtonCall {
 }
 
 export const ButtonCallSchema = SchemaFactory.createForClass(ButtonCall);
+purifySchema(ButtonCallSchema);
