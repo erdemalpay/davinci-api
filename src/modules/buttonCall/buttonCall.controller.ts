@@ -13,8 +13,10 @@ export class ButtonCallController {
 
   @ApiResponse({ type: [ButtonCall] })
   @Get()
-  getButtonCalls(@Query('date') date: string) {
-    return this.buttonCallService.findByDate(date);
+  getButtonCalls(@Query('date') date: string,
+                 @Query('location') location: number,
+                 @Query('isActive') isActive: boolean) {
+    return this.buttonCallService.findByDateAndLocation(date, location, isActive);
   }
   @ApiResponse({ type: ButtonCall })
   @Patch()

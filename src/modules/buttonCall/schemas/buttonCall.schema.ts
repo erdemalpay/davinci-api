@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from 'src/modules/location/location.schema';
 import { User } from 'src/modules/user/user.schema';
+import { Location } from '../../location/location.schema'
 
 @Schema({ _id: false, timestamps: true })
 export class ButtonCall extends Document {
