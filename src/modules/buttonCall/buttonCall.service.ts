@@ -49,7 +49,7 @@ export class ButtonCallService {
     if (code == call_code) {
       const existingButtonCall = await this.buttonCallModel.findOne({
         tableName: tableName,
-        finishHour: '',
+        finishHour: { $exists: false },
       });
       if (existingButtonCall) {
         console.log('There is already an active button call for ', tableName);
@@ -66,7 +66,7 @@ export class ButtonCallService {
     } else {
       const closedButtonCall = await this.buttonCallModel.findOne({
         tableName: tableName,
-        finishHour: '',
+        finishHour: { $exists: false },
       });
       if (!closedButtonCall) {
         console.log('There is no open button calls for ', tableName);
@@ -103,7 +103,7 @@ export class ButtonCallService {
     }
     const closedButtonCall = await this.buttonCallModel.findOne({
       _id: closeButtonCallDto._id,
-      finishHour: '',
+      finishHour: { $exists: false },
     });
     if (!closedButtonCall) {
       console.log('There is no active button calls found for this button');
