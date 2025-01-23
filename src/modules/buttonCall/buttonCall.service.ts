@@ -131,7 +131,7 @@ export class ButtonCallService {
     }
     return closedButtonCall;
   }
-  async findByDate(date: string) {
-    return this.buttonCallModel.find({ date: date, cancelTime: '' });
+  async findByDateAndLocation(date: string, location: number, isActive: boolean) {
+    return this.buttonCallModel.find({ date: date, location: location, finishHour: { $exists: !isActive } });
   }
 }
