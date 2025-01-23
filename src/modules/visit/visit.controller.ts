@@ -21,7 +21,7 @@ export class VisitController {
   @Get('/kalender')
   asyncgetKalenderVisits(
     @Query('start-date') startDate: string,
-    @Query('end-date') endDate: string,
+    @Query('end-date') endDate?: string,
   ) {
     return this.visitService.getVisits(startDate, endDate);
   }

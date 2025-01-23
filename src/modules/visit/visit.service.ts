@@ -64,12 +64,13 @@ export class VisitService {
     return visit;
   }
 
-  async getVisits(startDate: string, endDate: string) {
+  async getVisits(startDate: string, endDate?: string) {
+    let query: any = { date: { $gte: startDate } };
+    if (endDate) {
+      query = { ...query, date: { ...query.date, $lte: endDate } };
+    }
     const visits = await this.visitModel
-      .find(
-        { date: { $gte: startDate, $lte: endDate } },
-        { __v: false, _id: false },
-      )
+      .find(query, { __v: false, _id: false })
       .populate({
         path: 'user',
         select: '-password',
