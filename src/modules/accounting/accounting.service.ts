@@ -260,6 +260,7 @@ export class AccountingService {
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
         matchedMenuItem: updates?.matchedMenuItem,
+        deleted: false,
       });
       if (products) {
         for (const existingProduct of products) {
@@ -311,6 +312,7 @@ export class AccountingService {
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
         matchedMenuItem: updates?.matchedMenuItem,
+        deleted: false,
       });
       if (products) {
         for (const existingProduct of products) {
@@ -477,7 +479,10 @@ export class AccountingService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const products = await this.productModel.find({ expenseType: id });
+    const products = await this.productModel.find({
+      expenseType: id,
+      deleted: false,
+    });
     const services = await this.serviceModel.find({ expenseType: id });
     if (products.length > 0 || services.length > 0) {
       throw new HttpException(
@@ -552,6 +557,7 @@ export class AccountingService {
   async removeBrand(user: User, id: string) {
     const products = await this.productModel.find({
       brand: id,
+      deleted: false,
     });
     if (products.length > 0) {
       throw new HttpException(
@@ -597,6 +603,7 @@ export class AccountingService {
   async removeVendor(user: User, id: string) {
     const products = await this.productModel.find({
       vendor: id,
+      deleted: false,
     });
     const services = await this.serviceModel.find({
       vendor: id,
@@ -1018,7 +1025,10 @@ export class AccountingService {
           isStockIncrement,
           note,
         } = expenseDto;
-        const foundProduct = await this.productModel.findOne({ name: product });
+        const foundProduct = await this.productModel.findOne({
+          name: product,
+          deleted: false,
+        });
         if (!foundProduct) {
           errorDatas.push({ ...expenseDto, errorNote: 'Product not found' });
           continue;
@@ -2437,9 +2447,7 @@ export class AccountingService {
   }
   async createStockForAllLocations(user: User) {
     try {
-      const products = await (
-        await this.productModel.find()
-      ).filter((product) => !product?.deleted);
+      const products = await this.productModel.find({ deleted: false });
       const locations = await this.locationService.findAllLocations();
       const stocks = await this.stockModel.find();
 
