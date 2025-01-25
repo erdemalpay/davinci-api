@@ -1368,9 +1368,56 @@ export class OrderService {
       );
     }
   }
+  aggregatePaidQuantities(collections: Collection[]) {
+    const orderSums = collections.reduce((acc, collection) => {
+      collection.orders.forEach((orderItem) => {
+        if (acc[orderItem.order]) {
+          acc[orderItem.order].paidQuantity += orderItem.paidQuantity;
+        } else {
+          acc[orderItem.order] = { ...orderItem };
+        }
+      });
+      return acc;
+    }, {});
 
+    // Convert the resulting object back to an array
+    return Object.values(orderSums);
+  }
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
+    let tableCollections: Collection[] = [];
+    if (createCollectionDto.table) {
+      tableCollections = await this.collectionModel
+        .find({
+          table: createCollectionDto.table,
+          status: OrderCollectionStatus.PAID,
+        })
+        .exec();
+    }
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;
+    if (tableCollections?.length > 0) {
+      const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
+      if (newOrders && newOrders?.length > 0) {
+        filteredCollectionDto.orders.forEach((orderCollectionItem) => {
+          const foundNewOrder = newOrders.find(
+            (newOrder) => newOrder._id === orderCollectionItem.order,
+          );
+          const existingOrder: any = tablePaidOrders?.find(
+            (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
+          );
+          if (existingOrder) {
+            if (
+              existingOrder.paidQuantity + orderCollectionItem.paidQuantity >
+              foundNewOrder.quantity
+            ) {
+              throw new HttpException(
+                `The quantity of order  is exceeded`,
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+          }
+        });
+      }
+    }
     const collection = new this.collectionModel({
       ...filteredCollectionDto, // Use the filtered object
       createdBy: createCollectionDto.createdBy ?? user._id,
