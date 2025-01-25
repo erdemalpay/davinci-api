@@ -1394,33 +1394,33 @@ export class OrderService {
         .exec();
     }
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;
-    if (tableCollections?.length > 0) {
-      const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
-      if (newOrders && newOrders?.length > 0) {
-        filteredCollectionDto.orders.forEach((orderCollectionItem) => {
-          const foundNewOrder = newOrders.find(
-            (newOrder) => newOrder._id === orderCollectionItem.order,
-          );
-          const existingOrder: any = tablePaidOrders?.find(
-            (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
-          );
-          if (existingOrder) {
-            if (
-              existingOrder.paidQuantity + orderCollectionItem.paidQuantity >
-                foundNewOrder.quantity ||
-              existingOrder?.paidQuantity +
-                orderCollectionItem?.paidQuantity !==
-                foundNewOrder?.paidQuantity
-            ) {
-              throw new HttpException(
-                `The quantity of order  is exceeded`,
-                HttpStatus.BAD_REQUEST,
-              );
-            }
-          }
-        });
-      }
-    }
+    // if (tableCollections?.length > 0) {
+    //   const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
+    //   if (newOrders && newOrders?.length > 0) {
+    //     filteredCollectionDto.orders.forEach((orderCollectionItem) => {
+    //       const foundNewOrder = newOrders.find(
+    //         (newOrder) => newOrder._id === orderCollectionItem.order,
+    //       );
+    //       const existingOrder: any = tablePaidOrders?.find(
+    //         (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
+    //       );
+    //       if (existingOrder) {
+    //         if (
+    //           existingOrder.paidQuantity + orderCollectionItem.paidQuantity >
+    //             foundNewOrder.quantity ||
+    //           existingOrder?.paidQuantity +
+    //             orderCollectionItem?.paidQuantity !==
+    //             foundNewOrder?.paidQuantity
+    //         ) {
+    //           throw new HttpException(
+    //             `The quantity of order  is exceeded`,
+    //             HttpStatus.BAD_REQUEST,
+    //           );
+    //         }
+    //       }
+    //     });
+    //   }
+    // }
     const collection = new this.collectionModel({
       ...filteredCollectionDto, // Use the filtered object
       createdBy: createCollectionDto.createdBy ?? user._id,
