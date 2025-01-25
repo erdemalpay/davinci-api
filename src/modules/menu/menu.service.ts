@@ -91,6 +91,9 @@ export class MenuService {
       throw new Error('Could not retrieve items');
     }
   }
+  async findItemsInCategoryArray(categories: number[]) {
+    return this.itemModel.find({ category: { $in: categories } });
+  }
 
   async setOrder(user: User) {
     const items = await this.itemModel.find();

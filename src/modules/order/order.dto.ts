@@ -115,6 +115,14 @@ export class OrderQueryDto {
   after?: string;
   before?: string;
   eliminatedDiscounts?: string;
+  discount?: number;
+  createdBy?: string;
+  preparedBy?: string;
+  deliveredBy?: string;
+  cancelledBy?: string;
+  status?: string;
+  category?: string;
+  location?: number;
 }
 
 export class CollectionQueryDto {

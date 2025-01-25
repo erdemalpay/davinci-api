@@ -36,8 +36,27 @@ export class OrderController {
   findQueryOrders(
     @Query('after') after?: string,
     @Query('before') before?: string,
+    @Query('discount') discount?: number,
+    @Query('createdBy') createdBy?: string,
+    @Query('preparedBy') preparedBy?: string,
+    @Query('deliveredBy') deliveredBy?: string,
+    @Query('cancelledBy') cancelledBy?: string,
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('location') location?: number,
   ) {
-    return this.orderService.findQueryOrders({ after, before });
+    return this.orderService.findQueryOrders({
+      after,
+      before,
+      discount,
+      createdBy,
+      preparedBy,
+      deliveredBy,
+      cancelledBy,
+      status,
+      category,
+      location,
+    });
   }
 
   @Get('/update-table-date')

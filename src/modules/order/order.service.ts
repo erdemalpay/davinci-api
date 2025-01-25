@@ -75,11 +75,10 @@ export class OrderService {
     const filterQuery = {
       quantity: { $gt: 0 },
     };
-    const { after, before } = query;
+    const { after, before, category } = query;
     if (after) {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
-
       filterQuery['tableDate'] = { $gte: startDate };
     }
     if (before) {
@@ -90,9 +89,35 @@ export class OrderService {
         $lte: endDate,
       };
     }
+    const filterKeys = [
+      'discount',
+      'createdBy',
+      'preparedBy',
+      'deliveredBy',
+      'cancelledBy',
+      'status',
+      'location',
+    ];
+    filterKeys.forEach((key) => {
+      if (query[key]) {
+        filterQuery[key] = query[key];
+      }
+    });
     try {
+      let itemIds = [];
+      if (category) {
+        const categoryArray = category.split(',').map(Number);
+        const items = await this.menuService.findItemsInCategoryArray(
+          categoryArray,
+        );
+        itemIds = items.map((item) => item._id);
+      }
+      const orderFilterQuery = {
+        ...filterQuery,
+        ...(itemIds.length > 0 ? { item: { $in: itemIds } } : {}),
+      };
       const orders = await this.orderModel
-        .find(filterQuery)
+        .find(orderFilterQuery)
         .populate('table', 'date _id name isOnlineSale finishHour type')
         .sort({ createdAt: -1 })
         .exec();
