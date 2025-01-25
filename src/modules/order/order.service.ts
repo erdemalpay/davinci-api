@@ -1407,7 +1407,10 @@ export class OrderService {
           if (existingOrder) {
             if (
               existingOrder.paidQuantity + orderCollectionItem.paidQuantity >
-              foundNewOrder.quantity
+                foundNewOrder.quantity ||
+              existingOrder?.paidQuantity +
+                orderCollectionItem?.paidQuantity !==
+                foundNewOrder?.paidQuantity
             ) {
               throw new HttpException(
                 `The quantity of order  is exceeded`,
