@@ -1084,7 +1084,10 @@ export class OrderService {
       },
       {
         $group: {
-          _id: { month: { $month: '$createdAt' } },
+          _id: {
+            month: { $month: '$createdAt' },
+            year: { $year: '$createdAt' },
+          },
           total: {
             $sum: {
               $subtract: [
@@ -1114,7 +1117,7 @@ export class OrderService {
         },
       },
       {
-        $sort: { '_id.month': 1 },
+        $sort: { '_id.year': 1, '_id.month': 1 },
       },
       {
         $project: {
@@ -1138,6 +1141,7 @@ export class OrderService {
               { $subtract: ['$_id.month', 1] },
             ],
           },
+          year: '$_id.year',
           total: 1,
         },
       },
@@ -1190,7 +1194,10 @@ export class OrderService {
       },
       {
         $group: {
-          _id: { month: { $month: '$createdAt' } },
+          _id: {
+            month: { $month: '$createdAt' },
+            year: { $year: '$createdAt' },
+          },
           total: {
             $sum: {
               $subtract: [
@@ -1226,7 +1233,7 @@ export class OrderService {
         },
       },
       {
-        $sort: { '_id.month': 1 },
+        $sort: { '_id.year': 1, '_id.month': 1 },
       },
       {
         $project: {
@@ -1250,6 +1257,7 @@ export class OrderService {
               { $subtract: ['$_id.month', 1] },
             ],
           },
+          year: '$_id.year',
           total: { $toInt: '$total' },
         },
       },
