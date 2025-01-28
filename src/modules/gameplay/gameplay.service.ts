@@ -306,7 +306,41 @@ export class GameplayService {
       .exec();
     return results;
   }
+  async getAfterGivenDateMentoredCounts(after: string, before?: string) {
+    const endDate =
+      before !== '' && before !== undefined && before !== null
+        ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
+        : format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: {
+            $gte: after,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$mentor',
+          gameplayCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          mentoredBy: '$_id',
+          gameplayCount: 1,
+        },
+      },
+    ];
+
+    const results = await this.gameplayModel
+      .aggregate(aggregationPipeline)
+      .exec();
+    return results;
+  }
   findById(id: number) {
     return this.gameplayModel.findById(id);
   }
