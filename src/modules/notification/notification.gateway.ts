@@ -8,7 +8,6 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { User } from '../user/user.schema';
 
 @WebSocketGateway({
   path: '/socket.io',
@@ -41,7 +40,17 @@ export class NotificationGateway
     return 'Hello world!';
   }
 
-  emitNotificationChanged(user: User, notification: any) {
-    this.server.emit('notificationChanged', { notification: notification });
+  emitNotificationChanged(
+    notification: any,
+    selectedUsers?: string[],
+    selectedRoles?: number[],
+    selectedLocations?: number[],
+  ) {
+    this.server.emit('notificationChanged', {
+      notification: notification,
+      selectedUsers: selectedUsers,
+      selectedRoles: selectedRoles,
+      selectedLocations: selectedLocations,
+    });
   }
 }
