@@ -1,7 +1,6 @@
 import {
   ExecutionContext, HttpException, HttpStatus,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
