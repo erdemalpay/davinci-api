@@ -24,7 +24,6 @@ import { ReservationModule } from './modules/reservation/reservation.module';
 import { RewardModule } from './modules/reward/reward.module';
 import { ShiftModule } from './modules/shift/shift.module';
 import { TableModule } from './modules/table/table.module';
-import { UdpModule } from './modules/udp/udp.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
 
