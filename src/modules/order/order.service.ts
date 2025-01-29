@@ -1480,8 +1480,9 @@ export class OrderService {
       return collection;
     } catch (error) {
       console.error('Error updating collection:', error);
-      throw new Error(
+      throw new HttpException(
         'Failed to update collection due to an error in updating orders or saving changes.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -2061,7 +2062,7 @@ export class OrderService {
       console.log('Updated orders and collections with table dates.');
     } catch (error) {
       console.error('Failed to update table dates:', error);
-      throw new Error('Failed to update table dates');
+      throw new HttpException('Failed to update table dates', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
   async updateLocationForOrdersWithIkasId() {

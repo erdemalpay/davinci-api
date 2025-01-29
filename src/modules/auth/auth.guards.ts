@@ -1,5 +1,5 @@
 import {
-  ExecutionContext,
+  ExecutionContext, HttpException, HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -35,6 +35,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (user) return user;
     if (allowAny) return null;
-    throw new UnauthorizedException();
+    throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
   }
 }

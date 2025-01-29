@@ -88,7 +88,7 @@ export class MenuService {
       return items; // Return items from the database
     } catch (error) {
       console.error('Failed to retrieve items from database:', error);
-      throw new Error('Could not retrieve items');
+      throw new HttpException('Could not retrieve items', HttpStatus.NOT_FOUND);
     }
   }
   async findItemsInCategoryArray(categories: number[]) {
@@ -159,7 +159,7 @@ export class MenuService {
         }
       });
     } catch (error) {
-      throw new Error('Problem occured while deleting category');
+      throw new HttpException('Problem occured while deleting category', HttpStatus.INTERNAL_SERVER_ERROR);
     }
     const category = await this.categoryModel.findByIdAndRemove(id);
     this.menuGateway.emitCategoryChanged(user, category);
@@ -352,7 +352,7 @@ export class MenuService {
   async updateItem(user: User, id: number, updates: UpdateQuery<MenuItem>) {
     const item = await this.itemModel.findById(id);
     if (!item) {
-      throw new Error('Item not found');
+      throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
     if (updates?.matchedProduct) {
       const items = await this.itemModel.find({
@@ -449,7 +449,7 @@ export class MenuService {
   async updateItemsOrder(user: User, id: number, newOrder: number) {
     const item = await this.itemModel.findById(id);
     if (!item) {
-      throw new Error('Item not found');
+      throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
     await this.itemModel.findByIdAndUpdate(id, { order: newOrder });
 
@@ -467,7 +467,7 @@ export class MenuService {
   ) {
     const category = await this.categoryModel.findById(categoryId);
     if (!category) {
-      throw new Error('Category not found');
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
     await this.categoryModel.findByIdAndUpdate(categoryId, { order: newOrder });
 
@@ -521,7 +521,7 @@ export class MenuService {
   ) {
     const item = await this.itemModel.findById(id);
     if (!item) {
-      throw new Error('Item not found');
+      throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
 
     if (updates?.matchedProduct) {
@@ -619,7 +619,7 @@ export class MenuService {
   ) {
     const items = await this.itemModel.find({ _id: { $in: itemIds } });
     if (!items.length) {
-      throw new Error('Items not found');
+      throw new HttpException('Items not found', HttpStatus.NOT_FOUND);
     }
     await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
     this.menuGateway.emitItemChanged(user, items);
