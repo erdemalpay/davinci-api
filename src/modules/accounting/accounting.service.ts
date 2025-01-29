@@ -113,7 +113,7 @@ export class AccountingService {
       return products;
     } catch (error) {
       console.error('Failed to retrieve products from database:', error);
-      throw new Error('Could not retrieve products');
+      throw new HttpException('Could not retrieve products', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

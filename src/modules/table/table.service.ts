@@ -125,7 +125,7 @@ export class TableService {
         );
       }
       if (!updatedTable) {
-        throw new Error('Update failed or no new data was provided');
+        throw new HttpException('Update failed or no new data was provided', HttpStatus.INTERNAL_SERVER_ERROR);
       }
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
@@ -242,7 +242,7 @@ export class TableService {
       );
     } catch (error) {
       console.error('Error retrieving tables:', error);
-      throw new Error('Failed to retrieve table availability.');
+      throw new HttpException('Failed to retrieve table availability.', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -250,7 +250,7 @@ export class TableService {
     const table = await this.tableModel.findById(id);
 
     if (!table) {
-      throw new Error('Table not found');
+      throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     // Close the previous gameplay
     if (table.gameplays.length) {
@@ -282,7 +282,7 @@ export class TableService {
     const table = await this.tableModel.findById(tableId);
 
     if (!table) {
-      throw new Error('Table not found');
+      throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
     await this.gameplayService.remove(user, gameplayId);
@@ -304,7 +304,7 @@ export class TableService {
   async removeTableAndGameplays(user: User, id: number) {
     const table = await this.tableModel.findById(id).exec();
     if (!table) {
-      throw new Error(`Table ${id} does not exist.`);
+      throw new HttpException(`Table ${id} does not exist.`, HttpStatus.NOT_FOUND);
     }
     const isTableHasOrders = (table?.orders as any)?.some(
       (order) => order.status !== OrderStatus.CANCELLED,

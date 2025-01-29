@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
@@ -33,7 +33,7 @@ export class PanelControlService {
       return pages;
     } catch (error) {
       console.error('Failed to retrieve pages from database:', error);
-      throw new Error('Could not retrieve pages');
+      throw new HttpException('Could not retrieve pages', HttpStatus.NOT_FOUND);
     }
   }
 
