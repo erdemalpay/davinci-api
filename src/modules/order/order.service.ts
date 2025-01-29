@@ -1412,16 +1412,9 @@ export class OrderService {
           const existingOrder: any = tablePaidOrders?.find(
             (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
           );
-          console.log(existingOrder, 'existingOrder');
-          console.log(foundNewOrder, 'foundNewOrder');
-          console.log(
-            orderCollectionItem.paidQuantity,
-            'orderCollectionItem.paidQuantity',
-          );
           const expectedPaidQuantity =
             (existingOrder?.paidQuantity ?? 0) +
             orderCollectionItem.paidQuantity;
-          console.log(expectedPaidQuantity, 'expectedPaidQuantity');
 
           if (foundNewOrder.paidQuantity !== expectedPaidQuantity) {
             throw new HttpException(
