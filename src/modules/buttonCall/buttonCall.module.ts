@@ -1,7 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
-import { UdpModule } from '../udp/udp.module';
 import { UserModule } from '../user/user.module';
 import { ButtonCallController } from './buttonCall.controller';
 import { ButtonCallGateway } from './buttonCall.gateway';
@@ -13,7 +12,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, forwardRef(() => UdpModule), UserModule],
+  imports: [mongooseModule, UserModule],
   providers: [ButtonCallService, ButtonCallGateway],
   exports: [ButtonCallService, ButtonCallGateway],
   controllers: [ButtonCallController],

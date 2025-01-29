@@ -24,7 +24,6 @@ import { ShiftModule } from './modules/shift/shift.module';
 import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
-import { UdpModule } from './modules/udp/udp.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 
 export interface DBConfig {
@@ -64,7 +63,6 @@ const modules = [
   OrderModule,
   RedisModule,
   ButtonCallModule,
-  UdpModule,
 ];
 
 if (config.get('migrationEnabled')) {
