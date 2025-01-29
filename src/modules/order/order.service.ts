@@ -1402,33 +1402,29 @@ export class OrderService {
         .exec();
     }
     const { newOrders, ...filteredCollectionDto } = createCollectionDto;
-    // if (tableCollections?.length > 0) {
-    //   const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
-    //   if (newOrders && newOrders?.length > 0) {
-    //     filteredCollectionDto.orders.forEach((orderCollectionItem) => {
-    //       const foundNewOrder = newOrders.find(
-    //         (newOrder) => newOrder._id === orderCollectionItem.order,
-    //       );
-    //       const existingOrder: any = tablePaidOrders?.find(
-    //         (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
-    //       );
-    //       if (existingOrder) {
-    //         if (
-    //           existingOrder.paidQuantity + orderCollectionItem.paidQuantity >
-    //             foundNewOrder.quantity ||
-    //           existingOrder?.paidQuantity +
-    //             orderCollectionItem?.paidQuantity !==
-    //             foundNewOrder?.paidQuantity
-    //         ) {
-    //           throw new HttpException(
-    //             `The quantity of order  is exceeded`,
-    //             HttpStatus.BAD_REQUEST,
-    //           );
-    //         }
-    //       }
-    //     });
-    //   }
-    // }
+    if (tableCollections?.length > 0) {
+      const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
+      if (newOrders && newOrders?.length > 0) {
+        filteredCollectionDto.orders.forEach((orderCollectionItem) => {
+          const foundNewOrder = newOrders.find(
+            (newOrder) => newOrder._id === orderCollectionItem.order,
+          );
+          const existingOrder: any = tablePaidOrders?.find(
+            (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
+          );
+          const expectedPaidQuantity =
+            (existingOrder?.paidQuantity ?? 0) +
+            orderCollectionItem.paidQuantity;
+
+          if (foundNewOrder.paidQuantity !== expectedPaidQuantity) {
+            throw new HttpException(
+              `The quantity of order  is exceeded`,
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        });
+      }
+    }
     const collection = new this.collectionModel({
       ...filteredCollectionDto, // Use the filtered object
       createdBy: createCollectionDto.createdBy ?? user._id,
@@ -1484,8 +1480,9 @@ export class OrderService {
       return collection;
     } catch (error) {
       console.error('Error updating collection:', error);
-      throw new Error(
+      throw new HttpException(
         'Failed to update collection due to an error in updating orders or saving changes.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -2065,7 +2062,7 @@ export class OrderService {
       console.log('Updated orders and collections with table dates.');
     } catch (error) {
       console.error('Failed to update table dates:', error);
-      throw new Error('Failed to update table dates');
+      throw new HttpException('Failed to update table dates', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
   async updateLocationForOrdersWithIkasId() {

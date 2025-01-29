@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/modules/user/user.schema';
 import { UserService } from 'src/modules/user/user.service';
@@ -23,7 +23,7 @@ export class AuthService {
     };
     const isUserActive = await this.userService.checkUserActive(user._id);
     if (!isUserActive) {
-      throw new Error(`User ${user._id} is not active`);
+      throw new HttpException(`Unauthorized`, HttpStatus.UNAUTHORIZED);
     }
     this.activityService.addActivity(user, ActivityType.LOGIN, null);
     return {

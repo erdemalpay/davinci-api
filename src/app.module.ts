@@ -65,7 +65,6 @@ const modules = [
   OrderModule,
   RedisModule,
   ButtonCallModule,
-  UdpModule,
   NotificationModule,
 ];
 

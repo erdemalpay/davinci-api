@@ -85,7 +85,7 @@ export class UserService implements OnModuleInit {
   ): Promise<User | null> {
     const gameExists = await this.gameService.getGameById(gameId);
     if (!gameExists) {
-      throw new Error('Game not found');
+      throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
     }
     let newUserGames = user.userGames;
     if (updateType === UserGameUpdateType.ADD) {
@@ -95,7 +95,7 @@ export class UserService implements OnModuleInit {
       };
 
       if (user.userGames.some((ug) => ug.game === gameId)) {
-        throw new Error('Game already added');
+        throw new HttpException('Game already added', HttpStatus.BAD_REQUEST);
       }
       newUserGames.push(userGameToAdd);
 
@@ -119,7 +119,7 @@ export class UserService implements OnModuleInit {
       { new: true },
     );
     if (!updateResult) {
-      throw new Error('User not found');
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
     this.userGateway.emitUserChanged(updateResult);
 
@@ -162,7 +162,7 @@ export class UserService implements OnModuleInit {
       return users;
     } catch (error) {
       console.error('Failed to retrieve users from database:', error);
-      throw new Error('Could not retrieve users');
+      throw new HttpException('Could not retrieve users', HttpStatus.NOT_FOUND);
     }
   }
 

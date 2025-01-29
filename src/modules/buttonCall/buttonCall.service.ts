@@ -10,7 +10,6 @@ import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { dateRanges } from '../../utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
-import { UdpService } from '../udp/udp.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { ButtonCallGateway } from './buttonCall.gateway';
@@ -26,8 +25,6 @@ export class ButtonCallService {
     private buttonCallModel: Model<ButtonCall>,
     private readonly buttonCallGateway: ButtonCallGateway,
     private readonly userService: UserService,
-    @Inject(forwardRef(() => UdpService))
-    private readonly udpService: UdpService,
   ) {}
 
   async handleButtonAction(location: number, time: string, code: number) {
@@ -96,7 +93,6 @@ export class ButtonCallService {
   async close(
     user: User,
     closeButtonCallDto: CloseButtonCallDto,
-    notifynodemcu = false,
   ) {
     if (!closeButtonCallDto.finishHour) {
       closeButtonCallDto.finishHour = format(new Date(), 'HH:mm:ss');
@@ -125,10 +121,6 @@ export class ButtonCallService {
     );
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
-    if (notifynodemcu) {
-      const tableEntry = tableCodes[closedButtonCall.tableName];
-      this.udpService.sendUdpPacket(1, tableEntry.cancel_code);
-    }
     return closedButtonCall;
   }
   async findByDateAndLocation(date: string, location: number, isActive: boolean) {
