@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateNotificationDto } from './notification.dto';
@@ -8,7 +8,7 @@ import { NotificationService } from './notification.service';
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
   @Post()
-  createOrder(
+  createNotification(
     @ReqUser() user: User,
     @Body() createNotificationDto: CreateNotificationDto,
   ) {
@@ -16,5 +16,16 @@ export class NotificationController {
       user,
       createNotificationDto,
     );
+  }
+
+  @Get()
+  findAllNotifications(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.notificationService.findAllNotifications({
+      after,
+      before,
+    });
   }
 }

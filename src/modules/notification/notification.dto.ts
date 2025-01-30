@@ -14,3 +14,8 @@ export enum NotificationType {
   SUCCESS = 'SUCCESS',
   ORDER = 'ORDER',
 }
+
+export class NotificationQueryDto {
+  after?: string;
+  before?: string;
+}
