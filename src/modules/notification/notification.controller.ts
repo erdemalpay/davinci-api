@@ -18,12 +18,34 @@ export class NotificationController {
     );
   }
 
+  @Post('/mark-as-read')
+  markAsRead(@ReqUser() user: User, @Body('id') id: number) {
+    return this.notificationService.markAsRead(user, id);
+  }
+
   @Get()
   findAllNotifications(
     @Query('after') after?: string,
     @Query('before') before?: string,
   ) {
     return this.notificationService.findAllNotifications({
+      after,
+      before,
+    });
+  }
+
+  @Get('/new')
+  findUserNewNotifications(@ReqUser() user: User) {
+    return this.notificationService.findUserNewNotifications(user);
+  }
+
+  @Get('/all')
+  findUserAllNotifications(
+    @ReqUser() user: User,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.notificationService.findUserAllNotifications(user, {
       after,
       before,
     });
