@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from './user.decorator';
@@ -59,8 +67,8 @@ export class UserController {
 
   @ApiResponse({ type: [UserResponse] })
   @Get()
-  listUsers() {
-    return this.userService.findAllUsers();
+  listUsers(@Query('all') all: boolean) {
+    return this.userService.getAll(!all);
   }
 
   @ApiResponse({ type: [UserResponse] })
