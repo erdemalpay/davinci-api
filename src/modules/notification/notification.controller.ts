@@ -19,8 +19,14 @@ export class NotificationController {
   }
 
   @Post('/mark-as-read')
-  markAsRead(@ReqUser() user: User, @Body('id') id: number) {
-    return this.notificationService.markAsRead(user, id);
+  markAsRead(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      id: number;
+    },
+  ) {
+    return this.notificationService.markAsRead(user, payload.id);
   }
 
   @Get()
