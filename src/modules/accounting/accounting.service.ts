@@ -113,7 +113,10 @@ export class AccountingService {
       return products;
     } catch (error) {
       console.error('Failed to retrieve products from database:', error);
-      throw new HttpException('Could not retrieve products', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Could not retrieve products',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -1771,13 +1774,15 @@ export class AccountingService {
       },
     );
     this.accountingGateway.emitCountChanged(user, count);
-
-    await this.createStock(user, {
-      product: product,
-      location: location,
-      quantity: stock ? quantity - stock.quantity : quantity,
-      status: StockHistoryStatusEnum.STOCKEQUALIZE,
-    });
+    const foundProduct = await this.productModel.findOne({ _id: product });
+    if (!foundProduct.deleted) {
+      await this.createStock(user, {
+        product: product,
+        location: location,
+        quantity: stock ? quantity - stock.quantity : quantity,
+        status: StockHistoryStatusEnum.STOCKEQUALIZE,
+      });
+    }
   }
   async stockTransfer(
     user: User,
