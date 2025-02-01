@@ -2171,9 +2171,24 @@ export class AccountingService {
           continue;
         }
         // spliting the multiple entries
-        const expenseTypeArray = expenseType ? expenseType.split(',') : [];
-        const vendorArray = vendor ? vendor.split(',') : [];
-        const brandArray = brand ? brand.split(',') : [];
+        const expenseTypeArray = expenseType?.trim()
+          ? expenseType
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+        const vendorArray = vendor?.trim()
+          ? vendor
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+        const brandArray = brand?.trim()
+          ? brand
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
         let newExpenseTypes = [];
         let newVendor = [];
         let newBrand = [];
@@ -2268,10 +2283,23 @@ export class AccountingService {
         let isMenuItemCreated = false;
         let newProduct;
         let newMenuItem;
-        let foundImage;
+        let imageArray = [];
         if (image) {
           try {
-            foundImage = await this.assetService.getImageWithPublicID(image);
+            const imageNameArray = image?.trim()
+              ? image
+                  .split(',')
+                  .map((item) => item.trim())
+                  .filter(Boolean)
+              : [];
+            for (const imageName of imageNameArray) {
+              const foundImage = await this.assetService.getImageWithPublicID(
+                imageName,
+              );
+              if (foundImage) {
+                imageArray.push(foundImage);
+              }
+            }
           } catch (e) {
             console.log(e);
             errorDatas.push({
@@ -2282,10 +2310,26 @@ export class AccountingService {
             continue;
           }
         }
+
         // spliting the multiple entries
-        const expenseTypeArray = expenseType ? expenseType.split(',') : [];
-        const vendorArray = vendor ? vendor.split(',') : [];
-        const brandArray = brand ? brand.split(',') : [];
+        const expenseTypeArray = expenseType?.trim()
+          ? expenseType
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+        const vendorArray = vendor?.trim()
+          ? vendor
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+        const brandArray = brand?.trim()
+          ? brand
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
 
         //  if expenseType is provided it will create a product
         if (expenseTypeArray?.length > 0) {
@@ -2409,7 +2453,10 @@ export class AccountingService {
             price: price,
             ...(onlinePrice ? { onlinePrice } : {}),
             ...(description ? { description } : {}),
-            ...(foundImage ? { imageUrl: foundImage } : {}),
+            ...(imageArray?.length > 0 ? { imageUrl: imageArray[0] } : {}),
+            ...(imageArray?.length > 1
+              ? { productImages: imageArray.slice(1) }
+              : {}),
           });
           isMenuItemCreated = true;
         }
