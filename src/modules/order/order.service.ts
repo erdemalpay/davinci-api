@@ -468,6 +468,7 @@ export class OrderService {
       }
       const createdOrder = new this.orderModel({
         ...order,
+        tableDate: table.date,
         status: order?.status ?? 'pending',
         createdBy: order?.createdBy ?? user._id,
         createdAt: new Date(),
@@ -2030,10 +2031,17 @@ export class OrderService {
   async updateOrderTableDates() {
     try {
       // Fetch orders with necessary fields
-      const orders = await this.orderModel.find({}).populate({
-        path: 'table',
-        select: 'date', // Only fetch the 'date' field from the 'table' document
-      });
+      const startDate = new Date('2025-01-01T00:00:00Z');
+
+      // Fetch orders with necessary fields created after January 1, 2025
+      const orders = await this.orderModel
+        .find({
+          createdAt: { $gte: startDate },
+        })
+        .populate({
+          path: 'table',
+          select: 'date', // Only fetch the 'date' field from the 'table' document
+        });
 
       for (const order of orders) {
         // Convert date to Europe/Istanbul timezone, or use UTC as a fallback
@@ -2045,10 +2053,14 @@ export class OrderService {
       }
 
       // Fetch collections with necessary fields
-      const collections = await this.collectionModel.find({}).populate({
-        path: 'table',
-        select: 'date',
-      });
+      const collections = await this.collectionModel
+        .find({
+          createdAt: { $gte: startDate },
+        })
+        .populate({
+          path: 'table',
+          select: 'date',
+        });
 
       for (const collection of collections) {
         // Similarly, handle dates for collections
@@ -2062,7 +2074,10 @@ export class OrderService {
       console.log('Updated orders and collections with table dates.');
     } catch (error) {
       console.error('Failed to update table dates:', error);
-      throw new HttpException('Failed to update table dates', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to update table dates',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
   async updateLocationForOrdersWithIkasId() {
