@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
@@ -15,7 +21,7 @@ import { PanelControlGateway } from './panelControl.gateway';
 import { PanelSettings } from './panelSettings.schema';
 
 @Injectable()
-export class PanelControlService {
+export class PanelControlService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(CheckoutCash.name)
@@ -24,8 +30,11 @@ export class PanelControlService {
     private panelSettingsModel: Model<PanelSettings>,
     private readonly panelControlGateway: PanelControlGateway,
     private readonly redisService: RedisService,
+    private readonly httpAdapterHost: HttpAdapterHost,
   ) {}
-
+  onApplicationBootstrap() {
+    this.getAllRoutes();
+  }
   //pages
   async findAllPages() {
     try {
@@ -163,5 +172,30 @@ export class PanelControlService {
     );
     this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
     return newPanelSetting;
+  }
+
+  getAllRoutes() {
+    const { httpAdapter } = this.httpAdapterHost;
+
+    if (httpAdapter && httpAdapter.getInstance) {
+      const server = httpAdapter.getInstance();
+      const routes = [];
+
+      server._router.stack.forEach((middleware) => {
+        if (middleware.route) {
+          const methods = Object.keys(middleware.route.methods)
+            .filter((method) => middleware.route.methods[method])
+            .map((method) => method.toUpperCase());
+
+          routes.push({
+            path: middleware.route.path,
+            methods,
+          });
+        }
+      });
+
+      return routes;
+    }
+    return [];
   }
 }

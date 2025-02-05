@@ -28,6 +28,10 @@ export class PanelControlController {
   getPages() {
     return this.panelControlService.findAllPages();
   }
+  @Get('routes')
+  getAllRoutes() {
+    return this.panelControlService.getAllRoutes();
+  }
 
   @Post('/pages')
   createPage(@ReqUser() user: User, @Body() createPageDto: CreatePageDto) {
