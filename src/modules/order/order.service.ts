@@ -75,7 +75,7 @@ export class OrderService {
     const filterQuery = {
       quantity: { $gt: 0 },
     };
-    const { after, before, category } = query;
+    const { after, before, category, location } = query;
     if (after) {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
@@ -96,8 +96,14 @@ export class OrderService {
       'deliveredBy',
       'cancelledBy',
       'status',
-      'location',
     ];
+    if (location) {
+      const locationArray = location
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['location'] = { $in: locationArray };
+    }
     filterKeys.forEach((key) => {
       if (query[key]) {
         filterQuery[key] = query[key];
@@ -106,7 +112,10 @@ export class OrderService {
     try {
       let itemIds = [];
       if (category) {
-        const categoryArray = category.split(',').map(Number);
+        const categoryArray = category
+          .split(',')
+          .map((item) => item.trim())
+          .map(Number);
         const items = await this.menuService.findItemsInCategoryArray(
           categoryArray,
         );
@@ -1286,7 +1295,7 @@ export class OrderService {
   }
   async findQueryCollections(query: CollectionQueryDto) {
     const filterQuery = {};
-    const { after, before } = query;
+    const { after, before, location } = query;
     if (after) {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
@@ -1299,6 +1308,13 @@ export class OrderService {
         ...filterQuery['tableDate'],
         $lte: endDate,
       };
+    }
+    if (location) {
+      const locationArray = location
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['location'] = { $in: locationArray };
     }
     try {
       const collections = await this.collectionModel

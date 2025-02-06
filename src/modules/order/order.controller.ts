@@ -43,7 +43,7 @@ export class OrderController {
     @Query('cancelledBy') cancelledBy?: string,
     @Query('status') status?: string,
     @Query('category') category?: string,
-    @Query('location') location?: number,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findQueryOrders({
       after,
@@ -312,10 +312,12 @@ export class OrderController {
   findQueryCollections(
     @Query('after') after?: string,
     @Query('before') before?: string,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findQueryCollections({
       after,
       before,
+      location,
     });
   }
 

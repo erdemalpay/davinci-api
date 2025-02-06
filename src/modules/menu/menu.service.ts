@@ -13,6 +13,7 @@ import { User } from '../user/user.schema';
 import { AccountingGateway } from './../accounting/accounting.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
+import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem } from './item.schema';
@@ -46,6 +47,7 @@ export class MenuService {
     private readonly accountingService: AccountingService,
     @Inject(forwardRef(() => IkasService))
     private readonly IkasService: IkasService,
+    private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
     private readonly accountingGateway: AccountingGateway,
@@ -159,7 +161,10 @@ export class MenuService {
         }
       });
     } catch (error) {
-      throw new HttpException('Problem occured while deleting category', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Problem occured while deleting category',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
     const category = await this.categoryModel.findByIdAndRemove(id);
     this.menuGateway.emitCategoryChanged(user, category);
@@ -331,14 +336,16 @@ export class MenuService {
           );
         }
       }
-
-      // Creating a new stock for the new product
-      await this.accountingService.createStock(user, {
-        product: newItem.matchedProduct,
-        location: newStockLocation,
-        quantity: stockQuantity,
-        status: StockHistoryStatusEnum.STOCKENTRY,
-      });
+      const locations = await this.locationService.findAllLocations();
+      for (const location of locations) {
+        // Creating a new stock for the new product
+        await this.accountingService.createStock(user, {
+          product: newItem.matchedProduct,
+          location: location._id,
+          quantity: location._id === newStockLocation ? stockQuantity : 0,
+          status: StockHistoryStatusEnum.STOCKENTRY,
+        });
+      }
       await this.menuGateway.emitItemChanged(user, newItem);
     } catch (error) {
       console.log(error);

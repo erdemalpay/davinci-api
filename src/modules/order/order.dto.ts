@@ -122,12 +122,13 @@ export class OrderQueryDto {
   cancelledBy?: string;
   status?: string;
   category?: string;
-  location?: number;
+  location?: string;
 }
 
 export class CollectionQueryDto {
   after?: string;
   before?: string;
+  location?: string;
 }
 export class SummaryCollectionQueryDto {
   after?: string;
