@@ -45,7 +45,7 @@ export class ButtonCallController {
   }
 
   @ApiResponse({ type: ButtonCall })
-  @Patch('close-from-panel')
+  @Post('close-from-panel')
   closeButtonCallFromPanel(
     @ReqUser() user: User,
     @Body() closeButtonCallDto: CloseButtonCallDto,
