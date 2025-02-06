@@ -87,6 +87,52 @@ export class VisitService {
     });
   }
 
+  async getUniqueVisits(startDate: string, endDate?: string) {
+    let matchStage: any = { date: { $gte: startDate } };
+    if (endDate) {
+      matchStage.date.$lte = endDate;
+    }
+
+    const visits = await this.visitModel.aggregate([
+      { $match: matchStage },
+      {
+        $sort: { date: 1, user: 1, startHour: 1 },
+      },
+      {
+        $group: {
+          _id: { user: '$user', date: '$date' },
+          visit: { $first: '$$ROOT' },
+        },
+      },
+      {
+        $replaceRoot: { newRoot: '$visit' },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          user: '$user._id',
+          role: '$user.role',
+          location: 1,
+          date: 1,
+          startHour: 1,
+          finishHour: 1,
+        },
+      },
+    ]);
+
+    return visits;
+  }
+
   async createVisitFromCafe(cafeVisitDto: CafeVisitDto) {
     const user = await this.userService.findByCafeId(cafeVisitDto.userData);
     if (!user) {

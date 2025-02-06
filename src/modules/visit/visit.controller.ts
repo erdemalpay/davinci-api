@@ -26,6 +26,14 @@ export class VisitController {
     return this.visitService.getVisits(startDate, endDate);
   }
 
+  @Get('/panel')
+  getUniqueVisits(
+    @Query('start-date') startDate: string,
+    @Query('end-date') endDate?: string,
+  ) {
+    return this.visitService.getUniqueVisits(startDate, endDate);
+  }
+
   @Get()
   getVisits(@Query('date') date: string, @Query('location') location: number) {
     return this.visitService.findByDateAndLocation(date, location);
