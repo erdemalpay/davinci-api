@@ -11,19 +11,4 @@ export class CreateButtonCallDto {
   @IsNotEmpty()
   @IsNumber()
   readonly location: number;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  readonly date: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  readonly startHour: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  readonly createdBy: string;
 }

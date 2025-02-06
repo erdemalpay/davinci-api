@@ -42,6 +42,5 @@ export class ButtonCallGateway
 
   emitButtonCallChanged(buttonCall: any) {
     this.server.emit('buttonCallChanged', { buttonCall });
-    console.log("Websocket: Emitted button call changed.");
   }
 }
