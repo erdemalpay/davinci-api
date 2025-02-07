@@ -894,6 +894,10 @@ export class MenuService {
     const items = await this.itemModel.find();
     const updates = [];
     for (const item of items) {
+      if (item.matchedProduct && deletedProductIds.has(item.matchedProduct)) {
+        item.matchedProduct = undefined;
+        updates.push(item.save());
+      }
       if (item.itemProduction?.length > 0) {
         const filteredItemProduction = item.itemProduction.filter(
           (itemProductionItem) =>
