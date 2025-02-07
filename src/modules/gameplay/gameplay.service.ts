@@ -322,9 +322,23 @@ export class GameplayService {
         },
       },
       {
+        $lookup: {
+          from: 'games',
+          localField: 'game',
+          foreignField: '_id',
+          as: 'gameDetails',
+        },
+      },
+      {
+        $unwind: '$gameDetails',
+      },
+      {
         $group: {
           _id: '$mentor',
           gameplayCount: { $sum: 1 },
+          totalNarrationDurationPoint: {
+            $sum: '$gameDetails.narrationDurationPoint',
+          },
         },
       },
       {
@@ -332,15 +346,16 @@ export class GameplayService {
           _id: 0,
           mentoredBy: '$_id',
           gameplayCount: 1,
+          totalNarrationDurationPoint: 1,
         },
       },
     ];
-
     const results = await this.gameplayModel
       .aggregate(aggregationPipeline)
       .exec();
     return results;
   }
+
   findById(id: number) {
     return this.gameplayModel.findById(id);
   }
