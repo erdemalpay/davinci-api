@@ -1,7 +1,7 @@
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { ButtonCallService} from './buttonCall.service';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Patch, Post, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { User } from '../user/user.schema';
@@ -16,22 +16,55 @@ export class ButtonCallController {
   @Get()
   getButtonCalls(@Query('date') date: string,
                  @Query('location') location: number,
-                 @Query('isActive') isActive: boolean) {
-    return this.buttonCallService.findByDateAndLocation(date, location, isActive);
+                 @Query('type') type: string) {
+    if (!date || !location)
+    {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.findByDateAndLocation(date, location, type);
   }
 
-  @ApiResponse({ type: [ButtonCall] })
+  @ApiResponse({ type: ButtonCall })
   @Post()
-  createButtonCall(@Body() createButtonDto: CreateButtonCallDto) {
-    return this.buttonCallService.create(createButtonDto);
+  createButtonCall(
+      @ReqUser() user: User,
+      @Body() createButtonCallDto: CreateButtonCallDto) {
+    if (!createButtonCallDto.tableName || !createButtonCallDto.location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.create(user, createButtonCallDto);
   }
 
   @ApiResponse({ type: ButtonCall })
   @Patch()
-  closeTable(
-    @ReqUser() user: User, /// UPDATE THIS!!! GET JUST $ID LIKE */$ID
+  closeButtonCall(
+    @ReqUser() user: User,
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
     return this.buttonCallService.close(user, closeButtonCallDto);
+  }
+
+  @ApiResponse({ type: ButtonCall })
+  @Post('close-from-panel')
+  closeButtonCallFromPanel(
+    @ReqUser() user: User,
+    @Body() closeButtonCallDto: CloseButtonCallDto,
+  ) {
+    if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.close(user, closeButtonCallDto, true);
+  }
+
+  @ApiResponse({ type: ButtonCall })
+  @Post('notify-cafe')
+  notifyCafe(
+    @ReqUser() user: User,
+    @Body() closeButtonCallDto: CloseButtonCallDto,
+  ) {
+    if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.notifyCafe(user, closeButtonCallDto);
   }
 }
