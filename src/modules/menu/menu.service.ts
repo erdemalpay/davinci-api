@@ -888,4 +888,24 @@ export class MenuService {
     }
     return failedItems;
   }
+  async removeDeletedProductsFromMenuItem() {
+    const products = await this.accountingService.findDeletedProducts();
+    const deletedProductIds = new Set(products.map((product) => product._id));
+    const items = await this.itemModel.find();
+    const updates = [];
+    for (const item of items) {
+      if (item.itemProduction?.length > 0) {
+        const filteredItemProduction = item.itemProduction.filter(
+          (itemProductionItem) =>
+            !deletedProductIds.has(itemProductionItem.product),
+        );
+        if (filteredItemProduction.length !== item.itemProduction.length) {
+          item.itemProduction = filteredItemProduction;
+          updates.push(item.save());
+        }
+      }
+    }
+    await Promise.all(updates);
+    this.menuGateway.emitItemChanged();
+  }
 }

@@ -38,6 +38,11 @@ export class MenuController {
     return this.menuService.updateItemIkasCategories();
   }
 
+  @Get('/items/remove-deleted-products')
+  removeDeletedProducts() {
+    return this.menuService.removeDeletedProductsFromMenuItem();
+  }
+
   @Get('/categories-all')
   getAllCategories() {
     return this.menuService.findAllCategories();

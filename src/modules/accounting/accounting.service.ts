@@ -90,6 +90,9 @@ export class AccountingService {
   findActiveProducts() {
     return this.productModel.find({ deleted: { $ne: true } });
   }
+  async findDeletedProducts() {
+    return this.productModel.find({ deleted: true });
+  }
 
   async findAllProducts() {
     try {
