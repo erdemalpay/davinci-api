@@ -1,7 +1,7 @@
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose'; // Add UpdateQuery import
+import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
-import { CreateShiftDto, ShiftQueryDto } from './shift.dto'; // Add ShiftQueryDto import
+import { CreateShiftDto, ShiftQueryDto } from './shift.dto';
 import { ShiftGateway } from './shift.gateway';
 import { Shift } from './shift.schema';
 export class ShiftService {
@@ -38,25 +38,48 @@ export class ShiftService {
   }
 
   async findQueryShifts(query: ShiftQueryDto) {
-    const filterQuery: any = {};
     const { after, before, location } = query;
+    const startDate = new Date(after);
+    const endDate = new Date(before);
+    const daysInRange: string[] = [];
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      daysInRange.push(d.toISOString().split('T')[0]);
+    }
+    const filterQuery: any = {};
     if (after) {
-      filterQuery['day'] = { $gte: new Date(after) };
+      filterQuery['day'] = { $gte: after };
     }
     if (before) {
       filterQuery['day'] = {
         ...filterQuery['day'],
-        $lte: new Date(before),
+        $lte: before,
       };
     }
     if (location) {
       filterQuery['location'] = location;
     }
+    let shiftsData;
     try {
-      const shifts = await this.shiftModel.find(filterQuery).exec();
-      return shifts;
+      shiftsData = await this.shiftModel.find(filterQuery).exec();
     } catch (error) {
       throw new Error('Failed to fetch shifts');
     }
+    const shiftsMap = new Map<string, any>();
+    for (const shift of shiftsData) {
+      shiftsMap.set(shift.day, shift);
+    }
+    const result = daysInRange.map((day) => {
+      if (shiftsMap.has(day)) {
+        return shiftsMap.get(day);
+      } else {
+        return { day, shifts: [] };
+      }
+    });
+
+    return result;
   }
 }

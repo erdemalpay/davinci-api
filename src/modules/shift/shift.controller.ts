@@ -15,10 +15,14 @@ import { CreateShiftDto, ShiftQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
 import { ShiftService } from './shift.service';
 
-@Controller('/shifts')
+@Controller('/shift')
 export class ShiftController {
   constructor(private readonly shiftService: ShiftService) {}
 
+  @Get()
+  findQueryShifts(@Query() query: ShiftQueryDto) {
+    return this.shiftService.findQueryShifts(query);
+  }
   @Post()
   createShift(@ReqUser() user: User, @Body() createShiftDto: CreateShiftDto) {
     return this.shiftService.createShift(user, createShiftDto);
@@ -36,10 +40,5 @@ export class ShiftController {
   @Delete('/:id')
   removeShift(@ReqUser() user: User, @Param('id') id: number) {
     return this.shiftService.removeShift(user, id);
-  }
-
-  @Get()
-  findQueryShifts(@Query() query: ShiftQueryDto) {
-    return this.shiftService.findQueryShifts(query);
   }
 }
