@@ -1,4 +1,4 @@
-export class CreateShiftsDto {
+export class CreateShiftDto {
   day: string;
   location: number;
   shifts: {
