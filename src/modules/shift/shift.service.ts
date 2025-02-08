@@ -17,7 +17,7 @@ export class ShiftService {
     return createdShift;
   }
 
-  async updateShift(user: User, id: string, updates: UpdateQuery<Shift>) {
+  async updateShift(user: User, id: number, updates: UpdateQuery<Shift>) {
     const updatedShift = await this.shiftModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -28,7 +28,7 @@ export class ShiftService {
     return updatedShift;
   }
 
-  async removeShift(user: User, id: string) {
+  async removeShift(user: User, id: number) {
     const removedShift = await this.shiftModel.findByIdAndRemove(id);
     if (!removedShift) {
       throw new Error('Shift not found');
