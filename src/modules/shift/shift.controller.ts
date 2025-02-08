@@ -1,8 +1,17 @@
-import { Body, Controller, Delete, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { CreateShiftDto } from './shift.dto';
+import { CreateShiftDto, ShiftQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
 import { ShiftService } from './shift.service';
 
@@ -27,5 +36,10 @@ export class ShiftController {
   @Delete('/:id')
   removeShift(@ReqUser() user: User, @Param('id') id: number) {
     return this.shiftService.removeShift(user, id);
+  }
+
+  @Get()
+  findQueryShifts(@Query() query: ShiftQueryDto) {
+    return this.shiftService.findQueryShifts(query);
   }
 }

@@ -1,7 +1,7 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose'; // Add UpdateQuery import
 import { User } from '../user/user.schema';
-import { CreateShiftDto } from './shift.dto';
+import { CreateShiftDto, ShiftQueryDto } from './shift.dto'; // Add ShiftQueryDto import
 import { ShiftGateway } from './shift.gateway';
 import { Shift } from './shift.schema';
 export class ShiftService {
@@ -35,5 +35,28 @@ export class ShiftService {
     }
     this.shiftGateway.emitShiftChanged(user, removedShift);
     return removedShift;
+  }
+
+  async findQueryShifts(query: ShiftQueryDto) {
+    const filterQuery: any = {};
+    const { after, before, location } = query;
+    if (after) {
+      filterQuery['day'] = { $gte: new Date(after) };
+    }
+    if (before) {
+      filterQuery['day'] = {
+        ...filterQuery['day'],
+        $lte: new Date(before),
+      };
+    }
+    if (location) {
+      filterQuery['location'] = location;
+    }
+    try {
+      const shifts = await this.shiftModel.find(filterQuery).exec();
+      return shifts;
+    } catch (error) {
+      throw new Error('Failed to fetch shifts');
+    }
   }
 }

@@ -6,3 +6,9 @@ export class CreateShiftDto {
     user: string;
   }[];
 }
+
+export class ShiftQueryDto {
+  after: string;
+  before: string;
+  location: number;
+}
