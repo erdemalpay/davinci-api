@@ -5,8 +5,8 @@ import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 
 export class ShiftValues {
-  @Prop({ required: true, type: String, ref: User.name })
-  user: string;
+  @Prop({ required: true, type: [{ type: String, ref: User.name }] })
+  user: string[];
 
   @Prop({ required: true, type: String })
   shift: string;
