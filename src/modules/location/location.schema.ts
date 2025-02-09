@@ -26,7 +26,7 @@ export class Location extends Document {
   ikasId: string;
 
   @Prop({ type: [String], required: false })
-  aaa?: string[];
+  shifts?: string[];
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
