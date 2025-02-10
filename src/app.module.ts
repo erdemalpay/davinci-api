@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
 import { IkasModule } from './modules/ikas/ikas.module';
@@ -65,6 +66,7 @@ const modules = [
   ButtonCallModule,
   NotificationModule,
   ShiftModule,
+  ExpirationModule,
 ];
 
 if (config.get('migrationEnabled')) {
