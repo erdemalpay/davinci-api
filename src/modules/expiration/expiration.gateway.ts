@@ -7,6 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { User } from '../user/user.schema';
 
 @WebSocketGateway({
   path: '/socket.io',
@@ -32,5 +33,9 @@ export class ExpirationGateway
 
   handleConnection(client: Socket, ...args: any[]) {
     this.logger.log(`Client connected: ${client.id}`);
+  }
+
+  emitExpirationListChanged(user?: User, expirationList?: any) {
+    this.server.emit('expirationListChanged', { user, expirationList });
   }
 }
