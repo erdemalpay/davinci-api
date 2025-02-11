@@ -113,4 +113,57 @@ export class ShiftService {
       throw error;
     }
   }
+
+  async copyShiftInterval(
+    user: User,
+    startCopiedDay: string,
+    endCopiedDay: string,
+    selectedDay: string,
+  ) {
+    const startDate = new Date(startCopiedDay);
+    const endDate = new Date(endCopiedDay);
+    if (endDate < startDate) {
+      throw new HttpException('Invalid interval', HttpStatus.BAD_REQUEST);
+    }
+    const results = [];
+    let offset = 0;
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const sourceDay = d.toISOString().split('T')[0];
+      const targetDate = new Date(selectedDay);
+      targetDate.setDate(targetDate.getDate() + offset);
+      const targetDay = targetDate.toISOString().split('T')[0];
+
+      const sourceShift = await this.shiftModel
+        .findOne({ day: sourceDay })
+        .exec();
+      if (!sourceShift) {
+        throw new HttpException(
+          `Source shift not found for day ${sourceDay}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      let targetShift = await this.shiftModel
+        .findOne({ day: targetDay })
+        .exec();
+      if (targetShift) {
+        targetShift.shifts = sourceShift.shifts;
+        targetShift = await targetShift.save();
+        this.shiftGateway.emitShiftChanged(user, targetShift);
+        results.push(targetShift);
+      } else {
+        const { _id, ...shiftData } = sourceShift.toObject();
+        shiftData.day = targetDay;
+        const newShift = new this.shiftModel(shiftData);
+        await newShift.save();
+        this.shiftGateway.emitShiftChanged(user, newShift);
+        results.push(newShift);
+      }
+      offset++;
+    }
+    return results;
+  }
 }

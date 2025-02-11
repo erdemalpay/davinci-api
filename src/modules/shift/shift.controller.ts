@@ -53,4 +53,22 @@ export class ShiftController {
       payload.selectedDay,
     );
   }
+
+  @Post('/copy-interval')
+  copyShiftInterval(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      startCopiedDay: string;
+      endCopiedDay: string;
+      selectedDay: string;
+    },
+  ) {
+    return this.shiftService.copyShiftInterval(
+      user,
+      payload.startCopiedDay,
+      payload.endCopiedDay,
+      payload.selectedDay,
+    );
+  }
 }
