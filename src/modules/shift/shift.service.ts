@@ -1,3 +1,4 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
@@ -81,5 +82,35 @@ export class ShiftService {
     });
 
     return result;
+  }
+
+  async copyShift(user: User, copiedDay: string, selectedDay: string) {
+    try {
+      const sourceShift = await this.shiftModel
+        .findOne({ day: copiedDay })
+        .exec();
+      if (!sourceShift) {
+        throw new HttpException('Source shift not found', HttpStatus.NOT_FOUND);
+      }
+      let targetShift = await this.shiftModel
+        .findOne({ day: selectedDay })
+        .exec();
+      if (targetShift) {
+        targetShift.shifts = sourceShift.shifts;
+        targetShift = await targetShift.save();
+        this.shiftGateway.emitShiftChanged(user, targetShift);
+        return targetShift;
+      } else {
+        const { _id, ...shiftData } = sourceShift.toObject();
+        shiftData.day = selectedDay;
+        const newShift = new this.shiftModel(shiftData);
+        await newShift.save();
+        this.shiftGateway.emitShiftChanged(user, newShift);
+        return newShift;
+      }
+    } catch (error) {
+      console.error('Error in copyShift:', error);
+      throw error;
+    }
   }
 }

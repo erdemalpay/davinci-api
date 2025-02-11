@@ -41,4 +41,16 @@ export class ShiftController {
   removeShift(@ReqUser() user: User, @Param('id') id: number) {
     return this.shiftService.removeShift(user, id);
   }
+
+  @Post('/copy')
+  copyShift(
+    @ReqUser() user: User,
+    @Body() payload: { copiedDay: string; selectedDay: string },
+  ) {
+    return this.shiftService.copyShift(
+      user,
+      payload.copiedDay,
+      payload.selectedDay,
+    );
+  }
 }
