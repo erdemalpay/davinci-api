@@ -38,4 +38,9 @@ export class ExpirationGateway
   emitExpirationListChanged(user?: User, expirationList?: any) {
     this.server.emit('expirationListChanged', { user, expirationList });
   }
+
+  // New method for emitting expiration count changes
+  emitExpirationCountChanged(user?: User, expirationCount?: any) {
+    this.server.emit('expirationCountChanged', { user, expirationCount });
+  }
 }
