@@ -30,8 +30,8 @@ jobs:
           echo CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }} >> .env
           echo IKAS_CLIENT_ID=${{ secrets.IKAS_CLIENT_ID}} >> .env
           echo IKAS_API_SECRET=${{secrets.IKAS_API_SECRET}} >> .env
-          echo NODEMCU_UDP_HOST=${{secrets.NODEMCU_UDP_HOST}} >> .env
-          echo NODEMCU_UDP_PORT=${{secrets.NODEMCU_UDP_PORT}} >> .env
+          echo BUTTON_CALL_NEO_IP=${{secrets.BUTTON_CALL_NEO_IP}} >> .env
+          echo BUTTON_CALL_NEO_PORT=${{secrets.BUTTON_CALL_NEO_PORT}} >> .env
       - name: Create ssh folder
         run: mkdir ~/.ssh
       - name: Adding private key
