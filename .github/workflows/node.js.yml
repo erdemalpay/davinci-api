@@ -43,4 +43,4 @@ jobs:
       - name: Rsync files
         run: rsync -avz -r -e "ssh -i ./ssh/id_rsa" ./dist ./config .env Dockerfile.production Dockerfile.staging docker-compose.yml yarn.lock package.json ${{ secrets.USERNAME }}@${{ secrets.HOST }}:app
       - name: Run deploy command
-        run: ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "cd app && sudo docker-compose up -d --build api-staging && sudo docker system prune -af"
+        run: ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "cd app && sudo docker-compose up -d --build davinci-api-staging && sudo docker system prune -af"
