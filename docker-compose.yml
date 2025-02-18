@@ -20,7 +20,7 @@ services:
     restart: always
     ports:
       - '6380:6379'
-  api-production:
+  davinci-api-production:
     build:
       context: ./
       dockerfile: ./Dockerfile.production
@@ -33,7 +33,7 @@ services:
       - '8070:4000'
     volumes:
       - ./logs:/app/logs
-  api-staging:
+  davinci-api-staging:
     build:
       context: ./
       dockerfile: ./Dockerfile.staging
