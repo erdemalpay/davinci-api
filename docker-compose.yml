@@ -9,13 +9,13 @@ services:
     ports:
       - '27017:27017'
   davinci-redis-staging:
-    image: davinci-redis:latest
+    image: redis:latest
     container_name: davinci-redis-staging
     restart: always
     ports:
       - '6379:6379'
   davinci-redis-production:
-    image: davinci-redis:latest
+    image: redis:latest
     container_name: davinci-redis-production
     restart: always
     ports:
