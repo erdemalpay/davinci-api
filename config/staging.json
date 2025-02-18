@@ -6,7 +6,7 @@
   },
   "redis": {
     "port": "6379",
-    "host": "redis-staging"
+    "host": "davinci-redis-staging"
   },
   "app": {
     "port": 4000
