@@ -63,10 +63,16 @@ export class OrderGateway
   emitTodayOrdersChanged(socketUser: User) {
     this.server.emit('todayOrdersChanged', { socketUser });
   }
-  emitCreateMultipleOrder(socketUser: User, table: Table, soundRoles: any) {
+  emitCreateMultipleOrder(
+    socketUser: User,
+    table: Table,
+    location: number,
+    soundRoles: any,
+  ) {
     this.server.emit('createMultipleOrder', {
       socketUser,
       table,
+      location,
       soundRoles,
     });
   }

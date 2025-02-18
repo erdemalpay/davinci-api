@@ -586,6 +586,7 @@ export class OrderService {
     this.orderGateway.emitCreateMultipleOrder(
       user,
       table,
+      table.location,
       Array.from(soundRoles),
     );
     return createdOrders;
