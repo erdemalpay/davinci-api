@@ -15,9 +15,6 @@
   "panel": {
     "host": "http://localhost:3000"
   },
-  "jwt": {
-    "secret": "dav1nc1"
-  },
   "corsWhitelist": [
     "https://panel.davinciboardgame.com",
     "https://panelv2.davinciboardgame.com",
