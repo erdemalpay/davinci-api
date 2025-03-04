@@ -36,7 +36,21 @@ export class ReservationController {
   ) {
     return this.reservationService.create(user, reservationDto);
   }
-
+  @Patch('/reservations_order/:id')
+  updateReservationsOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body()
+    payload: {
+      newOrder: number;
+    },
+  ) {
+    return this.reservationService.updateReservationsOrder(
+      user,
+      id,
+      payload.newOrder,
+    );
+  }
   @Patch('/call/:id')
   @ApiResponse({ type: ReservationResponse })
   updateReservationCall(

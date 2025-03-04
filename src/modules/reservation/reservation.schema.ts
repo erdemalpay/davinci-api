@@ -25,6 +25,9 @@ export class Reservation extends Document {
   @Prop({ required: true })
   phone: string;
 
+  @Prop({ required: true, type: Number })
+  order: number;
+
   @Prop()
   playerCount: number;
 

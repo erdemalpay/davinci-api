@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
@@ -18,7 +18,13 @@ export class ReservationService {
   ) {}
 
   async create(user: User, reservationDto: ReservationDto) {
-    const reservation = await this.reservationModel.create(reservationDto);
+    const lastReservation = await this.reservationModel
+      .findOne({})
+      .sort({ order: 'desc' });
+    const reservation = await this.reservationModel.create({
+      ...reservationDto,
+      order: lastReservation?.order + 1 || 1,
+    });
     this.reservationGateway.emitReservationChanged(user, reservation);
     this.activityService.addActivity(
       user,
@@ -46,7 +52,20 @@ export class ReservationService {
     );
     return reservation;
   }
+  async updateReservationsOrder(user: User, id: number, newOrder: number) {
+    const reservation = await this.reservationModel.findById(id);
+    if (!reservation) {
+      throw new HttpException('Reservation not found', HttpStatus.NOT_FOUND);
+    }
+    await this.reservationModel.findByIdAndUpdate(id, { order: newOrder });
 
+    await this.reservationModel.updateMany(
+      { _id: { $ne: id }, order: { $gte: newOrder } },
+      { $inc: { order: 1 } },
+    );
+
+    this.reservationGateway.emitReservationChanged(user, reservation);
+  }
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
@@ -81,16 +100,18 @@ export class ReservationService {
   async findByQuery(
     query: Partial<ReservationDto>,
   ): Promise<Reservation | undefined> {
-    return this.reservationModel.findOne(query);
+    return this.reservationModel.findOne(query).sort({ order: 'desc' });
   }
 
   async find(
     query: Partial<ReservationDto>,
   ): Promise<Reservation[] | undefined> {
-    return this.reservationModel.find(query);
+    return this.reservationModel.find(query).sort({ order: 'desc' });
   }
 
   async getByLocation(location: number, date: string): Promise<Reservation[]> {
-    return this.reservationModel.find({ location, date });
+    return this.reservationModel
+      .find({ location, date })
+      .sort({ order: 'desc' });
   }
 }
