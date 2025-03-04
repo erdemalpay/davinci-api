@@ -51,6 +51,9 @@ export class Reservation extends Document {
 
   @Prop({ default: ReservationStatusEnum.WAITING })
   status: ReservationStatusEnum;
+
+  @Prop({ required: false, type: String })
+  note: string;
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);

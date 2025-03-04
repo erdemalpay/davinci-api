@@ -20,6 +20,9 @@ export class ReservationDto {
   date?: string;
 
   @IsString()
+  note?: string;
+
+  @IsString()
   reservationHour?: string;
 
   @IsString()
