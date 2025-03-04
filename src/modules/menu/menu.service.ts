@@ -256,6 +256,7 @@ export class MenuService {
       if (!item) {
         throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
       }
+      const locations = await this.locationService.findAllLocations();
 
       let matchedProduct = null;
 
@@ -268,6 +269,12 @@ export class MenuService {
           const objectFoundProduct = foundProduct.toObject();
           delete objectFoundProduct.matchedMenuItem;
           delete objectFoundProduct._id;
+          objectFoundProduct.baseQuantities = locations.map((location) => {
+            return {
+              location: location._id,
+              quantity: 0,
+            };
+          });
           matchedProduct = await this.accountingService.createProduct(user, {
             ...(objectFoundProduct as any),
             name: name,
@@ -336,7 +343,6 @@ export class MenuService {
           );
         }
       }
-      const locations = await this.locationService.findAllLocations();
       for (const location of locations) {
         // Creating a new stock for the new product
         await this.accountingService.createStock(user, {
