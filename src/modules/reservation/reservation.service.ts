@@ -21,8 +21,10 @@ export class ReservationService {
     const lastReservation = await this.reservationModel
       .findOne({})
       .sort({ order: 'desc' });
+    const date = format(new Date(), 'yyyy-MM-dd');
     const reservation = await this.reservationModel.create({
       ...reservationDto,
+      date,
       order: lastReservation?.order + 1 || 1,
     });
     this.reservationGateway.emitReservationChanged(user, reservation);
