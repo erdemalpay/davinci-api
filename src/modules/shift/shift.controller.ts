@@ -11,7 +11,7 @@ import {
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { CreateShiftDto, ShiftQueryDto } from './shift.dto';
+import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
 import { ShiftService } from './shift.service';
 
@@ -22,6 +22,11 @@ export class ShiftController {
   @Get()
   findQueryShifts(@Query() query: ShiftQueryDto) {
     return this.shiftService.findQueryShifts(query);
+  }
+
+  @Get('/user')
+  findUserShifts(@Query() query: ShiftUserQueryDto) {
+    return this.shiftService.findUserShifts(query);
   }
   @Post()
   createShift(@ReqUser() user: User, @Body() createShiftDto: CreateShiftDto) {

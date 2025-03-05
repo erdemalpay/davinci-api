@@ -2,7 +2,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
-import { CreateShiftDto, ShiftQueryDto } from './shift.dto';
+import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { ShiftGateway } from './shift.gateway';
 import { Shift } from './shift.schema';
 export class ShiftService {
@@ -83,7 +83,55 @@ export class ShiftService {
 
     return result;
   }
-
+  async findUserShifts(query: ShiftUserQueryDto) {
+    const { after, before, user } = query;
+    const startDate = new Date(after);
+    const endDate = new Date(before);
+    const daysInRange: string[] = [];
+  
+    // Create an array of all days in the specified range in YYYY-MM-DD format
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      daysInRange.push(d.toISOString().split('T')[0]);
+    }
+  
+    // Build the filter query
+    const filterQuery: any = {};
+    if (after) {
+      filterQuery['day'] = { $gte: after };
+    }
+    if (before) {
+      filterQuery['day'] = { ...filterQuery['day'], $lte: before };
+    }
+    // Add user filter: Only select shift documents where at least one shift entry includes the provided user.
+    if (user) {
+      filterQuery['shifts'] = { $elemMatch: { user: user } };
+    }
+  
+    let shiftsData;
+    try {
+      shiftsData = await this.shiftModel.find(filterQuery).exec();
+    } catch (error) {
+      throw new Error('Failed to fetch shifts for user');
+    }
+  
+    // Map the returned shifts by day so that we can align them with the full date range.
+    const shiftsMap = new Map<string, any>();
+    for (const shift of shiftsData) {
+      shiftsMap.set(shift.day, shift);
+    }
+  
+    // For each day in the range, if a shift exists return it, otherwise return an empty shifts array.
+    const result = daysInRange.map((day) => {
+      if (shiftsMap.has(day)) {
+        return shiftsMap.get(day);
+      } else {
+        return { day, shifts: [] };
+      }
+    });
+  
+    return result;
+  }
+  
   async copyShift(user: User, copiedDay: string, selectedDay: string) {
     try {
       const sourceShift = await this.shiftModel

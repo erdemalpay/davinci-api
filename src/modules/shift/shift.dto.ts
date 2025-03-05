@@ -12,3 +12,9 @@ export class ShiftQueryDto {
   before?: string;
   location?: number;
 }
+
+export class ShiftUserQueryDto {
+  after: string;
+  before?: string;
+  user: string;
+}
