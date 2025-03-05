@@ -27,6 +27,9 @@ export class Location extends Document {
 
   @Prop({ type: [String], required: false })
   shifts?: string[];
+
+  @Prop({ type: [String], required: false })
+  tableNames?: string[];
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
