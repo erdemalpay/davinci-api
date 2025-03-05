@@ -154,7 +154,8 @@ export class AccountingService {
       product.baseQuantities = locations.map((location) => {
         return {
           location: location._id,
-          quantity: 0,
+          minQuantity: 0,
+          maxQuantity: 0,
         };
       });
       await product.save();

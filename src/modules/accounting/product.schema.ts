@@ -7,7 +7,10 @@ import { Vendor } from './vendor.schema';
 
 export class BaseQuantityByLocation {
   @Prop({ required: true, type: Number })
-  quantity: number;
+  minQuantity: number;
+
+  @Prop({ required: true, type: Number })
+  maxQuantity: number;
 
   @Prop({ required: true, type: Number, ref: 'Location' })
   location: number;
