@@ -28,6 +28,7 @@ jobs:
           echo CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} >> .env
           echo CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} >> .env
           echo CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }} >> .env
+          echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
           echo IKAS_CLIENT_ID=${{ secrets.IKAS_CLIENT_ID}} >> .env
           echo IKAS_API_SECRET=${{secrets.IKAS_API_SECRET}} >> .env
           echo BUTTON_CALL_NEO_IP=${{secrets.BUTTON_CALL_NEO_IP}} >> .env
