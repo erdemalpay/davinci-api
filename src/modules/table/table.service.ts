@@ -46,8 +46,10 @@ export class TableService {
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
+    const date = format(new Date(), 'yyyy-MM-dd');
     const createdTable = await this.tableModel.create({
       ...tableDto,
+      date,
       createdBy: user._id,
     });
     this.activityService.addActivity(
@@ -68,13 +70,13 @@ export class TableService {
         location: createdTable.location,
         item: menuItem._id,
         quantity: tableDto.playerCount,
-        createdAt: new Date(tableDto.date),
+        createdAt: new Date(date),
         createdBy: user._id,
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
         kitchen: 'bar',
-        tableDate: new Date(tableDto.date),
+        tableDate: new Date(date),
       });
     }
     if (createdTable.type === TableTypes.TAKEOUT) {
@@ -125,7 +127,10 @@ export class TableService {
         );
       }
       if (!updatedTable) {
-        throw new HttpException('Update failed or no new data was provided', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Update failed or no new data was provided',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
@@ -242,7 +247,10 @@ export class TableService {
       );
     } catch (error) {
       console.error('Error retrieving tables:', error);
-      throw new HttpException('Failed to retrieve table availability.', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to retrieve table availability.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -304,7 +312,10 @@ export class TableService {
   async removeTableAndGameplays(user: User, id: number) {
     const table = await this.tableModel.findById(id).exec();
     if (!table) {
-      throw new HttpException(`Table ${id} does not exist.`, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        `Table ${id} does not exist.`,
+        HttpStatus.NOT_FOUND,
+      );
     }
     const isTableHasOrders = (table?.orders as any)?.some(
       (order) => order.status !== OrderStatus.CANCELLED,
