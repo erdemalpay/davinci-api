@@ -37,6 +37,9 @@ export class TableDto {
   @IsArray()
   orders?: number[];
 
+  @IsArray()
+  tables?: string[];
+
   @IsString()
   status?: string;
 
@@ -87,4 +90,5 @@ export enum TableTypes {
   NORMAL = 'normal',
   TAKEOUT = 'takeout',
   ONLINE = 'online',
+  ACTIVITY = 'activity',
 }

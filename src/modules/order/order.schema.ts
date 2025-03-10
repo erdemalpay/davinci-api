@@ -34,6 +34,12 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   note: string;
 
+  @Prop({ required: false, type: String })
+  activityTableName: string;
+
+  @Prop({ required: false, type: String })
+  activityPlayer: string;
+
   @Prop({ required: true, type: Number })
   unitPrice: number;
 

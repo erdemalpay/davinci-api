@@ -122,6 +122,8 @@ export class OrderQueryDto {
   cancelledBy?: string;
   status?: string;
   category?: string;
+  activityTableName?: string;
+  activityPlayer?: string;
   location?: string;
 }
 
