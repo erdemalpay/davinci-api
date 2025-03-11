@@ -32,6 +32,8 @@ export class CreateOrderDto {
   paymentMethod?: string;
   tableDate?: Date;
   ikasId?: string;
+  activityTableName?: string;
+  activityPlayer?: string;
 }
 export type OrderType = {
   _id: number;
@@ -64,6 +66,8 @@ export type OrderType = {
   discountNote?: string;
   stockNote?: string;
   ikasId?: string;
+  activityTableName?: string;
+  activityPlayer?: string;
   paymentMethod?: string;
   tableDate?: Date;
 };
@@ -77,6 +81,7 @@ export class CreateCollectionDto {
   cancelNote?: string;
   table?: number;
   newOrders?: OrderType[];
+  activityPlayer?: string;
   createdBy: string;
   ikasId?: string;
   tableDate?: Date;
@@ -122,8 +127,6 @@ export class OrderQueryDto {
   cancelledBy?: string;
   status?: string;
   category?: string;
-  activityTableName?: string;
-  activityPlayer?: string;
   location?: string;
 }
 

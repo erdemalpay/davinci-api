@@ -52,6 +52,9 @@ export class Collection extends Document {
   orders: OrderCollectionItem[];
 
   @Prop({ required: false, type: String })
+  activityPlayer: string;
+
+  @Prop({ required: false, type: String })
   ikasId: string;
 
   @Prop({ required: false, type: Date })
