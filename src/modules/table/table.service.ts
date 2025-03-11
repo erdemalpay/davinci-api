@@ -243,7 +243,18 @@ export class TableService {
         status: ReservationStatusEnum.WAITING,
       });
       return (
-        tables.length + comingReservations.length + waitingReservations.length
+        tables.filter(
+          (table) => !table?.finishHour && table.type === TableTypes.NORMAL,
+        ).length +
+        tables
+          .filter(
+            (table) => !table?.finishHour && table.type === TableTypes.ACTIVITY,
+          )
+          .reduce((prev, curr) => {
+            return Number(prev) + Number(curr.tables?.length);
+          }, 0) +
+        comingReservations.length +
+        waitingReservations.length
       );
     } catch (error) {
       console.error('Error retrieving tables:', error);
