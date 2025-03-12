@@ -33,6 +33,7 @@ export class NotificationService {
         $lte: endDate,
       };
     }
+    filterQuery['event'] = '';
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
@@ -53,6 +54,7 @@ export class NotificationService {
         .find({
           seenBy: { $ne: user._id },
           $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
+          event: '',
         })
         .sort({ createdAt: -1 })
         .exec();
@@ -84,6 +86,7 @@ export class NotificationService {
         $lte: endDate,
       };
     }
+    filterQuery['event'] = '';
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
@@ -93,6 +96,20 @@ export class NotificationService {
     } catch (error) {
       throw new HttpException(
         'Failed to fetch notifications',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findAllEventNotifications() {
+    try {
+      const notifications = await this.notificationModel
+        .find({ event: { $ne: '' } })
+        .sort({ createdAt: -1 })
+        .exec();
+      return notifications;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch event notifications',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

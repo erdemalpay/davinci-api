@@ -6,6 +6,8 @@ import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
+import { NotificationEventType } from '../notification/notification.dto';
+import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
@@ -85,6 +87,7 @@ export class AccountingService {
     private readonly ikasService: IkasService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
+    private readonly notificationService: NotificationService,
   ) {}
   //   Products
   findActiveProducts() {
@@ -2105,6 +2108,30 @@ export class AccountingService {
     const count = await this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    if (count.isCompleted) {
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const notificationEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.COMPLETECOUNT,
+      );
+
+      if (notificationEvent) {
+        const locations = await this.locationService.findAllLocations();
+        const countList = await this.countListModel.findById(count.countList);
+        const countLocation = locations.find(
+          (location) => location._id === count.location,
+        );
+        await this.notificationService.createNotification(user, {
+          ...notificationEvent,
+          event: '',
+          message:
+            notificationEvent?.message ??
+            `${user?.name} at ${countLocation?.name}  is completed the count list ${countList?.name}`,
+        });
+      }
+    }
+
     this.accountingGateway.emitCountChanged(user, count);
     return count;
   }

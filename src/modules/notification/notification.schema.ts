@@ -13,7 +13,7 @@ export class Notification extends Document {
   @Prop({ required: true, type: Date })
   createdAt: Date;
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: false, type: String })
   message: string;
 
   @Prop({ required: false, type: String, ref: User.name })
@@ -33,6 +33,9 @@ export class Notification extends Document {
 
   @Prop({ required: true, type: [{ type: String, ref: User.name }] })
   seenBy: string[];
+
+  @Prop({ required: true, type: String })
+  event: string;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

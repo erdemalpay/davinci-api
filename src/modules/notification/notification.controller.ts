@@ -45,6 +45,11 @@ export class NotificationController {
     return this.notificationService.findUserNewNotifications(user);
   }
 
+  @Get('/event')
+  findAllEventNotifications() {
+    return this.notificationService.findAllEventNotifications();
+  }
+
   @Get('/all')
   findUserAllNotifications(
     @ReqUser() user: User,
