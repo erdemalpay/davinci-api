@@ -46,10 +46,8 @@ export class TableService {
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
-    const date = format(new Date(), 'yyyy-MM-dd');
     const createdTable = await this.tableModel.create({
       ...tableDto,
-      date,
       createdBy: user._id,
     });
     this.activityService.addActivity(
@@ -70,13 +68,13 @@ export class TableService {
         location: createdTable.location,
         item: menuItem._id,
         quantity: tableDto.playerCount,
-        createdAt: new Date(date),
+        createdAt: new Date(tableDto.date),
         createdBy: user._id,
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
         kitchen: 'bar',
-        tableDate: new Date(date),
+        tableDate: new Date(tableDto.date),
       });
     }
     if (createdTable.type === TableTypes.TAKEOUT) {
