@@ -48,9 +48,23 @@ export class NotificationGateway
   ) {
     this.server.emit('notificationChanged', {
       notification: notification,
-      selectedUsers: selectedUsers,
-      selectedRoles: selectedRoles,
-      selectedLocations: selectedLocations,
+      selectedUsers: selectedUsers ?? [],
+      selectedRoles: selectedRoles ?? [],
+      selectedLocations: selectedLocations ?? [],
+    });
+  }
+
+  emitNotificationRemoved(
+    notification: any,
+    selectedUsers?: string[],
+    selectedRoles?: number[],
+    selectedLocations?: number[],
+  ) {
+    this.server.emit('notificationRemoved', {
+      notification: notification,
+      selectedUsers: selectedUsers ?? [],
+      selectedRoles: selectedRoles ?? [],
+      selectedLocations: selectedLocations ?? [],
     });
   }
 }

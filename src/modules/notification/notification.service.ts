@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import {
   CreateNotificationDto,
@@ -33,7 +33,7 @@ export class NotificationService {
         $lte: endDate,
       };
     }
-    filterQuery['event'] = '';
+    filterQuery['event'] = { $in: ['', null] };
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
@@ -54,7 +54,7 @@ export class NotificationService {
         .find({
           seenBy: { $ne: user._id },
           $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
-          event: '',
+          event: { $in: ['', null] },
         })
         .sort({ createdAt: -1 })
         .exec();
@@ -86,7 +86,7 @@ export class NotificationService {
         $lte: endDate,
       };
     }
-    filterQuery['event'] = '';
+    filterQuery['event'] = { $in: ['', null] };
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
@@ -103,7 +103,7 @@ export class NotificationService {
   async findAllEventNotifications() {
     try {
       const notifications = await this.notificationModel
-        .find({ event: { $ne: '' } })
+        .find({ event: { $exists: true, $nin: ['', null] } })
         .sort({ createdAt: -1 })
         .exec();
       return notifications;
@@ -119,6 +119,18 @@ export class NotificationService {
     user: User,
     createNotificationDto: CreateNotificationDto,
   ) {
+    if (createNotificationDto.event) {
+      const eventNotifications = await this.findAllEventNotifications();
+      const foundNotification = eventNotifications.find(
+        (notification) => notification.event === createNotificationDto.event,
+      );
+      if (foundNotification) {
+        throw new HttpException(
+          'Event notification already exists',
+          HttpStatus.CONFLICT,
+        );
+      }
+    }
     const notification = await this.notificationModel.create({
       ...createNotificationDto,
       createdBy: user._id,
@@ -155,6 +167,43 @@ export class NotificationService {
     } catch (error) {
       throw new HttpException(
         'Failed to mark notification as read',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async updateNotification(
+    user: User,
+    id: number,
+    updates: UpdateQuery<Notification>,
+  ) {
+    const notification = await this.notificationModel.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true },
+    );
+    if (!notification) {
+      throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
+    }
+    this.notificationGateway.emitNotificationChanged(
+      notification,
+      notification.selectedUsers,
+      notification.selectedRoles,
+      notification.selectedLocations,
+    );
+    return notification;
+  }
+
+  async removeNotification(id: number) {
+    try {
+      const notification = await this.notificationModel.findByIdAndDelete(id);
+      if (!notification) {
+        throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
+      }
+      this.notificationGateway.emitNotificationRemoved(notification);
+      return notification;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to remove notification',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

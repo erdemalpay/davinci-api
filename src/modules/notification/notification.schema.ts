@@ -31,10 +31,10 @@ export class Notification extends Document {
   @Prop({ required: true, type: String }) // it may be cancelled or we may now the create type
   type: string;
 
-  @Prop({ required: true, type: [{ type: String, ref: User.name }] })
+  @Prop({ required: false, type: [{ type: String, ref: User.name }] })
   seenBy: string[];
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: false, type: String })
   event: string;
 }
 

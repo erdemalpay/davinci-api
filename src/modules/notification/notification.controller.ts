@@ -1,7 +1,18 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateNotificationDto } from './notification.dto';
+import { Notification } from './notification.schema';
 import { NotificationService } from './notification.service';
 
 @Controller('notification')
@@ -60,5 +71,17 @@ export class NotificationController {
       after,
       before,
     });
+  }
+  @Patch('/:id')
+  updateGame(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Notification>,
+  ) {
+    return this.notificationService.updateNotification(user, id, updates);
+  }
+  @Delete('/:id')
+  deleteNotification(@Param('id') id: number) {
+    return this.notificationService.removeNotification(id);
   }
 }

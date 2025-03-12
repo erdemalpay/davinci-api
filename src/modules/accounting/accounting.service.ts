@@ -6,7 +6,10 @@ import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
-import { NotificationEventType } from '../notification/notification.dto';
+import {
+  CreateNotificationDto,
+  NotificationEventType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -2115,23 +2118,31 @@ export class AccountingService {
         (notification) =>
           notification.event === NotificationEventType.COMPLETECOUNT,
       );
-
       if (notificationEvent) {
         const locations = await this.locationService.findAllLocations();
         const countList = await this.countListModel.findById(count.countList);
         const countLocation = locations.find(
           (location) => location._id === count.location,
         );
-        await this.notificationService.createNotification(user, {
-          ...notificationEvent,
+        const notificationDto: CreateNotificationDto = {
+          type: notificationEvent.type,
+          createdBy: notificationEvent.createdBy,
+          selectedUsers: notificationEvent.selectedUsers,
+          selectedRoles: notificationEvent.selectedRoles,
+          selectedLocations: notificationEvent.selectedLocations,
+          seenBy: notificationEvent.seenBy || [],
           event: '',
           message:
-            notificationEvent?.message ??
-            `${user?.name} at ${countLocation?.name}  is completed the count list ${countList?.name}`,
-        });
+            notificationEvent.message ||
+            `${user?.name} at ${countLocation?.name} is completed the count list ${countList?.name}`,
+        };
+
+        await this.notificationService.createNotification(
+          user,
+          notificationDto,
+        );
       }
     }
-
     this.accountingGateway.emitCountChanged(user, count);
     return count;
   }
