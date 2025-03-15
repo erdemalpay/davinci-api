@@ -16,6 +16,9 @@ export class Authorization extends Document {
 
   @Prop({ required: true, type: [{ type: Number, ref: Role.name }] })
   roles: number[];
+
+  @Prop({ required: false, type: [{ type: String }] })
+  relatedPages: string[];
 }
 
 export const AuthorizationSchema = SchemaFactory.createForClass(Authorization);
