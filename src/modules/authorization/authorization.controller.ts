@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { CreateAuthorizationDto } from './authorization.dto';
 import { Authorization } from './authorization.schema';
@@ -31,5 +39,10 @@ export class AuthorizationController {
     @Body() updates: UpdateQuery<Authorization>,
   ) {
     return this.authorizationService.updateAuthorization(id, updates);
+  }
+
+  @Delete('/:id')
+  deleteAuthorization(@Param('id') id: number) {
+    return this.authorizationService.removeAuthorization(id);
   }
 }

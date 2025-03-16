@@ -70,6 +70,16 @@ export class AuthorizationService {
     return updatedAuthorization;
   }
 
+  async removeAuthorization(id: number) {
+    const deletedAuthorization =
+      await this.authorizationModel.findByIdAndDelete(id);
+    if (!deletedAuthorization) {
+      throw new Error('Authorization not found');
+    }
+    this.authorizationGateway.emitAuthorizationChanged(deletedAuthorization);
+    return deletedAuthorization;
+  }
+
   async setManagerOnlyAuthorizationForAllRoutes(): Promise<void> {
     const routes = await this.panelControlService.getAllRoutes();
     await this.authorizationModel.deleteMany({});
