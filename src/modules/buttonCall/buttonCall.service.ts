@@ -32,10 +32,9 @@ export class ButtonCallService {
       finishHour: { $exists: false },
     });
     if (existingButtonCall) {
-      throw new HttpException(
-        'Button call is already open.',
-        HttpStatus.FORBIDDEN,
-      );
+      existingButtonCall.callCount += 1;
+      existingButtonCall.save();
+      return existingButtonCall;
     }
 
     try {
@@ -114,8 +113,12 @@ export class ButtonCallService {
     }
   }
 
-  async findByDateAndLocation(date: string, location: number, type: string) {
-    const isActive = type === 'active';
-    return this.buttonCallModel.find({ date: date, location: location, finishHour: { $exists: !isActive } });
+  async find(date?: string, location?: number, type?: string) {
+    const query: any = {};
+    if (date) query.date = date;
+    if (location !== undefined) query.location = location;
+    if (type) query.finishHour = { $exists: !(type === 'active') };
+
+    return this.buttonCallModel.find(query);
   }
 }
