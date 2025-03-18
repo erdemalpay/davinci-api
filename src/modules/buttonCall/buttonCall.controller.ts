@@ -17,11 +17,7 @@ export class ButtonCallController {
   getButtonCalls(@Query('date') date: string,
                  @Query('location') location: number,
                  @Query('type') type: string) {
-    if (!date || !location)
-    {
-      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
-    }
-    return this.buttonCallService.findByDateAndLocation(date, location, type);
+    return this.buttonCallService.find(date, location, type);
   }
 
   @ApiResponse({ type: ButtonCall })

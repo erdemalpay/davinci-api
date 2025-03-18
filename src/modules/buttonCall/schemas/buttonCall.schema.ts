@@ -24,6 +24,9 @@ export class ButtonCall extends Document {
   @Prop({ required: false, type: String })
   finishHour: string;
 
+  @Prop({ required: true, type: Number, default: 1})
+  callCount: number;
+
   @Prop({ required: false, type: String })
   duration: string;
 
