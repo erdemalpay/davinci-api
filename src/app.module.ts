@@ -6,6 +6,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AuthorizationModule } from './modules/authorization/authorization.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
@@ -45,6 +46,7 @@ const modules = [
   ActivityModule,
   AuthModule,
   AssetModule,
+  AuthorizationModule,
   IkasModule,
   DbModule,
   ChecklistModule,

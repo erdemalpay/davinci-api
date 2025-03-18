@@ -5,6 +5,8 @@ import { EventEmitter } from 'events';
 import { AppModule } from './app.module';
 import { setCors } from './lib/cors';
 import { JwtAuthGuard } from './modules/auth/auth.guards';
+import { RolesGuard } from './modules/authorization/authorization.guard';
+
 EventEmitter.defaultMaxListeners = 50;
 const express = require('express');
 
@@ -17,8 +19,8 @@ async function bootstrap() {
   app.enableCors(setCors);
 
   const reflector = app.get(Reflector);
-  app.useGlobalGuards(new JwtAuthGuard(reflector));
-
+  const rolesGuard = app.get(RolesGuard);
+  app.useGlobalGuards(new JwtAuthGuard(reflector), rolesGuard);
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Da Vinci API')
     .setDescription('Da Vinci API docs')
