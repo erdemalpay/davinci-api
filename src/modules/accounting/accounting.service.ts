@@ -2169,32 +2169,23 @@ export class AccountingService {
       });
     }
   }
-  async updateProductsBaseQuantities(
-    items: { [key: number]: string; name: string }[],
-  ) {
-    const products = await this.productModel
-      .find({ deleted: { $ne: true } })
-      .exec();
-    const locations = await this.locationService.findAllLocations();
-    for (const item of items) {
-      const foundProduct = products.find(
-        (product) => product.name === item.name,
-      );
-      if (foundProduct) {
-        const newBaseQuantities = locations.reduce((acc, location) => {
-          if (item[location._id]) {
-            acc.push({
-              location: location._id,
-              quantity: parseInt(item[location._id]),
-            });
-          }
-          return acc;
-        }, []);
-        foundProduct.baseQuantities = newBaseQuantities;
-        await foundProduct.save();
+  async updateProductBaseQuantitytoMinQuantity() {
+    const products = await this.productModel.find();
+    for (const product of products) {
+      if (product.baseQuantities?.length > 0) {
+        let newBaseQuantities = [];
+        for (const baseQuantity of product.baseQuantities) {
+          newBaseQuantities.push({
+            ...baseQuantity,
+            minQuantity: (baseQuantity as any)?.quantity ?? 0,
+          });
+        }
+        await this.productModel.findByIdAndUpdate(product._id, {
+          baseQuantities: newBaseQuantities,
+        });
       }
     }
-    this.accountingGateway.emitProductChanged();
+    await this.accountingGateway.emitProductChanged();
   }
 
   async updateMultipleProduct(

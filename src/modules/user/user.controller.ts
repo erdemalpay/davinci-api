@@ -28,8 +28,8 @@ export class UserController {
   }
 
   @Get('/setKnownGames')
-  setKnownGames() {
-    return this.userService.setKnownGames();
+  setKnownGames(@ReqUser() reqUser: User) {
+    return this.userService.setKnownGames(reqUser);
   }
   @Post('/password')
   updatePassword(
@@ -40,8 +40,8 @@ export class UserController {
     return this.userService.updatePassword(user, oldPassword, newPassword);
   }
   @Post('/resetPassword')
-  resetUserPassword(@Body('id') id: string) {
-    return this.userService.resetUserPassword(id);
+  resetUserPassword(@ReqUser() reqUser: User, @Body('id') id: string) {
+    return this.userService.resetUserPassword(reqUser, id);
   }
 
   @Patch('/games')
@@ -79,8 +79,12 @@ export class UserController {
 
   @Patch('/:id')
   @ApiResponse({ type: UserResponse })
-  updateUser(@Param('id') id: string, @Body() updateQuery: UpdateQuery<User>) {
-    return this.userService.update(id, updateQuery);
+  updateUser(
+    @ReqUser() reqUser: User,
+    @Param('id') id: string,
+    @Body() updateQuery: UpdateQuery<User>,
+  ) {
+    return this.userService.update(reqUser, id, updateQuery);
   }
   @Get('/:id')
   @ApiResponse({ type: UserResponse })
