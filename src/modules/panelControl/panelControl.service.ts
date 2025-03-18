@@ -1,6 +1,8 @@
 import {
+  forwardRef,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -8,6 +10,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CheckoutCash } from './checkoutCash.schema';
@@ -31,6 +34,8 @@ export class PanelControlService implements OnApplicationBootstrap {
     private readonly panelControlGateway: PanelControlGateway,
     private readonly redisService: RedisService,
     private readonly httpAdapterHost: HttpAdapterHost,
+    @Inject(forwardRef(() => AuthorizationService))
+    private readonly authorizationService: AuthorizationService,
   ) {}
   onApplicationBootstrap() {
     this.getAllRoutes();
@@ -59,6 +64,22 @@ export class PanelControlService implements OnApplicationBootstrap {
     const newPage = await this.pageModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    if (updates.permissionRoles) {
+      const authorizations =
+        await this.authorizationService.findAllAuthorizations();
+      const filteredAuthorizations = authorizations.filter((authorization) =>
+        authorization?.relatedPages?.includes(id),
+      );
+      if (filteredAuthorizations.length > 0) {
+        for (const authorization of filteredAuthorizations) {
+          const newRoles = updates.permissionRoles;
+          await this.authorizationService.updateAuthorization(
+            authorization._id,
+            { roles: newRoles },
+          );
+        }
+      }
+    }
     this.panelControlGateway.emitPageChanged(user, newPage);
 
     return newPage;

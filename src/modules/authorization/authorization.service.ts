@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { PanelControlService } from '../panelControl/panelControl.service';
@@ -13,6 +19,7 @@ export class AuthorizationService {
   constructor(
     private readonly authorizationGateway: AuthorizationGateway,
     private readonly redisService: RedisService,
+    @Inject(forwardRef(() => PanelControlService))
     private readonly panelControlService: PanelControlService,
     @InjectModel(Authorization.name)
     private authorizationModel: Model<Authorization>,
