@@ -49,7 +49,10 @@ export class UserService implements OnModuleInit {
     return user;
   }
 
-  async update(id: string, updateQuery: UpdateQuery<User>) {
+  async update(reqUser: User, id: string, updateQuery: UpdateQuery<User>) {
+    if (reqUser.role?._id !== 1 && updateQuery.role !== undefined) {
+      delete updateQuery.role;
+    }
     const user = await this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
     });
@@ -63,7 +66,7 @@ export class UserService implements OnModuleInit {
       throw new HttpException('Invalid password', HttpStatus.BAD_REQUEST);
     }
     const hashedNewPassword = await hash(newPassword, 10);
-    return this.update(user._id, {
+    return this.update(user, user._id, {
       password: hashedNewPassword,
     });
   }
@@ -71,9 +74,9 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findById(id);
     return user.active;
   }
-  async resetUserPassword(id: string) {
+  async resetUserPassword(reqUser: User, id: string) {
     const hashedNewPassword = await hash('dv', 10);
-    return this.update(id, {
+    return this.update(reqUser, id, {
       password: hashedNewPassword,
     });
   }
@@ -169,13 +172,13 @@ export class UserService implements OnModuleInit {
   async getRoles(): Promise<Role[]> {
     return this.roleModel.find();
   }
-  async setKnownGames() {
+  async setKnownGames(reqUser: User) {
     const users = await this.getAll(false);
     users.forEach(async (user) => {
       const knownGames = await this.gameplayService.findEarliestGamesByMentor(
         user._id,
       );
-      await this.update(user._id, { userGames: knownGames });
+      await this.update(reqUser, user._id, { userGames: knownGames });
     });
   }
 
