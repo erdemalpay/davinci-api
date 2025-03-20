@@ -28,9 +28,9 @@ export class AuthorizationController {
     );
   }
 
-  @Post('/set-manager-only')
-  setManagerOnly() {
-    return this.authorizationService.setManagerOnlyAuthorizationForAllRoutes();
+  @Post('/set-authorizations')
+  setAuthorizationForAllRoutes() {
+    return this.authorizationService.setAuthorizationForAllRoutes();
   }
 
   @Patch('/:id')

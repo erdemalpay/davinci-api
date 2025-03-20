@@ -87,15 +87,14 @@ export class AuthorizationService {
     return deletedAuthorization;
   }
 
-  async setManagerOnlyAuthorizationForAllRoutes(): Promise<void> {
+  async setAuthorizationForAllRoutes(): Promise<void> {
     const routes = await this.panelControlService.getAllRoutes();
     await this.authorizationModel.deleteMany({});
     const authorizationsToCreate = routes.map((route) => ({
       path: route.path,
       method: route.methods[0],
-      roles: [1], // setting roles to manager-only
+      roles: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     }));
-    console.log('Creating authorizations:', authorizationsToCreate);
     await this.authorizationModel.create(authorizationsToCreate);
     await this.redisService.reset(RedisKeys.Authorizations);
     this.authorizationGateway.emitAuthorizationChanged();
