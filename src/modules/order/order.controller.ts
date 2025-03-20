@@ -190,8 +190,8 @@ export class OrderController {
     );
   }
 
-  @Post('/table_transfer')
-  tableTransfer(
+  @Post('/table_combine')
+  tableCombine(
     @ReqUser() user: User,
     @Body()
     payload: {
@@ -200,7 +200,7 @@ export class OrderController {
       transferredTableId: number;
     },
   ) {
-    return this.orderService.tableTransfer(
+    return this.orderService.tableCombine(
       user,
       payload.orders,
       payload.oldTableId,
@@ -208,6 +208,23 @@ export class OrderController {
     );
   }
 
+  @Post('/table_transfer')
+  tableTransfer(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      orders: Order[];
+      oldTableId: number;
+      transferredTableName: string;
+    },
+  ) {
+    return this.orderService.tableTransfer(
+      user,
+      payload.orders,
+      payload.oldTableId,
+      payload.transferredTableName,
+    );
+  }
   @Post('/selected_order_transfer')
   selectedOrderTransfer(
     @ReqUser() user: User,

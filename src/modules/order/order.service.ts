@@ -1996,7 +1996,7 @@ export class OrderService {
       }
     }
   }
-  async tableTransfer(
+  async tableCombine(
     user: User,
     orders: Order[],
     oldTableId: number,
@@ -2031,7 +2031,6 @@ export class OrderService {
 
     try {
       await Promise.all([newTable.save()]);
-
       await this.tableService.removeTable(user, oldTableId);
       this.orderGateway.emitOrderUpdated(user, orders[0]);
     } catch (error) {
@@ -2041,7 +2040,50 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    return orders;
+  }
 
+  async tableTransfer(
+    user: User,
+    orders: Order[],
+    oldTableId: number,
+    transferredTableName: string,
+  ) {
+    const oldTable = await this.tableService.getTableById(oldTableId);
+    if (!oldTable) {
+      throw new HttpException('Old table not found', HttpStatus.BAD_REQUEST);
+    }
+    const newTable = await this.tableService.create(user, {
+      ...oldTable.toObject(),
+      name: transferredTableName,
+    });
+    if (!newTable) {
+      throw new HttpException('New table not found', HttpStatus.BAD_REQUEST);
+    }
+    for (const order of orders) {
+      oldTable.orders = oldTable.orders.filter(
+        (tableOrder) => tableOrder.toString() !== order._id.toString(),
+      );
+      newTable.orders.push(order._id);
+      await this.updateOrder(user, order._id, { table: newTable._id });
+    }
+    const collections = await this.collectionModel.find({ table: oldTableId });
+    for (const collection of collections) {
+      collection.table = newTable._id;
+      await collection.save();
+    }
+
+    try {
+      await Promise.all([newTable.save()]);
+      await this.tableService.removeTable(user, oldTableId);
+      this.orderGateway.emitOrderUpdated(user, orders[0]);
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        'Failed to transfer orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
     return orders;
   }
 
