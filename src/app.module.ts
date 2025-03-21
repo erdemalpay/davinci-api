@@ -10,6 +10,7 @@ import { AuthorizationModule } from './modules/authorization/authorization.modul
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { EducationModule } from './modules/education/education.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
@@ -55,6 +56,7 @@ const modules = [
   LocationModule,
   MembershipModule,
   RewardModule,
+  EducationModule,
   MenuModule,
   ReservationModule,
   TableModule,
