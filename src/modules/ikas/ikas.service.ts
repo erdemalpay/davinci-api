@@ -1,5 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
@@ -70,7 +76,10 @@ export class IkasService {
         return ikasToken.token;
       } catch (error) {
         console.error('Error fetching Ikas token:', error.message);
-        throw new HttpException('Unable to fetch Ikas token', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch Ikas token',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     }
     return ikasToken.token;
@@ -190,7 +199,10 @@ export class IkasService {
           'Error fetching products:',
           JSON.stringify(error.response?.data || error.message),
         );
-        throw new HttpException('Unable to fetch products from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch products from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -245,7 +257,10 @@ export class IkasService {
           'Error fetching categories:',
           JSON.stringify(error.response?.data || error.message),
         );
-        throw new HttpException('Unable to fetch categories from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch categories from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -311,7 +326,10 @@ export class IkasService {
           'Error fetching stock locations:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to fetch stock locations from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch stock locations from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -359,7 +377,10 @@ export class IkasService {
           'Error fetching sales channels:',
           JSON.stringify(error.response?.data || error.message),
         );
-        throw new HttpException('Unable to fetch sales channels from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch sales channels from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -369,7 +390,7 @@ export class IkasService {
     try {
       const createIkasProductItem = {
         name: item.name,
-        description: item.description.trim(),
+        description: item.description?.trim() || '-',
         type: 'PHYSICAL',
         categoryIds: item.productCategories ?? [],
         salesChannelIds: [
@@ -408,7 +429,10 @@ export class IkasService {
       }
     } catch (error) {
       console.error('Failed to create item product:', error);
-      throw new HttpException('Failed to process item product due to an error.', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to process item product due to an error.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -478,7 +502,10 @@ export class IkasService {
           'Error saving product:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to save product to Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to save product to Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
     const savedProduct = await saveProductMutation();
@@ -513,7 +540,10 @@ export class IkasService {
       return;
     }
     if (!foundProduct) {
-      throw new HttpException(`Product with ID ${productId} not found`, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        `Product with ID ${productId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
     }
     const updateProductStockMutation = async (): Promise<boolean> => {
       const data = {
@@ -556,7 +586,10 @@ export class IkasService {
           'Error updating stock:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to update product stock.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to update product stock.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -597,7 +630,10 @@ export class IkasService {
           'Error fetching webhooks:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to fetch webhooks from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to fetch webhooks from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -641,7 +677,10 @@ export class IkasService {
           'Error saving webhook:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to save webhook to Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to save webhook to Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -680,7 +719,10 @@ export class IkasService {
           'Error deleting webhook:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        throw new HttpException('Unable to delete webhook from Ikas.', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Unable to delete webhook from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     };
 
@@ -718,7 +760,10 @@ export class IkasService {
             `Error uploading image ${i + 1}:`,
             JSON.stringify(error.response?.data || error.message, null, 2),
           );
-          throw new HttpException(`Unable to upload image ${i + 1} to Ikas.`, HttpStatus.INTERNAL_SERVER_ERROR);
+          throw new HttpException(
+            `Unable to upload image ${i + 1} to Ikas.`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
         }
       }
     };
@@ -728,14 +773,20 @@ export class IkasService {
   async orderCreateWebHook(data?: any) {
     try {
       if (!data?.merchantId) {
-        throw new HttpException('Invalid request: Missing merchantId', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Invalid request: Missing merchantId',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (typeof data?.data === 'string') {
         try {
           data.data = JSON.parse(data.data);
         } catch (error) {
-          throw new HttpException('Invalid JSON format in data', HttpStatus.BAD_REQUEST);
+          throw new HttpException(
+            'Invalid JSON format in data',
+            HttpStatus.BAD_REQUEST,
+          );
         }
       }
 
@@ -745,7 +796,10 @@ export class IkasService {
       const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
 
       if (!constantUser) {
-        throw new HttpException('Constant user not found', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Constant user not found',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (orderLineItems.length === 0) {
@@ -762,7 +816,10 @@ export class IkasService {
           const { productId } = orderLineItem.variant;
 
           if (!productId || !stockLocationId || !quantity) {
-            throw new HttpException('Invalid order line item data', HttpStatus.BAD_REQUEST);
+            throw new HttpException(
+              'Invalid order line item data',
+              HttpStatus.BAD_REQUEST,
+            );
           }
 
           const foundMenuItem = await this.menuService.findByIkasId(productId);
@@ -861,14 +918,20 @@ export class IkasService {
   async orderCancelWebHook(data?: any) {
     try {
       if (!data?.merchantId) {
-        throw new HttpException('Invalid request: Missing merchantId', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Invalid request: Missing merchantId',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (typeof data?.data === 'string') {
         try {
           data.data = JSON.parse(data.data);
         } catch (error) {
-          throw new HttpException('Invalid JSON format in data', HttpStatus.BAD_REQUEST);
+          throw new HttpException(
+            'Invalid JSON format in data',
+            HttpStatus.BAD_REQUEST,
+          );
         }
       }
 
@@ -878,7 +941,10 @@ export class IkasService {
       const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
 
       if (!constantUser) {
-        throw new HttpException('Constant user not found', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          'Constant user not found',
+          HttpStatus.NOT_FOUND,
+        );
       }
       if (orderLineItems.length === 0) {
         console.log('No order line items to process');
@@ -892,7 +958,10 @@ export class IkasService {
         try {
           const { id } = orderLineItem;
           if (!id) {
-            throw new HttpException('Invalid order line item data', HttpStatus.BAD_REQUEST);
+            throw new HttpException(
+              'Invalid order line item data',
+              HttpStatus.BAD_REQUEST,
+            );
           }
           await this.orderService.cancelIkasOrder(constantUser, id);
         } catch (itemError) {
