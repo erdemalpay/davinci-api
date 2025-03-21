@@ -81,7 +81,13 @@ export class AccountingController {
       addMultipleProductAndMenuItemDto,
     );
   }
-
+  @Patch('/base-quantities')
+  updateMultipleBaseQuantities(
+    @ReqUser() user: User,
+    @Body() updates: { _id: string; baseQuantities: any[] }[],
+  ) {
+    return this.accountingService.updateMultipleBaseQuantities(user, updates);
+  }
   @Post('/products/update-multiple')
   updateMultipleProduct(
     @Body()

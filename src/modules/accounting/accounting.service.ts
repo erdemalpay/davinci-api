@@ -2187,6 +2187,28 @@ export class AccountingService {
     }
     await this.accountingGateway.emitProductChanged();
   }
+  async updateMultipleBaseQuantities(
+    user: User,
+    updates: { _id: string; baseQuantities: any[] }[],
+  ) {
+    const updatePromises = updates.map(async (update) => {
+      const updatedProduct = await this.productModel.findByIdAndUpdate(
+        update._id,
+        { baseQuantities: update.baseQuantities },
+        { new: true },
+      );
+      if (updatedProduct) {
+        return updatedProduct;
+      }
+      return null;
+    });
+
+    // Wait for all update operations to finish concurrently
+    const updatedProducts = await Promise.all(updatePromises);
+    await this.accountingGateway.emitProductChanged(user);
+    // Remove any null results (if a product wasn't updated)
+    return updatedProducts.filter((product) => product);
+  }
 
   async updateMultipleProduct(
     updateMultipleProductDto: UpdateMultipleProduct[],
@@ -2447,7 +2469,7 @@ export class AccountingService {
           newProduct.baseQuantities = locations.map((location) => {
             return {
               location: location._id,
-              quantity: 0,
+              minQuantity: 0,
             };
           });
           newProduct._id = usernamify(name);

@@ -48,7 +48,12 @@ export class EducationService {
 
   async findAllEducation() {
     try {
-      const educationDocs = await this.educationModel.find().exec();
+      const educationDocs = await this.educationModel
+        .find()
+        .sort({
+          order: 'asc',
+        })
+        .exec();
       return educationDocs;
     } catch (error) {
       throw new HttpException(
