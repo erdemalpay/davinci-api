@@ -48,7 +48,7 @@ class Subheader {
   @Prop({ required: true, type: Number })
   order: number;
 }
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class Education extends Document {
   @Prop({ type: Number })
   _id: number;
