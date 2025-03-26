@@ -70,7 +70,7 @@ export class VisitController {
     return this.visitService.createCafeActivity(dto);
   }
 
-  @Get('/cafe-activities')
+  @Get('/cafe-activity')
   findAllCafeActivity() {
     return this.visitService.findAllCafeActivity();
   }
