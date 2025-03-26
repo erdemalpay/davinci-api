@@ -415,10 +415,8 @@ export class IkasService {
       };
       const ikasProduct = await this.createProduct(createIkasProductItem);
       if (ikasProduct) {
-        await this.menuService.updateItem(user, item._id, {
-          ...item,
-          ikasId: ikasProduct.id,
-        });
+        const updatedItem = { ...item.toObject(), ikasId: ikasProduct.id };
+        await this.menuService.updateItem(user, item._id, updatedItem);
         const productStock = await this.accountingService.findProductStock(
           item.matchedProduct,
         );
