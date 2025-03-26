@@ -16,6 +16,7 @@ export class EducationSubheaderDto {
   paragraph?: string;
   imageUrl?: string;
   style?: StyleDto;
+  order: number;
 }
 
 export class CreateEducationDto {

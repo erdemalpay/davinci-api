@@ -30,7 +30,7 @@ class Style {
   imageMargin: string;
 }
 class Subheader {
-  @Prop({ required: true, type: String })
+  @Prop({ required: false, type: String })
   componentType: string;
 
   @Prop({ required: false, type: String })
@@ -44,6 +44,9 @@ class Subheader {
 
   @Prop({ required: false, type: Style })
   style: Style;
+
+  @Prop({ required: true, type: Number })
+  order: number;
 }
 @Schema({ _id: false })
 export class Education extends Document {

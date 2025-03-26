@@ -13,6 +13,16 @@ export class CafeVisitDto {
   date: string;
   hour: string;
 }
+export class CafeActivityDto {
+  date: string;
+  location: number;
+  hour: string;
+  personCount: number;
+  groupName: string;
+  price?: number;
+  complimentary?: string;
+  isCompleted?: boolean;
+}
 
 export enum VisitTypes {
   ENTRY = 'entry',
