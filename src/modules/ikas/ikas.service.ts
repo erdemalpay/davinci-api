@@ -435,7 +435,9 @@ export class IkasService {
       );
     }
   }
-
+  async delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
   async createProduct(productInput: any) {
     // this condition can be removed to test in staging
     if (process.env.NODE_ENV !== 'production') {
@@ -496,6 +498,7 @@ export class IkasService {
           })
           .toPromise();
         console.log(response);
+        await this.delay(1000);
         return response.data.data.saveProduct; // Return the saved product
       } catch (error) {
         console.error(
@@ -572,7 +575,7 @@ export class IkasService {
             },
           })
           .toPromise();
-
+        await this.delay(1000);
         if (response.data.data.saveProductStockLocations) {
           console.log('Stock updated successfully.');
           await this.ikasGateway.emitIkasProductStockChanged();
