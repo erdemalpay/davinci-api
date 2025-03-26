@@ -44,4 +44,8 @@ export class VisitGateway
   emitVisitChanged(user: User, visit: any) {
     this.server.emit('visitChanged', { user, visit });
   }
+
+  emitCafeActivityChanged(activity: any) {
+    this.server.emit('cafeActivityChanged', activity);
+  }
 }

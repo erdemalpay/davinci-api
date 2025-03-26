@@ -1,17 +1,25 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
-import { CafeVisitDto, VisitDto, VisitTypes } from './visit.dto';
+import {
+  CafeActivityDto,
+  CafeVisitDto,
+  VisitDto,
+  VisitTypes,
+} from './visit.dto';
 import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
 
 export class VisitService {
   constructor(
     @InjectModel(Visit.name) private visitModel: Model<Visit>,
+    @InjectModel(CafeActivity.name)
+    private cafeActivityModel: Model<CafeActivity>,
     private readonly visitGateway: VisitGateway,
     private readonly userService: UserService,
   ) {}
@@ -189,5 +197,36 @@ export class VisitService {
       return visit;
     }
     throw new BadRequestException();
+  }
+
+  async createCafeActivity(dto: CafeActivityDto) {
+    const activity = await this.cafeActivityModel.create(dto);
+    this.visitGateway.emitCafeActivityChanged(activity);
+    return activity;
+  }
+
+  async findAllCafeActivity() {
+    return this.cafeActivityModel.find().exec();
+  }
+  async updateCafeActivity(id: number, updates: UpdateQuery<CafeActivityDto>) {
+    const activity = await this.cafeActivityModel.findOneAndUpdate(
+      { _id: id },
+      updates,
+      { new: true },
+    );
+    if (!activity) {
+      throw new NotFoundException(`CafeActivity with id ${id} not found`);
+    }
+    this.visitGateway.emitCafeActivityChanged(activity);
+    return activity;
+  }
+
+  async deleteCafeActivity(id: number) {
+    const activity = await this.cafeActivityModel.findOneAndDelete({ _id: id });
+    if (!activity) {
+      throw new NotFoundException(`CafeActivity with id ${id} not found`);
+    }
+    this.visitGateway.emitCafeActivityChanged(activity);
+    return activity;
   }
 }

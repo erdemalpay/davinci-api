@@ -1,18 +1,21 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
+import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateVisitDto } from './create.visit.dto';
-import { CafeVisitDto } from './visit.dto';
+import { CafeActivityDto, CafeVisitDto } from './visit.dto';
 import { VisitService } from './visit.service';
+
 @Controller('/visits')
 export class VisitController {
   constructor(private readonly visitService: VisitService) {}
@@ -51,6 +54,7 @@ export class VisitController {
   createVisit(@ReqUser() user: User, @Body() createVisitDto: CreateVisitDto) {
     return this.visitService.create(user, createVisitDto);
   }
+
   @Post('/cafe')
   createVisitFromCafe(@Body() cafeVisitDto: CafeVisitDto) {
     return this.visitService.createVisitFromCafe(cafeVisitDto);
@@ -59,5 +63,28 @@ export class VisitController {
   @Patch('/finish/:id')
   finishVisit(@ReqUser() user: User, @Param('id') id: number) {
     return this.visitService.finish(user, id);
+  }
+
+  @Post('/cafe-activity')
+  createCafeActivity(@Body() dto: CafeActivityDto) {
+    return this.visitService.createCafeActivity(dto);
+  }
+
+  @Get('/cafe-activities')
+  findAllCafeActivity() {
+    return this.visitService.findAllCafeActivity();
+  }
+
+  @Patch('/cafe-activity/:id')
+  updateCafeActivity(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<CafeActivityDto>,
+  ) {
+    return this.visitService.updateCafeActivity(Number(id), updates);
+  }
+
+  @Delete('/cafe-activity/:id')
+  deleteCafeActivity(@Param('id') id: number) {
+    return this.visitService.deleteCafeActivity(Number(id));
   }
 }
