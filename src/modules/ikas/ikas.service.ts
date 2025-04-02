@@ -1002,7 +1002,7 @@ export class IkasService {
                 continue;
               }
               const foundLocation = locations?.find(
-                (location) => location.id === stock.location,
+                (location) => location._id === stock.location,
               );
               if (!foundLocation?.ikasId) {
                 console.error(
