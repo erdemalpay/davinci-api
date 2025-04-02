@@ -973,7 +973,10 @@ export class IkasService {
     try {
       const ikasItems = await this.menuService.getAllIkasItems();
       console.log('Fetched Ikas Items:', ikasItems);
-
+      const ikasProducts = await this.getAllProducts();
+      console.log('Fetched Ikas Products:', ikasProducts);
+      const locations = await this.getAllStockLocations();
+      console.log('Fetched Stock Locations:', locations);
       for (const item of ikasItems) {
         try {
           const productStocks = await this.accountingService.findProductStock(
@@ -983,8 +986,6 @@ export class IkasService {
             `Fetched product stocks for ${item.ikasId}:`,
             productStocks,
           );
-          const ikasProducts = await this.getAllProducts();
-          const locations = await this.getAllStockLocations();
           for (const stock of productStocks) {
             try {
               if (!item.ikasId) {
@@ -993,14 +994,14 @@ export class IkasService {
                 );
                 continue;
               }
-              const foundIkasProduct = ikasProducts.find(
+              const foundIkasProduct = ikasProducts?.find(
                 (product) => product.id === item.ikasId,
               );
               if (!foundIkasProduct) {
                 console.error(`Product ${item.ikasId} not found in Ikas`);
                 continue;
               }
-              const foundLocation = locations.find(
+              const foundLocation = locations?.find(
                 (location) => location.id === stock.location,
               );
               if (!foundLocation?.ikasId) {
