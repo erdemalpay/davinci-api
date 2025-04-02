@@ -433,9 +433,6 @@ export class IkasService {
       );
     }
   }
-  async delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
   async createProduct(productInput: any) {
     // this condition can be removed to test in staging
     if (process.env.NODE_ENV !== 'production') {
@@ -496,7 +493,6 @@ export class IkasService {
           })
           .toPromise();
         console.log(response);
-        await this.delay(1000);
         return response.data.data.saveProduct; // Return the saved product
       } catch (error) {
         console.error(
@@ -573,7 +569,6 @@ export class IkasService {
             },
           })
           .toPromise();
-        await this.delay(1000);
         if (response.data.data.saveProductStockLocations) {
           console.log('Stock updated successfully.');
           await this.ikasGateway.emitIkasProductStockChanged();
@@ -988,7 +983,8 @@ export class IkasService {
             `Fetched product stocks for ${item.ikasId}:`,
             productStocks,
           );
-
+          const ikasProducts = await this.getAllProducts();
+          const locations = await this.getAllStockLocations();
           for (const stock of productStocks) {
             try {
               if (!item.ikasId) {
@@ -997,14 +993,35 @@ export class IkasService {
                 );
                 continue;
               }
-              await this.updateProductStock(
-                item.ikasId,
-                stock.location,
-                stock.quantity,
+              const foundIkasProduct = ikasProducts.find(
+                (product) => product.id === item.ikasId,
               );
-              console.log(
-                `Stock updated for product ${item.ikasId}, location ${stock.location}`,
+              if (!foundIkasProduct) {
+                console.error(`Product ${item.ikasId} not found in Ikas`);
+                continue;
+              }
+              const foundLocation = locations.find(
+                (location) => location.id === stock.location,
               );
+              if (!foundLocation?.ikasId) {
+                console.error(
+                  `Location ${stock.location} does not have an Ikas ID`,
+                );
+                continue;
+              }
+              if (
+                foundIkasProduct?.variants[0]?.stocks[0]?.stockCount !==
+                stock.quantity
+              ) {
+                await this.updateProductStock(
+                  item.ikasId,
+                  stock.location,
+                  stock.quantity,
+                );
+                console.log(
+                  `Stock updated for product ${item.ikasId}, location ${stock.location}`,
+                );
+              }
             } catch (stockError) {
               console.error(
                 `Error updating stock for product ${item.ikasId}, location ${stock.location}:`,
