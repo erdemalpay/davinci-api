@@ -1010,6 +1010,8 @@ export class IkasService {
                 );
                 continue;
               }
+              console.log(foundIkasProduct, 'foundIkasProduct');
+              console.log(foundIkasProduct?.variants[0]?.stocks[0]?.stockCount);
               if (
                 foundIkasProduct?.variants[0]?.stocks[0]?.stockCount !==
                 stock.quantity
