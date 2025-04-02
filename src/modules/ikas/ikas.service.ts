@@ -975,7 +975,7 @@ export class IkasService {
       console.log('Fetched Ikas Items:', ikasItems);
       const ikasProducts = await this.getAllProducts();
       console.log('Fetched Ikas Products:', ikasProducts);
-      const locations = await this.getAllStockLocations();
+      const locations = await this.locationService.findAllLocations();
       console.log('Fetched Stock Locations:', locations);
       for (const item of ikasItems) {
         try {
