@@ -1,4 +1,5 @@
 import {
+  endOfMonth,
   format,
   startOfMonth,
   startOfWeek,
@@ -17,12 +18,18 @@ export type DateRangeKey =
   | 'lastWeek'
   | 'thisMonth'
   | 'lastMonth'
+  | 'twoMonthsAgo'
   | 'sameDayLastMonthToToday'
   | 'thisYear'
   | 'lastYear';
 
 export const dateRanges: {
-  [key in DateRangeKey]: () => { before: string; after: string; date: string };
+  [key in DateRangeKey]: () => {
+    before: string;
+    after: string;
+    date: string;
+    name?: string;
+  };
 } = {
   today: () => ({
     before: formatDate(new Date()),
@@ -61,6 +68,15 @@ export const dateRanges: {
     after: formatDate(startOfMonth(subMonths(new Date(), 1))),
     date: 'lastMonth',
   }),
+  twoMonthsAgo: () => {
+    const target = subMonths(new Date(), 2);
+    return {
+      after: formatDate(startOfMonth(target)),
+      before: formatDate(endOfMonth(target)),
+      date: 'twoMonthsAgo',
+      name: format(target, 'MMMM'),
+    };
+  },
   sameDayLastMonthToToday: () => {
     const today = new Date();
     const beforeDate = subMonths(today, 1);
