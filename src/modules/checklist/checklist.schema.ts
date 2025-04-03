@@ -12,6 +12,9 @@ export class ChecklistDuty {
 
   @Prop({ required: true, type: Number })
   order: number;
+
+  @Prop({ required: false, type: String })
+  description: string;
 }
 
 @Schema({ _id: false })
