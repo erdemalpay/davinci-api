@@ -9,6 +9,9 @@ export class ChecklistDuty {
 
   @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
   locations: number[];
+
+  @Prop({ required: true, type: Number })
+  order: number;
 }
 
 @Schema({ _id: false })
