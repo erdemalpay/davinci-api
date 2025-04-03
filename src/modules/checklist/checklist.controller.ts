@@ -31,6 +31,11 @@ export class ChecklistController {
     return this.checklistService.createChecklist(user, createChecklistDto);
   }
 
+  @Post('/set-checklists-order')
+  setChecklistsOrder() {
+    return this.checklistService.setChecklistsOrder();
+  }
+
   @Patch(':id')
   updateChecklist(
     @ReqUser() user: User,

@@ -42,6 +42,16 @@ export class ChecklistService {
     this.checklistGateway.emitChecklistChanged(user, checklist);
     return checklist;
   }
+  async setChecklistsOrder() {
+    const checklists = await this.checklistModel.find();
+    for (const checklist of checklists) {
+      checklist.duties = checklist.duties.map((duty, index) => ({
+        ...duty,
+        order: index,
+      }));
+      await checklist.save();
+    }
+  }
 
   async removeChecklist(user: User, id: string) {
     const checks = await this.checkModel.find({ checklist: id });
