@@ -2055,6 +2055,7 @@ export class OrderService {
     }
     const newTable = await this.tableService.create(user, {
       ...oldTable.toObject(),
+      isAutoEntryAdded: false,
       name: transferredTableName,
     });
     if (!newTable) {
