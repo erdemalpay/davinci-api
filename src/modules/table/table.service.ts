@@ -414,12 +414,7 @@ export class TableService {
           _id: '$_id.date',
           counts: {
             $push: {
-              k: {
-                $concat: [
-                  'totalPlayerCountLocation',
-                  { $toString: '$_id.location' },
-                ],
-              },
+              k: { $toString: '$_id.location' },
               v: '$totalPlayerCount',
             },
           },
