@@ -383,13 +383,16 @@ export class TableService {
     month: string,
     year: string,
   ): Promise<DailyPlayerCount[]> {
-    const startDate = `${year}-${month}-01`;
-    const endDate = `${year}-${month}-${new Date(
+    const paddedMonth = month.padStart(2, '0');
+    const startDate = `${year}-${paddedMonth}-01`;
+    const lastDayOfMonth = new Date(
       parseInt(year),
-      parseInt(month) - 1,
+      parseInt(month),
       0,
-    ).getDate()}`;
-
+    ).getDate();
+    const endDate = `${year}-${paddedMonth}-${lastDayOfMonth
+      .toString()
+      .padStart(2, '0')}`;
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
