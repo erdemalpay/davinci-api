@@ -107,4 +107,16 @@ export class PanelControlController {
       createPanelSettingsDto,
     );
   }
+  @Post('/whatsapp')
+  sendWhatsAppMessage(
+    @Body('to') to: string,
+    @Body('templateName') message: string,
+    @Body('languageCode') languageCode: string,
+  ) {
+    return this.panelControlService.sendWhatsAppMessage(
+      to,
+      message,
+      languageCode,
+    );
+  }
 }

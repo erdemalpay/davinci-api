@@ -1,3 +1,4 @@
+import { HttpService } from '@nestjs/axios';
 import {
   forwardRef,
   HttpException,
@@ -34,6 +35,8 @@ export class PanelControlService implements OnApplicationBootstrap {
     private readonly panelControlGateway: PanelControlGateway,
     private readonly redisService: RedisService,
     private readonly httpAdapterHost: HttpAdapterHost,
+    private readonly httpService: HttpService,
+
     @Inject(forwardRef(() => AuthorizationService))
     private readonly authorizationService: AuthorizationService,
   ) {}
@@ -218,5 +221,53 @@ export class PanelControlService implements OnApplicationBootstrap {
       return routes;
     }
     return [];
+  }
+
+  async sendWhatsAppMessage(
+    to: string,
+    message: string = 'hello_world',
+    languageCode: string = 'en_US',
+  ): Promise<any> {
+    const url = 'https://graph.facebook.com/v22.0/492545467283400/messages';
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: message,
+        language: {
+          code: languageCode,
+        },
+      },
+    };
+
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    if (!accessToken) {
+      throw new HttpException(
+        'WhatsApp access token is not configured',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    try {
+      const response = await this.httpService
+        .post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        .toPromise();
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error sending WhatsApp message:',
+        error.response?.data || error.message,
+      );
+      throw new HttpException(
+        'Error sending WhatsApp message',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
@@ -17,7 +18,12 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, RedisModule, forwardRef(() => AuthorizationModule)],
+  imports: [
+    mongooseModule,
+    RedisModule,
+    HttpModule,
+    forwardRef(() => AuthorizationModule),
+  ],
   providers: [PanelControlService, PanelControlGateway],
   controllers: [PanelControlController],
   exports: [
