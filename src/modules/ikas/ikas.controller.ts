@@ -62,8 +62,8 @@ export class IkasController {
   }
 
   @Post('/update-all-stocks')
-  updateAllStocks() {
-    return this.ikasService.updateAllProductStocks();
+  bulkUpdateAllProductStocks() {
+    return this.ikasService.bulkUpdateAllProductStocks();
   }
 
   @Public()

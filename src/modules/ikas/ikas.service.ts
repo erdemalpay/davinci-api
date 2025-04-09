@@ -98,6 +98,10 @@ export class IkasService {
         id
         name
         description
+        categories{
+          id
+          name
+          }
         shortDescription
         weight
         baseUnit {
@@ -582,6 +586,7 @@ export class IkasService {
           'Error updating stock:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
+        console.log(error);
         throw new HttpException(
           'Unable to update product stock.',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1041,6 +1046,247 @@ export class IkasService {
       }
     } catch (ikasItemsError) {
       console.error('Error fetching Ikas items:', ikasItemsError.message);
+    }
+  }
+  async bulkUpdateAllProductStocks() {
+    try {
+      // Fetch data from services
+      const ikasItems = await this.menuService.getAllIkasItems();
+      const ikasProducts = await this.getAllProducts();
+      const locations = await this.locationService.findAllLocations();
+
+      // Build an updates map: productId -> variantId -> stockLocationId -> newQuantity
+      const updatesMap: {
+        [productId: string]: {
+          [variantId: string]: {
+            [stockLocationId: string]: number;
+          };
+        };
+      } = {};
+
+      // Loop through each item and compare accounting stock with the product's current stock
+      for (const item of ikasItems) {
+        try {
+          const productStocks = await this.accountingService.findProductStock(
+            item.matchedProduct,
+          );
+          for (const stock of productStocks) {
+            if (!item.ikasId) continue;
+            const product = ikasProducts.find((p) => p.id === item.ikasId);
+            if (!product) {
+              console.error(`Product ${item.ikasId} not found in Ikas`);
+              continue;
+            }
+            const location = locations.find(
+              (loc) => loc._id === stock.location,
+            );
+            if (!location || !location.ikasId) continue;
+            // For simplicity, we update only the first variant.
+            const variant = product.variants[0];
+            if (!variant) {
+              console.error(`No variant found for product ${item.ikasId}`);
+              continue;
+            }
+            const currentStock = variant.stocks?.find(
+              (s) => s.stockLocationId === location.ikasId,
+            );
+            if (!currentStock) continue;
+            if (currentStock.stockCount !== stock.quantity) {
+              if (!updatesMap[item.ikasId]) updatesMap[item.ikasId] = {};
+              if (!updatesMap[item.ikasId][variant.id])
+                updatesMap[item.ikasId][variant.id] = {};
+              updatesMap[item.ikasId][variant.id][location.ikasId] =
+                stock.quantity;
+            }
+          }
+        } catch (err) {
+          console.error(
+            `Error fetching product stocks for ${item.ikasId}:`,
+            err.message,
+          );
+        }
+      }
+
+      const productIdsToUpdate = Object.keys(updatesMap);
+      if (productIdsToUpdate.length === 0) {
+        console.log('No products need a stock update.');
+        return;
+      }
+
+      // Construct full BulkUpdateProductsInput objects for each product needing an update.
+      const bulkUpdateInputs = productIdsToUpdate
+        .map((productId) => {
+          const product = ikasProducts.find((p) => p.id === productId);
+          if (!product) {
+            console.error(
+              `Product ${productId} not found in fetched products.`,
+            );
+            return null;
+          }
+
+          const productVariantTypes = product?.productVariantTypes
+            ? product.productVariantTypes?.map((pvt: any) => ({
+                order: pvt.order,
+                variantTypeName: pvt.variantTypeName || null,
+                // variantValues: each should be a BulkUpdateProductVariantValueImportInput
+                variantValues: pvt.variantValues
+                  ? pvt.variantValues.map((val: any) => ({
+                      colorCode: val.colorCode || null,
+                      name: val.name,
+                      sourceId: val.sourceId || null,
+                      thumbnailImageUrl: val.thumbnailImageUrl || null,
+                    }))
+                  : [],
+              }))
+            : [];
+          // For the variant(s) that need update in stock, merge the new stock count.
+          const variants = product?.variants?.map((variant: any) => {
+            // Update stocks if there is an entry in the updatesMap.
+            const updatedStocks =
+              updatesMap[productId] && updatesMap[productId][variant.id]
+                ? variant?.stocks?.map((stock: any) => {
+                    if (
+                      updatesMap[productId][variant.id][
+                        stock.stockLocationId
+                      ] !== undefined
+                    ) {
+                      return {
+                        stockCount:
+                          updatesMap[productId][variant.id][
+                            stock.stockLocationId
+                          ],
+                        stockLocationId: stock.stockLocationId,
+                      };
+                    }
+                    return stock;
+                  })
+                : variant?.stocks ?? [];
+
+            // Map prices: BulkUpdateProductPriceInput
+            const prices = variant?.prices
+              ? variant?.prices?.map((price: any) => ({
+                  sellPrice: price.sellPrice,
+                }))
+              : [];
+
+            return {
+              id: variant.id || null,
+              isActive:
+                variant.isActive !== undefined ? variant.isActive : false,
+              prices: prices,
+              stocks: updatedStocks || [],
+            };
+          });
+
+          return {
+            id: product.id,
+            categories: product.categories,
+            productVariantTypes: productVariantTypes,
+            type: product.type, // assuming product.type already is a valid ProductTypeEnum (e.g., "PHYSICAL")
+            variants: variants,
+            name: product.name,
+          };
+        })
+        .filter((input) => input !== null);
+
+      console.log('Bulk update inputs:', bulkUpdateInputs);
+
+      // Create the GraphQL mutation string from the inputs.
+      // We generate the JSON-like string for the input array and embed it into the mutation.
+      const inputsString = bulkUpdateInputs
+        .map((input: any) => {
+          // Serialize productVariantTypes (BulkUpdateProductVariantTypeImportInput)
+          const productVariantTypesString = input?.productVariantTypes
+            .map((pvt: any) => {
+              const variantValuesString = pvt.variantValues
+                .map(
+                  (val: any) =>
+                    `{ colorCode: ${
+                      val.colorCode ? `"${val.colorCode}"` : 'null'
+                    }, name: "${val.name}", sourceId: ${
+                      val.sourceId ? `"${val.sourceId}"` : 'null'
+                    }, thumbnailImageUrl: ${
+                      val.thumbnailImageUrl
+                        ? `"${val.thumbnailImageUrl}"`
+                        : 'null'
+                    } }`,
+                )
+                .join(', ');
+              return `{ order: ${pvt.order}, variantTypeName: ${
+                pvt.variantTypeName ? `"${pvt.variantTypeName}"` : 'null'
+              }, variantValues: [${variantValuesString}] }`;
+            })
+            .join(', ');
+
+          // Serialize variants (BulkUpdateProductVariantInput)
+          const variantsString = input.variants
+            .map((variant: any) => {
+              const pricesString =
+                variant.prices && variant.prices.length > 0
+                  ? `[${variant.prices
+                      .map((price: any) => `{ sellPrice: ${price.sellPrice} }`)
+                      .join(', ')}]`
+                  : '[]';
+              const stocksString =
+                variant.stocks && variant.stocks.length > 0
+                  ? `[${variant.stocks
+                      .map(
+                        (s: any) =>
+                          `{ stockCount: ${s.stockCount}, stockLocationId: "${s.stockLocationId}" }`,
+                      )
+                      .join(', ')}]`
+                  : '[]';
+
+              return `{ id: ${
+                variant.id ? `"${variant.id}"` : 'null'
+              },  isActive: ${
+                variant.isActive
+              }, prices: ${pricesString},  stocks: ${stocksString} }`;
+            })
+            .join(', ');
+          const categoriesString = input.categories
+            .map((cat: any) => {
+              return `{ name: ["${cat.name}"] }`;
+            })
+            .join(', ');
+          return `{
+          id: ${input.id ? `"${input.id}"` : 'null'},
+          name: "${input.name}",
+          categories: [${categoriesString}],
+          productVariantTypes: [${productVariantTypesString}],
+          type: "${input.type}",
+          variants: [${variantsString}]
+        }`;
+        })
+        .join(', ');
+
+      const data = {
+        query: `mutation {
+        bulkUpdateProducts(input: [${inputsString}])
+   }
+`,
+      };
+      console.log('inputStrings:', inputsString);
+      const token = await this.getToken();
+      const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+      const response = await this.httpService
+        .post(apiUrl, data, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .toPromise();
+
+      console.log('Bulk update response:', response.data);
+      await this.ikasGateway.emitIkasProductStockChanged();
+      return response.data;
+    } catch (error) {
+      console.error('Error in bulk updating product stocks:', error.message);
+      throw new HttpException(
+        'Unable to perform bulk product stock update.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }
