@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import { User } from '../user/user.schema';
 
 class Style {
   @Prop({ required: false, type: String })
@@ -48,6 +49,16 @@ class Subheader {
   @Prop({ required: true, type: Number })
   order: number;
 }
+class UpdateHistory {
+  @Prop({ required: true, type: String, ref: User.name })
+  user: string;
+
+  @Prop({ required: true, type: Date })
+  updatedAt: Date;
+
+  @Prop({ required: false, type: [String] })
+  updates: string[];
+}
 @Schema({ _id: false, timestamps: true })
 export class Education extends Document {
   @Prop({ type: Number })
@@ -64,6 +75,9 @@ export class Education extends Document {
 
   @Prop([Subheader])
   subheaders: Subheader[];
+
+  @Prop([UpdateHistory])
+  updateHistory: UpdateHistory[];
 }
 
 export const EducationSchema = SchemaFactory.createForClass(Education);

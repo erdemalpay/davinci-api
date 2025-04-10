@@ -19,6 +19,12 @@ export class EducationSubheaderDto {
   order: number;
 }
 
+export class EducationUpdateHistoryDto {
+  user: string;
+  updatedAt: Date;
+  updates?: string[];
+}
+
 export class CreateEducationDto {
   permissionRoles: number[];
   header: string;
