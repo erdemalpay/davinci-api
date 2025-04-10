@@ -1246,7 +1246,7 @@ export class IkasService {
             .join(', ');
           const categoriesString = input.categories
             .map((cat: any) => {
-              return `{ name: ["${cat.name}"] }`;
+              return `{ name: "${cat.name}" }`;
             })
             .join(', ');
           return `{

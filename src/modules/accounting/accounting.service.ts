@@ -1114,8 +1114,10 @@ export class AccountingService {
             totalExpense: Number(totalExpense),
             note: note,
             type: type,
-            isStockIncrement: Boolean(isStockIncrement) ?? false,
+            isStockIncrement:
+              (isStockIncrement as any) === 'true' || isStockIncrement === true,
           },
+
           StockHistoryStatusEnum.EXPENSEENTRY,
           true,
         );
