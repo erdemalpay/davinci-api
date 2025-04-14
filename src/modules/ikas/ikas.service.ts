@@ -1241,7 +1241,7 @@ export class IkasService {
                 variant.id ? `"${variant.id}"` : 'null'
               },  isActive: ${
                 variant.isActive
-              }, prices: ${pricesString},  stocks: ${stocksString} }`;
+              }, prices: ${pricesString},  stocks: ${stocksString},deleted: false }`;
             })
             .join(', ');
           const categoriesString = input.categories
@@ -1254,8 +1254,9 @@ export class IkasService {
           name: "${input.name}",
           categories: [${categoriesString}],
           productVariantTypes: [${productVariantTypesString}],
-          type: "${input.type}",
-          variants: [${variantsString}]
+          type: PHYSICAL,
+          variants: [${variantsString}],
+          deleted: false
         }`;
         })
         .join(', ');
@@ -1266,7 +1267,7 @@ export class IkasService {
    }
 `,
       };
-      console.log('inputStrings:', inputsString);
+      console.log(inputsString);
       const token = await this.getToken();
       const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
       const response = await this.httpService
@@ -1278,11 +1279,10 @@ export class IkasService {
         })
         .toPromise();
 
-      console.log('Bulk update response:', response.data);
       await this.ikasGateway.emitIkasProductStockChanged();
       return response.data;
     } catch (error) {
-      console.error('Error in bulk updating product stocks:', error.message);
+      console.log(error.response.data.errors);
       throw new HttpException(
         'Unable to perform bulk product stock update.',
         HttpStatus.INTERNAL_SERVER_ERROR,
