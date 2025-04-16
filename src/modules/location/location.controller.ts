@@ -23,7 +23,10 @@ export class LocationController {
   findAllLocations() {
     return this.locationService.findAllLocations();
   }
-
+  @Get('/sell')
+  findSellLocations() {
+    return this.locationService.findSellLocations();
+  }
   @Get('/stock')
   findStockLocations() {
     return this.locationService.findStockLocations();

@@ -1182,7 +1182,6 @@ export class IkasService {
             id: product.id,
             categories: product.categories,
             productVariantTypes: productVariantTypes,
-            type: product.type, // assuming product.type already is a valid ProductTypeEnum (e.g., "PHYSICAL")
             variants: variants,
             name: product.name,
           };

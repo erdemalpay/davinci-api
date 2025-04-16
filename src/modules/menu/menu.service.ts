@@ -918,4 +918,27 @@ export class MenuService {
     await Promise.all(updates);
     this.menuGateway.emitItemChanged();
   }
+
+  async updateItemsSlugs() {
+    const items = await this.getAllIkasItems();
+    const ikasProducts = await this.IkasService.getAllProducts();
+    const updatePromises = items.map((item) => {
+      const ikasProduct = ikasProducts.find(
+        (product) => product.id === item.ikasId,
+      );
+
+      if (!ikasProduct) {
+        console.warn(
+          `No matching product found for IkasItem ID: ${item.ikasId}`,
+        );
+        return null;
+      }
+      return this.itemModel.findByIdAndUpdate(item._id, {
+        slug: ikasProduct.metaData.slug,
+      });
+    });
+    await Promise.all(updatePromises.filter(Boolean));
+    this.menuGateway.emitItemChanged();
+    return items;
+  }
 }

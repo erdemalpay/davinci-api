@@ -38,6 +38,9 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: Number })
   order: number;
 
+  @Prop({ required: false, type: String })
+  slug: string;
+
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
   category: MenuCategory | number;
 

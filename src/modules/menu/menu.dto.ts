@@ -23,6 +23,7 @@ export class CreateItemDto {
   productCategories?: string[];
   productImages?: string[];
   ikasId?: string;
+  slug?: string;
 }
 export class CreateBulkItemDto {
   name: string;

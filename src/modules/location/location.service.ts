@@ -25,6 +25,9 @@ export class LocationService {
   findStockLocations() {
     return this.locationModel.find({ type: { $in: [2] } });
   }
+  findSellLocations() {
+    return this.locationModel.find({ type: { $in: [1, 3] } });
+  }
   findAllLocations() {
     return this.locationModel.find();
   }

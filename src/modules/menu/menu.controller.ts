@@ -71,6 +71,11 @@ export class MenuController {
     return this.menuService.createItem(user, createItemDto);
   }
 
+  @Post('/items/slug')
+  updateItemsSlugs() {
+    return this.menuService.updateItemsSlugs();
+  }
+
   @Post('/items/create-ikas-products')
   createIkasProducts(
     @ReqUser() user: User,
