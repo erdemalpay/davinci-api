@@ -18,7 +18,7 @@ export class LocationController {
   createStockLocation(@Body() createStockLocation: CreateStockLocationDto) {
     return this.locationService.createStockLocation(createStockLocation);
   }
-
+  s;
   @Get('/all')
   findAllLocations() {
     return this.locationService.findAllLocations();

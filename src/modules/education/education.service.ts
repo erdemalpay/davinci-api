@@ -25,9 +25,32 @@ export class EducationService {
     id: number,
     updates: UpdateQuery<Education>,
   ) {
+    const flat = updates as Record<string, any>;
+    const prev = await this.educationModel.findById(id).lean();
+    if (!prev) {
+      throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
+    }
+    const keys = Object.keys(flat);
+    const onlyOrder = keys.length === 1 && keys[0] === 'order';
+    const mongoUpdate: any = { $set: flat };
+    if (!onlyOrder) {
+      const diff: Record<string, { before: any; after: any }> = {};
+      for (const k of keys) {
+        if (k !== 'order') {
+          diff[k] = { before: (prev as any)[k], after: flat[k] };
+        }
+      }
+      mongoUpdate.$push = {
+        updateHistory: {
+          user: user._id,
+          updatedAt: new Date(),
+          updates: diff,
+        },
+      };
+    }
     const updatedEducation = await this.educationModel.findByIdAndUpdate(
       id,
-      updates,
+      mongoUpdate,
       { new: true },
     );
     if (!updatedEducation) {

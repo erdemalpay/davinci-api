@@ -30,4 +30,5 @@ export class CreateEducationDto {
   header: string;
   order: number;
   subheaders?: EducationSubheaderDto[];
+  updateHistory?: EducationUpdateHistoryDto[];
 }
