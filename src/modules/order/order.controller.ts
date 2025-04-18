@@ -172,6 +172,16 @@ export class OrderController {
     return this.orderService.cancelIkasOrder(user, payload.ikasId);
   }
 
+  @Post('/migrate-online')
+  migrateOnline() {
+    return this.orderService.migrateOnline();
+  }
+
+  @Post('/migrate-onlineTableOrders')
+  migrateOnlineTableOrders() {
+    return this.orderService.migrateOnlineTableOrders();
+  }
+
   @Post('/return_order')
   returnOrder(
     @ReqUser() user: User,

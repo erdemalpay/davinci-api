@@ -101,7 +101,13 @@ export class TableService {
     this.tableGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
-
+  async findOnlineTables() {
+    const tables = await this.tableModel.find({
+      isOnlineSale: true,
+      status: { $ne: TableStatus.CANCELLED },
+    });
+    return tables;
+  }
   async updateTableOrders(user: User, id: number, order: number | number[]) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {

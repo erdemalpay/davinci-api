@@ -2157,4 +2157,60 @@ export class OrderService {
       throw error; // Or handle it more gracefully as needed
     }
   }
+
+  async migrateOnline() {
+    const MARKETPLACES = [
+      'trendyol',
+      'shopier',
+      'hepsiburada',
+      'amazon',
+      'kutuoyunual',
+    ];
+    try {
+      const result = await this.orderModel.updateMany(
+        {
+          $or: [{ location: 6 }, { paymentMethod: { $in: MARKETPLACES } }],
+        },
+        { $set: { location: 4 } },
+      );
+      const collectionResult = await this.collectionModel.updateMany(
+        {
+          $or: [{ location: 6 }, { paymentMethod: { $in: MARKETPLACES } }],
+        },
+        { $set: { location: 4 } },
+      );
+      await this.orderGateway.emitOrderUpdated(null, null);
+      await this.orderGateway.emitCollectionChanged(null, null);
+      return {
+        matchedOrders: result.matchedCount,
+        modifiedOrders: result.modifiedCount,
+        matchedCollections: collectionResult.matchedCount,
+        modifiedCollections: collectionResult.modifiedCount,
+      };
+    } catch (error) {
+      console.error('Error migrating orders to online:', error);
+      throw error;
+    }
+  }
+  async migrateOnlineTableOrders() {
+    const onlineTables = await this.tableService.findOnlineTables();
+    if (!onlineTables || onlineTables?.length === 0) {
+      throw new HttpException('No online tables found', HttpStatus.NOT_FOUND);
+    }
+    const tableIds = onlineTables.map((table) => table._id);
+    try {
+      const result = await this.orderModel.updateMany(
+        { table: { $in: tableIds } },
+        { $set: { location: 4 } },
+      );
+      await this.orderGateway.emitOrderUpdated(null, null);
+      return {
+        matchedOrders: result.matchedCount,
+        modifiedOrders: result.modifiedCount,
+      };
+    } catch (error) {
+      console.error('Error migrating orders to online:', error);
+      throw error;
+    }
+  }
 }

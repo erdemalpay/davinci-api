@@ -851,7 +851,7 @@ export class IkasService {
             discount: undefined,
             discountNote: '',
             isOnlinePrice: false,
-            location: foundLocation._id,
+            location: 4,
             unitPrice: finalPrice,
             paidQuantity: quantity,
             deliveredAt: new Date(),
