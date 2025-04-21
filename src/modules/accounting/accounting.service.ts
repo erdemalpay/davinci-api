@@ -1978,9 +1978,12 @@ export class AccountingService {
           ...(brand && {
             'productDetails.brand': { $in: [brand] },
           }),
-          ...(before && { createdAt: { $lte: new Date(before) } }),
-          ...(after && { createdAt: { $gte: new Date(after) } }),
-          ...(after && before && { date: { $gte: after, $lte: before } }),
+          ...(after &&
+            before && {
+              createdAt: { $gte: new Date(after), $lte: new Date(before) },
+            }),
+          ...(before && !after && { createdAt: { $lte: new Date(before) } }),
+          ...(after && !before && { createdAt: { $gte: new Date(after) } }),
         },
       },
       {
@@ -2028,7 +2031,7 @@ export class AccountingService {
       };
     }
 
-    // Return the first element of results which contains all required properties
+    console.log('pipeline:', JSON.stringify(pipeline, null, 2));
     return results[0];
   }
 
