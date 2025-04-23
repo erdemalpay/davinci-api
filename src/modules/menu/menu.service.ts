@@ -95,20 +95,34 @@ export class MenuService {
   }
 
   async findOyunAlItems() {
-    const items = await this.itemModel.find({
-      category: { $in: [25, 26, 27] },
-    });
+    // 1. Fetch only the fields we care about + matchedProduct
+    const items = await this.itemModel
+      .find(
+        { category: { $in: [25, 26, 27] } },
+        {
+          _id: 1,
+          name: 1,
+          description: 1,
+          imageUrl: 1,
+          order: 1,
+          price: 1,
+          category: 1,
+          onlinePrice: 1,
+          matchedProduct: 1,
+        },
+      )
+      .lean();
     const stocks = await this.accountingService.findAllStocks();
-    const filteredItems = items.filter((item) => {
-      const stockTotl = stocks
-        .filter((stock) => stock.product === item.matchedProduct)
-        .reduce((accumulator, currentValue) => {
-          return accumulator + currentValue.quantity;
-        }, 0);
-      return stockTotl > 0;
+
+    const inStock = items.filter((item) => {
+      const totalQty = stocks
+        .filter((s) => s.product === item.matchedProduct)
+        .reduce((sum, s) => sum + s.quantity, 0);
+      return totalQty > 0;
     });
-    return filteredItems;
+    return inStock;
   }
+
   async findItemsInCategoryArray(categories: number[]) {
     return this.itemModel.find({ category: { $in: categories } });
   }
