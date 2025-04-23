@@ -93,6 +93,22 @@ export class MenuService {
       throw new HttpException('Could not retrieve items', HttpStatus.NOT_FOUND);
     }
   }
+
+  async findOyunAlItems() {
+    const items = await this.itemModel.find({
+      category: { $in: [25, 26, 27] },
+    });
+    const stocks = await this.accountingService.findAllStocks();
+    const filteredItems = items.filter((item) => {
+      const stockTotl = stocks
+        .filter((stock) => stock.product === item.matchedProduct)
+        .reduce((accumulator, currentValue) => {
+          return accumulator + currentValue.quantity;
+        }, 0);
+      return stockTotl > 0;
+    });
+    return filteredItems;
+  }
   async findItemsInCategoryArray(categories: number[]) {
     return this.itemModel.find({ category: { $in: categories } });
   }

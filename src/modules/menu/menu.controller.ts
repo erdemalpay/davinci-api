@@ -58,6 +58,12 @@ export class MenuController {
     return this.menuService.findAllItems();
   }
 
+  @Public()
+  @Get('/items/oyun-al')
+  findOyunAlItems() {
+    return this.menuService.findOyunAlItems();
+  }
+
   @Post('/categories')
   createCategory(
     @ReqUser() user: User,
