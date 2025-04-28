@@ -1094,8 +1094,11 @@ export class AccountingService {
           });
           continue;
         }
-        const dateParts = date.split('-');
-        const adjustedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        const normalized = date.replace(/[.\/]/g, '-');
+        const parts = normalized.split('-');
+        const isoInput =
+          parts[0].length === 4 ? normalized : parts.reverse().join('-');
+        const adjustedDate = new Date(isoInput).toISOString().slice(0, 10);
         const totalExpense =
           Number(price) + Number(kdv) * (Number(price) / 100);
         const type = ExpenseTypes.STOCKABLE;
