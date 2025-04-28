@@ -23,4 +23,7 @@ export class NotificationQueryDto {
 
 export enum NotificationEventType {
   COMPLETECOUNT = 'COMPLETECOUNT',
+  NEGATIVESTOCK = 'NEGATIVESTOCK',
+  ZEROSTOCK = 'ZEROSTOCK',
+  LOSSPRODUCT = 'LOSSPRODUCT',
 }

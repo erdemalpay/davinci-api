@@ -1892,6 +1892,97 @@ export class AccountingService {
         { $inc: { quantity: -consumptStockDto.quantity } },
         { new: true },
       );
+      const newQuantity = stock.quantity - consumptStockDto.quantity;
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const zeroNotificationEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.ZEROSTOCK,
+      );
+      const negativeNotificationEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.NEGATIVESTOCK,
+      );
+      // zero stock notification
+      if (newQuantity === 0 && zeroNotificationEvent) {
+        const locations = await this.locationService.findAllLocations();
+        const stockLocation = locations.find(
+          (location) => location._id === stock.location,
+        );
+        const notificationDto: CreateNotificationDto = {
+          type: zeroNotificationEvent.type,
+          createdBy: zeroNotificationEvent.createdBy,
+          selectedUsers: zeroNotificationEvent.selectedUsers,
+          selectedRoles: zeroNotificationEvent.selectedRoles,
+          selectedLocations: zeroNotificationEvent.selectedLocations,
+          seenBy: zeroNotificationEvent.seenBy || [],
+          event: '',
+          message:
+            zeroNotificationEvent.message ||
+            `${stock.product} has reached zero stock in ${stockLocation.name}`,
+        };
+
+        await this.notificationService.createNotification(
+          user,
+          notificationDto,
+        );
+      }
+      // negative stock notification
+      if (stock.quantity >= 0 && newQuantity < 0 && negativeNotificationEvent) {
+        const locations = await this.locationService.findAllLocations();
+        const stockLocation = locations.find(
+          (location) => location._id === stock.location,
+        );
+        const notificationDto: CreateNotificationDto = {
+          type: negativeNotificationEvent.type,
+          createdBy: negativeNotificationEvent.createdBy,
+          selectedUsers: negativeNotificationEvent.selectedUsers,
+          selectedRoles: negativeNotificationEvent.selectedRoles,
+          selectedLocations: negativeNotificationEvent.selectedLocations,
+          seenBy: negativeNotificationEvent.seenBy || [],
+          event: '',
+          message:
+            negativeNotificationEvent.message ||
+            `${stock.product} has reached negative stock in ${stockLocation.name}`,
+        };
+        await this.notificationService.createNotification(
+          user,
+          notificationDto,
+        );
+      }
+      const lossProductEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.LOSSPRODUCT,
+      );
+      if (
+        lossProductEvent &&
+        consumptStockDto?.status === StockHistoryStatusEnum.LOSSPRODUCT
+      ) {
+        const locations = await this.locationService.findAllLocations();
+        const stockLocation = locations.find(
+          (location) => location._id === stock.location,
+        );
+        const notificationDto: CreateNotificationDto = {
+          type: lossProductEvent.type,
+          createdBy: lossProductEvent.createdBy,
+          selectedUsers: lossProductEvent.selectedUsers,
+          selectedRoles: lossProductEvent.selectedRoles,
+          selectedLocations: lossProductEvent.selectedLocations,
+          seenBy: lossProductEvent.seenBy || [],
+          event: '',
+          message:
+            lossProductEvent.message ||
+            `${consumptStockDto.quantity} unit${
+              consumptStockDto.quantity > 1 ? 's' : ''
+            } of ${stock.product} have been recorded as loss at ${
+              stockLocation.name
+            }.`,
+        };
+        await this.notificationService.createNotification(
+          user,
+          notificationDto,
+        );
+      }
       await this.createProductStockHistory(user, {
         user: user._id,
         product: consumptStockDto.product,
@@ -2034,7 +2125,6 @@ export class AccountingService {
       };
     }
 
-    console.log('pipeline:', JSON.stringify(pipeline, null, 2));
     return results[0];
   }
 
