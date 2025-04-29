@@ -20,6 +20,7 @@ import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { VisitService } from '../visit/visit.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
@@ -40,6 +41,10 @@ import {
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
+
+interface SeenUsers {
+  [key: string]: boolean;
+}
 @Injectable()
 export class OrderService {
   constructor(
@@ -59,6 +64,7 @@ export class OrderService {
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
+    private readonly visitService: VisitService,
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
   ) {}
@@ -707,7 +713,7 @@ export class OrderService {
       await this.confirmationQueue.add(
         'check-confirmation',
         { orderId: order._id.toString() },
-        { delay: 1 * 60 * 1000, attempts: 1 },
+        { delay: 5 * 60 * 1000, attempts: 1 },
       );
     }
 
@@ -721,10 +727,29 @@ export class OrderService {
     if (!order) {
       throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
     }
+
     if (order.status === OrderStatus.CONFIRMATIONREQ && !order?.confirmedBy) {
+      const visits = await this.visitService.findByDateAndLocation(
+        format(order.createdAt, 'yyyy-MM-dd'),
+        2,
+      );
+      const uniqueVisitUsers =
+        visits
+          ?.reduce(
+            (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
+              acc.seenUsers = acc.seenUsers || {};
+              if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+                acc.seenUsers[(visit as any).user] = true;
+                acc.unique.push(visit);
+              }
+              return acc;
+            },
+            { unique: [], seenUsers: {} },
+          )
+          ?.unique?.map((visit) => visit.user) ?? [];
       await this.notificationService.createNotification({
         type: 'WARNING',
-        selectedUsers: ['dv'],
+        selectedUsers: (uniqueVisitUsers as any) ?? [],
         selectedLocations: [2],
         seenBy: [],
         event: '',

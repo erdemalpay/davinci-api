@@ -10,6 +10,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { RedisModule } from '../redis/redis.module';
 import { RedisService } from '../redis/redis.service';
 import { UserModule } from '../user/user.module';
+import { VisitModule } from '../visit/visit.module';
 import { BullModuleOptions } from './../../../node_modules/@nestjs/bull/dist/interfaces/bull-module-options.interface.d';
 import { DBConfig } from './../../app.module';
 import { AccountingModule } from './../accounting/accounting.module';
@@ -38,6 +39,7 @@ const { host, port } = config.get<DBConfig>('redis');
     ActivityModule,
     GameplayModule,
     RedisModule,
+    VisitModule,
     NotificationModule,
     BullModule.forRootAsync({
       imports: [RedisModule],
@@ -59,6 +61,10 @@ const { host, port } = config.get<DBConfig>('redis');
     }),
     BullModule.registerQueue({
       name: 'order-confirmation',
+      defaultJobOptions: {
+        removeOnComplete: 50,
+        removeOnFail: 50,
+      },
     }),
     forwardRef(() => AccountingModule),
     forwardRef(() => TableModule),
