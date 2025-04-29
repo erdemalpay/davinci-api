@@ -154,16 +154,32 @@ export class AccountingService {
         }
       }
       const locations = await this.locationService.findAllLocations();
-
-      const product = new this.productModel(createProductDto);
-      product._id = usernamify(product.name);
-      product.baseQuantities = locations.map((location) => {
+      const newId = usernamify(createProductDto.name);
+      const initialBaseQuantities = locations.map((location) => {
         return {
           location: location._id,
           minQuantity: 0,
           maxQuantity: 0,
         };
       });
+      const deletedProduct = await this.productModel.findOne({
+        _id: newId,
+        deleted: true,
+      });
+      if (deletedProduct) {
+        await this.productModel.findByIdAndUpdate(deletedProduct._id, {
+          ...createProductDto,
+          baseQuantities: initialBaseQuantities,
+          deleted: false,
+        });
+        await this.accountingGateway.emitProductChanged(user, deletedProduct);
+        return deletedProduct;
+      }
+
+      const product = new this.productModel(createProductDto);
+      product._id = newId;
+
+      product.baseQuantities = initialBaseQuantities;
       await product.save();
       if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
@@ -174,6 +190,7 @@ export class AccountingService {
           },
         );
       }
+
       await this.accountingGateway.emitProductChanged(user, product);
       return product;
     } catch (error) {
