@@ -93,14 +93,14 @@ export class AccountingService {
     private readonly notificationService: NotificationService,
   ) {}
   //   Products
-  findActiveProducts() {
-    return this.productModel.find({ deleted: { $ne: true } });
+  findAllProducts() {
+    return this.productModel.find();
   }
   async findDeletedProducts() {
     return this.productModel.find({ deleted: true });
   }
 
-  async findAllProducts() {
+  async findActiveProducts() {
     try {
       const redisProducts = await this.redisService.get(
         RedisKeys.AccountingProducts,

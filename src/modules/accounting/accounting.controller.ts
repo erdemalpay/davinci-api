@@ -52,7 +52,7 @@ export class AccountingController {
   // Products
   @Get('/products')
   getProducts() {
-    return this.accountingService.findAllProducts();
+    return this.accountingService.findActiveProducts();
   }
 
   @Get('/all-products')
