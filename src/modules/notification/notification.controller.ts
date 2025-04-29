@@ -24,8 +24,8 @@ export class NotificationController {
     @Body() createNotificationDto: CreateNotificationDto,
   ) {
     return this.notificationService.createNotification(
-      user,
       createNotificationDto,
+      user,
     );
   }
 

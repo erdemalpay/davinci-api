@@ -116,8 +116,8 @@ export class NotificationService {
   }
 
   async createNotification(
-    user: User,
     createNotificationDto: CreateNotificationDto,
+    user?: User,
   ) {
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();
@@ -133,7 +133,7 @@ export class NotificationService {
     }
     const notification = await this.notificationModel.create({
       ...createNotificationDto,
-      createdBy: user._id,
+      ...(user && { createdBy: user._id }),
       createdAt: new Date(),
     });
     this.notificationGateway.emitNotificationChanged(

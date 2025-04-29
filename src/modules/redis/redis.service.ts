@@ -30,6 +30,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() {
     this.client.quit();
   }
+  getClient() {
+    return this.client;
+  }
 
   // Method to set data in Redis
   async set(key: string, value: any): Promise<string> {

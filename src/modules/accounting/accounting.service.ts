@@ -1923,8 +1923,8 @@ export class AccountingService {
         };
 
         await this.notificationService.createNotification(
-          user,
           notificationDto,
+          user,
         );
       }
       // negative stock notification
@@ -1946,8 +1946,8 @@ export class AccountingService {
             `${stock.product} has reached negative stock in ${stockLocation.name}`,
         };
         await this.notificationService.createNotification(
-          user,
           notificationDto,
+          user,
         );
       }
       const lossProductEvent = notificationEvents.find(
@@ -1979,8 +1979,8 @@ export class AccountingService {
             }.`,
         };
         await this.notificationService.createNotification(
-          user,
           notificationDto,
+          user,
         );
       }
       await this.createProductStockHistory(user, {
@@ -2236,8 +2236,8 @@ export class AccountingService {
         };
 
         await this.notificationService.createNotification(
-          user,
           notificationDto,
+          user,
         );
       }
     }

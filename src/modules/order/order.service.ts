@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bull';
 import {
   forwardRef,
   HttpException,
@@ -6,10 +7,12 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { Queue } from 'bull';
 import { format, parseISO } from 'date-fns';
 import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { TableGateway } from '../table/table.gateway';
@@ -40,6 +43,8 @@ import { OrderGroup } from './orderGroup.schema';
 @Injectable()
 export class OrderService {
   constructor(
+    @InjectQueue('order-confirmation')
+    private confirmationQueue: Queue,
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
@@ -55,6 +60,7 @@ export class OrderService {
     private readonly activityService: ActivityService,
     private readonly accountingService: AccountingService,
     private readonly redisService: RedisService,
+    private readonly notificationService: NotificationService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -697,7 +703,36 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
     }
+    if (order.status === OrderStatus.CONFIRMATIONREQ) {
+      await this.confirmationQueue.add(
+        'check-confirmation',
+        { orderId: order._id.toString() },
+        { delay: 1 * 60 * 1000, attempts: 1 },
+      );
+    }
+
     return order;
+  }
+  async checkConfirmationTimeout(orderId: string) {
+    const order = await this.orderModel.findById(orderId).populate({
+      path: 'item',
+      select: 'name',
+    });
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    }
+    if (order.status === OrderStatus.CONFIRMATIONREQ && !order?.confirmedBy) {
+      await this.notificationService.createNotification({
+        type: 'WARNING',
+        selectedUsers: ['dv'],
+        selectedLocations: [2],
+        seenBy: [],
+        event: '',
+        message: `Farm Burger: Order ${
+          (order.item as any).name
+        } is not confirmed for 5 minutes!`,
+      });
+    }
   }
   async returnOrder(
     user: User,
