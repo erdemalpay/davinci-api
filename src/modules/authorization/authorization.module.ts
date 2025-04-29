@@ -13,7 +13,12 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Authorization.name, AuthorizationSchema),
 ]);
 @Module({
-  imports: [mongooseModule, RedisModule, forwardRef(() => PanelControlModule)],
+  imports: [
+    mongooseModule,
+    RedisModule,
+    AuthorizationModule,
+    forwardRef(() => PanelControlModule),
+  ],
   providers: [AuthorizationService, AuthorizationGateway, RolesGuard],
   exports: [AuthorizationService, AuthorizationGateway, RolesGuard],
   controllers: [AuthorizationController],

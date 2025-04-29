@@ -77,6 +77,7 @@ export class PanelControlService implements OnApplicationBootstrap {
         for (const authorization of filteredAuthorizations) {
           const newRoles = updates.permissionRoles;
           await this.authorizationService.updateAuthorization(
+            user,
             authorization._id,
             { roles: newRoles },
           );

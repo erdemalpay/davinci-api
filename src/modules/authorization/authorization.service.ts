@@ -7,9 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { PanelControlService } from '../panelControl/panelControl.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { User } from '../user/user.schema';
 import { CreateAuthorizationDto } from './authorization.dto';
 import { AuthorizationGateway } from './authorization.gateway';
 import { Authorization } from './authorization.schema';
@@ -21,6 +24,7 @@ export class AuthorizationService {
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => PanelControlService))
     private readonly panelControlService: PanelControlService,
+    private readonly activityService: ActivityService,
     @InjectModel(Authorization.name)
     private authorizationModel: Model<Authorization>,
   ) {}
@@ -65,7 +69,17 @@ export class AuthorizationService {
       );
     }
   }
-  async updateAuthorization(id: number, updates: UpdateQuery<Authorization>) {
+  async updateAuthorization(
+    user: User,
+    id: number,
+    updates: UpdateQuery<Authorization>,
+  ) {
+    const existingAuthorization = await this.authorizationModel
+      .findById(id)
+      .exec();
+    if (!existingAuthorization) {
+      throw new HttpException('Authorization not found', HttpStatus.NOT_FOUND);
+    }
     const updatedAuthorization =
       await this.authorizationModel.findByIdAndUpdate(id, updates, {
         new: true,
@@ -73,6 +87,12 @@ export class AuthorizationService {
     if (!updatedAuthorization) {
       throw new Error('Authorization not found');
     }
+    await this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_AUTHORIZATION,
+      existingAuthorization,
+      updatedAuthorization,
+    );
     this.authorizationGateway.emitAuthorizationChanged(updatedAuthorization);
     return updatedAuthorization;
   }

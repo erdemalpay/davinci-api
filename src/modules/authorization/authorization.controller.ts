@@ -8,6 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { CreateAuthorizationDto } from './authorization.dto';
 import { Authorization } from './authorization.schema';
 import { AuthorizationService } from './authorization.service';
@@ -35,10 +37,11 @@ export class AuthorizationController {
 
   @Patch('/:id')
   updateAuthorization(
+    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Authorization>,
   ) {
-    return this.authorizationService.updateAuthorization(id, updates);
+    return this.authorizationService.updateAuthorization(user, id, updates);
   }
 
   @Delete('/:id')

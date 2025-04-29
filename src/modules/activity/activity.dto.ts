@@ -3,6 +3,7 @@ import { IsNumber, IsString } from 'class-validator';
 import { Expense } from '../accounting/expense.schema';
 import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Stock } from '../accounting/stock.schema';
+import { Authorization } from '../authorization/authorization.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
@@ -14,7 +15,6 @@ import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
 import { MenuItem } from './../menu/item.schema';
 import { Order } from './../order/order.schema';
-
 export class ActivityDto {
   @IsNumber()
   _id: number;
@@ -69,6 +69,7 @@ export enum ActivityType {
   CANCEL_PAYMENT = 'CANCEL_PAYMENT',
   CREATE_RESERVATION = 'CREATE_RESERVATION',
   UPDATE_RESERVATION = 'UPDATE_RESERVATION',
+  UPDATE_AUTHORIZATION = 'UPDATE_AUTHORIZATION',
 }
 
 export type ActivityTypePayload = {
@@ -142,6 +143,10 @@ export type ActivityTypePayload = {
   [ActivityType.UPDATE_RESERVATION]: {
     currentReservation: Reservation;
     newReservation: Reservation;
+  };
+  [ActivityType.UPDATE_AUTHORIZATION]: {
+    currentAuthorization: Authorization;
+    newAuthorization: Authorization;
   };
 };
 
