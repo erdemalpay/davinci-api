@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
 import { PanelControlModule } from '../panelControl/panelControl.module';
 import { RedisModule } from '../redis/redis.module';
 import { AuthorizationController } from './authorization.controller';
@@ -16,7 +17,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   imports: [
     mongooseModule,
     RedisModule,
-    AuthorizationModule,
+    ActivityModule,
     forwardRef(() => PanelControlModule),
   ],
   providers: [AuthorizationService, AuthorizationGateway, RolesGuard],
