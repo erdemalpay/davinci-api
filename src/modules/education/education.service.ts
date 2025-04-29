@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
+import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
 import { CreateEducationDto } from './education.dto';
 import { EducationGateway } from './education.gateway';
@@ -20,24 +20,19 @@ export class EducationService {
     return createdEducation;
   }
 
-  async updateEducation(
-    user: User,
-    id: number,
-    updates: UpdateQuery<Education>,
-  ) {
-    const flat = updates as Record<string, any>;
+  async updateEducation(user: User, id: number, updates: Record<string, any>) {
     const prev = await this.educationModel.findById(id).lean();
-    if (!prev) {
+    if (!prev)
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
-    }
-    const keys = Object.keys(flat);
+    const { updateHistory: _, ...fieldsToSet } = updates;
+    const keys = Object.keys(fieldsToSet);
     const onlyOrder = keys.length === 1 && keys[0] === 'order';
-    const mongoUpdate: any = { $set: flat };
+    const mongoUpdate: any = { $set: fieldsToSet };
     if (!onlyOrder) {
       const diff: Record<string, { before: any; after: any }> = {};
       for (const k of keys) {
         if (k !== 'order') {
-          diff[k] = { before: (prev as any)[k], after: flat[k] };
+          diff[k] = { before: (prev as any)[k], after: fieldsToSet[k] };
         }
       }
       mongoUpdate.$push = {
@@ -56,6 +51,7 @@ export class EducationService {
     if (!updatedEducation) {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
     }
+
     this.educationGateway.emitEducationChanged(user, updatedEducation);
     return updatedEducation;
   }
