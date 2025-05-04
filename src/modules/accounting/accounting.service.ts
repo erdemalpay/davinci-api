@@ -1927,7 +1927,11 @@ export class AccountingService {
           notification.event === NotificationEventType.NEGATIVESTOCK,
       );
       // zero stock notification
-      if (newQuantity === 0 && zeroNotificationEvent) {
+      if (
+        newQuantity === 0 &&
+        zeroNotificationEvent &&
+        zeroNotificationEvent?.selectedLocations?.includes(stock.location)
+      ) {
         const locations = await this.locationService.findAllLocations();
         const stockLocation = locations.find(
           (location) => location._id === stock.location,
