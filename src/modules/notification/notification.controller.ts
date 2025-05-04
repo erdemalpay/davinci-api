@@ -44,10 +44,14 @@ export class NotificationController {
   findAllNotifications(
     @Query('after') after?: string,
     @Query('before') before?: string,
+    @Query('type') type?: string,
+    @Query('event') event?: string,
   ) {
     return this.notificationService.findAllNotifications({
       after,
       before,
+      type,
+      event,
     });
   }
 

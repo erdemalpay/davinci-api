@@ -19,6 +19,8 @@ export enum NotificationType {
 export class NotificationQueryDto {
   after?: string;
   before?: string;
+  type?: string;
+  event?: string;
 }
 
 export enum NotificationEventType {

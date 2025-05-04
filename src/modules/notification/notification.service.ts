@@ -18,7 +18,7 @@ export class NotificationService {
   ) {}
 
   async findAllNotifications(query: NotificationQueryDto) {
-    const { after, before } = query;
+    const { after, before, type, event } = query;
     const filterQuery = {};
     if (after) {
       const startDate = new Date(after);
@@ -33,7 +33,12 @@ export class NotificationService {
         $lte: endDate,
       };
     }
-    filterQuery['event'] = { $in: ['', null] };
+    if (type) {
+      filterQuery['type'] = type;
+    }
+    if (event) {
+      filterQuery['event'] = event;
+    }
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
