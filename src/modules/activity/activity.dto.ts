@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
 import { Expense } from '../accounting/expense.schema';
 import { PaymentMethod } from '../accounting/paymentMethod.schema';
+import { Product } from '../accounting/product.schema';
 import { Stock } from '../accounting/stock.schema';
 import { Authorization } from '../authorization/authorization.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -70,6 +71,7 @@ export enum ActivityType {
   CREATE_RESERVATION = 'CREATE_RESERVATION',
   UPDATE_RESERVATION = 'UPDATE_RESERVATION',
   UPDATE_AUTHORIZATION = 'UPDATE_AUTHORIZATION',
+  UPDATE_ACCOUNT_PRODUCT = 'UPDATE_ACCOUNT_PRODUCT',
 }
 
 export type ActivityTypePayload = {
@@ -147,6 +149,10 @@ export type ActivityTypePayload = {
   [ActivityType.UPDATE_AUTHORIZATION]: {
     currentAuthorization: Authorization;
     newAuthorization: Authorization;
+  };
+  [ActivityType.UPDATE_ACCOUNT_PRODUCT]: {
+    currentAccountProduct: Product;
+    newAccountProduct: Product;
   };
 };
 

@@ -330,6 +330,12 @@ export class AccountingService {
         new: true,
       },
     );
+    await this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_ACCOUNT_PRODUCT,
+      product,
+      updatedProduct,
+    );
     await this.accountingGateway.emitProductChanged(user, updatedProduct);
 
     return updatedProduct;
