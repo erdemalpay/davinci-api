@@ -1936,6 +1936,10 @@ export class AccountingService {
         const stockLocation = locations.find(
           (location) => location._id === stock.location,
         );
+        const foundProduct = await this.findProductById(stock.product as any);
+        if (!foundProduct) {
+          throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
         const notificationDto: CreateNotificationDto = {
           type: zeroNotificationEvent.type,
           createdBy: zeroNotificationEvent.createdBy,
@@ -1946,7 +1950,7 @@ export class AccountingService {
           event: '',
           message:
             zeroNotificationEvent.message ||
-            `${stock.product} has reached zero stock in ${stockLocation.name}`,
+            `${foundProduct.name} has reached zero stock in ${stockLocation.name}`,
         };
 
         await this.notificationService.createNotification(
@@ -1960,6 +1964,10 @@ export class AccountingService {
         const stockLocation = locations.find(
           (location) => location._id === stock.location,
         );
+        const foundProduct = await this.findProductById(stock.product as any);
+        if (!foundProduct) {
+          throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
         const notificationDto: CreateNotificationDto = {
           type: negativeNotificationEvent.type,
           createdBy: negativeNotificationEvent.createdBy,
@@ -1970,7 +1978,7 @@ export class AccountingService {
           event: '',
           message:
             negativeNotificationEvent.message ||
-            `${stock.product} has reached negative stock in ${stockLocation.name}`,
+            `${foundProduct.name} has reached negative stock in ${stockLocation.name}`,
         };
         await this.notificationService.createNotification(
           notificationDto,
@@ -1989,6 +1997,10 @@ export class AccountingService {
         const stockLocation = locations.find(
           (location) => location._id === stock.location,
         );
+        const foundProduct = await this.findProductById(stock.product as any);
+        if (!foundProduct) {
+          throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
         const notificationDto: CreateNotificationDto = {
           type: lossProductEvent.type,
           createdBy: lossProductEvent.createdBy,
@@ -2001,7 +2013,7 @@ export class AccountingService {
             lossProductEvent.message ||
             `${consumptStockDto.quantity} unit${
               consumptStockDto.quantity > 1 ? 's' : ''
-            } of ${stock.product} have been recorded as loss at ${
+            } of ${foundProduct.name} have been recorded as loss at ${
               stockLocation.name
             }.`,
         };
