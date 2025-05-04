@@ -76,6 +76,9 @@ export class Order extends Document {
   @Prop({ required: true, type: Number })
   paidQuantity: number;
 
+  @Prop({ required: false, type: Boolean })
+  isPaymentMade: boolean;
+
   @Prop({ required: false, type: Number, ref: Discount.name })
   discount?: number;
 

@@ -1678,6 +1678,7 @@ export class OrderService {
       }
       const newOrder = new this.orderModel({
         ...orderDataWithoutId,
+        isPaymentMade: oldOrder.paidQuantity > 0 ? true : false,
         quantity: orderItem.selectedQuantity,
         paidQuantity: 0,
       });

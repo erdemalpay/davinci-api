@@ -70,6 +70,7 @@ export type OrderType = {
   activityPlayer?: string;
   paymentMethod?: string;
   tableDate?: Date;
+  isPaymentMade?: boolean;
 };
 
 export class CreateCollectionDto {
