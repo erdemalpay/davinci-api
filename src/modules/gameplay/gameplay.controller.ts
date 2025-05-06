@@ -67,6 +67,15 @@ export class GameplayController {
       groupBy: groupBy?.split(',') as FieldGrouping[],
     });
   }
+
+  @Get('/query-given-date')
+  findByQueryGivenDate(
+    @Query('date') date: string,
+    @Query('location') location: number,
+  ) {
+    return this.gameplayService.givenDateTopMentorCounts(date, location);
+  }
+
   @Get('/group-game-mentor-location')
   groupGameMentorLocation() {
     return this.gameplayService.groupGameMentorLocation();
