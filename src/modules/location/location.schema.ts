@@ -2,6 +2,16 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 
+export class LocationShift {
+  @Prop({ required: true, type: String })
+  shift: string;
+
+  @Prop({ required: true, type: Boolean })
+  isActive: boolean;
+
+  @Prop({ required: false, type: String })
+  type: string;
+}
 @Schema({ _id: false })
 export class Location extends Document {
   @Prop({ type: Number })
@@ -25,8 +35,8 @@ export class Location extends Document {
   @Prop({ required: false, type: String })
   ikasId: string;
 
-  @Prop({ type: [String], required: false })
-  shifts?: string[];
+  @Prop([LocationShift])
+  shifts: LocationShift[];
 
   @Prop({ type: [String], required: false })
   tableNames?: string[];

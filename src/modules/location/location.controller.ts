@@ -32,6 +32,11 @@ export class LocationController {
     return this.locationService.findStockLocations();
   }
 
+  @Post('/update-location-shifts')
+  updateLocationShifts() {
+    return this.locationService.updateLocationShifts();
+  }
+
   @Patch('/:id')
   updateLocation(
     @Param('id') id: number,
