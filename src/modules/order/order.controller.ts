@@ -92,6 +92,30 @@ export class OrderController {
     return this.orderService.findTopOrderCreators(date, location);
   }
 
+  @Get('/top-order-deliverers')
+  findTopOrderDeliverers(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findTopOrderDeliverers(date, location);
+  }
+
+  @Get('/top-order-collections')
+  findTopCollectionCreators(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findTopCollectionCreators(date, location);
+  }
+
+  @Get('/avarage-preparation-time')
+  findOrderPreparationStats(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findOrderPreparationStats(date, location);
+  }
+
   @Post('/create_order_for_discount')
   createOrderForDiscount(
     @ReqUser() user: User,

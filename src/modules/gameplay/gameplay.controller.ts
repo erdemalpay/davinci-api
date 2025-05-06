@@ -73,7 +73,10 @@ export class GameplayController {
     @Query('date') date: string,
     @Query('location') location: number,
   ) {
-    return this.gameplayService.givenDateTopMentorCounts(date, location);
+    return this.gameplayService.givenDateTopMentorAndComplexGames(
+      date,
+      location,
+    );
   }
 
   @Get('/group-game-mentor-location')

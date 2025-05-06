@@ -431,32 +431,54 @@ export class GameplayService {
 
     return gameplay;
   }
-  async givenDateTopMentorCounts(date: string, location: number) {
-    const aggregationPipeline: PipelineStage[] = [
+  async givenDateTopMentorAndComplexGames(date: string, location: number) {
+    const pipeline: PipelineStage[] = [
+      { $match: { date, location: Number(location) } },
       {
-        $match: {
-          date: date,
-          location: location,
-        },
-      },
-      {
-        $group: {
-          _id: '$mentor',
-          gameplayCount: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          mentoredBy: '$_id',
-          gameplayCount: 1,
+        $facet: {
+          topMentors: [
+            { $group: { _id: '$mentor', gameplayCount: { $sum: 1 } } },
+            { $sort: { gameplayCount: -1 } },
+            { $limit: 3 },
+            { $project: { _id: 0, mentoredBy: '$_id', gameplayCount: 1 } },
+          ],
+          topComplexGames: [
+            {
+              $group: {
+                _id: '$game',
+                playCount: { $sum: 1 },
+                mentors: { $addToSet: '$mentor' },
+              },
+            },
+            {
+              $lookup: {
+                from: 'games',
+                localField: '_id',
+                foreignField: '_id',
+                as: 'game',
+              },
+            },
+            { $unwind: '$game' },
+            { $sort: { 'game.narrationDurationPoint': -1 } },
+            { $limit: 3 },
+            {
+              $project: {
+                _id: 0,
+                gameId: '$_id',
+                name: '$game.name',
+                narrationDurationPoint: '$game.narrationDurationPoint',
+                mentors: 1,
+              },
+            },
+          ],
         },
       },
     ];
 
-    const results = await this.gameplayModel
-      .aggregate(aggregationPipeline)
-      .exec();
-    return results;
+    const [result] = await this.gameplayModel.aggregate(pipeline).exec();
+    return {
+      topMentors: result.topMentors,
+      topComplexGames: result.topComplexGames,
+    };
   }
 }

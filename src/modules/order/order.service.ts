@@ -453,6 +453,7 @@ export class OrderService {
           $match: {
             createdAt: { $gte: start, $lte: end },
             location: Number(location),
+            status: { $ne: OrderStatus.CANCELLED },
           },
         },
         {
@@ -492,6 +493,220 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to fetch top order creators',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findTopOrderDeliverers(date: string, location: number) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+    try {
+      const results = await this.orderModel.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: start, $lte: end },
+            location: Number(location),
+            status: { $ne: OrderStatus.CANCELLED },
+          },
+        },
+        {
+          $group: {
+            _id: '$deliveredBy',
+            orderCount: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { orderCount: -1 },
+        },
+        {
+          $limit: 4,
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $unwind: '$user',
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: '$user._id',
+            userName: '$user.name',
+            orderCount: 1,
+          },
+        },
+      ]);
+      return results;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch top order deliverers',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findTopCollectionCreators(date: string, location: number) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+    try {
+      const results = await this.collectionModel.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: start, $lte: end },
+            location: Number(location),
+            status: {
+              $ne: OrderCollectionStatus.CANCELLED,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$createdBy',
+            collectionCount: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { collectionCount: -1 },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $unwind: '$user',
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: '$user._id',
+            userName: '$user.name',
+            collectionCount: 1,
+          },
+        },
+      ]);
+      return results;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch top collectors',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async findOrderPreparationStats(date: string, location: number) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+
+    try {
+      const [stats] = await this.orderModel.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: start, $lte: end },
+            preparedAt: { $exists: true },
+            location: Number(location),
+            status: { $ne: OrderStatus.CANCELLED },
+          },
+        },
+        {
+          $lookup: {
+            from: 'menuitems',
+            localField: 'item',
+            foreignField: '_id',
+            as: 'menuItem',
+          },
+        },
+        { $unwind: '$menuItem' },
+        {
+          $match: {
+            'menuItem.category': { $ne: 30 },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            preparationTimeMs: { $subtract: ['$preparedAt', '$createdAt'] },
+          },
+        },
+        {
+          $facet: {
+            average: [
+              {
+                $group: {
+                  _id: null,
+                  averagePreparationTimeMs: { $avg: '$preparationTimeMs' },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  averagePreparationTimeMs: 1,
+                  averagePreparationTimeMinutes: {
+                    $divide: ['$averagePreparationTimeMs', 1000 * 60],
+                  },
+                  averagePreparationTimeHours: {
+                    $divide: ['$averagePreparationTimeMs', 1000 * 60 * 60],
+                  },
+                },
+              },
+            ],
+            topOrders: [
+              { $sort: { preparationTimeMs: -1 } },
+              { $limit: 3 },
+              {
+                $project: {
+                  _id: 1,
+                  preparationTimeMs: 1,
+                  preparationTimeMinutes: {
+                    $divide: ['$preparationTimeMs', 1000 * 60],
+                  },
+                  preparationTimeHours: {
+                    $divide: ['$preparationTimeMs', 1000 * 60 * 60],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ]);
+
+      const avg = stats.average[0] || {
+        averagePreparationTimeMs: 0,
+        averagePreparationTimeMinutes: 0,
+        averagePreparationTimeHours: 0,
+      };
+
+      return {
+        average: {
+          ms: avg.averagePreparationTimeMs,
+          minutes: avg.averagePreparationTimeMinutes,
+          hours: avg.averagePreparationTimeHours,
+        },
+        topOrders: stats.topOrders.map((o) => ({
+          orderId: o._id,
+          ms: o.preparationTimeMs,
+          minutes: o.preparationTimeMinutes,
+          hours: o.preparationTimeHours,
+        })),
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch preparation time stats',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
