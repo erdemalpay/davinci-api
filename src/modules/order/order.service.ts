@@ -441,6 +441,62 @@ export class OrderService {
       );
     }
   }
+  async findTopOrderCreators(date: string, location: number) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+    try {
+      const results = await this.orderModel.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: start, $lte: end },
+            location: Number(location),
+          },
+        },
+        {
+          $group: {
+            _id: '$createdBy',
+            orderCount: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { orderCount: -1 },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $unwind: '$user',
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: '$user._id',
+            userName: '$user.name',
+            orderCount: 1,
+          },
+        },
+      ]);
+
+      return results;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch top order creators',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findGivenDateOrders(date: string, location: number) {
     try {
       const parsedDate = parseISO(date);

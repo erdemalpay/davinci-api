@@ -84,6 +84,14 @@ export class OrderController {
     );
   }
 
+  @Get('/top-order-creators')
+  findTopOrderCreators(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findTopOrderCreators(date, location);
+  }
+
   @Post('/create_order_for_discount')
   createOrderForDiscount(
     @ReqUser() user: User,
