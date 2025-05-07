@@ -617,7 +617,14 @@ export class OrderService {
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date(date);
     end.setUTCHours(23, 59, 59, 999);
-
+    const formatDuration = (ms: number) => {
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    };
     try {
       const [stats] = await this.orderModel.aggregate([
         {
@@ -646,6 +653,8 @@ export class OrderService {
           $project: {
             _id: 1,
             preparationTimeMs: { $subtract: ['$preparedAt', '$createdAt'] },
+            item: 1,
+            table: 1,
           },
         },
         {
@@ -661,12 +670,6 @@ export class OrderService {
                 $project: {
                   _id: 0,
                   averagePreparationTimeMs: 1,
-                  averagePreparationTimeMinutes: {
-                    $divide: ['$averagePreparationTimeMs', 1000 * 60],
-                  },
-                  averagePreparationTimeHours: {
-                    $divide: ['$averagePreparationTimeMs', 1000 * 60 * 60],
-                  },
                 },
               },
             ],
@@ -676,37 +679,26 @@ export class OrderService {
               {
                 $project: {
                   _id: 1,
+                  item: 1,
+                  table: 1,
                   preparationTimeMs: 1,
-                  preparationTimeMinutes: {
-                    $divide: ['$preparationTimeMs', 1000 * 60],
-                  },
-                  preparationTimeHours: {
-                    $divide: ['$preparationTimeMs', 1000 * 60 * 60],
-                  },
                 },
               },
             ],
           },
         },
       ]);
-
-      const avg = stats.average[0] || {
-        averagePreparationTimeMs: 0,
-        averagePreparationTimeMinutes: 0,
-        averagePreparationTimeHours: 0,
-      };
-
+      const avgRow = stats.average[0] || { averagePreparationTimeMs: 0 };
+      const avgMs = avgRow.averagePreparationTimeMs;
       return {
         average: {
-          ms: avg.averagePreparationTimeMs,
-          minutes: avg.averagePreparationTimeMinutes,
-          hours: avg.averagePreparationTimeHours,
+          ms: avgMs,
+          formatted: formatDuration(avgMs),
         },
-        topOrders: stats.topOrders.map((o) => ({
-          orderId: o._id,
+        topOrders: stats.topOrders.map((o: any) => ({
+          order: o,
           ms: o.preparationTimeMs,
-          minutes: o.preparationTimeMinutes,
-          hours: o.preparationTimeHours,
+          formatted: formatDuration(o.preparationTimeMs),
         })),
       };
     } catch (error) {
@@ -716,7 +708,6 @@ export class OrderService {
       );
     }
   }
-
   async findGivenDateOrders(date: string, location: number) {
     try {
       const parsedDate = parseISO(date);

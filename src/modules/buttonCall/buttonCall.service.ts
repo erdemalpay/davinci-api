@@ -144,7 +144,10 @@ export class ButtonCallService {
       .exec();
 
     if (!calls.length) {
-      throw new HttpException('No button calls found', HttpStatus.NOT_FOUND);
+      return {
+        averageDuration: '00:00:00',
+        longestCalls: [],
+      };
     }
 
     const callsWithSeconds = calls.map((call) => {
