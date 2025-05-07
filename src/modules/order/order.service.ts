@@ -12,6 +12,8 @@ import { format, parseISO } from 'date-fns';
 import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { ButtonCallService } from '../buttonCall/buttonCall.service';
+import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -67,6 +69,9 @@ export class OrderService {
     private readonly visitService: VisitService,
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
+    private readonly buttonCallService: ButtonCallService,
+    @Inject(forwardRef(() => GameplayService))
+    private readonly gameplayService: GameplayService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -2542,6 +2547,37 @@ export class OrderService {
       };
     } catch (error) {
       console.error('Error migrating orders to online:', error);
+      throw error;
+    }
+  }
+  async findDailySummary(date: string, location: number) {
+    try {
+      const [
+        topOrderCreators,
+        topOrderDeliverers,
+        topCollectionCreators,
+        orderPreparationStats,
+        buttonCallStats,
+        gameplayStats,
+      ] = await Promise.all([
+        this.findTopOrderCreators(date, location),
+        this.findTopOrderDeliverers(date, location),
+        this.findTopCollectionCreators(date, location),
+        this.findOrderPreparationStats(date, location),
+        this.buttonCallService.averageButtonCallStats(date, location),
+        this.gameplayService.givenDateTopMentorAndComplexGames(date, location),
+      ]);
+
+      return {
+        topOrderCreators,
+        topOrderDeliverers,
+        topCollectionCreators,
+        orderPreparationStats,
+        buttonCallStats,
+        gameplayStats,
+      };
+    } catch (error) {
+      console.error('Error getting daily summary:', error);
       throw error;
     }
   }

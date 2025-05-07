@@ -115,6 +115,13 @@ export class OrderController {
   ) {
     return this.orderService.findOrderPreparationStats(date, location);
   }
+  @Get('/daily-summary')
+  findDailySummary(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findDailySummary(date, location);
+  }
 
   @Post('/create_order_for_discount')
   createOrderForDiscount(

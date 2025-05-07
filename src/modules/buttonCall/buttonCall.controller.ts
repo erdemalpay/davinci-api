@@ -1,11 +1,20 @@
-import { ButtonCall } from './schemas/buttonCall.schema';
-import { ButtonCallService} from './buttonCall.service';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, HttpException, HttpStatus, Patch, Post, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
-import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { User } from '../user/user.schema';
+import { ButtonCallService } from './buttonCall.service';
+import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
+import { ButtonCall } from './schemas/buttonCall.schema';
 
 @ApiTags('ButtonCall')
 @Controller('button-calls')
@@ -14,17 +23,20 @@ export class ButtonCallController {
 
   @ApiResponse({ type: [ButtonCall] })
   @Get()
-  getButtonCalls(@Query('date') date: string,
-                 @Query('location') location: number,
-                 @Query('type') type: string) {
+  getButtonCalls(
+    @Query('date') date: string,
+    @Query('location') location: number,
+    @Query('type') type: string,
+  ) {
     return this.buttonCallService.find(date, location, type);
   }
 
   @ApiResponse({ type: ButtonCall })
   @Post()
   createButtonCall(
-      @ReqUser() user: User,
-      @Body() createButtonCallDto: CreateButtonCallDto) {
+    @ReqUser() user: User,
+    @Body() createButtonCallDto: CreateButtonCallDto,
+  ) {
     if (!createButtonCallDto.tableName || !createButtonCallDto.location) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
@@ -50,6 +62,14 @@ export class ButtonCallController {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
     return this.buttonCallService.close(user, closeButtonCallDto, true);
+  }
+
+  @Get('/average-duration')
+  averageDuration(
+    @Query('date') date: string,
+    @Query('location') location: number,
+  ) {
+    return this.buttonCallService.averageButtonCallStats(date, location);
   }
 
   @ApiResponse({ type: ButtonCall })

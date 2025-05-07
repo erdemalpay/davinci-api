@@ -1,24 +1,21 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
+import { lastValueFrom, timeout } from 'rxjs';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { User } from '../user/user.schema';
 import { ButtonCallGateway } from './buttonCall.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
-import { HttpService } from '@nestjs/axios';
-import { lastValueFrom, timeout } from 'rxjs';
 
 @Injectable()
 export class ButtonCallService {
   constructor(
-    @InjectModel(ButtonCall.name) private readonly buttonCallModel: Model<ButtonCall>,
+    @InjectModel(ButtonCall.name)
+    private readonly buttonCallModel: Model<ButtonCall>,
     private readonly httpService: HttpService,
     private readonly buttonCallGateway: ButtonCallGateway,
   ) {}
@@ -66,7 +63,7 @@ export class ButtonCallService {
     });
     if (!closedButtonCall) {
       console.log('There is no active button calls found for this button');
-      throw new HttpException("Not Found", HttpStatus.NOT_FOUND);
+      throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
     const finishHour = format(new Date(), 'HH:mm:ss');
@@ -85,7 +82,7 @@ export class ButtonCallService {
     );
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
-    if(notifyCafe) {
+    if (notifyCafe) {
       await this.notifyCafe(user, closedButtonCall);
     }
 
@@ -93,24 +90,91 @@ export class ButtonCallService {
   }
 
   async notifyCafe(user: User, closeButtonCallDto: CloseButtonCallDto) {
-    if (!user)
-    {
-      throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
+    if (!user) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
     if (!this.buttonCallNeoIP || !this.buttonCallNeoPort) {
-      throw new HttpException('IP and PORT must be specified.', HttpStatus.PRECONDITION_REQUIRED);
+      throw new HttpException(
+        'IP and PORT must be specified.',
+        HttpStatus.PRECONDITION_REQUIRED,
+      );
     }
-    const apiUrl = 'http://' + this.buttonCallNeoIP + ':' + this.buttonCallNeoPort + '/transmit';
+    const apiUrl =
+      'http://' +
+      this.buttonCallNeoIP +
+      ':' +
+      this.buttonCallNeoPort +
+      '/transmit';
     try {
-      const response = await lastValueFrom(this.httpService
-        .post(apiUrl, { 'location': closeButtonCallDto.location, 'tableName': closeButtonCallDto.tableName }, {
-          headers: { 'Content-Type': 'application/json' },
-        })
-        .pipe(timeout(10000))
+      const response = await lastValueFrom(
+        this.httpService
+          .post(
+            apiUrl,
+            {
+              location: closeButtonCallDto.location,
+              tableName: closeButtonCallDto.tableName,
+            },
+            {
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+          .pipe(timeout(10000)),
       );
     } catch (error) {
-      throw new HttpException(error.message ?? 'Error notifying cafe', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        error.message ?? 'Error notifying cafe',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
+  }
+  async averageButtonCallStats(
+    date: string,
+    location: number,
+  ): Promise<{
+    averageDuration: string;
+    longestCalls: { tableName: string; duration: string }[];
+  }> {
+    const calls = await this.buttonCallModel
+      .find({
+        date,
+        location: Number(location),
+        finishHour: { $exists: true },
+      })
+      .select('duration tableName')
+      .exec();
+
+    if (!calls.length) {
+      throw new HttpException('No button calls found', HttpStatus.NOT_FOUND);
+    }
+
+    const callsWithSeconds = calls.map((call) => {
+      const [h, m, s] = call.duration.split(':').map(Number);
+      const seconds = h * 3600 + m * 60 + s;
+      return { tableName: call.tableName, duration: call.duration, seconds };
+    });
+
+    const totalSeconds = callsWithSeconds.reduce(
+      (sum, c) => sum + c.seconds,
+      0,
+    );
+    const avgSeconds = Math.round(totalSeconds / callsWithSeconds.length);
+
+    const hours = Math.floor(avgSeconds / 3600);
+    const minutes = Math.floor((avgSeconds % 3600) / 60);
+    const seconds = avgSeconds % 60;
+
+    const averageDuration = [
+      String(hours).padStart(2, '0'),
+      String(minutes).padStart(2, '0'),
+      String(seconds).padStart(2, '0'),
+    ].join(':');
+
+    const longestCalls = callsWithSeconds
+      .sort((a, b) => b.seconds - a.seconds)
+      .slice(0, 3)
+      .map(({ tableName, duration }) => ({ tableName, duration }));
+
+    return { averageDuration, longestCalls };
   }
 
   async find(date?: string, location?: number, type?: string) {

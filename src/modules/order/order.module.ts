@@ -5,6 +5,7 @@ import * as config from 'config';
 import Redis from 'ioredis';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
+import { ButtonCallModule } from '../buttonCall/buttonCall.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RedisModule } from '../redis/redis.module';
@@ -37,9 +38,10 @@ const { host, port } = config.get<DBConfig>('redis');
   imports: [
     mongooseModule,
     ActivityModule,
-    GameplayModule,
     RedisModule,
     VisitModule,
+    ButtonCallModule,
+    GameplayModule,
     NotificationModule,
     BullModule.forRootAsync({
       imports: [RedisModule],
