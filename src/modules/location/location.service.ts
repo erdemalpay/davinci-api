@@ -90,23 +90,4 @@ export class LocationService {
     this.locationGateway.emitLocationChanged(location);
     return location;
   }
-
-  async updateLocationShifts() {
-    const locations = await this.locationModel.find();
-    locations.forEach(async (location) => {
-      if (!location.shifts) {
-        return;
-      }
-      const shifts = location.shifts.map((shift) => {
-        return {
-          shift: shift,
-          type: 'fulltime',
-          isActive: true,
-        };
-      });
-      await this.locationModel.findByIdAndUpdate(location._id, { shifts });
-    });
-    this.locationGateway.emitLocationChanged(locations);
-    return locations;
-  }
 }
