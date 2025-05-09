@@ -645,6 +645,15 @@ export class OrderService {
         },
         { $unwind: '$menuItem' },
         {
+          $lookup: {
+            from: 'tables',
+            localField: 'table',
+            foreignField: '_id',
+            as: 'orderTable',
+          },
+        },
+        { $unwind: '$orderTable' },
+        {
           $match: {
             'menuItem.category': { $ne: 30 },
           },
@@ -654,7 +663,7 @@ export class OrderService {
             _id: 1,
             preparationTimeMs: { $subtract: ['$preparedAt', '$createdAt'] },
             item: 1,
-            table: 1,
+            orderTable: 1,
           },
         },
         {
@@ -680,7 +689,7 @@ export class OrderService {
                 $project: {
                   _id: 1,
                   item: 1,
-                  table: 1,
+                  orderTable: 1,
                   preparationTimeMs: 1,
                 },
               },
@@ -2558,7 +2567,6 @@ export class OrderService {
         this.buttonCallService.averageButtonCallStats(date, location),
         this.gameplayService.givenDateTopMentorAndComplexGames(date, location),
       ]);
-
       return {
         topOrderCreators,
         topOrderDeliverers,

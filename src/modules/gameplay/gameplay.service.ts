@@ -433,7 +433,13 @@ export class GameplayService {
   }
   async givenDateTopMentorAndComplexGames(date: string, location: number) {
     const pipeline: PipelineStage[] = [
-      { $match: { date, location: Number(location) } },
+      {
+        $match: {
+          date,
+          location: Number(location),
+          mentor: { $nin: [null, '', 'dv', 'DV', 'Dv'] },
+        },
+      },
       {
         $facet: {
           topMentors: [
