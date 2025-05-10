@@ -83,65 +83,47 @@ export class ShiftService {
 
     return result;
   }
+
   async findUserShifts(query: ShiftUserQueryDto) {
-    const { after, before, user } = query;
+    const { after, before, user: userId } = query;
     const startDate = new Date(after);
     const endDate = new Date(before);
     const daysInRange: string[] = [];
-  
-    // Create an array of all days in the specified range in YYYY-MM-DD format
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
       daysInRange.push(d.toISOString().split('T')[0]);
     }
-  
-    // Build the filter query
     const filterQuery: any = {};
     if (after) {
       filterQuery['day'] = { $gte: after };
     }
     if (before) {
-      filterQuery['day'] = { ...filterQuery['day'], $lte: before };
+      filterQuery['day'] = {
+        ...filterQuery['day'],
+        $lte: before,
+      };
     }
-    // Add user filter: Only select shift documents where at least one shift entry includes the provided user.
-    if (user) {
-      filterQuery['shifts'] = { $elemMatch: { user: user } };
-    }
-  
-    let shiftsData;
-    try {
-      shiftsData = await this.shiftModel.find(filterQuery).exec();
-    } catch (error) {
-      throw new Error('Failed to fetch shifts for user');
-    }
-  
-    // Map the returned shifts by day so that we can align them with the full date range.
-    const shiftsMap = new Map<string, any>();
-    for (const shift of shiftsData) {
-      shiftsMap.set(shift.day, shift);
-    }
-  
-    // For each day in the range, if a shift exists return it, otherwise return an empty shifts array.
-    const result = daysInRange.map((day) => {
-      if (shiftsMap.has(day)) {
-        return shiftsMap.get(day);
-      } else {
-        return { day, shifts: [] };
-      }
-    });
-  
-    return result;
+    return this.shiftModel.find(filterQuery).exec();
   }
-  
-  async copyShift(user: User, copiedDay: string, selectedDay: string) {
+
+  async copyShift(
+    user: User,
+    copiedDay: string,
+    selectedDay: string,
+    location: number,
+  ) {
     try {
       const sourceShift = await this.shiftModel
-        .findOne({ day: copiedDay })
+        .findOne({ day: copiedDay, location: location })
         .exec();
       if (!sourceShift) {
         throw new HttpException('Source shift not found', HttpStatus.NOT_FOUND);
       }
       let targetShift = await this.shiftModel
-        .findOne({ day: selectedDay })
+        .findOne({ day: selectedDay, location: location })
         .exec();
       if (targetShift) {
         targetShift.shifts = sourceShift.shifts;
@@ -151,6 +133,7 @@ export class ShiftService {
       } else {
         const { _id, ...shiftData } = sourceShift.toObject();
         shiftData.day = selectedDay;
+        shiftData.location = location;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
         this.shiftGateway.emitShiftChanged(user, newShift);
@@ -167,6 +150,7 @@ export class ShiftService {
     startCopiedDay: string,
     endCopiedDay: string,
     selectedDay: string,
+    location: number,
   ) {
     const startDate = new Date(startCopiedDay);
     const endDate = new Date(endCopiedDay);
@@ -186,16 +170,13 @@ export class ShiftService {
       const targetDay = targetDate.toISOString().split('T')[0];
 
       const sourceShift = await this.shiftModel
-        .findOne({ day: sourceDay })
+        .findOne({ day: sourceDay, location: location })
         .exec();
       if (!sourceShift) {
-        throw new HttpException(
-          `Source shift not found for day ${sourceDay}`,
-          HttpStatus.NOT_FOUND,
-        );
+        continue;
       }
       let targetShift = await this.shiftModel
-        .findOne({ day: targetDay })
+        .findOne({ day: targetDay, location: location })
         .exec();
       if (targetShift) {
         targetShift.shifts = sourceShift.shifts;
@@ -205,6 +186,7 @@ export class ShiftService {
       } else {
         const { _id, ...shiftData } = sourceShift.toObject();
         shiftData.day = targetDay;
+        shiftData.location = location;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
         this.shiftGateway.emitShiftChanged(user, newShift);
