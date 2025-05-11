@@ -72,10 +72,13 @@ export class VisitService {
     return visit;
   }
 
-  async getVisits(startDate: string, endDate?: string) {
+  async getVisits(startDate: string, endDate?: string, user?: string) {
     let query: any = { date: { $gte: startDate } };
     if (endDate) {
       query = { ...query, date: { ...query.date, $lte: endDate } };
+    }
+    if (user) {
+      query = { ...query, user };
     }
     const visits = await this.visitModel
       .find(query, { __v: false, _id: false })
