@@ -80,4 +80,22 @@ export class ShiftController {
       payload.location,
     );
   }
+
+  @Post('/add')
+  addShift(
+    @Body()
+    payload: {
+      day: string;
+      location: number;
+      shift: string;
+      userId: string;
+    },
+  ) {
+    return this.shiftService.addShift(
+      payload.day,
+      payload.shift,
+      payload.location,
+      payload.userId,
+    );
+  }
 }

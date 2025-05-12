@@ -41,7 +41,7 @@ export class ShiftGateway
     return 'Hello world!';
   }
 
-  emitShiftChanged(user: User, shift: any) {
+  emitShiftChanged(user?: User, shift?: any) {
     this.server.emit('shiftChanged', { user, shift });
   }
 }

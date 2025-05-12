@@ -196,4 +196,28 @@ export class ShiftService {
     }
     return results;
   }
+  async addShift(day: string, shift: string, location: number, userId: string) {
+    const updated = await this.shiftModel
+      .findOneAndUpdate(
+        { day, location, 'shifts.shift': shift },
+        { $addToSet: { 'shifts.$.user': userId } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      const result = await this.shiftModel
+        .findOneAndUpdate(
+          { day, location },
+          { $push: { shifts: { shift, user: [userId], chefUser: '' } } },
+          { upsert: true, new: true },
+        )
+        .exec();
+      this.shiftGateway.emitShiftChanged();
+      return result;
+    }
+
+    this.shiftGateway.emitShiftChanged();
+    return updated;
+  }
 }
