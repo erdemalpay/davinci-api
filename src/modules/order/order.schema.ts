@@ -137,6 +137,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: IkasCustomer })
   ikasCustomer: IkasCustomer;
+
+  @Prop({ required: false, type: Boolean })
+  isIkasCustomerPicked: boolean;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

@@ -36,6 +36,7 @@ export class CreateOrderDto {
   activityTableName?: string;
   activityPlayer?: string;
   ikasCustomer?: IkasCustomer;
+  isIkasCustomerPicked?: boolean;
 }
 export type OrderType = {
   _id: number;
@@ -74,6 +75,7 @@ export type OrderType = {
   tableDate?: Date;
   isPaymentMade?: boolean;
   ikasCustomer?: IkasCustomer;
+  isIkasCustomerPicked?: boolean;
 };
 
 export class CreateCollectionDto {
