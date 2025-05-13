@@ -1,4 +1,5 @@
 import { OrderCollectionItem } from './collection.schema';
+import { IkasCustomer } from './order.schema';
 
 export class CreateOrderDto {
   location: number;
@@ -34,6 +35,7 @@ export class CreateOrderDto {
   ikasId?: string;
   activityTableName?: string;
   activityPlayer?: string;
+  ikasCustomer?: IkasCustomer;
 }
 export type OrderType = {
   _id: number;
@@ -71,6 +73,7 @@ export type OrderType = {
   paymentMethod?: string;
   tableDate?: Date;
   isPaymentMade?: boolean;
+  ikasCustomer?: IkasCustomer;
 };
 
 export class CreateCollectionDto {

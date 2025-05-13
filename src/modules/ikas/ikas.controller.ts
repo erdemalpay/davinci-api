@@ -11,6 +11,11 @@ export class IkasController {
     return this.ikasService.getAllProducts();
   }
 
+  @Get('/order')
+  getAllOrders() {
+    return this.ikasService.getAllOrders();
+  }
+
   @Post('/product')
   createProduct(@Body() product: any) {
     return this.ikasService.createProduct(product);

@@ -8,6 +8,26 @@ import { User } from '../user/user.schema';
 import { Kitchen } from './../menu/kitchen.schema';
 import { Discount } from './discount.schema';
 
+export class IkasCustomer {
+  @Prop({ required: true, type: String })
+  id: string;
+
+  @Prop({ required: false, type: String })
+  firstName: string;
+
+  @Prop({ required: false, type: String })
+  lastName: string;
+
+  @Prop({ required: false, type: String })
+  email: string;
+
+  @Prop({ required: false, type: String })
+  phone: string;
+
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
+}
+
 @Schema({ _id: false })
 export class Order extends Document {
   @Prop({ type: Number })
@@ -114,6 +134,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Date })
   tableDate: Date;
+
+  @Prop({ required: false, type: IkasCustomer })
+  ikasCustomer: IkasCustomer;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

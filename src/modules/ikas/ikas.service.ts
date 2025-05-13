@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
-import { OrderStatus } from '../order/order.dto';
+import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
@@ -226,6 +226,68 @@ export class IkasService {
     }
 
     return allProducts;
+  }
+  async getAllOrders() {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    // Function to fetch a batch of products
+    const fetchBatch = async (page: number) => {
+      const query = {
+        query: `
+  {
+    listOrder(pagination: { page: ${page}, limit: 50 }) {
+      data {
+        id
+        stockLocationId
+        branchSessionId
+        customerId
+        orderNumber
+        orderedAt
+        salesChannelId
+      }
+    }
+  }`,
+      };
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listOrder.data;
+      } catch (error) {
+        console.error(
+          'Error fetching products:',
+          JSON.stringify(error.response?.data || error.message),
+        );
+        throw new HttpException(
+          'Unable to fetch products from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    };
+
+    const allOrders: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const batch = await fetchBatch(page);
+
+      if (batch.length === 0) {
+        hasMore = false;
+      } else {
+        allOrders.push(...batch);
+        page += 1;
+      }
+    }
+
+    return allOrders;
   }
 
   async getAllCategories() {
@@ -843,11 +905,10 @@ export class IkasService {
             await this.accountingService.findPaymentMethodByIkasId(
               data?.data?.salesChannelId,
             );
-          const createOrderObject = {
+          let createOrderObject: CreateOrderDto = {
             item: foundMenuItem._id,
             quantity: quantity,
             note: '',
-            category: foundMenuItem.category,
             discount: undefined,
             discountNote: '',
             isOnlinePrice: false,
@@ -869,6 +930,24 @@ export class IkasService {
               paymentMethod: foundPaymentMethod._id,
             }),
           };
+          if (data?.data?.stockLocationId !== null) {
+            const foundLocation = await this.locationService.findByIkasId(
+              data?.data?.stockLocationId,
+            );
+            if (foundLocation) {
+              createOrderObject = {
+                ...createOrderObject,
+                ikasCustomer: {
+                  id: data?.data?.customer?.id,
+                  firstName: data?.data?.customer?.name,
+                  lastName: data?.data?.customer?.lastName,
+                  email: data?.data?.customer?.email,
+                  phone: data?.data?.customer?.phone,
+                  location: foundLocation._id,
+                },
+              };
+            }
+          }
           try {
             const order = await this.orderService.createOrder(
               constantUser,
