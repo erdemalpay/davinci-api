@@ -123,6 +123,25 @@ export class MenuService {
     return inStock;
   }
 
+  async findItemsWithIkasId() {
+    return this.itemModel.find({ ikasId: { $nin: [null, ''] } });
+  }
+
+  async updateIkasItemsIkasIdFields(sendItems: MenuItem[]) {
+    const items = await this.itemModel.find();
+    Promise.all(
+      items?.map(async (item) => {
+        const ikasItem = sendItems?.find((i) => i._id === item._id);
+        if (ikasItem) {
+          await this.itemModel.findByIdAndUpdate(item._id, {
+            ikasId: ikasItem.ikasId,
+          });
+        }
+      }),
+    );
+    this.menuGateway.emitItemChanged(null, items);
+  }
+
   async findItemsInCategoryArray(categories: number[]) {
     return this.itemModel.find({ category: { $in: categories } });
   }

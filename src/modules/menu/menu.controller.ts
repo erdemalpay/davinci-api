@@ -38,6 +38,16 @@ export class MenuController {
     return this.menuService.updateItemIkasCategories();
   }
 
+  @Get('/items/ikas')
+  findItemsWithIkasId() {
+    return this.menuService.findItemsWithIkasId();
+  }
+
+  @Post('/items/update-ikas-id')
+  updateIkasItemsIkasIdFields(@Body() sendItems: Array<MenuItem>) {
+    return this.menuService.updateIkasItemsIkasIdFields(sendItems);
+  }
+
   @Get('/items/remove-deleted-products')
   removeDeletedProducts() {
     return this.menuService.removeDeletedProductsFromMenuItem();
