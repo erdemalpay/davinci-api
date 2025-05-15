@@ -495,7 +495,16 @@ export class MenuService {
         { price: updates.price, date: new Date().toISOString() },
       ];
       if (item?.ikasId) {
-        await this.IkasService.updateProductPrice(item.ikasId, updates.price);
+        // Update the price in Ikas service
+        try {
+          await this.IkasService.updateProductPrice(item.ikasId, updates.price);
+        } catch (error) {
+          console.error('Error updating price in Ikas:', error);
+          throw new HttpException(
+            'Failed to update price in Ikas',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
       }
     }
 
