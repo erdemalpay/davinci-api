@@ -37,6 +37,20 @@ export class IkasController {
     );
   }
 
+  @Patch('/product-price')
+  updateProductPrice(
+    @Body()
+    payload: {
+      productId: string;
+      newPrice: number;
+    },
+  ) {
+    return this.ikasService.updateProductPrice(
+      payload.productId,
+      payload.newPrice,
+    );
+  }
+
   @Get('/category')
   getAllCategories() {
     return this.ikasService.getAllCategories();

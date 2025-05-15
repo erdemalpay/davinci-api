@@ -494,6 +494,9 @@ export class MenuService {
         ...item.priceHistory,
         { price: updates.price, date: new Date().toISOString() },
       ];
+      if (item?.ikasId) {
+        await this.IkasService.updateProductPrice(item.ikasId, updates.price);
+      }
     }
 
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {

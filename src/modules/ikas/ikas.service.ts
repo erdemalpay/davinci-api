@@ -658,6 +658,75 @@ export class IkasService {
 
     return await updateProductStockMutation();
   }
+  async updateProductPrice(
+    productId: string, //this is the ikas id for the product
+    newPrice: number,
+  ): Promise<boolean> {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+    const allProducts = await this.getAllProducts();
+
+    const foundProduct = allProducts.find(
+      (product) => product.id === productId,
+    );
+    if (!foundProduct) {
+      throw new HttpException(
+        `Product with ID ${productId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const updateProductPriceMutation = async (): Promise<boolean> => {
+      const data = {
+        query: `
+        mutation {
+          saveVariantPrices(input: {
+            variantPriceInputs: [
+              {
+                price: ${newPrice},
+                productId: "${productId}",
+                variantId: "${foundProduct?.variants[0]?.id}"
+              }
+            ]
+          })
+        }
+      `,
+      };
+
+      try {
+        const response = await this.httpService
+          .post(apiUrl, data, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+        if (response.data.data.saveVariantPrices) {
+          console.log(`ikas ${productId} price updated successfully.`);
+          await this.ikasGateway.emitIkasProductStockChanged();
+          return true;
+        } else {
+          console.error('Failed to update price: Mutation returned false.');
+          return false;
+        }
+      } catch (error) {
+        console.error(
+          'Error updating price:',
+          JSON.stringify(error.response?.data || error.message, null, 2),
+        );
+        console.log(error);
+        throw new HttpException(
+          'Unable to update product price.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    };
+
+    return await updateProductPriceMutation();
+  }
 
   async getAllWebhooks() {
     const token = await this.getToken();
