@@ -685,7 +685,9 @@ export class IkasService {
           saveVariantPrices(input: {
             variantPriceInputs: [
               {
-                price: ${newPrice},
+                price:{
+                  sellPrice: ${newPrice},
+      }
                 productId: "${productId}",
                 variantId: "${foundProduct?.variants[0]?.id}"
               }
