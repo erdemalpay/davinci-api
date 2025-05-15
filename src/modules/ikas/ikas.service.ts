@@ -999,7 +999,7 @@ export class IkasService {
               paymentMethod: foundPaymentMethod._id,
             }),
           };
-          if (!data?.data?.stockLocationId) {
+          if (data?.data?.stockLocationId) {
             const foundLocation = await this.locationService.findByIkasId(
               data?.data?.stockLocationId,
             );
