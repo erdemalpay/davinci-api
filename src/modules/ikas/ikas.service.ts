@@ -1008,7 +1008,7 @@ export class IkasService {
                 ...createOrderObject,
                 ikasCustomer: {
                   id: data?.data?.customer?.id,
-                  firstName: data?.data?.customer?.name,
+                  firstName: data?.data?.customer?.firstName,
                   lastName: data?.data?.customer?.lastName,
                   email: data?.data?.customer?.email,
                   phone: data?.data?.customer?.phone,
