@@ -17,6 +17,7 @@ import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { TableTypes } from '../table/table.dto';
 import { TableGateway } from '../table/table.gateway';
 import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
@@ -514,6 +515,20 @@ export class OrderService {
             createdAt: { $gte: start, $lte: end },
             location: Number(location),
             status: { $ne: OrderStatus.CANCELLED },
+          },
+        },
+        {
+          $lookup: {
+            from: 'tables',
+            localField: 'table',
+            foreignField: '_id',
+            as: 'table',
+          },
+        },
+        { $unwind: '$table' },
+        {
+          $match: {
+            'table.type': { $ne: TableTypes.TAKEOUT },
           },
         },
         {
