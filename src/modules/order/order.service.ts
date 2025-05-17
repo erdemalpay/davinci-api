@@ -1305,11 +1305,22 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      await this.updateOrder(user, order._id, {
-        status: OrderStatus.CANCELLED,
-        cancelledAt: new Date(),
-        cancelledBy: user._id,
-      });
+      await this.orderModel.findByIdAndUpdate(
+        order._id,
+        {
+          $set: {
+            status: OrderStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: user._id,
+          },
+          $unset: {
+            ikasCustomer: '',
+            isIkasCustomerPicked: '',
+          },
+        },
+        { new: true },
+      );
+
       await this.collectionModel.findByIdAndUpdate(
         collection._id,
         {
@@ -1319,6 +1330,8 @@ export class OrderService {
         },
         { new: true },
       );
+      await this.orderGateway.emitOrderUpdated(user, order);
+      await this.orderGateway.emitCollectionChanged(user, collection);
       return { message: 'Order cancelled successfully' };
     } catch (error) {
       console.error('Error cancelling ikas order:', error);
