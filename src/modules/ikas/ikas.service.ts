@@ -7,13 +7,20 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { format } from 'date-fns';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
+import {
+  NotificationEventType,
+  NotificationType,
+} from '../notification/notification.dto';
+import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { VisitService } from '../visit/visit.service';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
@@ -21,6 +28,9 @@ import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
 import { IkasGateway } from './ikas.gateway';
 
+interface SeenUsers {
+  [key: string]: boolean;
+}
 @Injectable()
 export class IkasService {
   private readonly tokenPayload: Record<string, string>;
@@ -38,6 +48,8 @@ export class IkasService {
     private readonly userService: UserService,
     private readonly locationService: LocationService,
     private readonly ikasGateway: IkasGateway,
+    private readonly notificationService: NotificationService,
+    private readonly visitService: VisitService,
   ) {
     this.tokenPayload = {
       grant_type: 'client_credentials',
@@ -1025,7 +1037,45 @@ export class IkasService {
               createOrderObject,
             );
             console.log('Order created:', order);
-
+            if (data?.data?.stockLocationId) {
+              const foundLocation = await this.locationService.findByIkasId(
+                data?.data?.stockLocationId,
+              );
+              if (foundLocation) {
+                const visits = await this.visitService.findByDateAndLocation(
+                  format(order.createdAt, 'yyyy-MM-dd'),
+                  2,
+                );
+                const uniqueVisitUsers =
+                  visits
+                    ?.reduce(
+                      (
+                        acc: { unique: typeof visits; seenUsers: SeenUsers },
+                        visit,
+                      ) => {
+                        acc.seenUsers = acc.seenUsers || {};
+                        if (
+                          visit?.user &&
+                          !acc.seenUsers[(visit as any).user]
+                        ) {
+                          acc.seenUsers[(visit as any).user] = true;
+                          acc.unique.push(visit);
+                        }
+                        return acc;
+                      },
+                      { unique: [], seenUsers: {} },
+                    )
+                    ?.unique?.map((visit) => visit.user) ?? [];
+                await this.notificationService.createNotification({
+                  type: NotificationType.INFORMATION,
+                  selectedUsers: (uniqueVisitUsers as any) ?? [],
+                  selectedLocations: [2],
+                  seenBy: [],
+                  event: NotificationEventType.IKASTAKEAWAY,
+                  message: `Yeni bir ikas gel al siparişi geldi.`,
+                });
+              }
+            }
             const createdCollection = {
               location: foundLocation._id,
               paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
