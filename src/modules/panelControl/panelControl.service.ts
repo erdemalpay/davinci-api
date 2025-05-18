@@ -67,23 +67,24 @@ export class PanelControlService implements OnApplicationBootstrap {
     const newPage = await this.pageModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    if (updates.permissionRoles) {
-      const authorizations =
-        await this.authorizationService.findAllAuthorizations();
-      const filteredAuthorizations = authorizations.filter((authorization) =>
-        authorization?.relatedPages?.includes(id),
-      );
-      if (filteredAuthorizations.length > 0) {
-        for (const authorization of filteredAuthorizations) {
-          const newRoles = updates.permissionRoles;
-          await this.authorizationService.updateAuthorization(
-            user,
-            authorization._id,
-            { roles: newRoles },
-          );
-        }
-      }
-    }
+    //TODO:this part will be done after authorization routes completed
+    // if (updates.permissionRoles) {
+    //   const authorizations =
+    //     await this.authorizationService.findAllAuthorizations();
+    //   const filteredAuthorizations = authorizations.filter((authorization) =>
+    //     authorization?.relatedPages?.includes(id),
+    //   );
+    //   if (filteredAuthorizations.length > 0) {
+    //     for (const authorization of filteredAuthorizations) {
+    //       const newRoles = updates.permissionRoles;
+    //       await this.authorizationService.updateAuthorization(
+    //         user,
+    //         authorization._id,
+    //         { roles: newRoles },
+    //       );
+    //     }
+    //   }
+    // }
     this.panelControlGateway.emitPageChanged(user, newPage);
 
     return newPage;
