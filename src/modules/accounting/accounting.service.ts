@@ -153,7 +153,7 @@ export class AccountingService {
           }
         }
       }
-      const locations = await this.locationService.findAllLocations();
+      const locations = await this.locationService.findStockLocations();
       const newId = usernamify(createProductDto.name);
       const initialBaseQuantities = locations.map((location) => {
         return {
@@ -2602,7 +2602,7 @@ export class AccountingService {
             vendor: newVendor,
             deleted: false,
           });
-          const locations = await this.locationService.findAllLocations();
+          const locations = await this.locationService.findStockLocations();
           newProduct.baseQuantities = locations.map((location) => {
             return {
               location: location._id,
@@ -2692,7 +2692,7 @@ export class AccountingService {
   async createStockForAllLocations(user: User) {
     try {
       const products = await this.productModel.find({ deleted: false });
-      const locations = await this.locationService.findAllLocations();
+      const locations = await this.locationService.findStockLocations();
       const stocks = await this.stockModel.find();
 
       const createStockTasks = [];
