@@ -70,10 +70,14 @@ export class NotificationController {
     @ReqUser() user: User,
     @Query('after') after?: string,
     @Query('before') before?: string,
+    @Query('type') type?: string,
+    @Query('event') event?: string,
   ) {
     return this.notificationService.findUserAllNotifications(user, {
       after,
       before,
+      type,
+      event,
     });
   }
   @Patch('/:id')

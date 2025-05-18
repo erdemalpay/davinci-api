@@ -72,7 +72,7 @@ export class NotificationService {
     }
   }
   async findUserAllNotifications(user: User, query: NotificationQueryDto) {
-    const { after, before } = query;
+    const { after, before, type, event } = query;
     const filterQuery: any = {
       $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
     };
@@ -91,7 +91,12 @@ export class NotificationService {
         $lte: endDate,
       };
     }
-    filterQuery['event'] = { $in: ['', null] };
+    if (type) {
+      filterQuery['type'] = type;
+    }
+    if (event) {
+      filterQuery['event'] = event;
+    }
     try {
       const notifications = await this.notificationModel
         .find(filterQuery)
