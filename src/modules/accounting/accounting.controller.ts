@@ -81,6 +81,12 @@ export class AccountingController {
       addMultipleProductAndMenuItemDto,
     );
   }
+
+  @Post('/products/remove-unwanted-base-location')
+  removeUnwantedBaseLocation() {
+    return this.accountingService.removeUnwantedBaseLocations();
+  }
+
   @Patch('/base-quantities')
   updateMultipleBaseQuantities(
     @ReqUser() user: User,

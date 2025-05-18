@@ -2723,4 +2723,33 @@ export class AccountingService {
       console.error('Failed to create stocks:', error);
     }
   }
+
+  async removeUnwantedBaseLocations(): Promise<void> {
+    const stockLocations = await this.locationService.findStockLocations();
+    const stocks = await this.stockModel.find();
+    const validLocationIds = new Set(
+      stockLocations.map((loc) => loc._id.toString()),
+    );
+    const products = await this.productModel.find();
+    await Promise.all(
+      products.map((product) => {
+        if (!product.baseQuantities?.length) return Promise.resolve();
+        const filteredBaseQuantities = product.baseQuantities.filter(
+          ({ location }) => validLocationIds.has(location.toString()),
+        );
+        return this.productModel.findByIdAndUpdate(product._id, {
+          baseQuantities: filteredBaseQuantities,
+        });
+      }),
+    );
+    await Promise.all(
+      stocks.map(async (stock) => {
+        if (!validLocationIds.has(stock.location.toString())) {
+          await this.stockModel.findByIdAndRemove(stock._id);
+        }
+      }),
+    );
+    await this.accountingGateway.emitProductChanged();
+    await this.accountingGateway.emitStockChanged();
+  }
 }
