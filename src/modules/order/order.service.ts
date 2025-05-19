@@ -463,6 +463,20 @@ export class OrderService {
           },
         },
         {
+          $lookup: {
+            from: 'menuitems',
+            localField: 'item',
+            foreignField: '_id',
+            as: 'item',
+          },
+        },
+        { $unwind: '$item' },
+        {
+          $match: {
+            'item.category': { $nin: [9, 25, 26, 27] },
+          },
+        },
+        {
           $group: {
             _id: '$createdBy',
             orderCount: { $sum: 1 },
