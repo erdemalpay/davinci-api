@@ -2,8 +2,11 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { LocationService } from '../location/location.service';
+import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { ShiftService } from './../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
 import {
@@ -22,6 +25,9 @@ export class VisitService {
     private cafeActivityModel: Model<CafeActivity>,
     private readonly visitGateway: VisitGateway,
     private readonly userService: UserService,
+    private readonly notificationService: NotificationService,
+    private readonly locationService: LocationService,
+    private readonly shiftService: ShiftService,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -40,16 +46,31 @@ export class VisitService {
   }
 
   async create(user: User, createVisitDto: CreateVisitDto) {
-    // Server is running on UTC but we want to record times according to GMT+3
-    const gmtPlus3Now = addHours(new Date(), 3);
-    const startHour = format(gmtPlus3Now, 'HH:mm');
-    const date = format(gmtPlus3Now, 'yyyy-MM-dd');
     const visit = await this.visitModel.create({
       ...createVisitDto,
-      date,
-      startHour,
-      user,
+      user: user._id,
     });
+
+    const shifts = await this.shiftService.findQueryShifts({
+      after: createVisitDto.date,
+      before: createVisitDto.date,
+      location: createVisitDto.location,
+    });
+    const foundShift = shifts[0]?.shifts?.find((shift) => {
+      return shift.user.includes(user._id);
+    });
+    if (foundShift) {
+      if (createVisitDto.startHour > foundShift.shift) {
+        await this.notificationService.createNotification({
+          type: 'WARNING',
+          selectedUsers: [user._id],
+          selectedRoles: [1],
+          seenBy: [],
+          event: '',
+          message: `${user.name} are late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${createVisitDto.startHour}`,
+        });
+      }
+    }
     this.visitGateway.emitVisitChanged(user, visit);
     return visit;
   }
@@ -166,6 +187,27 @@ export class VisitService {
         date: cafeVisitDto.date,
         startHour: cafeVisitDto.hour,
       });
+      const shifts = await this.shiftService.findQueryShifts({
+        after: cafeVisitDto.date,
+        before: cafeVisitDto.date,
+        location: cafeVisitDto.location,
+      });
+      const foundShift = shifts[0]?.shifts?.find((shift) => {
+        return shift.user.includes(user._id);
+      });
+      if (foundShift) {
+        if (cafeVisitDto.hour > foundShift.shift) {
+          await this.notificationService.createNotification({
+            type: 'WARNING',
+            selectedUsers: [user._id],
+            selectedRoles: [1],
+            seenBy: [],
+            event: '',
+            message: `${user.name} are late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${cafeVisitDto.hour}`,
+          });
+        }
+      }
+
       this.visitGateway.emitVisitChanged(user, visit);
       return visit;
     }

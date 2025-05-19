@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { UserModule } from 'src/modules/user/user.module';
+import { LocationModule } from '../location/location.module';
+import { NotificationModule } from '../notification/notification.module';
+import { ShiftModule } from '../shift/shift.module';
 import { CafeActivity, CafeActivitySchema } from './cafeActivity.schema';
 import { VisitController } from './visit.controller';
 import { VisitGateway } from './visit.gateway';
@@ -14,7 +17,13 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, UserModule],
+  imports: [
+    mongooseModule,
+    UserModule,
+    NotificationModule,
+    LocationModule,
+    ShiftModule,
+  ],
   providers: [VisitService, VisitGateway],
   exports: [VisitService, VisitGateway],
   controllers: [VisitController],
