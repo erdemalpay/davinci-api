@@ -387,7 +387,7 @@ export class AccountingService {
 
   async checkIsProductRemovable(id: string) {
     const invoices = await this.expenseModel.find({ product: id });
-    const menuItems = await this.menuService.findAllItems();
+    const menuItems = await this.menuService.findAllUndeletedItems();
     const stocks = await this.stockModel.find({ product: id });
     const countlists = await this.countListModel.find();
 
@@ -2292,7 +2292,7 @@ export class AccountingService {
 
   async matchProducts() {
     const products = await this.productModel.find();
-    const allMenuItems = await this.menuService.findAllItems();
+    const allMenuItems = await this.menuService.findAllUndeletedItems();
     for (const product of products) {
       const menuItem = allMenuItems.find(
         (item) => item.name.toLowerCase() === product.name.toLowerCase(),

@@ -59,8 +59,10 @@ export class MenuService {
   findActiveCategories() {
     return this.categoryModel.find({ active: true }).sort({ order: 'asc' });
   }
-
-  async findAllItems() {
+  findAllItems() {
+    return this.itemModel.find().sort({ order: 'asc' });
+  }
+  async findAllUndeletedItems() {
     //this returns the category active items
     try {
       // Attempt to retrieve items from Redis cache
@@ -75,7 +77,7 @@ export class MenuService {
     try {
       const activeCategories = await this.findActiveCategories();
       const allItems = await this.itemModel
-        .find({})
+        .find({ deleted: { $ne: true } })
         .sort({ category: 1, order: 1 })
         .exec();
       const items = allItems.filter((item) =>
@@ -98,7 +100,7 @@ export class MenuService {
     // 1. Fetch only the fields we care about + matchedProduct
     const items = await this.itemModel
       .find(
-        { category: { $in: [25, 26, 27] } },
+        { category: { $in: [25, 26, 27] }, deleted: { $ne: true } },
         {
           _id: 1,
           name: 1,
@@ -113,7 +115,6 @@ export class MenuService {
       )
       .lean();
     const stocks = await this.accountingService.findAllStocks();
-
     const inStock = items.filter((item) => {
       const totalQty = stocks
         .filter((s) => s.product === item.matchedProduct)
@@ -124,7 +125,9 @@ export class MenuService {
   }
 
   async findItemsWithIkasId() {
-    return this.itemModel.find({ ikasId: { $nin: [null, ''] } });
+    return this.itemModel.find({
+      ikasId: { $nin: [null, ''], deleted: { $ne: true } },
+    });
   }
 
   async updateIkasItemsIkasIdFields(sendItems: MenuItem[]) {
@@ -143,7 +146,10 @@ export class MenuService {
   }
 
   async findItemsInCategoryArray(categories: number[]) {
-    return this.itemModel.find({ category: { $in: categories } });
+    return this.itemModel.find({
+      category: { $in: categories },
+      deleted: { $ne: true },
+    });
   }
 
   async setOrder(user: User) {
@@ -221,11 +227,17 @@ export class MenuService {
   }
 
   async findByIkasId(id: string) {
-    const item = await this.itemModel.findOne({ ikasId: id });
+    const item = await this.itemModel.findOne({
+      ikasId: id,
+      deleted: { $ne: true },
+    });
     return item;
   }
   async findItemById(id: number) {
-    const item = await this.itemModel.findById(id);
+    const item = await this.itemModel.findById({
+      _id: id,
+      deleted: { $ne: true },
+    });
     return item;
   }
 
@@ -233,11 +245,15 @@ export class MenuService {
     const items = await this.itemModel.find({
       ikasId: { $ne: null },
       matchedProduct: { $ne: null },
+      deleted: { $ne: true },
     });
     return items;
   }
   async findByMatchedProduct(id: string) {
-    const item = await this.itemModel.findOne({ matchedProduct: id });
+    const item = await this.itemModel.findOne({
+      matchedProduct: id,
+      deleted: { $ne: true },
+    });
     return item;
   }
   async createItem(user: User, createItemDto: CreateItemDto) {
@@ -701,7 +717,11 @@ export class MenuService {
   }
   // popular
   async findAllPopular() {
-    return this.popularModel.find().sort({ order: 'asc' });
+    return this.popularModel
+      .find({
+        deleted: { $ne: true },
+      })
+      .sort({ order: 'asc' });
   }
 
   async createPopular(user: User, createPopularDto: CreatePopularDto) {
@@ -847,7 +867,7 @@ export class MenuService {
   }
 
   async findItemByName(name: string) {
-    return this.itemModel.findOne({ name: name });
+    return this.itemModel.findOne({ name: name, deleted: { $ne: true } });
   }
   async createBulkMenuItemWithProduct(createBulkItemDto: CreateBulkItemDto) {
     const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });

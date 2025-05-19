@@ -79,6 +79,9 @@ export class MenuItem extends Document {
 
   @Prop({ required: false, type: String })
   ikasId: string;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  deleted: boolean;
 }
 
 export const MenuItemSchema = SchemaFactory.createForClass(MenuItem);

@@ -24,6 +24,7 @@ export class CreateItemDto {
   productImages?: string[];
   ikasId?: string;
   slug?: string;
+  deleted?: boolean;
 }
 export class CreateBulkItemDto {
   name: string;

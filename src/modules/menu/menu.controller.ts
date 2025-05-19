@@ -64,7 +64,12 @@ export class MenuController {
 
   @Public()
   @Get('/items')
-  getItems() {
+  getUndeletedItems() {
+    return this.menuService.findAllUndeletedItems();
+  }
+
+  @Get('/items/all')
+  getAllItems() {
     return this.menuService.findAllItems();
   }
 
