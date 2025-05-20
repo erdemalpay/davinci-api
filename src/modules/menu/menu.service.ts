@@ -126,7 +126,8 @@ export class MenuService {
 
   async findItemsWithIkasId() {
     return this.itemModel.find({
-      ikasId: { $nin: [null, ''], deleted: { $ne: true } },
+      ikasId: { $nin: [null, ''] },
+      deleted: { $ne: true },
     });
   }
 
