@@ -1178,41 +1178,39 @@ export class OrderService {
   }
 
   async updateOrder(user: User, id: number, updates: UpdateQuery<Order>) {
+    const oldOrder = await this.orderModel.findById(id).populate('item');
     // adding activities
     if (updates?.status) {
-      const order = await this.orderModel.findById(id);
       if (updates?.status === OrderStatus.READYTOSERVE && !updates?.quantity) {
         await this.activityService.addActivity(
           user,
           ActivityType.PREPARE_ORDER,
-          order,
+          oldOrder,
         );
       }
       if (updates?.status === OrderStatus.SERVED && !updates?.quantity) {
         await this.activityService.addActivity(
           user,
           ActivityType.DELIVER_ORDER,
-          order,
+          oldOrder,
         );
       }
       if (updates?.status === OrderStatus.CANCELLED && !updates?.quantity) {
         await this.activityService.addActivity(
           user,
           ActivityType.CANCEL_ORDER,
-          order,
+          oldOrder,
         );
       }
       if (updates.discount) {
         await this.activityService.addActivity(
           user,
           ActivityType.ORDER_DISCOUNT,
-          order,
+          oldOrder,
         );
       }
 
       if (updates?.status === OrderStatus.CANCELLED) {
-        const oldOrder = await this.orderModel.findById(id).populate('item');
-
         for (const ingredient of (oldOrder?.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
@@ -1228,15 +1226,36 @@ export class OrderService {
         await this.activityService.addActivity(
           user,
           ActivityType.CANCEL_ORDER,
-          order,
+          oldOrder,
         );
       }
-      if (updates?.quantity && updates?.quantity > order.quantity) {
+      if (updates?.quantity && updates?.quantity > oldOrder.quantity) {
         await this.activityService.addActivity(
           user,
           ActivityType.ADD_ORDER,
-          order,
+          oldOrder,
         );
+      }
+      if (
+        oldOrder?.status === OrderStatus.CANCELLED &&
+        ![
+          OrderStatus.WASTED,
+          OrderStatus.RETURNED,
+          OrderStatus.CANCELLED,
+        ].includes(updates?.status)
+      ) {
+        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const incrementQuantity = ingredient?.quantity * oldOrder?.quantity;
+            await this.accountingService.consumptStock(user, {
+              product: ingredient?.product,
+              location: oldOrder?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.ORDERCREATE,
+            });
+          }
+        }
       }
     }
     if (updates?.quantity) {
