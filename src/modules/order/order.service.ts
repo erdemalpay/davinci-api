@@ -661,7 +661,13 @@ export class OrderService {
             createdAt: { $gte: start, $lte: end },
             preparedAt: { $exists: true },
             location: Number(location),
-            status: { $ne: OrderStatus.CANCELLED },
+            status: {
+              $nin: [
+                OrderStatus.CANCELLED,
+                OrderStatus.AUTOSERVED,
+                OrderStatus.WASTED,
+              ],
+            },
           },
         },
         {
