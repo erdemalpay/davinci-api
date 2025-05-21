@@ -51,13 +51,19 @@ export class ShiftController {
   copyShift(
     @ReqUser() user: User,
     @Body()
-    payload: { copiedDay: string; selectedDay: string; location: number },
+    payload: {
+      copiedDay: string;
+      selectedDay: string;
+      location: number;
+      selectedUsers?: string[];
+    },
   ) {
     return this.shiftService.copyShift(
       user,
       payload.copiedDay,
       payload.selectedDay,
       payload.location,
+      payload.selectedUsers,
     );
   }
 
@@ -70,6 +76,7 @@ export class ShiftController {
       endCopiedDay: string;
       selectedDay: string;
       location: number;
+      selectedUsers?: string[];
     },
   ) {
     return this.shiftService.copyShiftInterval(
@@ -78,6 +85,7 @@ export class ShiftController {
       payload.endCopiedDay,
       payload.selectedDay,
       payload.location,
+      payload.selectedUsers,
     );
   }
 

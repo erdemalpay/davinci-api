@@ -114,6 +114,7 @@ export class ShiftService {
     copiedDay: string,
     selectedDay: string,
     location: number,
+    selectedUsers?: string[],
   ) {
     try {
       const sourceShift = await this.shiftModel
@@ -122,11 +123,20 @@ export class ShiftService {
       if (!sourceShift) {
         throw new HttpException('Source shift not found', HttpStatus.NOT_FOUND);
       }
+      let filteredShifts = sourceShift.shifts;
+      if (selectedUsers && selectedUsers.length > 0) {
+        filteredShifts = sourceShift?.shifts?.map((shift) => {
+          return {
+            ...shift,
+            user: shift?.user?.filter((u) => selectedUsers.includes(u)) ?? [],
+          };
+        });
+      }
       let targetShift = await this.shiftModel
         .findOne({ day: selectedDay, location: location })
         .exec();
       if (targetShift) {
-        targetShift.shifts = sourceShift.shifts;
+        targetShift.shifts = filteredShifts;
         targetShift = await targetShift.save();
         this.shiftGateway.emitShiftChanged(user, targetShift);
         return targetShift;
@@ -134,6 +144,7 @@ export class ShiftService {
         const { _id, ...shiftData } = sourceShift.toObject();
         shiftData.day = selectedDay;
         shiftData.location = location;
+        shiftData.shifts = filteredShifts;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
         this.shiftGateway.emitShiftChanged(user, newShift);
@@ -151,6 +162,7 @@ export class ShiftService {
     endCopiedDay: string,
     selectedDay: string,
     location: number,
+    selectedUsers?: string[],
   ) {
     const startDate = new Date(startCopiedDay);
     const endDate = new Date(endCopiedDay);
@@ -178,8 +190,17 @@ export class ShiftService {
       let targetShift = await this.shiftModel
         .findOne({ day: targetDay, location: location })
         .exec();
+      let filteredShifts = sourceShift.shifts;
+      if (selectedUsers && selectedUsers.length > 0) {
+        filteredShifts = sourceShift?.shifts?.map((shift) => {
+          return {
+            ...shift,
+            user: shift?.user?.filter((u) => selectedUsers.includes(u)) ?? [],
+          };
+        });
+      }
       if (targetShift) {
-        targetShift.shifts = sourceShift.shifts;
+        targetShift.shifts = filteredShifts;
         targetShift = await targetShift.save();
         this.shiftGateway.emitShiftChanged(user, targetShift);
         results.push(targetShift);
@@ -187,6 +208,7 @@ export class ShiftService {
         const { _id, ...shiftData } = sourceShift.toObject();
         shiftData.day = targetDay;
         shiftData.location = location;
+        shiftData.shifts = filteredShifts;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
         this.shiftGateway.emitShiftChanged(user, newShift);
