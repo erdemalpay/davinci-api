@@ -226,7 +226,6 @@ export class ShiftService {
         { new: true },
       )
       .exec();
-
     if (!updated) {
       const result = await this.shiftModel
         .findOneAndUpdate(
@@ -238,7 +237,6 @@ export class ShiftService {
       this.shiftGateway.emitShiftChanged();
       return result;
     }
-
     this.shiftGateway.emitShiftChanged();
     return updated;
   }
