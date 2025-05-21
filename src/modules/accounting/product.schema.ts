@@ -16,6 +16,14 @@ export class BaseQuantityByLocation {
   location: number;
 }
 
+export class ProductShelfInfo {
+  @Prop({ required: true, type: Number, ref: 'Location' })
+  location: number;
+
+  @Prop({ required: true, type: String })
+  shelf: string;
+}
+
 @Schema({ _id: false })
 export class Product extends Document {
   @Prop({ type: String })
@@ -44,6 +52,9 @@ export class Product extends Document {
 
   @Prop([BaseQuantityByLocation])
   baseQuantities: BaseQuantityByLocation[];
+
+  @Prop([ProductShelfInfo])
+  shelfInfo: ProductShelfInfo[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

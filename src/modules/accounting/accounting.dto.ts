@@ -1,5 +1,5 @@
 import { CountListsProduct } from './countList.schema';
-import { BaseQuantityByLocation } from './product.schema';
+import { BaseQuantityByLocation, ProductShelfInfo } from './product.schema';
 
 export class CreateProductDto {
   name: string;
@@ -9,6 +9,7 @@ export class CreateProductDto {
   unitPrice?: number;
   matchedMenuItem?: number;
   baseQuantities?: BaseQuantityByLocation[];
+  shelfInfo?: ProductShelfInfo[];
 }
 
 export class CreateProductCategoryDto {
