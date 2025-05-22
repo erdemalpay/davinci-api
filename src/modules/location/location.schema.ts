@@ -35,6 +35,9 @@ export class Location extends Document {
   @Prop({ required: false, type: String })
   ikasId: string;
 
+  @Prop({ required: false, type: Boolean })
+  isShelfInfoRequired: boolean;
+
   @Prop([LocationShift])
   shifts: LocationShift[];
 
