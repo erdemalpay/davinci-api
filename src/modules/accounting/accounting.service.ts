@@ -318,11 +318,6 @@ export class AccountingService {
         );
       }
     }
-    if (product?.matchedMenuItem && !updates?.matchedMenuItem) {
-      await this.menuService.updateProductItem(user, product.matchedMenuItem, {
-        matchedProduct: null,
-      });
-    }
     const updatedProduct = await this.productModel.findByIdAndUpdate(
       id,
       updates,
