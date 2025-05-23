@@ -136,8 +136,21 @@ export class ShiftService {
         .findOne({ day: selectedDay, location: location })
         .exec();
       if (targetShift) {
-        targetShift.shifts = filteredShifts;
-        targetShift = await targetShift.save();
+        const merged = targetShift?.shifts?.map((existing) => {
+          const updated = filteredShifts?.find(
+            (f) => f.shift === existing.shift,
+          );
+          if (!updated) return existing;
+          const users = Array.from(
+            new Set([...(existing.user || []), ...updated.user]),
+          );
+          return {
+            ...existing,
+            user: users,
+          };
+        });
+        targetShift.shifts = merged;
+        await targetShift.save();
         this.shiftGateway.emitShiftChanged(user, targetShift);
         return targetShift;
       } else {
@@ -200,8 +213,22 @@ export class ShiftService {
         });
       }
       if (targetShift) {
-        targetShift.shifts = filteredShifts;
-        targetShift = await targetShift.save();
+        const merged = targetShift.shifts.map((existing) => {
+          const updated = filteredShifts.find(
+            (f) => f.shift === existing.shift,
+          );
+          if (!updated) return existing;
+
+          const users = Array.from(
+            new Set([...(existing.user || []), ...updated.user]),
+          );
+          return {
+            ...existing,
+            user: users,
+          };
+        });
+        targetShift.shifts = merged;
+        await targetShift.save();
         this.shiftGateway.emitShiftChanged(user, targetShift);
         results.push(targetShift);
       } else {
