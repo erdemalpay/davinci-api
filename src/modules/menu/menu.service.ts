@@ -59,8 +59,8 @@ export class MenuService {
   findActiveCategories() {
     return this.categoryModel.find({ active: true }).sort({ order: 'asc' });
   }
-  findAllItems() {
-    return this.itemModel.find().sort({ order: 'asc' });
+  async findAllItems(): Promise<MenuItem[]> {
+    return this.itemModel.find().sort({ order: 'asc' }).exec();
   }
   async findAllUndeletedItems() {
     //this returns the category active items
@@ -75,21 +75,16 @@ export class MenuService {
     }
 
     try {
-      const activeCategories = await this.findActiveCategories();
       const allItems = await this.itemModel
         .find({ deleted: { $ne: true } })
         .sort({ category: 1, order: 1 })
         .exec();
-      const items = allItems.filter((item) =>
-        activeCategories.some(
-          (category) => category._id === (item.category as number),
-        ),
-      );
+
       // If items are found, cache them in Redis
-      if (items.length > 0) {
-        await this.redisService.set(RedisKeys.MenuItems, items);
+      if (allItems.length > 0) {
+        await this.redisService.set(RedisKeys.MenuItems, allItems);
       }
-      return items; // Return items from the database
+      return allItems; // Return items from the database
     } catch (error) {
       console.error('Failed to retrieve items from database:', error);
       throw new HttpException('Could not retrieve items', HttpStatus.NOT_FOUND);
