@@ -63,7 +63,6 @@ export class MenuService {
     return this.itemModel.find().sort({ order: 'asc' }).exec();
   }
   async findAllUndeletedItems() {
-    //this returns the category active items
     try {
       // Attempt to retrieve items from Redis cache
       const redisItems = await this.redisService.get(RedisKeys.MenuItems);
