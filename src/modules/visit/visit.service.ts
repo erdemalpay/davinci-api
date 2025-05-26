@@ -203,7 +203,7 @@ export class VisitService {
             selectedRoles: [1],
             seenBy: [],
             event: '',
-            message: `${user.name} are late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${cafeVisitDto.hour}`,
+            message: `${user.name} is late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${cafeVisitDto.hour}`,
           });
         }
       }
