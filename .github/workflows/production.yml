@@ -25,4 +25,4 @@ jobs:
       - name: Adding Known Hosts
         run: ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
       - name: Run production deploy command
-        run: ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "cd app && sudo docker-compose up -d --build davinci-api-production && sudo docker system prune -af"
+        run: ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "cd app && sudo docker compose up -d --build davinci-api-production && sudo docker system prune -af"

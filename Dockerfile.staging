@@ -12,6 +12,6 @@ RUN yarn global add @nestjs/cli
 RUN yarn install --production
 
 EXPOSE 4000
-ENV NODE_ENV staging
+ENV NODE_ENV=staging
 
 CMD ["yarn", "start:staging"]
