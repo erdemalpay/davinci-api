@@ -1225,7 +1225,7 @@ export class OrderService {
               product: ingredient?.product,
               location: oldOrder?.stockLocation,
               quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.ORDERCANCEL,
+              status: updates?.stockNote ?? StockHistoryStatusEnum.ORDERCANCEL,
             });
           }
         }

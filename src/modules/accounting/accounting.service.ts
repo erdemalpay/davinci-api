@@ -2179,6 +2179,40 @@ export class AccountingService {
     );
     return productStockHistory.save();
   }
+  async updateProductStockHistory(
+    user: User,
+    id: string,
+    updates: UpdateQuery<ProductStockHistory>,
+  ) {
+    let productStockHistory = await this.productStockHistoryModel.findById(id);
+    if (
+      updates?.status &&
+      [
+        StockHistoryStatusEnum.CONSUMPTIONCANCEL,
+        StockHistoryStatusEnum.LOSSPRODUCTCANCEL,
+        StockHistoryStatusEnum.LOSSPRODUCT,
+        StockHistoryStatusEnum.CONSUMPTION,
+      ].includes(updates?.status)
+    ) {
+      await this.createStock(user, {
+        product: productStockHistory.product,
+        location: productStockHistory.location,
+        quantity: -1 * productStockHistory.change,
+        status: updates.status,
+      });
+      await this.productStockHistoryModel.findByIdAndRemove(id);
+    } else {
+      productStockHistory =
+        await this.productStockHistoryModel.findByIdAndUpdate(id, updates, {
+          new: true,
+        });
+    }
+    await this.accountingGateway.emitProductStockHistoryChanged(
+      user,
+      productStockHistory,
+    );
+    return productStockHistory;
+  }
 
   // countlist
   async createCountList(user: User, createCountListDto: CreateCountListDto) {

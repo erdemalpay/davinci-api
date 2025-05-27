@@ -566,6 +566,16 @@ export class AccountingController {
       createProductStockHistoryDto,
     );
   }
+
+  @Patch('/product-stock-histories/:id')
+  updateProductStockHistory(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<Product>,
+  ) {
+    return this.accountingService.updateProductStockHistory(user, id, updates);
+  }
+
   // count list
   @Get('/count-list')
   getCountList() {
