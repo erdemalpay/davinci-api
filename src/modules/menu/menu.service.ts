@@ -6,11 +6,12 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
-import { AccountingGateway } from './../accounting/accounting.gateway';
+import { VisitService } from '../visit/visit.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
@@ -29,7 +30,9 @@ import {
 import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
-
+interface SeenUsers {
+  [key: string]: boolean;
+}
 export class MenuService {
   constructor(
     @InjectModel(MenuCategory.name)
@@ -50,7 +53,8 @@ export class MenuService {
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
-    private readonly accountingGateway: AccountingGateway,
+    private readonly notificationService: NotificationService,
+    private readonly visitService: VisitService,
   ) {}
 
   findAllCategories() {
@@ -208,6 +212,32 @@ export class MenuService {
         : ActivityType.FARM_BURGER_DEACTIVATED,
       null,
     );
+    const visits = await this.visitService.findByDateAndLocation(
+      format(new Date(), 'yyyy-MM-dd'),
+      2,
+    );
+    const uniqueVisitUsers =
+      visits
+        ?.reduce(
+          (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
+            acc.seenUsers = acc.seenUsers || {};
+            if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+              acc.seenUsers[(visit as any).user] = true;
+              acc.unique.push(visit);
+            }
+            return acc;
+          },
+          { unique: [], seenUsers: {} },
+        )
+        ?.unique?.map((visit) => visit.user) ?? [];
+    await this.notificationService.createNotification({
+      type: updates?.active ? 'INFORMATION' : 'WARNING',
+      selectedUsers: (uniqueVisitUsers as any) ?? [],
+      selectedLocations: [2],
+      seenBy: [],
+      event: '',
+      message: `Farm Burger ${updates?.active ? 'activated' : 'deactivated'}`,
+    });
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
