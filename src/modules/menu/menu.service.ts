@@ -193,6 +193,24 @@ export class MenuService {
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
+  async updateFarmCategory(
+    user: User,
+    id: number,
+    updates: UpdateQuery<MenuCategory>,
+  ) {
+    const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    this.activityService.addActivity(
+      user,
+      updates?.active
+        ? ActivityType.FARM_BURGER_ACTIVATED
+        : ActivityType.FARM_BURGER_DEACTIVATED,
+      null,
+    );
+    this.menuGateway.emitCategoryChanged(user, category);
+    return category;
+  }
   async removeCategory(user: User, id: number) {
     const itemsWithCategory = await this.itemModel.find({ category: id });
     if (itemsWithCategory.length > 0) {

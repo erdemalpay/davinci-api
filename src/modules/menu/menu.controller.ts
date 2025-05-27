@@ -159,6 +159,14 @@ export class MenuController {
   ) {
     return this.menuService.updateMultipleItems(user, payload.items);
   }
+  @Patch('/categories-farm/:id')
+  updateFarmCategory(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<MenuCategory>,
+  ) {
+    return this.menuService.updateFarmCategory(user, id, updates);
+  }
 
   @Patch('/categories/:id')
   updateCategory(
