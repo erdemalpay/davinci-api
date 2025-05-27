@@ -2073,6 +2073,7 @@ export class AccountingService {
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? (product as any).split(',') : [];
+    const statusArray = status ? (status as any).split(',') : [];
     const sortObject = {};
 
     if (sort) {
@@ -2095,7 +2096,9 @@ export class AccountingService {
       {
         $match: {
           ...(location && { location: Number(location) }),
-          ...(status && { status: status }),
+          ...(status && {
+            status: { $in: statusArray },
+          }),
           ...(product && { product: { $in: productArray } }),
           ...(expenseType && {
             'productDetails.expenseType': { $in: [expenseType] },
