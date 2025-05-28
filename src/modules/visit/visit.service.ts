@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { LocationService } from '../location/location.service';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
@@ -66,7 +67,7 @@ export class VisitService {
           selectedUsers: [user._id],
           selectedRoles: [1],
           seenBy: [],
-          event: '',
+          event: NotificationEventType.LATESHIFTSTART,
           message: `${user.name} is late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${createVisitDto.startHour}`,
         });
       }
@@ -202,7 +203,7 @@ export class VisitService {
             selectedUsers: [user._id],
             selectedRoles: [1],
             seenBy: [],
-            event: '',
+            event: NotificationEventType.LATESHIFTSTART,
             message: `${user.name} is late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${cafeVisitDto.hour}`,
           });
         }

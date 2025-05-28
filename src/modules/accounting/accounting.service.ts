@@ -1942,7 +1942,7 @@ export class AccountingService {
           selectedRoles: zeroNotificationEvent.selectedRoles,
           selectedLocations: zeroNotificationEvent.selectedLocations,
           seenBy: zeroNotificationEvent.seenBy || [],
-          event: '',
+          event: NotificationEventType.ZEROSTOCK,
           message:
             zeroNotificationEvent.message ||
             `${foundProduct.name} has reached zero stock in ${stockLocation.name}`,
@@ -1970,7 +1970,7 @@ export class AccountingService {
           selectedRoles: negativeNotificationEvent.selectedRoles,
           selectedLocations: negativeNotificationEvent.selectedLocations,
           seenBy: negativeNotificationEvent.seenBy || [],
-          event: '',
+          event: NotificationEventType.NEGATIVESTOCK,
           message:
             negativeNotificationEvent.message ||
             `${foundProduct.name} has reached negative stock in ${stockLocation.name}`,
@@ -2003,7 +2003,7 @@ export class AccountingService {
           selectedRoles: lossProductEvent.selectedRoles,
           selectedLocations: lossProductEvent.selectedLocations,
           seenBy: lossProductEvent.seenBy || [],
-          event: '',
+          event: NotificationEventType.LOSSPRODUCT,
           message:
             lossProductEvent.message ||
             `${consumptStockDto.quantity} unit${
@@ -2300,7 +2300,7 @@ export class AccountingService {
           selectedRoles: notificationEvent.selectedRoles,
           selectedLocations: notificationEvent.selectedLocations,
           seenBy: notificationEvent.seenBy || [],
-          event: '',
+          event: NotificationEventType.COMPLETECOUNT,
           message:
             notificationEvent.message ||
             `${user?.name} at ${countLocation?.name} is completed the count list ${countList?.name}`,

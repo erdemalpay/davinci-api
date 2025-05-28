@@ -59,7 +59,6 @@ export class NotificationService {
         .find({
           seenBy: { $ne: user._id },
           $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
-          event: { $in: ['', null] },
         })
         .sort({ createdAt: -1 })
         .exec();
@@ -113,7 +112,7 @@ export class NotificationService {
   async findAllEventNotifications() {
     try {
       const notifications = await this.notificationModel
-        .find({ event: { $exists: true, $nin: ['', null] } })
+        .find({ isAssigned: true })
         .sort({ createdAt: -1 })
         .exec();
       return notifications;

@@ -10,7 +10,10 @@ import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
-import { NotificationType } from '../notification/notification.dto';
+import {
+  NotificationEventType,
+  NotificationType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
@@ -1068,7 +1071,7 @@ export class IkasService {
                   selectedUsers: (uniqueVisitUsers as any) ?? [],
                   selectedLocations: [2],
                   seenBy: [],
-                  event: '',
+                  event: NotificationEventType.IKASTAKEAWAY,
                   message: `Yeni bir ikas gel al siparişi geldi.`,
                 });
               }

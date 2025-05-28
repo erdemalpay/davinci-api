@@ -36,6 +36,9 @@ export class Notification extends Document {
 
   @Prop({ required: false, type: String })
   event: string;
+
+  @Prop({ required: false, type: Boolean })
+  isAssigned: boolean;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

@@ -6,6 +6,7 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -235,7 +236,9 @@ export class MenuService {
       selectedUsers: (uniqueVisitUsers as any) ?? [],
       selectedLocations: [2],
       seenBy: [],
-      event: '',
+      event: updates?.active
+        ? NotificationEventType.FARMBURGERACTIVATED
+        : NotificationEventType.FARMBURGERDEACTIVATED,
       message: `Farm Burger ${updates?.active ? 'activated' : 'deactivated'}`,
     });
     this.menuGateway.emitCategoryChanged(user, category);

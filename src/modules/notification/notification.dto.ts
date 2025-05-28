@@ -7,7 +7,9 @@ export class CreateNotificationDto {
   selectedLocations?: number[];
   seenBy?: string[];
   event?: string;
+  isAssigned?: boolean;
 }
+
 export enum NotificationType {
   INFORMATION = 'INFORMATION',
   WARNING = 'WARNING',
@@ -32,4 +34,5 @@ export enum NotificationEventType {
   LATESHIFTSTART = 'LATESHIFTSTART',
   FARMBURGERACTIVATED = 'FARMBURGERACTIVATED',
   FARMBURGERDEACTIVATED = 'FARMBURGERDEACTIVATED',
+  FARMNOTCONFIRMED = 'FARMNOTCONFIRMED',
 }
