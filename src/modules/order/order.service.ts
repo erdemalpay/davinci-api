@@ -14,6 +14,7 @@ import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -873,6 +874,7 @@ export class OrderService {
           );
         }
       } catch (error) {
+        console.log(error);
         throw new HttpException(
           'Failed to create order',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1063,7 +1065,7 @@ export class OrderService {
         selectedUsers: (uniqueVisitUsers as any) ?? [],
         selectedLocations: [2],
         seenBy: [],
-        event: '',
+        event: NotificationEventType.FARMNOTCONFIRMED,
         message: `Farm Burger: Order ${
           (order.item as any).name
         } is not confirmed for 5 minutes!`,

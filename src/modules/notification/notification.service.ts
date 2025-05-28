@@ -131,7 +131,10 @@ export class NotificationService {
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();
       const foundNotification = eventNotifications.find(
-        (notification) => notification.event === createNotificationDto.event,
+        (notification) =>
+          notification.event === createNotificationDto.event &&
+          notification?.isAssigned &&
+          createNotificationDto?.isAssigned,
       );
       if (foundNotification) {
         throw new HttpException(
