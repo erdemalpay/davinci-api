@@ -1072,7 +1072,7 @@ export class IkasService {
                   selectedLocations: [2],
                   seenBy: [],
                   event: NotificationEventType.IKASTAKEAWAY,
-                  message: `Yeni bir ikas gel al siparişi geldi.`,
+                  message: `Yeni bir ikas gel al siparişi(${foundMenuItem.name}) geldi.`,
                 });
               }
             }
