@@ -386,11 +386,18 @@ export class MenuService {
               quantity: 0,
             };
           });
-          matchedProduct = await this.accountingService.createProduct(user, {
-            ...(objectFoundProduct as any),
-            name: name,
-          });
+          const foundDamagedProduct =
+            await this.accountingService.findProductByName(name);
+          if (foundDamagedProduct) {
+            matchedProduct = foundDamagedProduct;
+          } else {
+            matchedProduct = await this.accountingService.createProduct(user, {
+              ...(objectFoundProduct as any),
+              name: name,
+            });
+          }
         } catch (error) {
+          console.log(error);
           throw new HttpException(
             'Failed to handle matched product',
             HttpStatus.INTERNAL_SERVER_ERROR,

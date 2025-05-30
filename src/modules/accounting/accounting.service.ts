@@ -133,6 +133,12 @@ export class AccountingService {
     const product = await this.productModel.findOne({ _id: id });
     return product;
   }
+  async findProductByName(name: string) {
+    const product = await this.productModel.findOne({
+      name: name,
+    });
+    return product;
+  }
 
   async findProductByIkasId(id: string) {
     const product = await this.productModel.findOne({ ikasId: id });
