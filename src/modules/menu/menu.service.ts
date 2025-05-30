@@ -367,7 +367,7 @@ export class MenuService {
       if (!item) {
         throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
       }
-      const locations = await this.locationService.findAllLocations();
+      const locations = await this.locationService.findStockLocations();
 
       let matchedProduct = null;
 
