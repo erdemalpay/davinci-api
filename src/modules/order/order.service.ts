@@ -90,6 +90,63 @@ export class OrderService {
       );
     }
   }
+  async findPopularDiscounts() {
+    const cacheKey = RedisKeys.PopularDiscounts;
+    const today = new Date().toISOString().split('T')[0]; // e.g. "2025-05-30"
+
+    // Try cache
+    try {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached?.date === today) {
+        return cached.data;
+      }
+    } catch (err) {
+      console.warn('Could not read popular discounts from Redis:', err);
+    }
+    // Not cached
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    let orders: Array<{ item: number; discount?: number }>;
+    try {
+      orders = await this.orderModel
+        .find({
+          createdAt: { $gte: thirtyDaysAgo },
+          discount: { $exists: true, $ne: null },
+        })
+        .select('item discount')
+        .lean();
+    } catch (err) {
+      throw new HttpException(
+        'Failed to load orders for popular discounts',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    // Build map of item → Set of discounts
+    const map = new Map<number, Set<number>>();
+    for (const { item, discount } of orders) {
+      if (discount == null) continue;
+      if (!map.has(item)) {
+        map.set(item, new Set());
+      }
+      map.get(item)!.add(discount);
+    }
+    // Convert to array of { item, discounts[] }, sorting IDs descending
+    const result = Array.from(map.entries()).map(([item, discountsSet]) => {
+      const discounts = Array.from(discountsSet).sort((a, b) => b - a);
+      return { item, discounts };
+    });
+
+    // Cache in Redis (with today's date)
+    try {
+      await this.redisService.set(cacheKey, { date: today, data: result });
+      // Optionally set an expiry, e.g. 24h:
+      // await this.redisService.expire(cacheKey, 60 * 60 * 24);
+    } catch (err) {
+      console.warn('Could not write popular discounts to Redis:', err);
+    }
+
+    return result;
+  }
   async findQueryOrders(query: OrderQueryDto) {
     const filterQuery = {
       quantity: { $gt: 0 },

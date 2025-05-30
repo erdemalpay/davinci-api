@@ -32,6 +32,11 @@ export class OrderController {
     return this.orderService.findAllOrders();
   }
 
+  @Get('/popular-discounts')
+  findPopularDiscounts() {
+    return this.orderService.findPopularDiscounts();
+  }
+
   @Get('/query')
   findQueryOrders(
     @Query('after') after?: string,
