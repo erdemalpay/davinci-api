@@ -179,11 +179,31 @@ export class ButtonCallService {
     return { averageDuration, longestCalls };
   }
 
-  async find(date?: string, location?: number, type?: string) {
+  async find(month?: string, date?: string, location?: number, type?: string) {
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return null;
+    }
+
     const query: any = {};
-    if (date) query.date = date;
-    if (location !== undefined) query.location = location;
-    if (type) query.finishHour = { $exists: !(type === 'active') };
+
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [year, mon] = month.split('-').map(Number);
+      const start = new Date(year, mon - 1, 1);
+      const end = new Date(year, mon, 1);
+      query.createdAt = { $gte: start, $lt: end };
+    }
+
+    if (date) {
+      query.date = date;
+    }
+
+    if (location !== undefined) {
+      query.location = location;
+    }
+
+    if (type) {
+      query.finishHour = { $exists: !(type === 'active') };
+    }
 
     return this.buttonCallModel.find(query);
   }

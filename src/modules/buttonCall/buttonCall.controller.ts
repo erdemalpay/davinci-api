@@ -24,11 +24,12 @@ export class ButtonCallController {
   @ApiResponse({ type: [ButtonCall] })
   @Get()
   getButtonCalls(
+    @Query('month') month: string,
     @Query('date') date: string,
     @Query('location') location: number,
     @Query('type') type: string,
   ) {
-    return this.buttonCallService.find(date, location, type);
+    return this.buttonCallService.find(month, date, location, type);
   }
 
   @ApiResponse({ type: ButtonCall })
