@@ -38,7 +38,7 @@ export class ButtonCallService {
       const createdButtonCall = new this.buttonCallModel({
         ...createButtonCallDto,
         date: format(new Date(), 'yyyy-MM-dd'),
-        startHour: format(new Date(), 'HH:mm:ss'),
+        startHour: createButtonCallDto.hour,
         createdBy: user._id,
       });
       this.buttonCallGateway.emitButtonCallChanged(createdButtonCall);
@@ -66,13 +66,12 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    const finishHour = format(new Date(), 'HH:mm:ss');
     closedButtonCall.set({
       duration: convertToHMS(
-        convertToSeconds(finishHour) -
+        convertToSeconds(closeButtonCallDto.hour) -
           convertToSeconds(closedButtonCall.startHour),
       ),
-      finishHour: finishHour,
+      finishHour: closeButtonCallDto.hour,
       cancelledBy: user._id,
     });
     closedButtonCall.save();
@@ -83,7 +82,7 @@ export class ButtonCallService {
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
-      await this.notifyCafe(user, closedButtonCall);
+      await this.notifyCafe(user, closeButtonCallDto);
     }
 
     return closedButtonCall;
