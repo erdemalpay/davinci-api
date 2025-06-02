@@ -187,6 +187,7 @@ export class IkasService {
             sellPrice
             discountPrice
             buyPrice
+            priceListId
           }
           sku
           unit {
