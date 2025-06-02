@@ -65,6 +65,11 @@ export class IkasController {
     return this.ikasService.getAllSalesChannels();
   }
 
+  @Get('/price-list')
+  getAllPriceLists() {
+    return this.ikasService.getAllPriceLists();
+  }
+
   @Get('/webhook')
   getAllWebhooks() {
     return this.ikasService.getAllWebhooks();
@@ -81,8 +86,8 @@ export class IkasController {
   }
 
   @Post('/update-all-stocks')
-  bulkUpdateAllProductStocks() {
-    return this.ikasService.bulkUpdateAllProductStocks();
+  bulkUpdateAllProductStocksAndPrices() {
+    return this.ikasService.bulkUpdateAllProductStocksAndPrices();
   }
 
   @Public()

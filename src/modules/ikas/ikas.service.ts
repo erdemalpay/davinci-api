@@ -345,7 +345,48 @@ export class IkasService {
 
     return await fetchCategories(); // Fetch and return all categories
   }
+  async getAllPriceLists() {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
 
+    const fetchPriceLists = async () => {
+      const query = {
+        query: `{
+          listPriceList {
+            id
+            addProductsAutomatically
+            currency
+            currencyCode
+            currencySymbol
+            name
+          }
+        }`,
+      };
+      try {
+        const response = await this.httpService
+          .post(apiUrl, query, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .toPromise();
+
+        return response.data.data.listPriceList;
+      } catch (error) {
+        console.error(
+          'Error fetching price lists:',
+          JSON.stringify(error.response?.data || error.message),
+        );
+        throw new HttpException(
+          'Unable to fetch price lists from Ikas.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    };
+
+    return await fetchPriceLists();
+  }
   async getAllStockLocations() {
     const token = await this.getToken(); // Fetch the authentication token
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
@@ -1249,15 +1290,13 @@ export class IkasService {
       console.error('Error fetching Ikas items:', ikasItemsError.message);
     }
   }
-  async bulkUpdateAllProductStocks() {
+  async bulkUpdateAllProductStocksAndPrices() {
     try {
-      // Fetch data from services
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
 
-      // Build an updates map: productId -> variantId -> stockLocationId -> newQuantity
-      const updatesMap: {
+      const updatesMapStock: {
         [productId: string]: {
           [variantId: string]: {
             [stockLocationId: string]: number;
@@ -1265,71 +1304,104 @@ export class IkasService {
         };
       } = {};
 
-      // Loop through each item and compare accounting stock with the product's current stock
+      const updatesMapPrice: {
+        [productId: string]: {
+          [variantId: string]: {
+            basePrice?: number;
+            onlinePrice?: number;
+          };
+        };
+      } = {};
+
+      const IkasOnlinePriceListId = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
+
       for (const item of ikasItems) {
+        if (!item.ikasId) continue;
+        const product = ikasProducts.find((p) => p.id === item.ikasId);
+        if (!product) continue;
+        const variant = product.variants?.[0];
+        if (!variant) continue;
+        const variantId = variant.id;
+
         try {
           const productStocks = await this.accountingService.findProductStock(
             item.matchedProduct,
           );
           for (const stock of productStocks) {
-            if (!item.ikasId) continue;
-            const product = ikasProducts.find((p) => p.id === item.ikasId);
-            if (!product) {
-              console.error(`Product ${item.ikasId} not found in Ikas`);
-              continue;
-            }
-            const location = locations.find(
-              (loc) => loc._id === stock.location,
+            const locObj = locations.find((loc) => loc._id === stock.location);
+            if (!locObj || !locObj.ikasId) continue;
+            const currentStockEntry = variant.stocks?.find(
+              (s) => s.stockLocationId === locObj.ikasId,
             );
-            if (!location || !location.ikasId) continue;
-            // For simplicity, we update only the first variant.
-            const variant = product.variants[0];
-            if (!variant) {
-              console.error(`No variant found for product ${item.ikasId}`);
-              continue;
-            }
-            const currentStock = variant.stocks?.find(
-              (s) => s.stockLocationId === location.ikasId,
-            );
-            if (!currentStock) continue;
-            if (currentStock.stockCount !== stock.quantity) {
-              if (!updatesMap[item.ikasId]) updatesMap[item.ikasId] = {};
-              if (!updatesMap[item.ikasId][variant.id])
-                updatesMap[item.ikasId][variant.id] = {};
-              updatesMap[item.ikasId][variant.id][location.ikasId] =
+            if (!currentStockEntry) continue;
+            if (currentStockEntry.stockCount !== stock.quantity) {
+              updatesMapStock[item.ikasId] ??= {};
+              updatesMapStock[item.ikasId][variantId] ??= {};
+              updatesMapStock[item.ikasId][variantId][locObj.ikasId] =
                 stock.quantity;
             }
           }
         } catch (err) {
           console.error(
             `Error fetching product stocks for ${item.ikasId}:`,
-            err.message,
+            (err as any).message || err,
           );
+        }
+
+        const priceBucket = variant.prices || [];
+        const ikasBasePriceObj = priceBucket.find((p) => p.priceListId == null);
+        const ikasOnlinePriceObj = priceBucket.find(
+          (p) => p.priceListId === IkasOnlinePriceListId,
+        );
+
+        if (ikasBasePriceObj) {
+          if (ikasBasePriceObj.sellPrice !== item.price) {
+            updatesMapPrice[item.ikasId] ??= {};
+            updatesMapPrice[item.ikasId][variantId] ??= {};
+            updatesMapPrice[item.ikasId][variantId].basePrice = item.price;
+          }
+        } else {
+          updatesMapPrice[item.ikasId] ??= {};
+          updatesMapPrice[item.ikasId][variantId] ??= {};
+          updatesMapPrice[item.ikasId][variantId].basePrice = item.price;
+        }
+
+        if (item.onlinePrice != null) {
+          if (ikasOnlinePriceObj) {
+            if (ikasOnlinePriceObj.sellPrice !== item.onlinePrice) {
+              updatesMapPrice[item.ikasId] ??= {};
+              updatesMapPrice[item.ikasId][variantId] ??= {};
+              updatesMapPrice[item.ikasId][variantId].onlinePrice =
+                item.onlinePrice;
+            }
+          } else {
+            updatesMapPrice[item.ikasId] ??= {};
+            updatesMapPrice[item.ikasId][variantId] ??= {};
+            updatesMapPrice[item.ikasId][variantId].onlinePrice =
+              item.onlinePrice;
+          }
         }
       }
 
-      const productIdsToUpdate = Object.keys(updatesMap);
-      if (productIdsToUpdate.length === 0) {
-        console.log('No products need a stock update.');
+      const productIdsToUpdateStocks = Object.keys(updatesMapStock);
+      const productIdsToUpdatePrices = Object.keys(updatesMapPrice);
+      const allProductIdsToUpdate = Array.from(
+        new Set([...productIdsToUpdateStocks, ...productIdsToUpdatePrices]),
+      );
+      if (allProductIdsToUpdate.length === 0) {
+        console.log('No products need a stock or price update.');
         return;
       }
 
-      // Construct full BulkUpdateProductsInput objects for each product needing an update.
-      const bulkUpdateInputs = productIdsToUpdate
+      const bulkUpdateInputs = allProductIdsToUpdate
         .map((productId) => {
           const product = ikasProducts.find((p) => p.id === productId);
-          if (!product) {
-            console.error(
-              `Product ${productId} not found in fetched products.`,
-            );
-            return null;
-          }
+          if (!product) return null;
 
-          const productVariantTypes = product?.productVariantTypes
-            ? product.productVariantTypes?.map((pvt: any) => ({
+          const productVariantTypes = product.productVariantTypes
+            ? product.productVariantTypes.map((pvt: any) => ({
                 order: pvt.order,
                 variantTypeName: pvt.variantTypeName || null,
-                // variantValues: each should be a BulkUpdateProductVariantValueImportInput
                 variantValues: pvt.variantValues
                   ? pvt.variantValues.map((val: any) => ({
                       colorCode: val.colorCode || null,
@@ -1340,63 +1412,134 @@ export class IkasService {
                   : [],
               }))
             : [];
-          // For the variant(s) that need update in stock, merge the new stock count.
-          const variants = product?.variants?.map((variant: any) => {
-            // Update stocks if there is an entry in the updatesMap.
-            const updatedStocks =
-              updatesMap[productId] && updatesMap[productId][variant.id]
-                ? variant?.stocks?.map((stock: any) => {
-                    if (
-                      updatesMap[productId][variant.id][
-                        stock.stockLocationId
-                      ] !== undefined
-                    ) {
-                      return {
-                        stockCount:
-                          updatesMap[productId][variant.id][
-                            stock.stockLocationId
-                          ],
-                        stockLocationId: stock.stockLocationId,
-                      };
-                    }
-                    return stock;
-                  })
-                : variant?.stocks ?? [];
 
-            // Map prices: BulkUpdateProductPriceInput
-            const prices = variant?.prices
-              ? variant?.prices?.map((price: any) => ({
-                  sellPrice: price.sellPrice,
-                }))
-              : [];
+          const variants = product.variants.map((variant: any) => {
+            const variantId = variant.id;
+
+            let newStocks = variant.stocks || [];
+            if (
+              updatesMapStock[productId] &&
+              updatesMapStock[productId][variantId]
+            ) {
+              newStocks = newStocks.map((s: any) => {
+                const overrideQty =
+                  updatesMapStock[productId][variantId][s.stockLocationId];
+                if (overrideQty !== undefined) {
+                  return {
+                    stockLocationId: s.stockLocationId,
+                    stockCount: overrideQty,
+                  };
+                }
+                return {
+                  stockLocationId: s.stockLocationId,
+                  stockCount: s.stockCount,
+                };
+              });
+            }
+
+            let newPrices = variant.prices || [];
+            if (
+              updatesMapPrice[productId] &&
+              updatesMapPrice[productId][variantId]
+            ) {
+              const { basePrice, onlinePrice } =
+                updatesMapPrice[productId][variantId];
+
+              newPrices = newPrices.map((p: any) => {
+                if (p.priceListId == null && basePrice !== undefined) {
+                  return {
+                    currency: p.currency,
+                    sellPrice: basePrice,
+                    discountPrice: p.discountPrice ?? null,
+                    buyPrice: p.buyPrice ?? null,
+                    priceListId: null,
+                  };
+                }
+                if (
+                  p.priceListId === IkasOnlinePriceListId &&
+                  onlinePrice !== undefined
+                ) {
+                  return {
+                    currency: p.currency,
+                    sellPrice: onlinePrice,
+                    discountPrice: p.discountPrice ?? null,
+                    buyPrice: p.buyPrice ?? null,
+                    priceListId: IkasOnlinePriceListId,
+                  };
+                }
+                return {
+                  currency: p.currency ?? null,
+                  sellPrice: p.sellPrice,
+                  discountPrice: p.discountPrice ?? null,
+                  buyPrice: p.buyPrice ?? null,
+                  priceListId: p.priceListId ?? null,
+                };
+              });
+
+              if (
+                basePrice !== undefined &&
+                !variant.prices.some((p: any) => p.priceListId == null)
+              ) {
+                newPrices.push({
+                  currency: null,
+                  sellPrice: basePrice,
+                  discountPrice: null,
+                  buyPrice: null,
+                  priceListId: null,
+                });
+              }
+
+              if (
+                onlinePrice !== undefined &&
+                !variant.prices.some(
+                  (p: any) => p.priceListId === IkasOnlinePriceListId,
+                )
+              ) {
+                newPrices.push({
+                  currency: 'TRY',
+                  sellPrice: onlinePrice,
+                  discountPrice: null,
+                  buyPrice: null,
+                  priceListId: IkasOnlinePriceListId,
+                });
+              }
+            }
 
             return {
-              id: variant.id || null,
-              isActive:
-                variant.isActive !== undefined ? variant.isActive : false,
-              prices: prices,
-              stocks: updatedStocks || [],
+              id: variantId,
+              isActive: variant.isActive ?? false,
+              prices: newPrices.map((p: any) => ({
+                currency: p.currency === undefined ? null : p.currency,
+                sellPrice: p.sellPrice,
+                discountPrice: p.discountPrice ?? null,
+                buyPrice: p.buyPrice ?? null,
+                priceListId: p.priceListId ?? null,
+              })),
+              stocks: newStocks.map((s: any) => ({
+                stockLocationId: s.stockLocationId,
+                stockCount: s.stockCount,
+              })),
+              deleted: false,
             };
           });
 
           return {
             id: product.id,
-            categories: product.categories,
-            productVariantTypes: productVariantTypes,
-            variants: variants,
             name: product.name,
+            categories: product.categories.map((cat: any) => ({
+              name: cat.name,
+            })),
+            productVariantTypes,
+            type: 'PHYSICAL' as const,
+            variants,
+            deleted: false,
           };
         })
         .filter((input) => input !== null);
 
-      console.log('Bulk update inputs:', bulkUpdateInputs);
-
-      // Create the GraphQL mutation string from the inputs.
-      // We generate the JSON-like string for the input array and embed it into the mutation.
       const inputsString = bulkUpdateInputs
         .map((input: any) => {
-          // Serialize productVariantTypes (BulkUpdateProductVariantTypeImportInput)
-          const productVariantTypesString = input?.productVariantTypes
+          const productVariantTypesString = input.productVariantTypes
             .map((pvt: any) => {
               const variantValuesString = pvt.variantValues
                 .map(
@@ -1418,15 +1561,26 @@ export class IkasService {
             })
             .join(', ');
 
-          // Serialize variants (BulkUpdateProductVariantInput)
           const variantsString = input.variants
             .map((variant: any) => {
               const pricesString =
                 variant.prices && variant.prices.length > 0
                   ? `[${variant.prices
-                      .map((price: any) => `{ sellPrice: ${price.sellPrice} }`)
+                      .map(
+                        (p: any) =>
+                          `{ currency: ${
+                            p.currency ? `"${p.currency}"` : 'null'
+                          }, sellPrice: ${p.sellPrice}, discountPrice: ${
+                            p.discountPrice !== null ? p.discountPrice : 'null'
+                          }, buyPrice: ${
+                            p.buyPrice !== null ? p.buyPrice : 'null'
+                          }, priceListId: ${
+                            p.priceListId ? `"${p.priceListId}"` : 'null'
+                          } }`,
+                      )
                       .join(', ')}]`
                   : '[]';
+
               const stocksString =
                 variant.stocks && variant.stocks.length > 0
                   ? `[${variant.stocks
@@ -1437,20 +1591,16 @@ export class IkasService {
                       .join(', ')}]`
                   : '[]';
 
-              return `{ id: ${
-                variant.id ? `"${variant.id}"` : 'null'
-              },  isActive: ${
-                variant.isActive
-              }, prices: ${pricesString},  stocks: ${stocksString},deleted: false }`;
+              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false }`;
             })
             .join(', ');
+
           const categoriesString = input.categories
-            .map((cat: any) => {
-              return `{ name: "${cat.name}" }`;
-            })
+            .map((cat: any) => `{ name: "${cat.name}" }`)
             .join(', ');
+
           return `{
-          id: ${input.id ? `"${input.id}"` : 'null'},
+          id: "${input.id}",
           name: "${input.name}",
           categories: [${categoriesString}],
           productVariantTypes: [${productVariantTypesString}],
@@ -1461,30 +1611,38 @@ export class IkasService {
         })
         .join(', ');
 
-      const data = {
-        query: `mutation {
-        bulkUpdateProducts(input: [${inputsString}])
-   }
-`,
-      };
-      console.log(inputsString);
+      const mutation = `
+      mutation {
+        bulkUpdateProducts(
+          input: [${inputsString}]
+        )
+      }
+    `;
+
       const token = await this.getToken();
       const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
       const response = await this.httpService
-        .post(apiUrl, data, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+        .post(
+          apiUrl,
+          { query: mutation },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
           },
-        })
+        )
         .toPromise();
 
       await this.ikasGateway.emitIkasProductStockChanged();
       return response.data;
-    } catch (error) {
-      console.log(error.response.data.errors);
+    } catch (error: any) {
+      console.error(
+        'Bulk update failed:',
+        error.response?.data || error.message,
+      );
       throw new HttpException(
-        'Unable to perform bulk product stock update.',
+        'Unable to perform bulk product stock / price update.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
