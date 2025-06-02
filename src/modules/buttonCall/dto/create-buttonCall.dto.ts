@@ -11,4 +11,9 @@ export class CreateButtonCallDto {
   @IsNotEmpty()
   @IsNumber()
   readonly location: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  readonly hour: string;
 }

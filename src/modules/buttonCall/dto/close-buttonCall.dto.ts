@@ -11,4 +11,9 @@ export class CloseButtonCallDto {
   @IsNotEmpty()
   @IsNumber()
   readonly location: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  readonly hour: string;
 }
