@@ -13,6 +13,11 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
+import {
+  NotificationEventType,
+  NotificationType,
+} from '../notification/notification.dto';
+import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
@@ -43,6 +48,7 @@ export class TableService {
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -469,5 +475,39 @@ export class TableService {
     const table = await this.tableModel.findByIdAndRemove(id);
     this.tableGateway.emitTableChanged(user, table);
     return table;
+  }
+  async notifyUnclosedTables() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yyyyY = yesterday.getFullYear();
+    const mmY = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const ddY = String(yesterday.getDate()).padStart(2, '0');
+    const yesterdayStr = `${yyyyY}-${mmY}-${ddY}`;
+    const unclosedTables = await this.tableModel.find({
+      date: { $in: [todayStr, yesterdayStr] },
+      $or: [
+        { finishHour: { $exists: false } },
+        { finishHour: null },
+        { finishHour: '' },
+      ],
+    });
+    if (unclosedTables.length > 0) {
+      await this.notificationService.createNotification({
+        type: NotificationType.WARNING,
+        selectedUsers: [],
+        selectedRoles: [1],
+        selectedLocations: [2],
+        seenBy: [],
+        event: NotificationEventType.NIGHTOPENTABLE,
+        message: `There are ${unclosedTables.length} unclosed tables for today `,
+      });
+    } else {
+      console.log('No unfinished tables found for today or yesterday.');
+    }
   }
 }

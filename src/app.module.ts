@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
@@ -44,6 +45,7 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 
 const modules = [
   ConfigModule.forRoot({ isGlobal: true }),
+  ScheduleModule.forRoot(),
   ActivityModule,
   AuthModule,
   AssetModule,
