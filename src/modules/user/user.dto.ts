@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsString } from 'class-validator';
 import { Role } from './user.role.schema';
+import { UserSettings } from './user.schema';
 
 export class CreateUserDto {
   @IsString()
@@ -44,4 +45,7 @@ export class UserResponse {
 
   @ApiProperty()
   address: string;
+
+  @ApiProperty()
+  settings: UserSettings;
 }

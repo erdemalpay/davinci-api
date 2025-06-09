@@ -13,6 +13,11 @@ class UserGame {
   learnDate: string;
 }
 
+export class UserSettings {
+  @Prop({ type: Boolean, required: false, default: false })
+  orderCategoryOn: boolean;
+}
+
 @Schema({ _id: false })
 export class User extends Document {
   @Prop({ type: String })
@@ -71,6 +76,9 @@ export class User extends Document {
 
   @Prop([UserGame])
   userGames: UserGame[];
+
+  @Prop({ type: UserSettings })
+  settings: UserSettings;
 
   @Prop({
     required: true,
