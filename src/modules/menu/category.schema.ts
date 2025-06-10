@@ -34,6 +34,9 @@ export class MenuCategory extends Document {
 
   @Prop({ type: String })
   imageUrl: string;
+
+  @Prop({ required: true, type: Number })
+  orderCategoryOrder: number;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);
