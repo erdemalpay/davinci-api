@@ -210,7 +210,7 @@ export class IkasService {
           })
           .toPromise();
 
-        return response.data.data.listProduct.data;
+        return response.data.data.listProduct?.data;
       } catch (error) {
         console.error(
           'Error fetching products:',
@@ -535,14 +535,18 @@ export class IkasService {
       };
       const ikasProduct = await this.createProduct(createIkasProductItem);
       if (ikasProduct) {
-        const updatedItem = { ...item.toObject(), ikasId: ikasProduct.id };
+        const updatedItem = { ...item.toObject(), ikasId: ikasProduct?.id };
         await this.menuService.updateItem(user, item._id, updatedItem);
         const productStock = await this.accountingService.findProductStock(
           item.matchedProduct,
         );
         const storeStock = productStock.find((stock) => stock.location === 6);
         if (storeStock) {
-          await this.updateProductStock(ikasProduct.id, 6, storeStock.quantity);
+          await this.updateProductStock(
+            ikasProduct?.id,
+            6,
+            storeStock.quantity,
+          );
         }
       }
     } catch (error) {
@@ -627,7 +631,7 @@ export class IkasService {
     };
     const savedProduct = await saveProductMutation();
     if (productInput.images && productInput.images.length > 0) {
-      const variantId = savedProduct.variants[0].id;
+      const variantId = savedProduct?.variants[0].id;
       await this.createProductImages(variantId, productInput.images);
     }
     return savedProduct;
@@ -645,7 +649,7 @@ export class IkasService {
     const allProducts = await this.getAllProducts();
 
     const foundProduct = allProducts.find(
-      (product) => product.id === productId,
+      (product) => product?.id === productId,
     );
     const foundStockLocation = await this.locationService.findLocationById(
       stockLocationId,
@@ -672,7 +676,7 @@ export class IkasService {
                 productId: "${productId}",
                 stockCount: ${stockCount},
                 stockLocationId: "${foundStockLocation.ikasId}",
-                variantId: "${foundProduct.variants[0].id}"
+                variantId: "${foundProduct?.variants[0].id}"
               }
             ]
           })
@@ -724,7 +728,7 @@ export class IkasService {
     const allProducts = await this.getAllProducts();
 
     const foundProduct = allProducts.find(
-      (product) => product.id === productId,
+      (product) => product?.id === productId,
     );
     if (!foundProduct) {
       throw new HttpException(
@@ -1242,7 +1246,7 @@ export class IkasService {
                 continue;
               }
               const foundIkasProduct = ikasProducts?.find(
-                (product) => product.id === item.ikasId,
+                (product) => product?.id === item.ikasId,
               );
               if (!foundIkasProduct) {
                 console.error(`Product ${item.ikasId} not found in Ikas`);
@@ -1319,7 +1323,7 @@ export class IkasService {
         if (!item.ikasId) continue;
         const product = ikasProducts.find((p) => p.id === item.ikasId);
         if (!product) continue;
-        const variant = product.variants?.[0];
+        const variant = product?.variants?.[0];
         if (!variant) continue;
         const variantId = variant.id;
 
@@ -1394,16 +1398,16 @@ export class IkasService {
       }
 
       const bulkUpdateInputs = allProductIdsToUpdate
-        .map((productId) => {
+        ?.map((productId) => {
           const product = ikasProducts.find((p) => p.id === productId);
           if (!product) return null;
 
-          const productVariantTypes = product.productVariantTypes
-            ? product.productVariantTypes.map((pvt: any) => ({
+          const productVariantTypes = product?.productVariantTypes
+            ? product?.productVariantTypes?.map((pvt: any) => ({
                 order: pvt.order,
                 variantTypeName: pvt.variantTypeName || null,
                 variantValues: pvt.variantValues
-                  ? pvt.variantValues.map((val: any) => ({
+                  ? pvt.variantValues?.map((val: any) => ({
                       colorCode: val.colorCode || null,
                       name: val.name,
                       sourceId: val.sourceId || null,
@@ -1413,7 +1417,7 @@ export class IkasService {
               }))
             : [];
 
-          const variants = product.variants.map((variant: any) => {
+          const variants = product?.variants?.map((variant: any) => {
             const variantId = variant.id;
 
             let newStocks = variant.stocks || [];
@@ -1421,7 +1425,7 @@ export class IkasService {
               updatesMapStock[productId] &&
               updatesMapStock[productId][variantId]
             ) {
-              newStocks = newStocks.map((s: any) => {
+              newStocks = newStocks?.map((s: any) => {
                 const overrideQty =
                   updatesMapStock[productId][variantId][s.stockLocationId];
                 if (overrideQty !== undefined) {
@@ -1445,7 +1449,7 @@ export class IkasService {
               const { basePrice, onlinePrice } =
                 updatesMapPrice[productId][variantId];
 
-              newPrices = newPrices.map((p: any) => {
+              newPrices = newPrices?.map((p: any) => {
                 if (p.priceListId == null && basePrice !== undefined) {
                   return {
                     currency: p.currency,
@@ -1491,7 +1495,7 @@ export class IkasService {
 
               if (
                 onlinePrice !== undefined &&
-                !variant.prices.some(
+                !variant?.prices?.some(
                   (p: any) => p.priceListId === IkasOnlinePriceListId,
                 )
               ) {
@@ -1508,14 +1512,14 @@ export class IkasService {
             return {
               id: variantId,
               isActive: variant.isActive ?? false,
-              prices: newPrices.map((p: any) => ({
+              prices: newPrices?.map((p: any) => ({
                 currency: p.currency === undefined ? null : p.currency,
                 sellPrice: p.sellPrice,
                 discountPrice: p.discountPrice ?? null,
                 buyPrice: p.buyPrice ?? null,
                 priceListId: p.priceListId ?? null,
               })),
-              stocks: newStocks.map((s: any) => ({
+              stocks: newStocks?.map((s: any) => ({
                 stockLocationId: s.stockLocationId,
                 stockCount: s.stockCount,
               })),
@@ -1524,9 +1528,9 @@ export class IkasService {
           });
 
           return {
-            id: product.id,
-            name: product.name,
-            categories: product.categories.map((cat: any) => ({
+            id: product?.id,
+            name: product?.name,
+            categories: product?.categories?.map((cat: any) => ({
               name: cat.name,
             })),
             productVariantTypes,
@@ -1538,11 +1542,11 @@ export class IkasService {
         .filter((input) => input !== null);
 
       const inputsString = bulkUpdateInputs
-        .map((input: any) => {
+        ?.map((input: any) => {
           const productVariantTypesString = input.productVariantTypes
-            .map((pvt: any) => {
+            ?.map((pvt: any) => {
               const variantValuesString = pvt.variantValues
-                .map(
+                ?.map(
                   (val: any) =>
                     `{ colorCode: ${
                       val.colorCode ? `"${val.colorCode}"` : 'null'
@@ -1562,11 +1566,11 @@ export class IkasService {
             .join(', ');
 
           const variantsString = input.variants
-            .map((variant: any) => {
+            ?.map((variant: any) => {
               const pricesString =
                 variant.prices && variant.prices.length > 0
                   ? `[${variant.prices
-                      .map(
+                      ?.map(
                         (p: any) =>
                           `{ currency: ${
                             p.currency ? `"${p.currency}"` : 'null'
@@ -1584,7 +1588,7 @@ export class IkasService {
               const stocksString =
                 variant.stocks && variant.stocks.length > 0
                   ? `[${variant.stocks
-                      .map(
+                      ?.map(
                         (s: any) =>
                           `{ stockCount: ${s.stockCount}, stockLocationId: "${s.stockLocationId}" }`,
                       )
@@ -1596,7 +1600,7 @@ export class IkasService {
             .join(', ');
 
           const categoriesString = input.categories
-            .map((cat: any) => `{ name: "${cat.name}" }`)
+            ?.map((cat: any) => `{ name: "${cat.name}" }`)
             .join(', ');
 
           return `{
