@@ -18,7 +18,7 @@ import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
-import { MenuItem } from './item.schema';
+import { MenuItem, PriceHistory } from './item.schema';
 import { Kitchen } from './kitchen.schema';
 import {
   CreateBulkItemDto,
@@ -31,6 +31,7 @@ import {
 import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
+
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -563,6 +564,7 @@ export class MenuService {
         ...item.priceHistory,
         { price: updates.price, date: new Date().toISOString() },
       ];
+      updates.priceHistory = this.prunePriceHistory(updates.priceHistory);
       if (item?.ikasId) {
         // Update the price in Ikas service
         try {
@@ -1105,5 +1107,25 @@ export class MenuService {
     });
     this.menuGateway.emitCategoryChanged(null, categories);
     return categories;
+  }
+  prunePriceHistory(history: PriceHistory[]): PriceHistory[] {
+    return history.filter((entry, idx) => {
+      if (idx === 0) return true;
+      return entry.price !== history[idx - 1].price;
+    });
+  }
+  async removeDublicatesPriceHistory() {
+    const items = await this.itemModel.find();
+    items.forEach(async (item) => {
+      if (item.priceHistory && item.priceHistory.length > 0) {
+        const uniquePriceHistory = this.prunePriceHistory(item.priceHistory);
+        if (uniquePriceHistory.length !== item.priceHistory.length) {
+          await this.itemModel.findByIdAndUpdate(item._id, {
+            priceHistory: uniquePriceHistory,
+          });
+        }
+      }
+    });
+    this.menuGateway.emitItemChanged(null, items);
   }
 }

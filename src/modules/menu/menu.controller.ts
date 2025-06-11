@@ -91,6 +91,10 @@ export class MenuController {
   createItem(@ReqUser() user: User, @Body() createItemDto: CreateItemDto) {
     return this.menuService.createItem(user, createItemDto);
   }
+  @Post('/items/remove-dublicates-price-history')
+  removeDublicatesPriceHistory() {
+    return this.menuService.removeDublicatesPriceHistory();
+  }
 
   @Post('/items/slug')
   updateItemsSlugs() {

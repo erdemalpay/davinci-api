@@ -14,7 +14,7 @@ class ItemProduction {
   @Prop({ required: true, type: Boolean, default: true })
   isDecrementStock: boolean;
 }
-class PriceHistory {
+export class PriceHistory {
   @Prop({ required: true, type: Number })
   price: number;
 
