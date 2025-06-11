@@ -168,6 +168,11 @@ export class MenuController {
     return this.menuService.updateFarmCategory(user, id, updates);
   }
 
+  @Post('/categories/set-order-category')
+  setOrderCategory() {
+    return this.menuService.setOrderCategoryOrders();
+  }
+
   @Patch('/categories/:id')
   updateCategory(
     @ReqUser() user: User,
@@ -186,6 +191,22 @@ export class MenuController {
     },
   ) {
     return this.menuService.updateCategoriesOrder(user, id, payload.newOrder);
+  }
+
+  @Patch('/order_categories_order/:id')
+  updateOrderCategoriesOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body()
+    payload: {
+      newOrder: number;
+    },
+  ) {
+    return this.menuService.updateOrderCategoriesOrder(
+      user,
+      id,
+      payload.newOrder,
+    );
   }
 
   @Patch('/items_order/:id')

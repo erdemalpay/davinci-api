@@ -620,6 +620,25 @@ export class MenuService {
     );
     this.menuGateway.emitCategoryChanged(user, category);
   }
+  async updateOrderCategoriesOrder(
+    user: User,
+    categoryId: number,
+    newOrder: number,
+  ) {
+    const category = await this.categoryModel.findById(categoryId);
+    if (!category) {
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    }
+    await this.categoryModel.findByIdAndUpdate(categoryId, {
+      orderCategoryOrder: newOrder,
+    });
+
+    await this.categoryModel.updateMany(
+      { _id: { $ne: categoryId }, orderCategoryOrder: { $gte: newOrder } },
+      { $inc: { orderCategoryOrder: 1 } },
+    );
+    this.menuGateway.emitCategoryChanged(user, category);
+  }
 
   async updateMultipleItems(user: User, items: MenuItem[]) {
     if (!items?.length) {
@@ -1074,5 +1093,17 @@ export class MenuService {
     await Promise.all(updatePromises.filter(Boolean));
     this.menuGateway.emitItemChanged();
     return items;
+  }
+  async setOrderCategoryOrders() {
+    const categories = await this.categoryModel.find();
+    let i = 1;
+    categories.forEach(async (category, index) => {
+      await this.categoryModel.findByIdAndUpdate(category._id, {
+        orderCategoryOrder: i,
+      });
+      i++;
+    });
+    this.menuGateway.emitCategoryChanged(null, categories);
+    return categories;
   }
 }
