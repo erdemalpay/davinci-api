@@ -59,7 +59,7 @@ export class ButtonCallController {
     @ReqUser() user: User,
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
-    if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
+    if (!closeButtonCallDto.tableName || !closeButtonCallDto.location || !closeButtonCallDto.hour) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
     return this.buttonCallService.close(user, closeButtonCallDto, true);
