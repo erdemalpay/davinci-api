@@ -1714,7 +1714,7 @@ export class AccountingService {
       this.updateIkasStock(
         createStockDto.product,
         createStockDto.location,
-        oldQuantity + createStockDto.quantity,
+        Number(oldQuantity) + Number(createStockDto.quantity),
       );
     } else {
       const stock = new this.stockModel(stockData);
