@@ -6,22 +6,18 @@ export class ActivityController {
 
   @Get('/query')
   findByQuery(
-    @Query('limit') limit: number,
-    @Query('page') page: number,
     @Query('type') type: string,
     @Query('user') user: string,
     @Query('date') date: string,
-    @Query('sort') sort?: string,
-    @Query('asc') asc?: number,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
   ) {
     return this.activityService.getActivities({
       user,
       date,
-      page,
+      after,
+      before,
       type,
-      limit,
-      sort,
-      asc,
     });
   }
 }

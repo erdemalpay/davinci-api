@@ -168,4 +168,6 @@ export class ActivityQueryDto {
   sort?: string;
   type?: string;
   asc?: number;
+  after?: string;
+  before?: string;
 }

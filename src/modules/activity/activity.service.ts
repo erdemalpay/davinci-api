@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import diff from 'microdiff';
 import { Document, Model } from 'mongoose';
+import { dateRanges } from 'src/utils/dateRanges';
 import { User } from '../user/user.schema';
 import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
 import { ActivityGateway } from './activity.gateway';
@@ -15,39 +16,43 @@ export class ActivityService {
     private readonly activityGateway: ActivityGateway,
   ) {}
 
-  async getActivities(query: ActivityQueryDto) {
-    const filterQuery: any = {};
-    const { user, date, type, page, limit, sort, asc } = query;
-    if (user) {
-      filterQuery['user'] = user;
-    }
-    if (date) {
-      const [year, month, day] = date.split('-').map(Number);
-      const startDate = new Date(year, month - 1, day, 0, 0, 0);
-      const endDate = new Date(year, month - 1, day, 23, 59, 59);
-      filterQuery['createdAt'] = { $gte: startDate, $lte: endDate };
-    }
-    if (type) {
-      filterQuery['type'] = type;
-    }
-    const sortObject = {};
-    if (sort) {
-      sortObject[sort] = asc ? 1 : -1;
-    } else {
-      sortObject['createdAt'] = -1;
-    }
-    const totalCount = await this.activityModel.countDocuments(filterQuery);
-    const items = await this.activityModel
-      .find(filterQuery)
-      .sort(sortObject)
-      .skip(page ? (page - 1) * limit : 0)
-      .limit(limit || 0)
-      .populate({
-        path: 'user',
-        select: '-password',
-      });
+  parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
 
-    return { totalCount, items };
+  async getActivities(query: ActivityQueryDto) {
+    const { user, date, type, after, before } = query;
+    const filter: any = {};
+
+    if (user) filter.user = user;
+    if (type) filter.type = type;
+
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+
+      filter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: any = {};
+
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const end = this.parseLocalDate(before);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = end;
+      }
+
+      if (Object.keys(rangeFilter).length) {
+        filter.createdAt = rangeFilter;
+      }
+    }
+    return this.activityModel.find(filter).sort({ createdAt: -1 }).exec();
   }
 
   getActivityById(gameId: number) {
