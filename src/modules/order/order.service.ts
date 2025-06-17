@@ -771,6 +771,7 @@ export class OrderService {
             preparationTimeMs: { $subtract: ['$preparedAt', '$createdAt'] },
             item: 1,
             orderTable: 1,
+            deliveredAt: 1,
           },
         },
         {
@@ -798,6 +799,7 @@ export class OrderService {
                   item: 1,
                   orderTable: 1,
                   preparationTimeMs: 1,
+                  deliveredAt: 1,
                 },
               },
             ],

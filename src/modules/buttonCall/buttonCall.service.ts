@@ -126,56 +126,50 @@ export class ButtonCallService {
       );
     }
   }
-  async averageButtonCallStats(
-    date: string,
-    location: number,
-  ): Promise<{
-    averageDuration: string;
-    longestCalls: { tableName: string; duration: string }[];
-  }> {
+  async averageButtonCallStats(date: string, location: number) {
     const calls = await this.buttonCallModel
       .find({
         date,
         location: Number(location),
         finishHour: { $exists: true },
       })
-      .select('duration tableName')
+      .select('duration tableName finishHour')
       .exec();
 
-    if (!calls.length) {
+    if (calls.length === 0) {
       return {
         averageDuration: '00:00:00',
         longestCalls: [],
       };
     }
-
     const callsWithSeconds = calls.map((call) => {
       const [h, m, s] = call.duration.split(':').map(Number);
-      const seconds = h * 3600 + m * 60 + s;
-      return { tableName: call.tableName, duration: call.duration, seconds };
+      return {
+        tableName: call.tableName,
+        duration: call.duration,
+        seconds: h * 3600 + m * 60 + s,
+        finishHour: call.finishHour as string,
+      };
     });
-
     const totalSeconds = callsWithSeconds.reduce(
       (sum, c) => sum + c.seconds,
       0,
     );
     const avgSeconds = Math.round(totalSeconds / callsWithSeconds.length);
-
     const hours = Math.floor(avgSeconds / 3600);
     const minutes = Math.floor((avgSeconds % 3600) / 60);
     const seconds = avgSeconds % 60;
-
-    const averageDuration = [
-      String(hours).padStart(2, '0'),
-      String(minutes).padStart(2, '0'),
-      String(seconds).padStart(2, '0'),
-    ].join(':');
-
+    const averageDuration = [hours, minutes, seconds]
+      .map((n) => String(n).padStart(2, '0'))
+      .join(':');
     const longestCalls = callsWithSeconds
       .sort((a, b) => b.seconds - a.seconds)
       .slice(0, 3)
-      .map(({ tableName, duration }) => ({ tableName, duration }));
-
+      .map(({ tableName, duration, finishHour }) => ({
+        tableName,
+        duration,
+        finishHour,
+      }));
     return { averageDuration, longestCalls };
   }
 
