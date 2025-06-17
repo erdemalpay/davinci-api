@@ -214,17 +214,26 @@ export class OrderService {
       );
     }
   }
+  parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
   async findPersonalCollectionNumbers(query: OrderQueryDto) {
     const filterQuery: any = {};
     const { after, before } = query;
+    const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
+      const start = this.parseLocalDate(after);
+      dateFilter.$gte = start;
     }
     if (before) {
-      filterQuery['createdAt'] = {
-        ...filterQuery['createdAt'],
-        $lte: new Date(before),
-      };
+      const end = this.parseLocalDate(before);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
+    if (Object.keys(dateFilter).length) {
+      filterQuery.createdAt = dateFilter;
     }
     filterQuery['status'] = { $ne: OrderCollectionStatus.CANCELLED };
     try {
@@ -257,14 +266,19 @@ export class OrderService {
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: any = {};
     const { after, before, eliminatedDiscounts } = query;
+    const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
+      const start = this.parseLocalDate(after);
+      dateFilter.$gte = start;
     }
     if (before) {
-      filterQuery['createdAt'] = {
-        ...filterQuery['createdAt'],
-        $lte: new Date(before),
-      };
+      const end = this.parseLocalDate(before);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
+    if (Object.keys(dateFilter).length) {
+      filterQuery.createdAt = dateFilter;
     }
     if (eliminatedDiscounts) {
       const discountArray = eliminatedDiscounts
@@ -2609,11 +2623,11 @@ export class OrderService {
         { ikasId: { $exists: true } },
         { $set: { location: 6 } },
       );
-      const collectionUpdateResult = await this.collectionModel.updateMany(
+      await this.collectionModel.updateMany(
         { ikasId: { $exists: true } },
         { $set: { location: 6 } },
       );
-      console.log(updateResult, collectionUpdateResult);
+
       return updateResult;
     } catch (error) {
       console.error('Error updating orders with ikasId:', error);
