@@ -45,7 +45,7 @@ export class Location extends Document {
   tableNames?: string[];
 
   @Prop({ type: [String], required: false })
-  closeDays?: string[];
+  closedDays?: string[];
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
