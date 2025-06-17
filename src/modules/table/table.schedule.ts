@@ -7,7 +7,7 @@ import { TableService } from './table.service';
 export class TableSchedule {
   constructor(private readonly tableService: TableService) {}
 
-  @Cron('0 1 * * *', { timeZone: 'Europe/Istanbul' })
+  @Cron('0 0 1 * * *', { timeZone: 'Europe/Istanbul' })
   async handleEveryMinuteCheck() {
     console.log('🔄 [Cron] Checking for unclosed tables…');
     await this.tableService.notifyUnclosedTables();
