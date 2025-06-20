@@ -15,7 +15,6 @@ import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
-import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 
 @ApiTags('ButtonCall')
 @Controller('button-calls')
