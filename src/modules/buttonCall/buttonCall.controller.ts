@@ -1,9 +1,9 @@
 import {
   Body,
-  Controller,
+  Controller, Delete,
   Get,
   HttpException,
-  HttpStatus,
+  HttpStatus, Param,
   Patch,
   Post,
   Query,
@@ -50,6 +50,11 @@ export class ButtonCallController {
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
     return this.buttonCallService.close(user, closeButtonCallDto);
+  }
+
+  @Delete('/:id')
+  deleteButtonCall(@Param('id') id: number) {
+    return this.buttonCallService.remove(id);
   }
 
   @ApiResponse({ type: ButtonCall })
