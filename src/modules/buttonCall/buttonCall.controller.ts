@@ -1,9 +1,9 @@
 import {
   Body,
-  Controller,
+  Controller, Delete,
   Get,
   HttpException,
-  HttpStatus,
+  HttpStatus, Param,
   Patch,
   Post,
   Query,
@@ -15,6 +15,7 @@ import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 
 @ApiTags('ButtonCall')
 @Controller('button-calls')
@@ -50,6 +51,11 @@ export class ButtonCallController {
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
     return this.buttonCallService.close(user, closeButtonCallDto);
+  }
+
+  @Delete('/:id')
+  deleteButtonCall(@Param('id') id: number) {
+    return this.buttonCallService.remove(id);
   }
 
   @ApiResponse({ type: ButtonCall })
