@@ -1,4 +1,10 @@
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
 import * as streamifier from 'streamifier';
@@ -123,7 +129,10 @@ export class AssetService {
       return allImages;
     } catch (error) {
       console.error('Error fetching images:', error);
-      throw new HttpException(error.message || 'Error fetching images', HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        error.message || 'Error fetching images',
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -137,7 +146,10 @@ export class AssetService {
       const match = regex.exec(decodedUrl);
 
       if (!match || !match[1]) {
-        throw new HttpException('Invalid Cloudinary URL: Could not extract public_id.', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Invalid Cloudinary URL: Could not extract public_id.',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       const publicId = match[1]; // Extracted public_id
@@ -150,7 +162,10 @@ export class AssetService {
       return result;
     } catch (error) {
       console.error('Error deleting image:', error.message);
-      throw new HttpException(error.message || 'Error deleting image', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        error.message || 'Error deleting image',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   };
 
@@ -196,8 +211,15 @@ export class AssetService {
       const imageUrls = await Promise.all(uploadPromises);
 
       if (itemId) {
+        const foundItem = await this.menuService.findItemById(itemId);
+        if (!foundItem) {
+          throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
+        }
+        // Update the item with the new image URLs
+        console.log('Updating item with new images:', imageUrls);
         await this.menuService.updateItem(user, itemId, {
-          productImages: imageUrls,
+          ...foundItem.toObject(),
+          productImages: [...(foundItem.productImages || []), ...imageUrls],
         });
       }
 
