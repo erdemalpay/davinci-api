@@ -4,7 +4,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class CheckoutControl extends Document {
   @Prop({ type: Number })
   _id: number;

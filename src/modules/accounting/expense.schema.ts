@@ -10,7 +10,7 @@ import { Product } from './product.schema';
 import { Service } from './service.schema';
 import { Vendor } from './vendor.schema';
 
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class Expense extends Document {
   @Prop({ type: Number })
   _id: number;

@@ -92,6 +92,7 @@ export class CreatePaymentMethodDto {
   isOnlineOrder?: boolean;
   ikasId?: string;
   isPaymentMade?: boolean;
+  isUsedAtExpense?: boolean;
 }
 
 export class CreateStockDto {

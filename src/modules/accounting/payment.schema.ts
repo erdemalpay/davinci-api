@@ -7,7 +7,7 @@ import { Expense } from './expense.schema';
 import { PaymentMethod } from './paymentMethod.schema';
 import { Vendor } from './vendor.schema';
 
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class Payment extends Document {
   @Prop({ type: Number })
   _id: number;

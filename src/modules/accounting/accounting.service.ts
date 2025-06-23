@@ -887,7 +887,10 @@ export class AccountingService {
           .then((docs) => docs.map((doc) => doc._id));
       }
     }
-
+    const unpaidPaymentMethodIds = await this.paymentMethodModel
+      .find({ isPaymentMade: false })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
     const pipeline: PipelineStage[] = [
       {
         $match: {
@@ -942,7 +945,15 @@ export class AccountingService {
             {
               $group: {
                 _id: null,
-                generalTotalExpense: { $sum: '$totalExpense' },
+                generalTotalExpense: {
+                  $sum: {
+                    $cond: [
+                      { $in: ['$paymentMethod', unpaidPaymentMethodIds] },
+                      0,
+                      '$totalExpense',
+                    ],
+                  },
+                },
               },
             },
           ],
