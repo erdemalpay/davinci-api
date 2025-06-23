@@ -852,6 +852,7 @@ export class AccountingService {
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
+    const paymentMethodArray = paymentMethod ? paymentMethod.split(',') : [];
     const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
@@ -898,7 +899,7 @@ export class AccountingService {
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
           ...(expenseType && { expenseType: expenseType }),
-          ...(paymentMethod && { paymentMethod: paymentMethod }),
+          ...(paymentMethod && { paymentMethod: { $in: paymentMethodArray } }),
           ...(brand && { brand: brand }),
           ...(type && { type: type }),
           ...(vendor && { vendor: vendor }),

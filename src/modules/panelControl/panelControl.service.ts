@@ -14,13 +14,8 @@ import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
-import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
-import {
-  CreateCheckoutCashDto,
-  CreatePageDto,
-  CreatePanelSettingsDto,
-} from './panelControl.dto';
+import { CreatePageDto, CreatePanelSettingsDto } from './panelControl.dto';
 import { PanelControlGateway } from './panelControl.gateway';
 import { PanelSettings } from './panelSettings.schema';
 
@@ -28,8 +23,7 @@ import { PanelSettings } from './panelSettings.schema';
 export class PanelControlService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
-    @InjectModel(CheckoutCash.name)
-    private checkoutCashModel: Model<CheckoutCash>,
+
     @InjectModel(PanelSettings.name)
     private panelSettingsModel: Model<PanelSettings>,
     private readonly panelControlGateway: PanelControlGateway,
@@ -121,47 +115,6 @@ export class PanelControlService implements OnApplicationBootstrap {
     return pagesWithIds;
   }
 
-  //checkout cash
-  async createCheckoutCash(
-    user: User,
-    createCheckoutCashDto: CreateCheckoutCashDto,
-  ) {
-    const checkoutCash = new this.checkoutCashModel({
-      ...createCheckoutCashDto,
-      user: user._id,
-    });
-    await checkoutCash.save();
-    this.panelControlGateway.emitCheckoutCashChanged(user, checkoutCash);
-    return checkoutCash;
-  }
-
-  findAllCheckoutCash() {
-    return this.checkoutCashModel.find().sort({ date: -1 });
-  }
-
-  async updateCheckoutCash(
-    user: User,
-    id: string,
-    updates: UpdateQuery<CheckoutCash>,
-  ) {
-    const newCheckoutCash = await this.checkoutCashModel.findByIdAndUpdate(
-      id,
-      updates,
-      {
-        new: true,
-      },
-    );
-    this.panelControlGateway.emitCheckoutCashChanged(user, newCheckoutCash);
-
-    return newCheckoutCash;
-  }
-
-  async removeCheckoutCash(user: User, id: string) {
-    const checkoutCash = await this.checkoutCashModel.findByIdAndRemove(id);
-    this.panelControlGateway.emitCheckoutCashChanged(user, checkoutCash);
-
-    return checkoutCash;
-  }
   // panel settings
   async findPanelSettings() {
     const panelSettings = await this.panelSettingsModel.find();
