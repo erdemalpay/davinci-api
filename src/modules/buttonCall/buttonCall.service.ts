@@ -181,4 +181,12 @@ export class ButtonCallService {
 
     return this.buttonCallModel.find(query);
   }
+
+  async remove(id: number) {
+    const button_call = await this.buttonCallModel.findById(id);
+    if (!button_call) {
+      throw new HttpException('Button Call not found', HttpStatus.NOT_FOUND);
+    }
+    await this.buttonCallModel.findByIdAndDelete(id);
+  }
 }
