@@ -10,13 +10,8 @@ import {
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { CheckoutCash } from './checkoutCash.schema';
 import { Page } from './page.schema';
-import {
-  CreateCheckoutCashDto,
-  CreatePageDto,
-  CreatePanelSettingsDto,
-} from './panelControl.dto';
+import { CreatePageDto, CreatePanelSettingsDto } from './panelControl.dto';
 import { PanelControlService } from './panelControl.service';
 
 @Controller('panel-control')
@@ -59,38 +54,6 @@ export class PanelControlController {
   deletePage(@ReqUser() user: User, @Param('id') id: string) {
     return this.panelControlService.removePage(user, id);
   }
-
-  // Checkout Cash
-  @Get('/checkout-cash')
-  getCheckoutCash() {
-    return this.panelControlService.findAllCheckoutCash();
-  }
-
-  @Post('/checkout-cash')
-  createCheckoutCash(
-    @ReqUser() user: User,
-    @Body() createCheckoutCashDto: CreateCheckoutCashDto,
-  ) {
-    return this.panelControlService.createCheckoutCash(
-      user,
-      createCheckoutCashDto,
-    );
-  }
-
-  @Delete('/checkout-cash/:id')
-  deleteCheckoutCash(@ReqUser() user: User, @Param('id') id: string) {
-    return this.panelControlService.removeCheckoutCash(user, id);
-  }
-
-  @Patch('/checkout-cash/:id')
-  updateCheckoutCash(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<CheckoutCash>,
-  ) {
-    return this.panelControlService.updateCheckoutCash(user, id, updates);
-  }
-
   //panel settings
   @Get('/panel-settings')
   getPanelSettings() {

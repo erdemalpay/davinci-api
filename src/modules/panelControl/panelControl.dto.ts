@@ -5,14 +5,6 @@ export class CreatePageDto {
   tabs?: PageTab[];
   permissionRoles?: string[] = [];
 }
-
-export class CreateCheckoutCashDto {
-  description?: string;
-  amount: number;
-  date: string;
-  location: number;
-}
-
 export class CreatePanelSettingsDto {
   _id: number;
   isHoliday: boolean;

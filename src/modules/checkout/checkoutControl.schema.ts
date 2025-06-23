@@ -20,6 +20,9 @@ export class CheckoutControl extends Document {
 
   @Prop({ required: true, type: Number })
   amount: number;
+
+  @Prop({ required: false, type: Number })
+  baseQuantity: number;
 }
 
 export const CheckoutControlSchema =

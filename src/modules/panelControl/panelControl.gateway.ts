@@ -51,8 +51,4 @@ export class PanelControlGateway
   emitPanelSettingsChanged(user: User, panelSettings: any) {
     this.server.emit('panelSettingsChanged', { user, panelSettings });
   }
-
-  emitCheckoutCashChanged(user: User, checkoutCash: any) {
-    this.server.emit('checkoutCashChanged', { user, checkoutCash });
-  }
 }
