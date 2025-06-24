@@ -396,21 +396,23 @@ export class AccountingController {
     @Query('asc') asc?: number,
     @Query('date') date?: string,
   ) {
-    return this.accountingService.findAllExpenseWithoutPagination({
-      product,
-      service,
-      type,
-      expenseType,
-      paymentMethod,
-      location,
-      brand,
-      vendor,
-      before,
-      after,
-      sort,
-      asc,
-      date,
-    });
+    return this.accountingService.findAllExpenseWithoutPaginationForCheckoutControl(
+      {
+        product,
+        service,
+        type,
+        expenseType,
+        paymentMethod,
+        location,
+        brand,
+        vendor,
+        before,
+        after,
+        sort,
+        asc,
+        date,
+      },
+    );
   }
 
   @Post('/expenses')

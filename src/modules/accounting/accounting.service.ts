@@ -996,7 +996,7 @@ export class AccountingService {
     // Return the first element of results which contains all required properties
     return results[0];
   }
-  async findAllExpenseWithoutPagination(
+  async findAllExpenseWithoutPaginationForCheckoutControl(
     filter: ExpenseWithoutPaginateFilterType,
   ) {
     let {
@@ -1022,11 +1022,18 @@ export class AccountingService {
     } else {
       sortObject['_id'] = -1;
     }
+    let startDate: Date | null = null;
     if (date) {
       const dateRange = dateRanges[date];
       if (dateRange) {
         after = dateRange().after;
         before = dateRange().before;
+
+        if (after) {
+          startDate = new Date(
+            new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000,
+          );
+        }
       }
     }
     const pipeline: PipelineStage[] = [
@@ -1035,14 +1042,13 @@ export class AccountingService {
           ...(location && { location: Number(location) }),
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
-          ...(expenseType && { expenseType: expenseType }),
-          ...(paymentMethod && { paymentMethod: paymentMethod }),
-          ...(brand && { brand: brand }),
-          ...(type && { type: type }),
-          ...(vendor && { vendor: vendor }),
-          ...(after && { date: { $gte: after } }),
-          ...(before && { date: { $lte: before } }),
-          ...(after && before && { date: { $gte: after, $lte: before } }),
+          ...(expenseType && { expenseType }),
+          ...(paymentMethod && { paymentMethod }),
+          ...(brand && { brand }),
+          ...(type && { type }),
+          ...(vendor && { vendor }),
+          ...(startDate &&
+            before && { date: { $gte: startDate, $lte: before } }),
         },
       },
       {
