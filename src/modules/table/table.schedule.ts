@@ -15,15 +15,33 @@ export class TableSchedule {
     await this.tableService.notifyUnclosedTables();
   }
   
-  @Cron('0 * * * * *')
+  @Cron('0 0 1 * * *')
   async handleEveryMinuteCheck() {
     this.logger.log(`🔄 [Cron] Checking every minute ${new Date().toISOString()}`);
     await this.tableService.notifyUnclosedTables();
   }
   
-  @Cron('10 * * * * *', { timeZone: 'Europe/Istanbul' })
+  @Cron('10 * 6 * * *')
+  async handleEveryMinuteWithoutTimezoneCheck() {
+    this.logger.log(`🔄 [Cron] Checking every minute with timezone with 6 ${new Date().toISOString()}`);
+    await this.tableService.notifyUnclosedTables();
+  }
+  
+  @Cron('10 * 9 * * *')
+  async handleEveryMinuteWithoutTimezoneCheck2() {
+    this.logger.log(`🔄 [Cron] Checking every minute with timezone with 9 ${new Date().toISOString()}`);
+    await this.tableService.notifyUnclosedTables();
+  }
+
+  @Cron('10 * 6 * * *', { timeZone: 'Europe/Istanbul' })
   async handleEveryMinuteWithTimezoneCheck() {
-    this.logger.log(`🔄 [Cron] Checking every minute with timezone ${new Date().toISOString()}`);
+    this.logger.log(`🔄 [Cron] Checking every minute with timezone with 6 ${new Date().toISOString()}`);
+    await this.tableService.notifyUnclosedTables();
+  }
+  
+  @Cron('10 * 9 * * *', { timeZone: 'Europe/Istanbul' })
+  async handleEveryMinuteWithTimezoneCheck2() {
+    this.logger.log(`🔄 [Cron] Checking every minute with timezone with 9 ${new Date().toISOString()}`);
     await this.tableService.notifyUnclosedTables();
   }
 }
