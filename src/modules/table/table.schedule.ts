@@ -17,13 +17,13 @@ export class TableSchedule {
   
   @Cron('0 * * * * *')
   async handleEveryMinuteCheck() {
-    this.logger.log('🔄 [Cron] Checking every minute', new Date().toISOString());
+    this.logger.log(`🔄 [Cron] Checking every minute ${new Date().toISOString()}`);
     await this.tableService.notifyUnclosedTables();
   }
   
   @Cron('10 * * * * *', { timeZone: 'Europe/Istanbul' })
   async handleEveryMinuteWithTimezoneCheck() {
-    this.logger.log('🔄 [Cron] Checking every minute with timezone', new Date().toISOString());
+    this.logger.log(`🔄 [Cron] Checking every minute with timezone ${new Date().toISOString()}`);
     await this.tableService.notifyUnclosedTables();
   }
 }
