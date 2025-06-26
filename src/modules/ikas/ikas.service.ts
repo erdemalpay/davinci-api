@@ -531,7 +531,10 @@ export class IkasService {
             ],
           },
         ],
-        images: [item?.imageUrl, ...(item?.productImages || [])],
+        images: [
+          ...(item.imageUrl ? [item.imageUrl] : []),
+          ...(Array.isArray(item.productImages) ? item.productImages : []),
+        ],
       };
       const ikasProduct = await this.createProduct(createIkasProductItem);
       if (ikasProduct) {
