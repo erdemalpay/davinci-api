@@ -7,8 +7,7 @@ import {
   Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addDays, format } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
@@ -480,38 +479,35 @@ export class TableService {
     return table;
   }
   async notifyUnclosedTables() {
+
+    function formatDate(date: Date): string {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
     
-    const timeZone = 'Europe/Istanbul';
-    const now = toZonedTime(new Date(), timeZone);
-    const nowDateStr = format(now, 'yyyy-MM-dd');
-    const nowTimeStr = format(now, 'HH:mm');
-
+    function getTurkishDateOffset(): Date {
+      const nowUTC = new Date();
+      const offsetInMs = 3 * 60 * 60 * 1000; // GMT+3 => 3 saat ileri
+      return new Date(nowUTC.getTime() + offsetInMs);
+    }
+    
+    const todayTR = getTurkishDateOffset();
+    const yesterdayTR = subDays(todayTR, 1);
+    
+    const todayStr = formatDate(todayTR);
+    const yesterdayStr = formatDate(yesterdayTR);
+    
     const unclosedTables = await this.tableModel.find({
-      $expr: {
-        $and: [
-          {
-            $lte: [
-              { $concat: ['$date', ' ', '$startHour'] },
-              `${nowDateStr} ${nowTimeStr}`,
-            ],
-          },
-          {
-            $or: [
-              { $eq: ['$finishHour', null] },
-              { $eq: ['$finishHour', ''] },
-              { $eq: [{ $type: '$finishHour' }, 'missing'] },
-              {
-                $gt: [
-                  { $concat: ['$date', ' ', '$finishHour'] },
-                  `${nowDateStr} ${nowTimeStr}`,
-                ],
-              },
-            ],
-          },
-        ],
-      },
+      date: { $in: [todayStr, yesterdayStr] },
+      $or: [
+        { finishHour: { $exists: false } },
+        { finishHour: null },
+        { finishHour: '' },
+      ],
     });
-
+    
     if (unclosedTables.length > 0) {
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
