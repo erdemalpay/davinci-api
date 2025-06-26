@@ -4,9 +4,11 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { Model, PipelineStage } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
@@ -15,7 +17,7 @@ import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import {
   NotificationEventType,
-  NotificationType,
+  NotificationType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
@@ -49,6 +51,7 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
+    private logger: Logger = new Logger('TableService'),
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -477,25 +480,38 @@ export class TableService {
     return table;
   }
   async notifyUnclosedTables() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yyyyY = yesterday.getFullYear();
-    const mmY = String(yesterday.getMonth() + 1).padStart(2, '0');
-    const ddY = String(yesterday.getDate()).padStart(2, '0');
-    const yesterdayStr = `${yyyyY}-${mmY}-${ddY}`;
+    
+    const timeZone = 'Europe/Istanbul';
+    const now = toZonedTime(new Date(), timeZone);
+    const nowDateStr = format(now, 'yyyy-MM-dd');
+    const nowTimeStr = format(now, 'HH:mm');
+
     const unclosedTables = await this.tableModel.find({
-      date: { $in: [todayStr, yesterdayStr] },
-      $or: [
-        { finishHour: { $exists: false } },
-        { finishHour: null },
-        { finishHour: '' },
-      ],
+      $expr: {
+        $and: [
+          {
+            $lte: [
+              { $concat: ['$date', ' ', '$startHour'] },
+              `${nowDateStr} ${nowTimeStr}`,
+            ],
+          },
+          {
+            $or: [
+              { $eq: ['$finishHour', null] },
+              { $eq: ['$finishHour', ''] },
+              { $eq: [{ $type: '$finishHour' }, 'missing'] },
+              {
+                $gt: [
+                  { $concat: ['$date', ' ', '$finishHour'] },
+                  `${nowDateStr} ${nowTimeStr}`,
+                ],
+              },
+            ],
+          },
+        ],
+      },
     });
+
     if (unclosedTables.length > 0) {
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
@@ -504,10 +520,11 @@ export class TableService {
         selectedLocations: [2],
         seenBy: [],
         event: NotificationEventType.NIGHTOPENTABLE,
-        message: `There are ${unclosedTables.length} unclosed tables for today `,
+        message: `There are ${unclosedTables.length} unclosed tables for today.`,
       });
     } else {
-      console.log('No unfinished tables found for today or yesterday.');
+      this.logger.log('No unclosed tables found');
     }
   }
 }
+
