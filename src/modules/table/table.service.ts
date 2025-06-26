@@ -39,6 +39,8 @@ export enum ReservationStatusEnum {
 
 @Injectable()
 export class TableService {
+  private logger: Logger = new Logger('TableService');
+
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
     private readonly gameplayService: GameplayService,
@@ -50,7 +52,6 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
-    private logger: Logger = new Logger('TableService'),
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
