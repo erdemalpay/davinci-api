@@ -26,6 +26,8 @@ export class CreateItemDto {
   ikasId?: string;
   slug?: string;
   deleted?: boolean;
+  sku?: string;
+  barcode?: string;
 }
 export class CreateBulkItemDto {
   name: string;

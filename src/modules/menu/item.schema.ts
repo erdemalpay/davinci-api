@@ -80,6 +80,12 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: String })
   ikasId: string;
 
+  @Prop({ required: false, type: String })
+  sku: string;
+
+  @Prop({ required: false, type: String })
+  barcode: string;
+
   @Prop({ required: false, type: Boolean, default: false })
   deleted: boolean;
 }

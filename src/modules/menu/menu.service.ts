@@ -662,6 +662,8 @@ export class MenuService {
           foundItem.name = item.name;
           foundItem.price = item.price;
           foundItem.ikasId = item.ikasId;
+          foundItem.sku = item?.sku;
+          foundItem.barcode = item?.barcode;
           if (item?.onlinePrice && (item.onlinePrice as any) !== '-') {
             foundItem.onlinePrice = item.onlinePrice;
           }
