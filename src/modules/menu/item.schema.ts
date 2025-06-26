@@ -21,7 +21,7 @@ export class PriceHistory {
   @Prop({ required: true })
   date: string;
 }
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class MenuItem extends Document {
   @Prop({ type: Number })
   _id: number;
