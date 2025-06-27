@@ -502,6 +502,7 @@ export class TableService {
     
     const unclosedTables = await this.tableModel.find({
       date: { $in: [todayStr, yesterdayStr] },
+      status: { $ne: TableStatus.CANCELLED },
       $or: [
         { finishHour: { $exists: false } },
         { finishHour: null },
