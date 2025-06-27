@@ -1264,8 +1264,6 @@ export class IkasService {
                 );
                 continue;
               }
-              console.log(foundIkasProduct, 'foundIkasProduct');
-              console.log(foundIkasProduct?.variants[0]?.stocks[0]?.stockCount);
               if (
                 foundIkasProduct?.variants[0]?.stocks[0]?.stockCount !==
                 stock.quantity
@@ -1302,7 +1300,6 @@ export class IkasService {
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
-
       const updatesMapStock: {
         [productId: string]: {
           [variantId: string]: {
@@ -1319,9 +1316,7 @@ export class IkasService {
           };
         };
       } = {};
-
       const IkasOnlinePriceListId = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
-
       for (const item of ikasItems) {
         if (!item.ikasId) continue;
         const product = ikasProducts.find((p) => p.id === item.ikasId);
@@ -1455,7 +1450,6 @@ export class IkasService {
               newPrices = newPrices?.map((p: any) => {
                 if (p.priceListId == null && basePrice !== undefined) {
                   return {
-                    currency: p.currency,
                     sellPrice: basePrice,
                     discountPrice: p.discountPrice ?? null,
                     buyPrice: p.buyPrice ?? null,
@@ -1467,7 +1461,6 @@ export class IkasService {
                   onlinePrice !== undefined
                 ) {
                   return {
-                    currency: p.currency,
                     sellPrice: onlinePrice,
                     discountPrice: p.discountPrice ?? null,
                     buyPrice: p.buyPrice ?? null,
@@ -1475,7 +1468,6 @@ export class IkasService {
                   };
                 }
                 return {
-                  currency: p.currency ?? null,
                   sellPrice: p.sellPrice,
                   discountPrice: p.discountPrice ?? null,
                   buyPrice: p.buyPrice ?? null,
@@ -1488,7 +1480,6 @@ export class IkasService {
                 !variant.prices.some((p: any) => p.priceListId == null)
               ) {
                 newPrices.push({
-                  currency: null,
                   sellPrice: basePrice,
                   discountPrice: null,
                   buyPrice: null,
@@ -1503,7 +1494,6 @@ export class IkasService {
                 )
               ) {
                 newPrices.push({
-                  currency: 'TRY',
                   sellPrice: onlinePrice,
                   discountPrice: null,
                   buyPrice: null,
@@ -1516,7 +1506,6 @@ export class IkasService {
               id: variantId,
               isActive: variant.isActive ?? false,
               prices: newPrices?.map((p: any) => ({
-                currency: p.currency === undefined ? null : p.currency,
                 sellPrice: p.sellPrice,
                 discountPrice: p.discountPrice ?? null,
                 buyPrice: p.buyPrice ?? null,
@@ -1575,9 +1564,7 @@ export class IkasService {
                   ? `[${variant.prices
                       ?.map(
                         (p: any) =>
-                          `{ currency: ${
-                            p.currency ? `"${p.currency}"` : 'null'
-                          }, sellPrice: ${p.sellPrice}, discountPrice: ${
+                          `{ sellPrice: ${p.sellPrice}, discountPrice: ${
                             p.discountPrice !== null ? p.discountPrice : 'null'
                           }, buyPrice: ${
                             p.buyPrice !== null ? p.buyPrice : 'null'
