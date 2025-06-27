@@ -1503,7 +1503,7 @@ export class IkasService {
             }
 
             return {
-              id: variantId,
+              ...variant,
               isActive: variant.isActive ?? false,
               prices: newPrices?.map((p: any) => ({
                 sellPrice: p.sellPrice,
@@ -1574,7 +1574,6 @@ export class IkasService {
                       )
                       .join(', ')}]`
                   : '[]';
-
               const stocksString =
                 variant.stocks && variant.stocks.length > 0
                   ? `[${variant.stocks
@@ -1584,8 +1583,7 @@ export class IkasService {
                       )
                       .join(', ')}]`
                   : '[]';
-
-              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false }`;
+              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false,barcodeList:${variant.barcodeList},hsCode:${variant.hsCode},images:${variant.images},sku:${variant.sku},sourceId:${variant.sourceId},weight:${variant.weight},`;
             })
             .join(', ');
 
@@ -1612,7 +1610,6 @@ export class IkasService {
         )
       }
     `;
-
       const token = await this.getToken();
       const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
       const response = await this.httpService
