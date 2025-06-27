@@ -1417,7 +1417,9 @@ export class OrderService {
   }
   async cancelIkasOrder(user: User, ikasId: string) {
     try {
-      const order = await this.orderModel.findOne({ ikasId: ikasId });
+      const order = await this.orderModel
+        .findOne({ ikasId: ikasId })
+        .populate('item');
       const collection = await this.collectionModel.findOne({ ikasId: ikasId });
       if (!order || !collection) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -1456,6 +1458,17 @@ export class OrderService {
         },
         { new: true },
       );
+      for (const ingredient of (order?.item as any).itemProduction) {
+        if (ingredient?.isDecrementStock) {
+          const incrementQuantity = ingredient?.quantity * order?.quantity;
+          await this.accountingService.createStock(user, {
+            product: ingredient?.product,
+            location: order?.stockLocation,
+            quantity: incrementQuantity,
+            status: StockHistoryStatusEnum.IKASORDERCANCEL,
+          });
+        }
+      }
       await this.orderGateway.emitOrderUpdated(user, order);
       await this.orderGateway.emitCollectionChanged(user, collection);
       return { message: 'Order cancelled successfully' };
