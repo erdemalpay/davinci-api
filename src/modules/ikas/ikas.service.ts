@@ -1583,7 +1583,7 @@ export class IkasService {
                       )
                       .join(', ')}]`
                   : '[]';
-              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false,barcodeList:${variant.barcodeList},hsCode:${variant.hsCode},images:${variant.images},sku:${variant.sku},sourceId:${variant.sourceId},weight:${variant.weight}`;
+              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false, barcodeList:${variant.barcodeList}, hsCode:${variant.hsCode}, images:${variant.images}, sku:${variant.sku}, sourceId:${variant.sourceId}, weight:${variant.weight}`;
             })
             .join(', ');
 
