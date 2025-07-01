@@ -1200,8 +1200,8 @@ export class IkasService {
         console.log('No order line items to process');
         return;
       }
-      if (data?.data?.status !== 'CANCELLED') {
-        console.log(`Skipping item as status is not 'CANCELLED'`);
+      if (!['CANCELLED', 'REFUNDED'].includes(data?.data?.status)) {
+        console.log(`Skipping item as status is not 'CANCELLED' or 'REFUNDED'`);
         return;
       }
       for (const orderLineItem of orderLineItems) {
