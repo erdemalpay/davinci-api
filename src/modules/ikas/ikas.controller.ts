@@ -20,6 +20,15 @@ export class IkasController {
   createProduct(@Body() product: any) {
     return this.ikasService.createProduct(product);
   }
+  @Post('/product-image')
+  updateProductImages(
+    @Body()
+    payload: {
+      itemId: number;
+    },
+  ) {
+    return this.ikasService.updateProductImages(payload.itemId);
+  }
 
   @Patch('/product-stock')
   updateProductStock(

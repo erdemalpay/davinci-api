@@ -719,6 +719,52 @@ export class IkasService {
 
     return await updateProductStockMutation();
   }
+  async updateProductImages(itemId: number): Promise<void> {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
+    const item = await this.menuService.findItemById(itemId);
+    if (!item) {
+      throw new HttpException(
+        `Menu item with ID ${itemId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (!item.ikasId) {
+      throw new HttpException(
+        `Menu item with ID ${itemId} does not have an Ikas ID`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const urls: string[] = [];
+    if (item.imageUrl) {
+      urls.push(item.imageUrl);
+    }
+    item.productImages?.forEach((url) => urls.push(url));
+    const all = await this.getAllProducts();
+    const ikas = all.find((p) => p.id === item.ikasId);
+    if (!ikas || !ikas.variants.length) {
+      throw new HttpException(
+        `Ikas product or variant not found for ID ${item.ikasId}`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const variantId = ikas.variants[0].id;
+    try {
+      await this.createProductImages(variantId, urls);
+      console.log(`Successfully updated images for variant ${variantId}`);
+    } catch (err) {
+      console.error(
+        `Failed to push images for variant ${variantId}:`,
+        err.response?.data || err.message,
+      );
+      throw new HttpException(
+        'Unable to upload product images.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async updateProductPrice(
     productId: string, //this is the ikas id for the product
     newPrice: number,
