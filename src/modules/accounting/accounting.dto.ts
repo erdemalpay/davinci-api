@@ -33,6 +33,7 @@ export class CreatePaymentDto {
   date: string;
   location: number;
   amount: number;
+  isAfterCount: boolean;
 }
 
 export class CreateUnitDto {

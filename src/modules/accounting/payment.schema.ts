@@ -35,6 +35,9 @@ export class Payment extends Document {
 
   @Prop({ required: true, type: Number })
   amount: number;
+
+  @Prop({ required: true, type: Boolean, default: true })
+  isAfterCount: boolean;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

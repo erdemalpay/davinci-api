@@ -1267,6 +1267,7 @@ export class AccountingService {
             ? { invoice: expense._id }
             : { serviceInvoice: expense._id }),
           location: createExpenseDto.location,
+          isAfterCount: createExpenseDto.isAfterCount,
         });
       }
       this.activityService.addActivity(
