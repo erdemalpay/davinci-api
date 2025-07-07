@@ -147,6 +147,7 @@ export class CreateExpenseDto {
   note?: string;
   type: string;
   isStockIncrement?: boolean;
+  isAfterCount: boolean;
 }
 export class CreateMultipleExpenseDto {
   date: string;
@@ -161,6 +162,7 @@ export class CreateMultipleExpenseDto {
   kdv: number;
   isStockIncrement: boolean;
   note?: string;
+  isAfterCount: boolean;
 }
 export enum ExpenseTypes {
   STOCKABLE = 'STOCKABLE',

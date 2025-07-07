@@ -1079,6 +1079,7 @@ export class AccountingService {
           kdv,
           isStockIncrement,
           note,
+          isAfterCount,
         } = expenseDto;
         const foundProduct = await this.productModel.findOne({
           name: product,
@@ -1159,6 +1160,7 @@ export class AccountingService {
             totalExpense: Number(totalExpense),
             note: note,
             type: type,
+            isAfterCount: isAfterCount || true,
             isStockIncrement:
               (isStockIncrement as any) === 'true' || isStockIncrement === true,
           },
@@ -1393,6 +1395,7 @@ export class AccountingService {
           note: updates?.note,
           isPaid: updates?.isPaid,
           paymentMethod: updates?.paymentMethod,
+          isAfterCount: updates?.isAfterCount,
           isStockIncrement: updates?.isStockIncrement
             ? updates?.isStockIncrement
             : expense?.isStockIncrement ?? false,

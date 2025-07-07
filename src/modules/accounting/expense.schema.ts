@@ -59,6 +59,9 @@ export class Expense extends Document {
 
   @Prop({ required: false, type: Boolean })
   isStockIncrement: boolean;
+
+  @Prop({ required: true, type: Boolean, default: true })
+  isAfterCount: boolean;
 }
 
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);

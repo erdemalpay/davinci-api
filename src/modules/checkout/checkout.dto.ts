@@ -2,6 +2,7 @@ export class CreateIncomeDto {
   location: number;
   date: string;
   amount: number;
+  isAfterCount: boolean;
 }
 
 export class CreateCashoutDto {
@@ -9,6 +10,7 @@ export class CreateCashoutDto {
   date: string;
   amount: number;
   description: string;
+  isAfterCount: boolean;
 }
 
 export class CreateCheckoutControlDto {
