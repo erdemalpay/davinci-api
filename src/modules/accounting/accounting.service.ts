@@ -1,5 +1,6 @@
 import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { format } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
@@ -1014,6 +1015,7 @@ export class AccountingService {
       asc,
       date,
     } = filter;
+    console.log(filter);
     const productArray = product ? product.split(',') : [];
     const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
@@ -1022,16 +1024,22 @@ export class AccountingService {
     } else {
       sortObject['_id'] = -1;
     }
-    let startDate: Date | null = null;
+    let startDate: string | null = null;
+    if (after) {
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
     if (date) {
       const dateRange = dateRanges[date];
       if (dateRange) {
         after = dateRange().after;
         before = dateRange().before;
-
         if (after) {
-          startDate = new Date(
-            new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000,
+          startDate = format(
+            new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+            'yyyy-MM-dd',
           );
         }
       }
@@ -1047,6 +1055,8 @@ export class AccountingService {
           ...(brand && { brand }),
           ...(type && { type }),
           ...(vendor && { vendor }),
+          ...(startDate && { date: { $gte: startDate } }),
+          ...(before && { date: { $lte: before } }),
           ...(startDate &&
             before && { date: { $gte: startDate, $lte: before } }),
         },
