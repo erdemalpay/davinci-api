@@ -49,6 +49,7 @@ export class OrderController {
     @Query('status') status?: string,
     @Query('category') category?: string,
     @Query('location') location?: string,
+    @Query('isIkasPickUp') isIkasPickUp?: boolean,
   ) {
     return this.orderService.findQueryOrders({
       after,
@@ -61,6 +62,7 @@ export class OrderController {
       status,
       category,
       location,
+      isIkasPickUp,
     });
   }
 

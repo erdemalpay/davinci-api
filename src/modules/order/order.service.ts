@@ -154,7 +154,7 @@ export class OrderService {
     const filterQuery = {
       quantity: { $gt: 0 },
     };
-    const { after, before, category, location } = query;
+    const { after, before, category, location, isIkasPickUp } = query;
     if (after) {
       const startDate = new Date(after);
       startDate.setUTCHours(0, 0, 0, 0);
@@ -188,6 +188,12 @@ export class OrderService {
         filterQuery[key] = query[key];
       }
     });
+
+    if (isIkasPickUp) {
+      filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
+      filterQuery['ikasCustomer'] = { $exists: true };
+    }
+
     try {
       let itemIds = [];
       if (category) {
@@ -212,6 +218,7 @@ export class OrderService {
         )
         .sort({ createdAt: -1 })
         .exec();
+
       return orders;
     } catch (error) {
       throw new HttpException(

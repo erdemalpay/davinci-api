@@ -135,6 +135,7 @@ export class OrderQueryDto {
   status?: string;
   category?: string;
   location?: string;
+  isIkasPickUp?: boolean;
 }
 
 export class CollectionQueryDto {
