@@ -97,6 +97,7 @@ export class ShiftController {
       location: number;
       shift: string;
       userId: string;
+      shiftEndHour?: string;
     },
   ) {
     return this.shiftService.addShift(
@@ -104,6 +105,7 @@ export class ShiftController {
       payload.shift,
       payload.location,
       payload.userId,
+      payload?.shiftEndHour,
     );
   }
 }

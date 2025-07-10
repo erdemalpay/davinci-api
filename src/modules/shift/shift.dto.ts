@@ -2,6 +2,7 @@ export class ShiftValue {
   shift: string;
   user?: string[];
   chefUser?: string;
+  shiftEndHour?: string;
 }
 export class CreateShiftDto {
   day: string;

@@ -245,11 +245,20 @@ export class ShiftService {
     }
     return results;
   }
-  async addShift(day: string, shift: string, location: number, userId: string) {
+  async addShift(
+    day: string,
+    shift: string,
+    location: number,
+    userId: string,
+    shiftEndHour?: string,
+  ) {
     const updated = await this.shiftModel
       .findOneAndUpdate(
         { day, location, 'shifts.shift': shift },
-        { $addToSet: { 'shifts.$.user': userId } },
+        {
+          $addToSet: { 'shifts.$.user': userId },
+          'shifts.$.shiftEndHour': shiftEndHour,
+        },
         { new: true },
       )
       .exec();
@@ -257,7 +266,11 @@ export class ShiftService {
       const result = await this.shiftModel
         .findOneAndUpdate(
           { day, location },
-          { $push: { shifts: { shift, user: [userId], chefUser: '' } } },
+          {
+            $push: {
+              shifts: { shift, user: [userId], chefUser: '', shiftEndHour },
+            },
+          },
           { upsert: true, new: true },
         )
         .exec();

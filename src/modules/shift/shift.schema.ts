@@ -11,6 +11,9 @@ export class ShiftValues {
   @Prop({ required: true, type: String })
   shift: string;
 
+  @Prop({ required: false, type: String })
+  shiftEndHour: string;
+
   @Prop({ required: false, type: String, ref: User.name })
   chefUser: string;
 }

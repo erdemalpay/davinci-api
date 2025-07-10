@@ -239,6 +239,26 @@ export class VisitService {
         startHour: cafeVisitDto.hour,
         finishHour: cafeVisitDto.hour,
       });
+      const shifts = await this.shiftService.findQueryShifts({
+        after: cafeVisitDto.date,
+        before: cafeVisitDto.date,
+        location: cafeVisitDto.location,
+      });
+      const foundShift = shifts[0]?.shifts?.find((shift) => {
+        return shift.user.includes(user._id);
+      });
+      if (foundShift && foundShift.shiftEndHour) {
+        if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+          await this.notificationService.createNotification({
+            type: 'WARNING',
+            selectedUsers: [user._id],
+            selectedRoles: [1],
+            seenBy: [],
+            event: NotificationEventType.EARLYSHIFTEND,
+            message: `${user.name} is early for shift end. Shift end was at ${foundShift.shiftEndHour} and ${user.name} exited at ${cafeVisitDto.hour}`,
+          });
+        }
+      }
       this.visitGateway.emitVisitChanged(user, visit);
       return visit;
     }
