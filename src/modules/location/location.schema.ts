@@ -6,6 +6,9 @@ export class LocationShift {
   @Prop({ required: true, type: String })
   shift: string;
 
+  @Prop({ required: true, type: String })
+  shiftEndHour: string;
+
   @Prop({ required: true, type: Boolean })
   isActive: boolean;
 
