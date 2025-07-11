@@ -306,6 +306,19 @@ export class AccountingController {
     return this.accountingService.findAllPayments();
   }
 
+  @Get('/payments/query')
+  findQueryPayments(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.accountingService.findQueryPayments({
+      after,
+      before,
+      date,
+    });
+  }
+
   @Post('/payments')
   createPayment(
     @ReqUser() user: User,

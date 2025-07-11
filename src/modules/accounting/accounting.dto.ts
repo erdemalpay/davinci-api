@@ -35,7 +35,11 @@ export class CreatePaymentDto {
   amount: number;
   isAfterCount: boolean;
 }
-
+export class PaymentDateFilter {
+  after: string;
+  before?: string;
+  date?: string;
+}
 export class CreateUnitDto {
   name: string;
 }

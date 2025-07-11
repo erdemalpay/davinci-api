@@ -29,6 +29,18 @@ export class CheckoutController {
   getIncome() {
     return this.checkoutService.findAllIncome();
   }
+  @Get('/income/query')
+  findQueryIncome(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.checkoutService.findQueryIncome({
+      after,
+      before,
+      date,
+    });
+  }
 
   @Post('/income')
   createIncome(
@@ -55,6 +67,18 @@ export class CheckoutController {
   @Get('/cashout')
   getCashout() {
     return this.checkoutService.findAllCashout();
+  }
+  @Get('/cashout/query')
+  findQueryPayments(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.checkoutService.findQueryCashouts({
+      after,
+      before,
+      date,
+    });
   }
 
   @Post('/cashout')

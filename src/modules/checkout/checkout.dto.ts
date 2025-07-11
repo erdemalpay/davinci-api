@@ -25,3 +25,9 @@ export type CheckoutFilterType = {
   location?: string;
   date?: string;
 };
+
+export type CashoutDateFilter = {
+  after: string;
+  before?: string;
+  date?: string;
+};

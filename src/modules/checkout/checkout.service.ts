@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { format } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import { dateRanges } from './../../utils/dateRanges';
 import { Cashout } from './cashout.schema';
 import {
+  CashoutDateFilter,
   CheckoutFilterType,
   CreateCashoutDto,
   CreateCheckoutControlDto,
@@ -26,6 +28,36 @@ export class CheckoutService {
   // income
   findAllIncome() {
     return this.incomeModel.find().sort({ date: 1 });
+  }
+  async findQueryIncome(filter: CashoutDateFilter) {
+    let { after, before, date } = filter;
+    let startDate: string | null = null;
+    if (after) {
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
+    if (date && dateRanges[date]) {
+      const dr = dateRanges[date]();
+      after = dr.after;
+      before = dr.before;
+      if (after) {
+        startDate = format(
+          new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+          'yyyy-MM-dd',
+        );
+      }
+    }
+    const match: Record<string, any> = {};
+    if (startDate && before) {
+      match.date = { $gte: startDate, $lte: before };
+    } else if (startDate) {
+      match.date = { $gte: startDate };
+    } else if (before) {
+      match.date = { $lte: before };
+    }
+    return this.incomeModel.find(match).sort({ date: -1 }).exec();
   }
   async createIncome(user: User, createIncomeDto: CreateIncomeDto) {
     const income = await this.incomeModel.create({
@@ -52,6 +84,37 @@ export class CheckoutService {
   findAllCashout() {
     return this.cashoutModel.find();
   }
+  async findQueryCashouts(filter: CashoutDateFilter) {
+    let { after, before, date } = filter;
+    let startDate: string | null = null;
+    if (after) {
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
+    if (date && dateRanges[date]) {
+      const dr = dateRanges[date]();
+      after = dr.after;
+      before = dr.before;
+      if (after) {
+        startDate = format(
+          new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+          'yyyy-MM-dd',
+        );
+      }
+    }
+    const match: Record<string, any> = {};
+    if (startDate && before) {
+      match.date = { $gte: startDate, $lte: before };
+    } else if (startDate) {
+      match.date = { $gte: startDate };
+    } else if (before) {
+      match.date = { $lte: before };
+    }
+    return this.cashoutModel.find(match).sort({ date: -1 }).exec();
+  }
+
   async createCashout(user: User, createCashoutDto: CreateCashoutDto) {
     const cashout = await this.cashoutModel.create({
       ...createCashoutDto,

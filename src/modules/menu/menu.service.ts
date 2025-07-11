@@ -1085,7 +1085,7 @@ export class MenuService {
       );
 
       if (!ikasProduct) {
-        console.warn(
+        console.log(
           `No matching product found for IkasItem ID: ${item.ikasId}`,
         );
         return null;

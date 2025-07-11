@@ -40,6 +40,7 @@ import {
   ExpenseWithoutPaginateFilterType,
   ExpenseWithPaginateFilterType,
   JoinProductDto,
+  PaymentDateFilter,
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
@@ -798,6 +799,37 @@ export class AccountingService {
     await paymentMethod3.save();
   }
   // payment
+  async findQueryPayments(filter: PaymentDateFilter) {
+    let { after, before, date } = filter;
+    let startDate: string | null = null;
+    if (after) {
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
+    if (date && dateRanges[date]) {
+      const dr = dateRanges[date]();
+      after = dr.after;
+      before = dr.before;
+      if (after) {
+        startDate = format(
+          new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+          'yyyy-MM-dd',
+        );
+      }
+    }
+    const match: Record<string, any> = {};
+    if (startDate && before) {
+      match.date = { $gte: startDate, $lte: before };
+    } else if (startDate) {
+      match.date = { $gte: startDate };
+    } else if (before) {
+      match.date = { $lte: before };
+    }
+    return this.paymentModel.find(match).sort({ date: -1 }).exec();
+  }
+
   findAllPayments() {
     return this.paymentModel.find().sort({ _id: -1 });
   }
@@ -1015,7 +1047,6 @@ export class AccountingService {
       asc,
       date,
     } = filter;
-    console.log(filter);
     const productArray = product ? product.split(',') : [];
     const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
