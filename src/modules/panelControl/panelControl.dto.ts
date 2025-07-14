@@ -8,4 +8,5 @@ export class CreatePageDto {
 export class CreatePanelSettingsDto {
   _id: number;
   isHoliday: boolean;
+  isVisitEntryDisabled: boolean;
 }

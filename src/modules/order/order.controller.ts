@@ -66,6 +66,11 @@ export class OrderController {
     });
   }
 
+  @Get('/false-ikas-collections')
+  findAllPaidWithCancelledIkasOrders() {
+    return this.orderService.findAllPaidWithCancelledIkasOrders();
+  }
+
   @Get('/update-table-date')
   updateOrderTableDates() {
     return this.orderService.updateOrderTableDates();

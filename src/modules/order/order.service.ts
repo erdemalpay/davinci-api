@@ -1846,6 +1846,31 @@ export class OrderService {
       );
     }
   }
+  async findAllPaidWithCancelledIkasOrders() {
+    const pipeline = [
+      { $match: { status: OrderCollectionStatus.PAID } },
+      { $unwind: '$orders' },
+      {
+        $lookup: {
+          from: 'orders',
+          localField: 'orders.order',
+          foreignField: '_id',
+          as: 'matchedOrder',
+        },
+      },
+      { $unwind: '$matchedOrder' },
+      {
+        $match: {
+          'matchedOrder.ikasId': { $exists: true, $ne: null },
+          'matchedOrder.status': OrderStatus.CANCELLED,
+        },
+      },
+      { $group: { _id: '$_id', doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+    ];
+    return await this.collectionModel.aggregate(pipeline).exec();
+  }
+
   async findSummaryCollectionsQuery(query: SummaryCollectionQueryDto) {
     const filterQuery = {};
     const { after, before, location } = query;

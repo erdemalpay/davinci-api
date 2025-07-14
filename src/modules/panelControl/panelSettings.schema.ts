@@ -9,6 +9,9 @@ export class PanelSettings extends Document {
 
   @Prop({ required: true, type: Boolean })
   isHoliday: boolean;
+
+  @Prop({ required: true, type: Boolean })
+  isVisitEntryDisabled: boolean;
 }
 
 export const PanelSettingsSchema = SchemaFactory.createForClass(PanelSettings);
