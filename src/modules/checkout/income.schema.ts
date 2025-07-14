@@ -21,7 +21,7 @@ export class Income extends Document {
   @Prop({ required: true, type: Number })
   amount: number;
 
-  @Prop({ required: true, type: Boolean, default: true })
+  @Prop({ required: true, type: Boolean, default: false })
   isAfterCount: boolean;
 }
 
