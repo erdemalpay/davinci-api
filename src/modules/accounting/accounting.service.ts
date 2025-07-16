@@ -1759,14 +1759,16 @@ export class AccountingService {
       );
       this.accountingGateway.emitStockChanged(user, newStock);
       // create stock history with currentAmount
-      await this.createProductStockHistory(user, {
-        user: user._id,
-        product: createStockDto.product,
-        location: createStockDto.location,
-        change: createStockDto.quantity,
-        status,
-        currentAmount: oldQuantity,
-      });
+      if (createStockDto.quantity !== 0) {
+        await this.createProductStockHistory(user, {
+          user: user._id,
+          product: createStockDto.product,
+          location: createStockDto.location,
+          change: createStockDto.quantity,
+          status,
+          currentAmount: oldQuantity,
+        });
+      }
       // create Activity
       await this.activityService.addUpdateActivity(
         user,
@@ -1791,14 +1793,16 @@ export class AccountingService {
         stock,
       );
       // create stock history with currentAmount 0
-      await this.createProductStockHistory(user, {
-        user: user._id,
-        product: createStockDto.product,
-        location: createStockDto.location,
-        change: createStockDto.quantity,
-        status,
-        currentAmount: 0,
-      });
+      if (createStockDto.quantity !== 0) {
+        await this.createProductStockHistory(user, {
+          user: user._id,
+          product: createStockDto.product,
+          location: createStockDto.location,
+          change: createStockDto.quantity,
+          status,
+          currentAmount: 0,
+        });
+      }
       this.updateIkasStock(
         createStockDto.product,
         createStockDto.location,
@@ -1924,14 +1928,16 @@ export class AccountingService {
 
     try {
       // Create stock history with status delete
-      await this.createProductStockHistory(user, {
-        product: stock.product?._id,
-        location: stock.location,
-        currentAmount: stock.quantity,
-        change: -1 * stock.quantity,
-        status: status,
-        user: user._id,
-      });
+      if (stock.quantity !== 0) {
+        await this.createProductStockHistory(user, {
+          product: stock.product?._id,
+          location: stock.location,
+          currentAmount: stock.quantity,
+          change: -1 * stock.quantity,
+          status: status,
+          user: user._id,
+        });
+      }
       const deletedStock = await this.stockModel.findByIdAndRemove(id);
       this.updateIkasStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
@@ -2086,17 +2092,20 @@ export class AccountingService {
           user,
         );
       }
-      await this.createProductStockHistory(user, {
-        user: user._id,
-        product: consumptStockDto.product,
-        location: consumptStockDto.location,
-        change: -consumptStockDto.quantity,
-        status: consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
-        currentAmount:
-          consumptStockDto.quantity > 0
-            ? Number(newStock.quantity) + Number(consumptStockDto.quantity)
-            : stock.quantity,
-      });
+      if (consumptStockDto.quantity !== 0) {
+        await this.createProductStockHistory(user, {
+          user: user._id,
+          product: consumptStockDto.product,
+          location: consumptStockDto.location,
+          change: -consumptStockDto.quantity,
+          status:
+            consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION,
+          currentAmount:
+            consumptStockDto.quantity > 0
+              ? Number(newStock.quantity) + Number(consumptStockDto.quantity)
+              : stock.quantity,
+        });
+      }
       this.accountingGateway.emitStockChanged(user, newStock);
       await this.activityService.addUpdateActivity(
         user,
