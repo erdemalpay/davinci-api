@@ -218,9 +218,14 @@ export class OrderController {
     @Body()
     payload: {
       ikasId: string;
+      quantity: number;
     },
   ) {
-    return this.orderService.cancelIkasOrder(user, payload.ikasId);
+    return this.orderService.cancelIkasOrder(
+      user,
+      payload.ikasId,
+      payload.quantity,
+    );
   }
 
   @Post('/migrate-online')
