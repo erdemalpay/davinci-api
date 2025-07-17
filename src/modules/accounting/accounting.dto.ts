@@ -281,6 +281,8 @@ export class AddMultipleProductAndMenuItemDto {
   category?: string;
   price?: number;
   onlinePrice?: number;
+  sku?: string;
+  barcode?: string;
   description?: string;
   image?: string;
 }

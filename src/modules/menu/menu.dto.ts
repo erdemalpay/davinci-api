@@ -33,6 +33,8 @@ export class CreateBulkItemDto {
   name: string;
   category: number;
   price: number;
+  sku?: string;
+  barcode?: string;
   description?: string;
   onlinePrice?: number;
 }

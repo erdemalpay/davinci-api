@@ -2572,6 +2572,8 @@ export class AccountingService {
           category,
           price,
           onlinePrice,
+          sku,
+          barcode,
           description,
           image,
         } = addDto;
@@ -2755,6 +2757,8 @@ export class AccountingService {
             price: price,
             ...(onlinePrice ? { onlinePrice } : {}),
             ...(description ? { description } : {}),
+            ...(sku ? { sku } : {}),
+            ...(barcode ? { barcode } : {}),
             ...(imageArray?.length > 0 ? { imageUrl: imageArray[0] } : {}),
             ...(imageArray?.length > 1
               ? { productImages: imageArray.slice(1) }
