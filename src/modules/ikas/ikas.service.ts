@@ -1259,7 +1259,11 @@ export class IkasService {
               HttpStatus.BAD_REQUEST,
             );
           }
-          await this.orderService.cancelIkasOrder(constantUser, id);
+          await this.orderService.cancelIkasOrder(
+            constantUser,
+            id,
+            orderLineItem.quantity,
+          );
         } catch (itemError) {
           console.error('Error processing order line item:', itemError.message);
         }

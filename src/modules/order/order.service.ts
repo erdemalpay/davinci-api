@@ -1422,7 +1422,7 @@ export class OrderService {
         });
     }
   }
-  async cancelIkasOrder(user: User, ikasId: string) {
+  async cancelIkasOrder(user: User, ikasId: string, quantity: number) {
     try {
       const order = await this.orderModel
         .findOne({ ikasId: ikasId })
@@ -1433,47 +1433,111 @@ export class OrderService {
       }
       if (
         order.status === OrderStatus.CANCELLED ||
-        collection.status === OrderCollectionStatus.CANCELLED
+        collection.status === OrderCollectionStatus.CANCELLED ||
+        quantity > order.quantity
       ) {
         throw new HttpException(
           'Order already cancelled',
           HttpStatus.BAD_REQUEST,
         );
       }
-      await this.orderModel.findByIdAndUpdate(
-        order._id,
-        {
-          $set: {
-            status: OrderStatus.CANCELLED,
+      if (order?.quantity !== quantity) {
+        const newQuantity = order.quantity - quantity;
+        const newOrder = await this.orderModel.create({
+          ...order.toObject(),
+          quantity: newQuantity,
+          paidQuantity: newQuantity,
+          cancelledAt: new Date(),
+          cancelledBy: user._id,
+        });
+        const newCollection = await this.collectionModel.create({
+          ...collection.toObject(),
+          orders: [
+            {
+              order: newOrder._id,
+              paidQuantity: newQuantity,
+            },
+          ],
+        });
+        await this.orderModel.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: user._id,
+              quantity: quantity,
+              paidQuantity: quantity,
+            },
+            $unset: {
+              ikasCustomer: '',
+              isIkasCustomerPicked: '',
+            },
+          },
+          { new: true },
+        );
+        await this.collectionModel.findByIdAndUpdate(
+          collection._id,
+          {
+            status: OrderCollectionStatus.CANCELLED,
+            orders: [
+              {
+                order: order._id,
+                paidQuantity: quantity,
+              },
+            ],
             cancelledAt: new Date(),
             cancelledBy: user._id,
           },
-          $unset: {
-            ikasCustomer: '',
-            isIkasCustomerPicked: '',
+          { new: true },
+        );
+        for (const ingredient of (order?.item as any).itemProduction) {
+          if (ingredient?.isDecrementStock) {
+            const incrementQuantity = ingredient?.quantity * quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: order?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.IKASORDERCANCEL,
+            });
+          }
+        }
+      } else {
+        await this.orderModel.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: user._id,
+            },
+            $unset: {
+              ikasCustomer: '',
+              isIkasCustomerPicked: '',
+            },
           },
-        },
-        { new: true },
-      );
+          { new: true },
+        );
 
-      await this.collectionModel.findByIdAndUpdate(
-        collection._id,
-        {
-          status: OrderCollectionStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancelledBy: user._id,
-        },
-        { new: true },
-      );
-      for (const ingredient of (order?.item as any).itemProduction) {
-        if (ingredient?.isDecrementStock) {
-          const incrementQuantity = ingredient?.quantity * order?.quantity;
-          await this.accountingService.createStock(user, {
-            product: ingredient?.product,
-            location: order?.stockLocation,
-            quantity: incrementQuantity,
-            status: StockHistoryStatusEnum.IKASORDERCANCEL,
-          });
+        await this.collectionModel.findByIdAndUpdate(
+          collection._id,
+          {
+            status: OrderCollectionStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: user._id,
+          },
+          { new: true },
+        );
+        for (const ingredient of (order?.item as any).itemProduction) {
+          if (ingredient?.isDecrementStock) {
+            const incrementQuantity = ingredient?.quantity * order?.quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: order?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.IKASORDERCANCEL,
+            });
+          }
         }
       }
       await this.orderGateway.emitOrderUpdated(user, order);

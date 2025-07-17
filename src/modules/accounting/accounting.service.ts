@@ -820,6 +820,8 @@ export class AccountingService {
       }
     }
     const match: Record<string, any> = {};
+    match.invoice = null;
+    match.serviceInvoice = null;
     if (startDate && before) {
       match.date = { $gte: startDate, $lte: before };
     } else if (startDate) {
