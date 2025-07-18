@@ -1447,8 +1447,6 @@ export class OrderService {
           ...order.toObject(),
           quantity: newQuantity,
           paidQuantity: newQuantity,
-          cancelledAt: new Date(),
-          cancelledBy: user._id,
         });
         const newCollection = await this.collectionModel.create({
           ...collection.toObject(),

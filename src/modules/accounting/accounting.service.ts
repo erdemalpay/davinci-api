@@ -846,7 +846,7 @@ export class AccountingService {
   }
 
   async updatePayment(user: User, id: string, updates: UpdateQuery<Payment>) {
-    const newPayment = this.paymentModel.findByIdAndUpdate(id, updates, {
+    const newPayment = await this.paymentModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
     this.accountingGateway.emitPaymentChanged(user, newPayment);
