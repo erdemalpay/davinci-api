@@ -439,6 +439,14 @@ export class AccountingController {
       StockHistoryStatusEnum.EXPENSEENTRY,
     );
   }
+  @Patch('/expenses/simple/:id')
+  simpleUpdateExpense(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Expense>,
+  ) {
+    return this.accountingService.simpleUpdateExpense(user, id, updates);
+  }
 
   @Patch('/expenses/:id')
   updateExpense(

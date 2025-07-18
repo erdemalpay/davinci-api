@@ -1448,6 +1448,31 @@ export class AccountingService {
       );
     }
   }
+  async simpleUpdateExpense(
+    user: User,
+    id: number,
+    updates: UpdateQuery<Expense>,
+  ) {
+    const expense = await this.expenseModel.findById(id);
+    if (!expense) {
+      throw new HttpException('Expense not found', HttpStatus.BAD_REQUEST);
+    }
+    const newExpense = await this.expenseModel.findByIdAndUpdate(
+      id,
+      {
+        $set: updates,
+      },
+      { new: true },
+    );
+    this.accountingGateway.emitExpenseChanged(user, newExpense);
+    this.activityService.addUpdateActivity(
+      user,
+      ActivityType.UPDATE_EXPENSE,
+      expense,
+      newExpense,
+    );
+    return newExpense;
+  }
 
   async removeExpense(user: User, id: number, status: string) {
     const expense = await this.expenseModel.findById(id);
