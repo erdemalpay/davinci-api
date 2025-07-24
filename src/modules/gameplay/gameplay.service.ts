@@ -7,7 +7,7 @@ import { ActivityService } from '../activity/activity.service';
 import { User } from '../user/user.schema';
 import {
   GameplayQueryDto,
-  GameplayQueryGroupDto,
+  GameplayQueryGroupDto
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
@@ -445,7 +445,6 @@ export class GameplayService {
           topMentors: [
             { $group: { _id: '$mentor', gameplayCount: { $sum: 1 } } },
             { $sort: { gameplayCount: -1 } },
-            { $limit: 3 },
             { $project: { _id: 0, mentoredBy: '$_id', gameplayCount: 1 } },
           ],
           topComplexGames: [

@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -40,7 +40,7 @@ import {
   OrderQueryDto,
   OrderStatus,
   OrderType,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
@@ -574,9 +574,6 @@ export class OrderService {
           $sort: { orderCount: -1 },
         },
         {
-          $limit: 3,
-        },
-        {
           $lookup: {
             from: 'users',
             localField: '_id',
@@ -643,9 +640,6 @@ export class OrderService {
           $sort: { orderCount: -1 },
         },
         {
-          $limit: 4,
-        },
-        {
           $lookup: {
             from: 'users',
             localField: '_id',
@@ -697,9 +691,6 @@ export class OrderService {
         },
         {
           $sort: { collectionCount: -1 },
-        },
-        {
-          $limit: 3,
         },
         {
           $lookup: {
