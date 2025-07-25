@@ -25,10 +25,12 @@ import { OrderGateway } from './order.gateway';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
+import { OrderNotes, OrderNotesSchema } from './orderNotes.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
   createAutoIncrementConfig(OrderGroup.name, OrderGroupSchema),
+  createAutoIncrementConfig(OrderNotes.name, OrderNotesSchema),
   createAutoIncrementConfig(Collection.name, CollectionSchema),
   createAutoIncrementConfig(Discount.name, DiscountSchema),
 ]);
