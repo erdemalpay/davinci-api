@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -36,16 +36,17 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
+  CreateOrderNotesDto,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
   OrderType,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { OrderGateway } from './order.gateway';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
-
+import { OrderNotes } from './orderNotes.schema';
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -55,6 +56,7 @@ export class OrderService {
     @InjectQueue('order-confirmation')
     private confirmationQueue: Queue,
     @InjectModel(Order.name) private orderModel: Model<Order>,
+    @InjectModel(OrderNotes.name) private orderNotesModel: Model<OrderNotes>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     @InjectModel(OrderGroup.name) private orderGroupModel: Model<OrderGroup>,
@@ -2840,5 +2842,33 @@ export class OrderService {
       console.error('Error getting daily summary:', error);
       throw error;
     }
+  }
+  findOrderNotes() {
+    return this.orderNotesModel.find().exec();
+  }
+  async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
+    const orderNote = await new this.orderNotesModel(createOrderNoteDto);
+    return orderNote.save();
+  }
+  async updateOrderNote(
+    id: number,
+    updateOrderNoteDto: UpdateQuery<OrderNotes>,
+  ) {
+    const orderNote = await this.orderNotesModel.findByIdAndUpdate(
+      id,
+      updateOrderNoteDto,
+      { new: true },
+    );
+    if (!orderNote) {
+      throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
+    }
+    return orderNote;
+  }
+  async removeOrderNote(id: number) {
+    const orderNote = await this.orderNotesModel.findByIdAndRemove(id);
+    if (!orderNote) {
+      throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
+    }
+    return orderNote;
   }
 }

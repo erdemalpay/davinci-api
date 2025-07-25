@@ -18,10 +18,12 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
+  CreateOrderNotesDto,
   OrderType,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
+import { OrderNotes } from './orderNotes.schema';
 
 @Controller('order')
 export class OrderController {
@@ -469,5 +471,26 @@ export class OrderController {
   @Delete('/discount/:id')
   deleteDiscount(@ReqUser() user: User, @Param('id') id: number) {
     return this.orderService.removeDiscount(user, id);
+  }
+  // order notes
+  @Get('/order-notes')
+  findOrderNotes() {
+    return this.orderService.findOrderNotes();
+  }
+  @Post('/order-notes')
+  createOrderNote(@Body() createOrderNoteDto: CreateOrderNotesDto) {
+    return this.orderService.createOrderNote(createOrderNoteDto);
+  }
+
+  @Patch('/order-notes/:id')
+  updateOrderNote(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<OrderNotes>,
+  ) {
+    return this.orderService.updateOrderNote(id, updates);
+  }
+  @Delete('/order-notes/:id')
+  deleteOrderNote(@Param('id') id: number) {
+    return this.orderService.removeOrderNote(id);
   }
 }

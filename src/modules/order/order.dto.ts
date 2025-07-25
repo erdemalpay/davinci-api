@@ -151,3 +151,9 @@ export class SummaryCollectionQueryDto {
   before?: string;
   location?: number;
 }
+
+export class CreateOrderNotesDto {
+  note: string;
+  categories?: number[];
+  items?: number[];
+}
