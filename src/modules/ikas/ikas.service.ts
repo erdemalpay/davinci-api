@@ -1083,6 +1083,7 @@ export class IkasService {
             await this.accountingService.findPaymentMethodByIkasId(
               data?.data?.salesChannelId,
             );
+          const ikasOrderNumber = data?.data?.orderNumber;
           let createOrderObject: CreateOrderDto = {
             item: foundMenuItem._id,
             quantity: quantity,
@@ -1106,6 +1107,9 @@ export class IkasService {
             ikasId: id,
             ...(foundPaymentMethod && {
               paymentMethod: foundPaymentMethod._id,
+            }),
+            ...(ikasOrderNumber && {
+              ikasOrderNumber: ikasOrderNumber,
             }),
           };
           if (data?.data?.stockLocationId) {
@@ -1185,6 +1189,9 @@ export class IkasService {
               createdBy: constantUser._id,
               tableDate: new Date(),
               ikasId: id, //this is ikas order id
+              ...(ikasOrderNumber && {
+                ikasOrderNumber: ikasOrderNumber,
+              }),
             };
 
             try {

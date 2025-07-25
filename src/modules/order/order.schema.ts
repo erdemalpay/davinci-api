@@ -132,6 +132,9 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   ikasId: string;
 
+  @Prop({ required: false, type: String })
+  ikasOrderNumber: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 
