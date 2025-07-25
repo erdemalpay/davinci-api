@@ -473,23 +473,23 @@ export class OrderController {
     return this.orderService.removeDiscount(user, id);
   }
   // order notes
-  @Get('/order-notes')
+  @Get('/notes')
   findOrderNotes() {
     return this.orderService.findOrderNotes();
   }
-  @Post('/order-notes')
+  @Post('/notes')
   createOrderNote(@Body() createOrderNoteDto: CreateOrderNotesDto) {
     return this.orderService.createOrderNote(createOrderNoteDto);
   }
 
-  @Patch('/order-notes/:id')
+  @Patch('/notes/:id')
   updateOrderNote(
     @Param('id') id: number,
     @Body() updates: UpdateQuery<OrderNotes>,
   ) {
     return this.orderService.updateOrderNote(id, updates);
   }
-  @Delete('/order-notes/:id')
+  @Delete('/notes/:id')
   deleteOrderNote(@Param('id') id: number) {
     return this.orderService.removeOrderNote(id);
   }
