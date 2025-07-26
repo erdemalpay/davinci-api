@@ -63,6 +63,9 @@ export class OrderGateway
   emitTodayOrdersChanged(socketUser: User) {
     this.server.emit('todayOrdersChanged', { socketUser });
   }
+  emitOrderNotesChanged(socketUser?: User, orderNotes?: any) {
+    this.server.emit('orderNotesChanged', { socketUser, orderNotes });
+  }
   emitCreateMultipleOrder(
     socketUser: User,
     table: Table,
