@@ -109,11 +109,15 @@ export class CheckoutController {
     @Query('user') user?: string,
     @Query('location') location?: string,
     @Query('date') date?: string,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
   ) {
-    return this.checkoutService.findAllCheckoutControl({
+    return this.checkoutService.findQueryCheckoutControl({
       user,
       location,
       date,
+      after,
+      before,
     });
   }
 

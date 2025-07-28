@@ -137,34 +137,51 @@ export class CheckoutService {
   }
 
   // CheckoutControl
-  async findAllCheckoutControl(filter: CheckoutFilterType) {
-    let { user, location, date } = filter;
-    let after = '';
-    let before = '';
-    if (date) {
-      const dateRange = dateRanges[date];
-      if (dateRange) {
-        after = dateRange().after;
-        before = dateRange().before;
+  async findQueryCheckoutControl(filter: CheckoutFilterType) {
+    const { user, location, date, after: rawAfter, before: rawBefore } = filter;
+    let after = rawAfter,
+      before = rawBefore;
+    let startDate: string | undefined;
+
+    if (after) {
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
+    if (date && dateRanges[date]) {
+      const dr = dateRanges[date]();
+      after = dr.after;
+      before = dr.before;
+      if (after) {
+        startDate = format(
+          new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+          'yyyy-MM-dd',
+        );
       }
     }
+    const match: Record<string, any> = {};
+    if (startDate && before) {
+      match.date = { $gte: startDate, $lte: before };
+    } else if (startDate) {
+      match.date = { $gte: startDate };
+    } else if (before) {
+      match.date = { $lte: before };
+    }
+    const matchCondition: Record<string, any> = {
+      ...(location && { location: Number(location) }),
+      ...(user && { user }),
+      ...match,
+    };
+
     const pipeline: PipelineStage[] = [
-      {
-        $match: {
-          ...(location && { location: Number(location) }),
-          ...(user && { user: user }),
-          ...(after && { date: { $gte: after } }),
-          ...(before && { date: { $lte: before } }),
-          ...(after && before && { date: { $gte: after, $lte: before } }),
-        },
-      },
-      {
-        $sort: { date: 1 },
-      },
+      { $match: matchCondition },
+      { $sort: { date: 1 } },
     ];
-    const results = await this.checkoutControlModel.aggregate(pipeline);
-    return results;
+
+    return this.checkoutControlModel.aggregate(pipeline);
   }
+
   async createCheckoutControl(
     user: User,
     createCheckoutControlDto: CreateCheckoutControlDto,
