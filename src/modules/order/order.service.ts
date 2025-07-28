@@ -2519,6 +2519,9 @@ export class OrderService {
     transferredTableId: number,
   ) {
     for (const orderItem of orders) {
+      if (orderItem.selectedQuantity <= 0) {
+        continue;
+      }
       const oldOrder = await this.orderModel.findById(orderItem.orderId);
       const oldTable = await this.tableService.getTableById(oldOrder.table);
       if (!oldOrder) {
