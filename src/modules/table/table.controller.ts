@@ -29,6 +29,33 @@ import { TableService } from './table.service';
 export class TableController {
   constructor(private readonly tableService: TableService) {}
 
+  // feedbacks
+  @Get('/feedback')
+  findQueryFeedbacks(
+    @Query('after') after: string,
+    @Query('before') before?: string,
+    @Query('location') location?: number,
+  ) {
+    return this.tableService.findQueryFeedback(after, before, location);
+  }
+  @Post('/feedback')
+  createFeedback(@Body() data: CreateFeedbackDto) {
+    return this.tableService.createFeedback(data);
+  }
+
+  @Patch('/feedback/:id')
+  updateFeedback(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Feedback>,
+  ) {
+    return this.tableService.updateFeedback(id, updates);
+  }
+
+  @Delete('/feedback/:id')
+  deleteFeedback(@Param('id') id: number) {
+    return this.tableService.removeFeedback(id);
+  }
+
   @ApiResponse({ type: [TableResponse] })
   @Get()
   getTables(@Query('location') location: number, @Query('date') date: string) {
@@ -127,31 +154,5 @@ export class TableController {
   @ApiResponse({ type: TableResponse })
   getTableById(@Param('id') id: number) {
     return this.tableService.getTableById(id);
-  }
-  // feedbacks
-  @Get('/feedback')
-  findQueryFeedbacks(
-    @Query('after') after: string,
-    @Query('before') before?: string,
-    @Query('location') location?: number,
-  ) {
-    return this.tableService.findQueryFeedback(after, before, location);
-  }
-  @Post('/feedback')
-  createFeedback(@Body() data: CreateFeedbackDto) {
-    return this.tableService.createFeedback(data);
-  }
-
-  @Patch('/feedback/:id')
-  updateFeedback(
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<Feedback>,
-  ) {
-    return this.tableService.updateFeedback(id, updates);
-  }
-
-  @Delete('/feedback/:id')
-  deleteFeedback(@Param('id') id: number) {
-    return this.tableService.removeFeedback(id);
   }
 }
