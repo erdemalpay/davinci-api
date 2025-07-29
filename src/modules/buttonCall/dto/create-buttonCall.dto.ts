@@ -7,6 +7,11 @@ export class CreateButtonCallDto {
   @IsString()
   readonly tableName: string;
 
+  // @ApiProperty()
+  // @IsNotEmpty()
+  // @IsString()
+  // readonly type: string;
+
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()

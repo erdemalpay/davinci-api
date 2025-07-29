@@ -8,6 +8,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
 import { ReservationModule } from '../reservation/reservation.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
+import { Feedback, FeedbackSchema } from './feedback.schema';
 import { TableController } from './table.controller';
 import { TableGateway } from './table.gateway';
 import { TableSchedule } from './table.schedule';
@@ -16,6 +17,7 @@ import { TableService } from './table.service';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Table.name, TableSchema),
+  createAutoIncrementConfig(Feedback.name, FeedbackSchema),
 ]);
 
 @Module({

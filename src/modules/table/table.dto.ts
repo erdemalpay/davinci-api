@@ -83,6 +83,12 @@ export class AggregatedPlayerCountResponse {
   @IsObject()
   countsByLocation: { [key: string]: number };
 }
+export class CreateFeedbackDto {
+  location: number;
+  starRating?: number;
+  comment?: string;
+}
+
 export enum TableStatus {
   CANCELLED = 'cancelled',
 }

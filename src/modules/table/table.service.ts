@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -16,7 +16,7 @@ import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import {
   NotificationEventType,
-  NotificationType
+  NotificationType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
@@ -480,26 +480,25 @@ export class TableService {
     return table;
   }
   async notifyUnclosedTables() {
-
     function formatDate(date: Date): string {
       const yyyy = date.getFullYear();
       const mm = String(date.getMonth() + 1).padStart(2, '0');
       const dd = String(date.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
-    
+
     function getTurkishDateOffset(): Date {
       const nowUTC = new Date();
       const offsetInMs = 3 * 60 * 60 * 1000; // GMT+3 => 3 saat ileri
       return new Date(nowUTC.getTime() + offsetInMs);
     }
-    
+
     const todayTR = getTurkishDateOffset();
     const yesterdayTR = subDays(todayTR, 1);
-    
+
     const todayStr = formatDate(todayTR);
     const yesterdayStr = formatDate(yesterdayTR);
-    
+
     const unclosedTables = await this.tableModel.find({
       date: { $in: [todayStr, yesterdayStr] },
       status: { $ne: TableStatus.CANCELLED },
@@ -509,7 +508,7 @@ export class TableService {
         { finishHour: '' },
       ],
     });
-    
+
     if (unclosedTables.length > 0) {
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
@@ -524,5 +523,5 @@ export class TableService {
       this.logger.log('No unclosed tables found');
     }
   }
+  //feedback
 }
-
