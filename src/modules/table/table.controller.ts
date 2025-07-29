@@ -9,13 +9,16 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './../order/order.dto';
+import { Feedback } from './feedback.schema';
 import {
   AggregatedPlayerCountResponse,
+  CreateFeedbackDto,
   TableDto,
   TableResponse,
 } from './table.dto';
@@ -124,5 +127,31 @@ export class TableController {
   @ApiResponse({ type: TableResponse })
   getTableById(@Param('id') id: number) {
     return this.tableService.getTableById(id);
+  }
+  // feedbacks
+  @Get('/feedback')
+  findQueryFeedbacks(
+    @Query('after') after: string,
+    @Query('before') before?: string,
+    @Query('location') location?: number,
+  ) {
+    return this.tableService.findQueryFeedback(after, before, location);
+  }
+  @Post('/feedback')
+  createFeedback(@Body() data: CreateFeedbackDto) {
+    return this.tableService.createFeedback(data);
+  }
+
+  @Patch('/feedback/:id')
+  updateFeedback(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Feedback>,
+  ) {
+    return this.tableService.updateFeedback(id, updates);
+  }
+
+  @Delete('/feedback/:id')
+  deleteFeedback(@Param('id') id: number) {
+    return this.tableService.removeFeedback(id);
   }
 }

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
-import { Model, PipelineStage } from 'mongoose';
+import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -25,7 +25,13 @@ import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
-import { TableDto, TableStatus, TableTypes } from './table.dto';
+import { Feedback } from './feedback.schema';
+import {
+  CreateFeedbackDto,
+  TableDto,
+  TableStatus,
+  TableTypes,
+} from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
 
@@ -43,6 +49,7 @@ export class TableService {
 
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
+    @InjectModel(Feedback.name) private feedbackModel: Model<Feedback>,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
@@ -524,4 +531,52 @@ export class TableService {
     }
   }
   //feedback
+  async findQueryFeedback(after?: string, before?: string, location?: number) {
+    const query: any = {};
+    if (after) {
+      query.createdAt = { $gte: new Date(after) };
+    }
+    if (before) {
+      query.createdAt = { $lte: new Date(before) };
+    }
+    if (after && before) {
+      query.createdAt = {
+        $gte: new Date(after),
+        $lte: new Date(before),
+      };
+    }
+    if (location) {
+      query.location = location;
+    }
+    return this.feedbackModel.find(query);
+  }
+
+  async createFeedback(data: CreateFeedbackDto) {
+    const feedback = new this.feedbackModel(data);
+    await feedback.save();
+    this.tableGateway.emitFeedbackChanged(feedback);
+    return feedback;
+  }
+
+  async updateFeedback(id: number, updates: UpdateQuery<Feedback>) {
+    const updatedFeedback = await this.feedbackModel.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true },
+    );
+    if (!updatedFeedback) {
+      throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
+    }
+    this.tableGateway.emitFeedbackChanged(updatedFeedback);
+    return updatedFeedback;
+  }
+
+  async removeFeedback(id: number) {
+    const feedback = await this.feedbackModel.findByIdAndRemove(id);
+    if (!feedback) {
+      throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
+    }
+    this.tableGateway.emitFeedbackChanged(feedback);
+    return feedback;
+  }
 }

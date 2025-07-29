@@ -85,6 +85,7 @@ export class AggregatedPlayerCountResponse {
 }
 export class CreateFeedbackDto {
   location: number;
+  table: number;
   starRating?: number;
   comment?: string;
 }

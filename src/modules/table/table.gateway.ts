@@ -48,4 +48,8 @@ export class TableGateway
   emitTableChanged(user: User, table: any) {
     this.server.emit('tableChanged', { user, table });
   }
+
+  emitFeedbackChanged(feedback?: any) {
+    this.server.emit('feedbackChanged', feedback);
+  }
 }

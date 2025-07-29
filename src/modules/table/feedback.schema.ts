@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
+import { Table } from './table.schema';
 
 @Schema({ _id: false, timestamps: true })
 export class Feedback extends Document {
@@ -10,6 +11,9 @@ export class Feedback extends Document {
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: number;
+
+  @Prop({ required: true, type: Number, ref: Table.name })
+  table: number;
 
   @Prop({ required: false, type: Number })
   starRating: number;
