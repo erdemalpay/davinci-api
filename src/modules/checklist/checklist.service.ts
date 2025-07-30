@@ -2,6 +2,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import { NotificationEventType } from '../notification/notification.dto';
+import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { Check } from './check.schema';
 import { CreateCheckDto, CreateChecklistDto } from './checklist.dto';
@@ -15,6 +17,7 @@ export class ChecklistService {
     private checklistModel: Model<Checklist>,
     @InjectModel(Check.name) private checkModel: Model<Check>,
     private checklistGateway: ChecklistGateway,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async createChecklist(user: User, createChecklistDto: CreateChecklistDto) {
@@ -93,6 +96,22 @@ export class ChecklistService {
     const check = await this.checkModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
+    if (updates?.isCompleted) {
+      const unCompletedDuties = check?.duties?.filter(
+        (duty) => !duty.isCompleted,
+      );
+      if (unCompletedDuties?.length > 0) {
+        await this.notificationService.createNotification({
+          type: 'WARNING',
+          selectedUsers: [],
+          selectedLocations: [],
+          selectedRoles: [1],
+          seenBy: [],
+          event: NotificationEventType.UNCOMPLETEDCHECKLIST,
+          message: `Uncompleted ${unCompletedDuties.length} duties in checklist ${check.checklist} for user ${check.user}`,
+        });
+      }
+    }
     this.checklistGateway.emitCheckChanged(user, check);
     return check;
   }
