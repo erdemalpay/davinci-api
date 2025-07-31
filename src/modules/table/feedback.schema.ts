@@ -12,8 +12,11 @@ export class Feedback extends Document {
   @Prop({ required: true, type: Number, ref: Location.name })
   location: number;
 
-  @Prop({ required: true, type: Number, ref: Table.name })
+  @Prop({ required: false, type: Number, ref: Table.name })
   table: number;
+
+  @Prop({ required: true, type: String })
+  tableName: string;
 
   @Prop({ required: false, type: Number })
   starRating: number;

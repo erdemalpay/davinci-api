@@ -8,7 +8,10 @@ import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { User } from '../user/user.schema';
 import { ButtonCallGateway } from './buttonCall.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
-import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
+import {
+  ButtonCallTypeEnum,
+  CreateButtonCallDto,
+} from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 
 @Injectable()
@@ -23,14 +26,16 @@ export class ButtonCallService {
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
   private readonly buttonCallNeoPort: string = process.env.BUTTON_CALL_NEO_PORT;
 
-  async create(user: User, createButtonCallDto: CreateButtonCallDto) {
+  async create(createButtonCallDto: CreateButtonCallDto, user?: User) {
     const existingButtonCall = await this.buttonCallModel.findOne({
       tableName: createButtonCallDto.tableName,
+      type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
       finishHour: { $exists: false },
     });
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
-      existingButtonCall.save();
+      await existingButtonCall.save();
+      this.buttonCallGateway.emitButtonCallChanged(existingButtonCall);
       return existingButtonCall;
     }
 
@@ -38,8 +43,9 @@ export class ButtonCallService {
       const createdButtonCall = new this.buttonCallModel({
         ...createButtonCallDto,
         date: format(new Date(), 'yyyy-MM-dd'),
+        type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
         startHour: createButtonCallDto.hour,
-        createdBy: user._id,
+        ...(user && { createdBy: user._id }),
       });
       this.buttonCallGateway.emitButtonCallChanged(createdButtonCall);
       await createdButtonCall.save();

@@ -1,21 +1,23 @@
 import {
   Body,
-  Controller, Delete,
+  Controller,
+  Delete,
   Get,
   HttpException,
-  HttpStatus, Param,
+  HttpStatus,
+  Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
-
 @ApiTags('ButtonCall')
 @Controller('button-calls')
 export class ButtonCallController {
@@ -31,16 +33,17 @@ export class ButtonCallController {
     return this.buttonCallService.find(date, location, type);
   }
 
+  @Public()
   @ApiResponse({ type: ButtonCall })
   @Post()
   createButtonCall(
-    @ReqUser() user: User,
     @Body() createButtonCallDto: CreateButtonCallDto,
+    @ReqUser() user?: User,
   ) {
     if (!createButtonCallDto.tableName || !createButtonCallDto.location) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
-    return this.buttonCallService.create(user, createButtonCallDto);
+    return this.buttonCallService.create(createButtonCallDto, user);
   }
 
   @ApiResponse({ type: ButtonCall })

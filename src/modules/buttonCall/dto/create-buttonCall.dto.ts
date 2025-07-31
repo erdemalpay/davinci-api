@@ -7,10 +7,9 @@ export class CreateButtonCallDto {
   @IsString()
   readonly tableName: string;
 
-  // @ApiProperty()
-  // @IsNotEmpty()
-  // @IsString()
-  // readonly type: string;
+  @ApiProperty()
+  @IsString()
+  readonly type: string;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -21,4 +20,9 @@ export class CreateButtonCallDto {
   @IsNotEmpty()
   @IsString()
   readonly hour: string;
+}
+export enum ButtonCallTypeEnum {
+  TABLECALL = 'TABLECALL',
+  GAMEMASTERCALL = 'GAMEMASTERCALL',
+  ORDERCALL = 'ORDERCALL',
 }

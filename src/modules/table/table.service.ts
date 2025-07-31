@@ -533,26 +533,36 @@ export class TableService {
   //feedback
   async findQueryFeedback(after?: string, before?: string, location?: number) {
     const query: any = {};
+    const createdAt: Record<string, Date> = {};
     if (after) {
-      query.createdAt = { $gte: new Date(after) };
+      createdAt.$gte = new Date(after);
     }
     if (before) {
-      query.createdAt = { $lte: new Date(before) };
+      const [y, m, d] = before.split('-').map(Number);
+      const endOfDayLocal = new Date(y, m - 1, d, 23, 59, 59, 999);
+      createdAt.$lte = endOfDayLocal;
     }
-    if (after && before) {
-      query.createdAt = {
-        $gte: new Date(after),
-        $lte: new Date(before),
-      };
+    if (Object.keys(createdAt).length) {
+      query.createdAt = createdAt;
     }
     if (location) {
-      query.location = location;
+      query.location = Number(location);
     }
     return this.feedbackModel.find(query);
   }
 
   async createFeedback(data: CreateFeedbackDto) {
-    const feedback = new this.feedbackModel(data);
+    const existingTable = await this.tableModel.findOne({
+      location: data.location,
+      name: data.tableName,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      finishHour: { $exists: false },
+    });
+
+    const feedback = new this.feedbackModel({
+      ...data,
+      ...(existingTable && { table: existingTable._id }),
+    });
     await feedback.save();
     this.tableGateway.emitFeedbackChanged(feedback);
     return feedback;

@@ -24,8 +24,8 @@ export class ButtonCall extends Document {
   @Prop({ required: false, type: String })
   finishHour: string;
 
-  // @Prop({ required: true, type: String, default: 'TABLECALL' })
-  // type: string;
+  @Prop({ required: false, type: String, default: 'TABLECALL' })
+  type: string;
 
   @Prop({ required: true, type: Number, default: 1 })
   callCount: number;
@@ -33,7 +33,7 @@ export class ButtonCall extends Document {
   @Prop({ required: false, type: String })
   duration: string;
 
-  @Prop({ required: true, type: String, ref: User.name })
+  @Prop({ required: false, type: String, ref: User.name })
   createdBy: string;
 
   @Prop({ required: false, type: String, ref: User.name })

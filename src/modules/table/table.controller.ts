@@ -38,6 +38,7 @@ export class TableController {
   ) {
     return this.tableService.findQueryFeedback(after, before, location);
   }
+  @Public()
   @Post('/feedback')
   createFeedback(@Body() data: CreateFeedbackDto) {
     return this.tableService.createFeedback(data);
