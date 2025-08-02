@@ -88,4 +88,9 @@ export class VisitController {
   deleteCafeActivity(@Param('id') id: number) {
     return this.visitService.deleteCafeActivity(Number(id));
   }
+
+  @Delete('/:id')
+  removeVisit(@Param('id') id: number) {
+    return this.visitService.remove(id);
+  }
 }

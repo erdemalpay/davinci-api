@@ -93,6 +93,14 @@ export class VisitService {
     this.visitGateway.emitVisitChanged(user, visit);
     return visit;
   }
+  async remove(id: number) {
+    const visit = await this.visitModel.findByIdAndDelete(id);
+    if (!visit) {
+      throw new NotFoundException(`Visit with id ${id} not found`);
+    }
+    this.visitGateway.emitVisitChanged(visit.user, visit);
+    return visit;
+  }
 
   async getVisits(startDate: string, endDate?: string, user?: string) {
     let query: any = { date: { $gte: startDate } };
@@ -103,7 +111,7 @@ export class VisitService {
       query = { ...query, user };
     }
     const visits = await this.visitModel
-      .find(query, { __v: false, _id: false })
+      .find(query)
       .populate({
         path: 'user',
         select: '-password',
