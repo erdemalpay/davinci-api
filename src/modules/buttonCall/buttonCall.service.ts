@@ -26,10 +26,14 @@ export class ButtonCallService {
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
   private readonly buttonCallNeoPort: string = process.env.BUTTON_CALL_NEO_PORT;
 
+  private readonly buttonCallBahceliIP: string = process.env.BUTTON_CALL_BAHCELI_IP;
+  private readonly buttonCallBahceliPort: string = process.env.BUTTON_CALL_BAHCELI_PORT;
+
   async create(createButtonCallDto: CreateButtonCallDto, user?: User) {
     const existingButtonCall = await this.buttonCallModel.findOne({
       tableName: createButtonCallDto.tableName,
       type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
+      location: createButtonCallDto.location,
       finishHour: { $exists: false },
     });
     if (existingButtonCall) {
@@ -65,10 +69,10 @@ export class ButtonCallService {
   ) {
     const closedButtonCall = await this.buttonCallModel.findOne({
       tableName: closeButtonCallDto.tableName,
+      location: closeButtonCallDto.location,
       finishHour: { $exists: false },
     });
     if (!closedButtonCall) {
-      console.log('There is no active button calls found for this button');
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
@@ -81,10 +85,6 @@ export class ButtonCallService {
       cancelledBy: user._id,
     });
     closedButtonCall.save();
-    console.log(
-      'Button call cancelled successfully for ',
-      closedButtonCall.tableName,
-    );
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
@@ -98,17 +98,28 @@ export class ButtonCallService {
     if (!user) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
-    if (!this.buttonCallNeoIP || !this.buttonCallNeoPort) {
-      throw new HttpException(
-        'IP and PORT must be specified.',
-        HttpStatus.PRECONDITION_REQUIRED,
-      );
+    const location = closeButtonCallDto.location;
+    if (location == 1) {
+      if (!this.buttonCallBahceliIP || !this.buttonCallBahceliPort) {
+        throw new HttpException(
+          'IP and PORT must be specified.',
+          HttpStatus.PRECONDITION_REQUIRED,
+        );
+      }
+    } else if (location == 2) {
+      if (!this.buttonCallNeoIP || !this.buttonCallNeoPort) {
+        throw new HttpException(
+          'IP and PORT must be specified.',
+          HttpStatus.PRECONDITION_REQUIRED,
+        );
+      }
     }
+
     const apiUrl =
       'http://' +
-      this.buttonCallNeoIP +
+      ((location == 1) ? this.buttonCallBahceliIP : this.buttonCallNeoIP) +
       ':' +
-      this.buttonCallNeoPort +
+      ((location == 1) ? this.buttonCallBahceliPort : this.buttonCallNeoPort) +
       '/transmit';
     try {
       const response = await lastValueFrom(
