@@ -488,9 +488,14 @@ export class AccountingController {
     });
   }
   @Get('/stocks/query')
-  findQueryStocks(@ReqUser() user: User, @Query('after') after?: string) {
+  findQueryStocks(
+    @ReqUser() user: User,
+    @Query('after') after?: string,
+    @Query('location') location?: string,
+  ) {
     return this.accountingService.findQueryStocks(user, {
       after: after,
+      location: location,
     });
   }
 

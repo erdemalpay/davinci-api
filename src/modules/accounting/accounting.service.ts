@@ -1622,10 +1622,20 @@ export class AccountingService {
   }
 
   async findQueryStocks(user: User, query: StockQueryDto) {
-    const { after } = query;
-    const filterQuery = {};
+    let { after, location } = query;
+    let startDate: string | null = null;
     if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
+      startDate = format(
+        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
+        'yyyy-MM-dd',
+      );
+    }
+    const match: Record<string, any> = {};
+    if (startDate) {
+      match.date = { $gte: startDate };
+    }
+    if (location) {
+      match['location'] = Number(location);
     }
     const stocks = await this.stockModel.find();
     if (!after) {
@@ -1633,9 +1643,7 @@ export class AccountingService {
     }
     try {
       let filteredStocks = [];
-      const stockHistory = await this.productStockHistoryModel.find(
-        filterQuery,
-      );
+      const stockHistory = await this.productStockHistoryModel.find(match);
       for (const stock of stocks) {
         const productStockHistory = stockHistory.filter(
           (history) =>
