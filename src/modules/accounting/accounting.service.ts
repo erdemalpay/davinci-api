@@ -1106,120 +1106,264 @@ export class AccountingService {
     user: User,
     createExpenseDto: CreateMultipleExpenseDto[],
   ) {
-    let errorDatas = [];
+    const errorDatas: Array<any> = [];
+    let anySuccess = false;
+
     for (const expenseDto of createExpenseDto) {
+      const {
+        date,
+        product,
+        expenseType,
+        location,
+        brand,
+        vendor,
+        paymentMethod,
+        quantity,
+        price,
+        kdv,
+        isStockIncrement,
+        note,
+        isAfterCount,
+      } = expenseDto;
+
       try {
-        const {
-          date,
-          product,
-          expenseType,
-          location,
-          brand,
-          vendor,
-          paymentMethod,
-          quantity,
-          price,
-          kdv,
-          isStockIncrement,
-          note,
-          isAfterCount,
-        } = expenseDto;
+        if (quantity == null || price == null || kdv == null) {
+          throw new Error('Quantity, price or kdv is missing');
+        }
+        if (!date) {
+          throw new Error('Date is missing');
+        }
+
         const foundProduct = await this.productModel.findOne({
           name: product,
           deleted: false,
         });
-        if (!foundProduct) {
-          errorDatas.push({ ...expenseDto, errorNote: 'Product not found' });
-          continue;
-        }
+        if (!foundProduct) throw new Error('Product not found');
+
         const foundExpenseType = await this.expenseTypeModel.findOne({
           name: expenseType,
         });
-        if (!foundExpenseType) {
-          errorDatas.push({
-            ...expenseDto,
-            errorNote: 'Expense type not found',
-          });
-          continue;
-        }
+        if (!foundExpenseType) throw new Error('Expense type not found');
+
         const foundLocation = await this.locationService.findByName(location);
-        if (!foundLocation) {
-          errorDatas.push({ ...expenseDto, errorNote: 'Location not found' });
-          continue;
-        }
-        let foundBrand;
-        if (brand) {
-          foundBrand = await this.brandModel.findOne({ name: brand });
-        }
+        if (!foundLocation) throw new Error('Location not found');
+
+        const foundBrand = brand
+          ? await this.brandModel.findOne({ name: brand })
+          : null;
+
         const foundVendor = await this.vendorModel.findOne({ name: vendor });
-        if (!foundVendor) {
-          errorDatas.push({ ...expenseDto, errorNote: 'Vendor not found' });
-          continue;
-        }
+        if (!foundVendor) throw new Error('Vendor not found');
+
         const foundPaymentMethod = await this.paymentMethodModel.findOne({
           name: paymentMethod,
         });
-        if (!foundPaymentMethod) {
-          errorDatas.push({
-            ...expenseDto,
-            errorNote: 'Payment method not found',
-          });
-          continue;
-        }
-        if (!quantity || !kdv || !price) {
-          errorDatas.push({
-            ...expenseDto,
-            errorNote: 'Quantity, price or kdv is missing',
-          });
-          continue;
-        }
-        if (!date) {
-          errorDatas.push({
-            ...expenseDto,
-            errorNote: 'Date is missing',
-          });
-          continue;
-        }
+        if (!foundPaymentMethod) throw new Error('Payment method not found');
+
         const normalized = date.replace(/[.\/]/g, '-');
         const parts = normalized.split('-');
         const isoInput =
           parts[0].length === 4 ? normalized : parts.reverse().join('-');
         const adjustedDate = new Date(isoInput).toISOString().slice(0, 10);
+
         const totalExpense =
           Number(price) + Number(kdv) * (Number(price) / 100);
         const type = ExpenseTypes.STOCKABLE;
-        await this.createExpense(
-          user,
-          {
-            date: adjustedDate,
-            product: foundProduct._id,
-            expenseType: foundExpenseType._id,
-            location: foundLocation._id,
-            brand: foundBrand ? foundBrand._id : null,
-            vendor: foundVendor._id,
-            paymentMethod: foundPaymentMethod._id,
-            quantity: Number(quantity),
-            isPaid: true,
-            totalExpense: Number(totalExpense),
-            note: note,
-            type: type,
-            isAfterCount: isAfterCount || true,
-            isStockIncrement:
-              (isStockIncrement as any) === 'true' || isStockIncrement === true,
-          },
 
-          StockHistoryStatusEnum.EXPENSEENTRY,
-          true,
+        const rollback: {
+          expenseId?: any;
+          paymentId?: any;
+          stockDelta?: number;
+          stockId?: string;
+          stockHistoryId?: any;
+        } = {};
+
+        const expense = await this.expenseModel.create({
+          date: adjustedDate,
+          product: foundProduct._id,
+          expenseType: foundExpenseType._id,
+          location: foundLocation._id,
+          brand: foundBrand ? foundBrand._id : null,
+          vendor: foundVendor._id,
+          paymentMethod: foundPaymentMethod._id,
+          quantity: Number(quantity),
+          isPaid: true,
+          totalExpense: Number(totalExpense),
+          note,
+          type,
+          isAfterCount: isAfterCount ?? true,
+          isStockIncrement:
+            (isStockIncrement as any) === 'true' || isStockIncrement === true,
+          user: user._id,
+        });
+        rollback.expenseId = expense._id;
+
+        if (
+          expense.isStockIncrement &&
+          expense.type === ExpenseTypes.STOCKABLE
+        ) {
+          const stockId = usernamify(
+            String(expense.product) + String(expense.location),
+          );
+          rollback.stockId = stockId;
+          rollback.stockDelta = Number(expense.quantity);
+
+          const existingStock = await this.stockModel.findById(stockId);
+          if (existingStock) {
+            const oldQuantity = existingStock.quantity;
+
+            const newStock = await this.stockModel.findByIdAndUpdate(
+              stockId,
+              { $inc: { quantity: rollback.stockDelta } },
+              { new: true },
+            );
+
+            this.accountingGateway.emitStockChanged(user, newStock);
+
+            if (rollback.stockDelta !== 0) {
+              const stockHist = await this.productStockHistoryModel.create({
+                user: user._id,
+                product: expense.product,
+                location: expense.location,
+                change: rollback.stockDelta,
+                status: StockHistoryStatusEnum.EXPENSEENTRY,
+                currentAmount: oldQuantity,
+                createdAt: new Date(),
+              });
+              rollback.stockHistoryId = stockHist._id;
+              this.accountingGateway.emitProductStockHistoryChanged(
+                user,
+                stockHist,
+              );
+            }
+
+            await this.activityService.addUpdateActivity(
+              user,
+              ActivityType.UPDATE_STOCK as any,
+              existingStock,
+              newStock as any,
+            );
+          } else {
+            const stockDoc = new this.stockModel({
+              _id: stockId,
+              product: expense.product,
+              location: expense.location,
+              quantity: rollback.stockDelta,
+            });
+            await stockDoc.save();
+            this.accountingGateway.emitStockChanged(user, stockDoc);
+
+            await this.activityService.addActivity(
+              user,
+              ActivityType.CREATE_STOCK as any,
+              stockDoc as any,
+            );
+
+            if (rollback.stockDelta !== 0) {
+              const stockHist = await this.productStockHistoryModel.create({
+                user: user._id,
+                product: expense.product,
+                location: expense.location,
+                change: rollback.stockDelta,
+                status: StockHistoryStatusEnum.EXPENSEENTRY,
+                currentAmount: 0,
+                createdAt: new Date(),
+              });
+              rollback.stockHistoryId = stockHist._id;
+              this.accountingGateway.emitProductStockHistoryChanged(
+                user,
+                stockHist,
+              );
+            }
+          }
+
+          try {
+            await this.updateIkasStock(
+              String(expense.product),
+              Number(expense.location),
+              Number(rollback.stockDelta),
+            );
+          } catch {}
+        }
+
+        if (expense.isPaid) {
+          const payArr = await this.paymentModel.create([
+            {
+              amount: expense.totalExpense,
+              date: expense.date,
+              paymentMethod: expense.paymentMethod,
+              vendor: expense.vendor,
+              invoice: expense._id,
+              location: expense.location,
+              isAfterCount: expense.isAfterCount,
+              user: user._id,
+            },
+          ]);
+          const payment = payArr[0];
+          rollback.paymentId = payment._id;
+          this.accountingGateway.emitPaymentChanged(user, payment);
+        }
+
+        this.accountingGateway.emitExpenseChanged(user, expense);
+        this.accountingGateway.emitProductChanged(user);
+        this.activityService.addActivity(
+          user,
+          ActivityType.CREATE_EXPENSE as any,
+          expense as any,
         );
+
+        anySuccess = true;
       } catch (e) {
-        console.log(e);
-        errorDatas.push({ ...expenseDto, errorNote: 'Error occured' });
+        try {
+          if ((e as any)?.rollback?.paymentId) {
+            await this.paymentModel.findByIdAndDelete(
+              (e as any).rollback.paymentId,
+            );
+          }
+        } catch {}
+
+        try {
+          if ((e as any)?.rollback?.stockHistoryId) {
+            await this.productStockHistoryModel.findByIdAndDelete(
+              (e as any).rollback.stockHistoryId,
+            );
+          }
+        } catch {}
+
+        try {
+          const rb = (e as any)?.rollback;
+          if (rb?.stockId && rb?.stockDelta) {
+            await this.stockModel.findByIdAndUpdate(
+              rb.stockId,
+              { $inc: { quantity: -Number(rb.stockDelta) } },
+              { new: false },
+            );
+          }
+        } catch {}
+
+        try {
+          if ((e as any)?.rollback?.expenseId) {
+            await this.expenseModel.findByIdAndDelete(
+              (e as any).rollback.expenseId,
+            );
+          }
+        } catch {}
+
+        errorDatas.push({
+          ...expenseDto,
+          errorNote: (e as any)?.message || 'Error occurred',
+        });
       }
     }
-    this.accountingGateway.emitExpenseChanged(user);
-    this.accountingGateway.emitProductChanged(user);
+
+    if (anySuccess) {
+      this.accountingGateway.emitExpenseChanged(user);
+      this.accountingGateway.emitProductChanged(user);
+    }
+
     return errorDatas;
   }
+
   async createExpense(
     user: User,
     createExpenseDto: CreateExpenseDto,
