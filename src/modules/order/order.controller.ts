@@ -378,6 +378,14 @@ export class OrderController {
   ) {
     return this.orderService.findGivenDateOrders(date, location);
   }
+  @Patch('/simple/:id')
+  simpleUpdateOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: Partial<Order>,
+  ) {
+    return this.orderService.simpleOrderUpdate(user, id, updates);
+  }
 
   @Patch('/:id')
   updateOrder(
