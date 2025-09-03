@@ -1415,6 +1415,23 @@ export class OrderService {
         });
     }
   }
+  async simpleOrderUpdate(user: User, id: number, updates: Partial<Order>) {
+    try {
+      const order = await this.orderModel.findByIdAndUpdate(id, updates, {
+        new: true,
+      });
+      if (!order) {
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      }
+      this.orderGateway.emitOrderUpdated(user, order);
+      return order;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to update order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async cancelIkasOrder(user: User, ikasId: string, quantity: number) {
     try {
       const order = await this.orderModel
