@@ -2195,7 +2195,7 @@ export class AccountingService {
           selectedUsers: zeroNotificationEvent.selectedUsers,
           selectedRoles: zeroNotificationEvent.selectedRoles,
           selectedLocations: zeroNotificationEvent.selectedLocations,
-          seenBy: zeroNotificationEvent.seenBy || [],
+          seenBy: [],
           event: NotificationEventType.ZEROSTOCK,
           message:
             zeroNotificationEvent.message ||
@@ -2217,13 +2217,14 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
+        console.log(negativeNotificationEvent);
         const notificationDto: CreateNotificationDto = {
           type: negativeNotificationEvent.type,
           createdBy: negativeNotificationEvent.createdBy,
           selectedUsers: negativeNotificationEvent.selectedUsers,
           selectedRoles: negativeNotificationEvent.selectedRoles,
           selectedLocations: negativeNotificationEvent.selectedLocations,
-          seenBy: negativeNotificationEvent.seenBy || [],
+          seenBy: [],
           event: NotificationEventType.NEGATIVESTOCK,
           message:
             negativeNotificationEvent.message ||
@@ -2256,7 +2257,7 @@ export class AccountingService {
           selectedUsers: lossProductEvent.selectedUsers,
           selectedRoles: lossProductEvent.selectedRoles,
           selectedLocations: lossProductEvent.selectedLocations,
-          seenBy: lossProductEvent.seenBy || [],
+          seenBy: [],
           event: NotificationEventType.LOSSPRODUCT,
           message:
             lossProductEvent.message ||
@@ -2556,7 +2557,7 @@ export class AccountingService {
           selectedUsers: notificationEvent.selectedUsers,
           selectedRoles: notificationEvent.selectedRoles,
           selectedLocations: notificationEvent.selectedLocations,
-          seenBy: notificationEvent.seenBy || [],
+          seenBy: [],
           event: NotificationEventType.COMPLETECOUNT,
           message:
             notificationEvent.message ||
