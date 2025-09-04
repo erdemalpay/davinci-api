@@ -309,6 +309,19 @@ export class MenuService {
   async createItem(user: User, createItemDto: CreateItemDto) {
     try {
       const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
+      const deletedItem = await this.itemModel.findOne({
+        deleted: true,
+        name: createItemDto.name,
+      });
+      if (deletedItem) {
+        await this.itemModel.findByIdAndUpdate(deletedItem._id, {
+          ...createItemDto,
+          matchedProduct: null,
+          deleted: false,
+        });
+        await this.menuGateway.emitItemChanged(user, deletedItem);
+        return deletedItem;
+      }
       const item = new this.itemModel({
         ...createItemDto,
         order: lastItem ? lastItem.order + 1 : 1,
