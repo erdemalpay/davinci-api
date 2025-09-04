@@ -130,28 +130,24 @@ export class TableService {
       throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
     }
 
-    let updatedTable;
-
     try {
-      if (Array.isArray(order)) {
-        updatedTable = await this.tableModel.findByIdAndUpdate(
-          id,
-          { $push: { orders: { $each: order } } },
-          { new: true },
-        );
-      } else {
-        updatedTable = await this.tableModel.findByIdAndUpdate(
-          id,
-          { $push: { orders: order } },
-          { new: true },
-        );
-      }
+      const update = Array.isArray(order)
+        ? { $addToSet: { orders: { $each: order } } }
+        : { $addToSet: { orders: order } };
+
+      const updatedTable = await this.tableModel.findByIdAndUpdate(id, update, {
+        new: true,
+      });
+
       if (!updatedTable) {
         throw new HttpException(
-          'Update failed or no new data was provided',
+          'Update failed',
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+
+      this.tableGateway.emitTableChanged(user, updatedTable);
+      return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
       throw new HttpException(
@@ -159,8 +155,6 @@ export class TableService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-    this.tableGateway.emitTableChanged(user, updatedTable);
-    return updatedTable;
   }
 
   async close(user: User, id: number, tableDto: TableDto) {
