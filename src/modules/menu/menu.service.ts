@@ -116,6 +116,9 @@ export class MenuService {
       .lean();
     const stocks = await this.accountingService.findAllStocks();
     const inStock = items.filter((item) => {
+      if (!item.matchedProduct) {
+        return true;
+      }
       const totalQty = stocks
         .filter((s) => s.product === item.matchedProduct)
         .reduce((sum, s) => sum + s.quantity, 0);
