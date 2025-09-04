@@ -35,6 +35,11 @@ export class CreateBulkItemDto {
   price: number;
   sku?: string;
   barcode?: string;
+  itemProduction?: {
+    product: string;
+    quantity: number;
+    isDecrementStock: boolean;
+  }[];
   description?: string;
   onlinePrice?: number;
 }

@@ -2750,6 +2750,7 @@ export class AccountingService {
           brand,
           vendor,
           category,
+          itemProduction,
           price,
           onlinePrice,
           sku,
@@ -2814,12 +2815,19 @@ export class AccountingService {
               .map((item) => item.trim())
               .filter(Boolean)
           : [];
+        const ItemProductionArray = itemProduction?.trim()
+          ? itemProduction
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
 
         //  if expenseType is provided it will create a product
         if (expenseTypeArray?.length > 0) {
           let newExpenseTypes = [];
           let newVendor = [];
           let newBrand = [];
+
           // find the ids of the expenseType, vendor and brand
           for (const expTypeName of expenseTypeArray) {
             const foundExpenseType = await this.expenseTypeModel.find({
@@ -2829,6 +2837,7 @@ export class AccountingService {
               newExpenseTypes.push(foundExpenseType[0]._id);
             }
           }
+
           for (const vendorName of vendorArray) {
             const foundVendor = await this.vendorModel.find({
               name: vendorName,
@@ -2866,6 +2875,7 @@ export class AccountingService {
               continue;
             }
           }
+
           // if expenseType is not found it will not be created
           if (newExpenseTypes.length === 0) {
             errorDatas.push({
@@ -2931,10 +2941,25 @@ export class AccountingService {
             });
             continue;
           }
+          let newItemProduction = [];
+          for (const itemProductionName of ItemProductionArray) {
+            const foundItemProduction = await this.productModel.findOne({
+              name: itemProductionName,
+              deleted: false,
+            });
+            if (foundItemProduction) {
+              newItemProduction.push({
+                product: foundItemProduction._id,
+                quantity: 1,
+                isDecrementStock: true,
+              });
+            }
+          }
           newMenuItem = await this.menuService.createBulkMenuItemWithProduct({
             name: name,
             category: foundCategory._id,
             price: price,
+            itemProduction: newItemProduction,
             ...(onlinePrice ? { onlinePrice } : {}),
             ...(description ? { description } : {}),
             ...(sku ? { sku } : {}),
