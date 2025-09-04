@@ -2941,20 +2941,38 @@ export class AccountingService {
             });
             continue;
           }
-          let newItemProduction = [];
+          const parseItemAndQty = (
+            input: unknown,
+          ): { name: string; qty: number } => {
+            const s = String(input ?? '').trim();
+            const m = s.match(/^(.*?)(?:_(\d+))?$/);
+            if (!m) return { name: s, qty: 1 };
+            const base = m[1].trim();
+            const qty = m[2] ? Math.max(1, parseInt(m[2], 10)) : 1;
+            return { name: base, qty };
+          };
+
+          const newItemProduction: Array<{
+            product: any;
+            quantity: number;
+            isDecrementStock: boolean;
+          }> = [];
+
           for (const itemProductionName of ItemProductionArray) {
+            const { name, qty } = parseItemAndQty(itemProductionName);
             const foundItemProduction = await this.productModel.findOne({
-              name: itemProductionName,
+              name,
               deleted: false,
             });
             if (foundItemProduction) {
               newItemProduction.push({
                 product: foundItemProduction._id,
-                quantity: 1,
+                quantity: qty,
                 isDecrementStock: true,
               });
             }
           }
+
           newMenuItem = await this.menuService.createBulkMenuItemWithProduct({
             name: name,
             category: foundCategory._id,
