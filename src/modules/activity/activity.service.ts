@@ -3,7 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import diff from 'microdiff';
 import { Document, Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
+import { withSession } from 'src/utils/withSession';
 import { User } from '../user/user.schema';
+import { SessionOpts } from './../../utils/withSession';
 import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
 import { ActivityGateway } from './activity.gateway';
 import { Activity } from './activity.schema';
@@ -62,13 +64,19 @@ export class ActivityService {
   async addActivity<
     T extends keyof ActivityTypePayload,
     P extends ActivityTypePayload[T],
-  >(user: User, type: T, payload: P) {
-    const activity = await this.activityModel.create({
-      user,
-      type,
-      payload,
-    });
-    this.activityGateway.emitActivityChanged(activity);
+  >(user: User, type: T, payload: P, opts?: SessionOpts) {
+    const session = opts?.session;
+    const deferEmit =
+      opts?.deferEmit ?? Boolean(session && (session as any).inTransaction?.());
+
+    const [activity] = await this.activityModel.create(
+      [{ user, type, payload }],
+      withSession({}, session),
+    );
+    if (!deferEmit) {
+      this.activityGateway.emitActivityChanged(activity);
+    }
+
     return activity;
   }
 
