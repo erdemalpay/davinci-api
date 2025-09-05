@@ -6,11 +6,18 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
 import { format, parseISO } from 'date-fns';
 import * as moment from 'moment-timezone';
-import { Model, PipelineStage, UpdateQuery } from 'mongoose';
+import {
+  ClientSession,
+  Connection,
+  Model,
+  PipelineStage,
+  UpdateQuery,
+} from 'mongoose';
+import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
 import { GameplayService } from '../gameplay/gameplay.service';
@@ -27,6 +34,7 @@ import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
+import { ActivityGateway } from './../activity/activity.gateway';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
 import { Collection } from './collection.schema';
@@ -53,6 +61,7 @@ interface SeenUsers {
 @Injectable()
 export class OrderService {
   constructor(
+    @InjectConnection() private readonly conn: Connection,
     @InjectQueue('order-confirmation')
     private confirmationQueue: Queue,
     @InjectModel(Order.name) private orderModel: Model<Order>,
@@ -69,6 +78,7 @@ export class OrderService {
     private readonly orderGateway: OrderGateway,
     private readonly tableGateway: TableGateway,
     private readonly activityService: ActivityService,
+    private readonly activityGateway: ActivityGateway,
     private readonly accountingService: AccountingService,
     private readonly visitService: VisitService,
     private readonly redisService: RedisService,
@@ -1583,33 +1593,51 @@ export class OrderService {
       );
     }
   }
-  async updateOrders(user: User, orders: OrderType[]) {
-    if (!orders?.length || orders?.length === 0) {
-      return;
-    }
+  async updateOrders(
+    user: User,
+    orders: OrderType[],
+    opts?: { session?: ClientSession; deferEmit?: boolean },
+  ): Promise<void> {
+    if (!orders?.length) return;
+    const session = opts?.session;
+    const deferEmit =
+      opts?.deferEmit ?? Boolean(session && (session as any).inTransaction?.());
     try {
-      await Promise.all(
-        orders?.map(async (order) => {
-          const oldOrder = await this.orderModel.findById(order._id);
-          if (!oldOrder) {
-            throw new HttpException(
-              `Order with ID ${order._id} not found`,
-              HttpStatus.NOT_FOUND,
-            );
-          }
-          const updatedOrder = {
-            ...order,
-            _id: oldOrder?._id,
-            item: oldOrder.item,
-          };
-          await this.orderModel.findByIdAndUpdate(order._id, updatedOrder, {
-            new: true,
-          });
-        }),
-      );
-      orders && this.orderGateway.emitOrderUpdated(user, orders[0]);
-    } catch (error) {
-      console.error('Error updating orders:', error);
+      const ids = orders.map((o) => o._id);
+      const existing = await this.orderModel
+        .find({ _id: { $in: ids } }, null, withSession({}, session))
+        .lean();
+      const map = new Map(existing.map((o: any) => [String(o._id), o]));
+      const missing = ids.filter((id) => !map.has(String(id)));
+      if (missing.length) {
+        throw new HttpException(
+          `Order(s) not found: ${missing.join(', ')}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const ops = orders.map((order) => {
+        const old = map.get(String(order._id));
+        const updated = {
+          ...order,
+          _id: old._id,
+          item: old.item,
+        };
+        return {
+          updateOne: {
+            filter: { _id: order._id },
+            update: updated,
+          },
+        };
+      });
+
+      await this.orderModel.bulkWrite(ops, withSession({}, session));
+      if (!deferEmit) {
+        for (const o of orders) {
+          this.orderGateway.emitOrderUpdated(user, o);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating orders:', err);
       throw new HttpException(
         'Failed to update some orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2090,34 +2118,51 @@ export class OrderService {
     id: number,
     updates: UpdateQuery<Collection>,
   ) {
+    const session = await this.conn.startSession();
+    let toEmit: Collection | null = null;
     const { newOrders, ...filteredUpdates } = updates;
-
+    let activity = null;
     try {
-      if (newOrders) {
-        await this.updateOrders(user, newOrders);
-      }
-      const collection = await this.collectionModel.findByIdAndUpdate(
-        id,
-        filteredUpdates,
-        {
-          new: true,
-        },
-      );
-      if (filteredUpdates.status === OrderCollectionStatus.CANCELLED) {
-        await this.activityService.addActivity(
-          user,
-          ActivityType.CANCEL_PAYMENT,
-          collection,
+      await session.withTransaction(async () => {
+        if (newOrders) {
+          await this.updateOrders(user, newOrders, {
+            session,
+            deferEmit: true,
+          });
+        }
+        const collection = await this.collectionModel.findByIdAndUpdate(
+          id,
+          filteredUpdates,
+          { new: true, session },
         );
+        if (!collection) {
+          throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
+        }
+        if (filteredUpdates.status === OrderCollectionStatus.CANCELLED) {
+          activity = await this.activityService.addActivity(
+            user,
+            ActivityType.CANCEL_PAYMENT,
+            collection,
+            { session, deferEmit: true },
+          );
+        }
+        toEmit = collection;
+      });
+      if (toEmit) {
+        this.orderGateway.emitCollectionChanged(user, toEmit);
+        this.orderGateway.emitOrderUpdated(user, newOrders[0]);
+        if (activity) {
+          this.activityGateway.emitActivityChanged(activity);
+        }
       }
-      this.orderGateway.emitCollectionChanged(user, collection);
-      return collection;
+      return toEmit;
     } catch (error) {
-      console.error('Error updating collection:', error);
       throw new HttpException(
-        'Failed to update collection due to an error in updating orders or saving changes.',
+        'Failed to update collection (transaction rolled back).',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      await session.endSession();
     }
   }
 
