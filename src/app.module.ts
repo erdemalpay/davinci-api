@@ -38,7 +38,7 @@ export interface DBConfig {
 }
 
 const { host, port, name }: DBConfig = config.get('db');
-const mongoUrl = `mongodb://${host}:${port}/${name}`;
+const mongoUrl = `mongodb://${host}:${port}/${name}?replicaSet=rs0&retryWrites=true&w=majority`;
 const DbModule = MongooseModule.forRoot(mongoUrl, {
   ignoreUndefined: true,
 });
