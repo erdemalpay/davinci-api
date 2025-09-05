@@ -34,6 +34,7 @@ jobs:
           echo BUTTON_CALL_NEO_IP=${{secrets.BUTTON_CALL_NEO_IP}} >> .env
           echo WHATSAPP_ACCESS_TOKEN=${{secrets.WHATSAPP_ACCESS_TOKEN}} >> .env
           echo BUTTON_CALL_NEO_PORT=${{secrets.BUTTON_CALL_NEO_PORT}} >> .env
+
       - name: Create ssh folder
         run: mkdir ~/.ssh
       - name: Adding private key
@@ -45,4 +46,13 @@ jobs:
       - name: Rsync files
         run: rsync -avz -r -e "ssh -i ./ssh/id_rsa" ./dist ./config .env Dockerfile.production Dockerfile.staging docker-compose.yml yarn.lock package.json ${{ secrets.USERNAME }}@${{ secrets.HOST }}:app
       - name: Run deploy command
-        run: ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "cd app && sudo docker compose up -d --build davinci-api-staging && sudo docker system prune -af"
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
+          "set -e; cd app; \
+          sudo docker compose up -d mongo davinci-redis-staging; \
+          sudo docker compose up -d mongo-init-replica || true; \
+          if ! sudo docker exec davinci-db mongosh --quiet --eval 'rs.status().ok' >/dev/null 2>&1; then \
+          sudo docker exec davinci-db mongosh --quiet --eval 'rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"davinci-db:27017\"}]})'; \
+          fi; \
+          sudo docker compose up -d --build davinci-api-staging; \
+          sudo docker system prune -af"
