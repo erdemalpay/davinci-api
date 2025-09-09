@@ -24,7 +24,6 @@ $ yarn start:dev
   - `types/` - Type definitions
   - `utils/` - Utility functions
 - `config/` - Environment configuration files
-- `test/` - Test files and configs
 - `Dockerfile.*` - Docker setup for different environments
 - `docker-compose.yml` - Multi-container orchestration
 
@@ -33,10 +32,6 @@ $ yarn start:dev
 1. Install dependencies: `yarn install`
 2. Configure environment files in `config/`
 3. Start development server: `yarn start:dev`
-
-### Contribution
-
-Feel free to open issues or submit pull requests. Please follow the existing code style and add tests for new features.
 
 ```
 
