@@ -1,6 +1,6 @@
 import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
+import { format, isValid, parseISO, startOfDay, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
@@ -1766,49 +1766,64 @@ export class AccountingService {
   }
 
   async findQueryStocks(user: User, query: StockQueryDto) {
-    let { after, location } = query;
-    let startDate: string | null = null;
-    if (after) {
-      startDate = format(
-        new Date(new Date(after).getTime() - 30 * 24 * 60 * 60 * 1000),
-        'yyyy-MM-dd',
-      );
-    }
+    const { after, location } = query;
     const match: Record<string, any> = {};
-    if (startDate) {
+    if (after) {
+      const parsed = parseISO(after);
+      if (!isValid(parsed)) {
+        throw new HttpException('Invalid "after" date', HttpStatus.BAD_REQUEST);
+      }
+      const startDate = startOfDay(subDays(parsed, 30));
       match.date = { $gte: startDate };
     }
-    if (location) {
-      match['location'] = Number(location);
+    if (location !== undefined && location !== null && location !== '') {
+      match.location = Number(location);
     }
-    const stocks = await this.stockModel.find();
-    if (!after) {
-      return stocks;
-    }
+
     try {
-      let filteredStocks = [];
-      const stockHistory = await this.productStockHistoryModel.find(match);
-      for (const stock of stocks) {
-        const productStockHistory = stockHistory.filter(
-          (history) =>
-            history.product.toString() === stock.product.toString() &&
-            history.location === stock.location,
-        );
-        let changeSum = productStockHistory.reduce(
-          (acc, history) => acc + history.change * -1,
-          0,
-        );
-        if (productStockHistory.length > 0) {
-          stock.quantity += changeSum;
-        }
-        filteredStocks.push({
-          _id: stock._id,
-          product: stock.product,
-          location: Number(stock.location),
-          quantity: stock.quantity,
-        });
+      const stockFindFilter: Record<string, any> = {};
+      if (location !== undefined && location !== null && location !== '') {
+        stockFindFilter.location = Number(location);
       }
-      return filteredStocks;
+
+      if (!after) {
+        const stocks = await this.stockModel
+          .find(stockFindFilter)
+          .lean()
+          .exec();
+        return stocks.map((s) => ({
+          _id: s._id,
+          product: s.product,
+          location: Number(s.location),
+          quantity: s.quantity,
+        }));
+      }
+      const [stocks, history] = await Promise.all([
+        this.stockModel.find(stockFindFilter).lean().exec(),
+        this.productStockHistoryModel
+          .find(match)
+          .select('_id product location change date')
+          .lean()
+          .exec(),
+      ]);
+      const deltaByKey = new Map<string, number>();
+      for (const h of history) {
+        const key = `${String(h.product)}::${Number(h.location)}`;
+        const prev = deltaByKey.get(key) ?? 0;
+        deltaByKey.set(key, prev + (Number(h.change) || 0));
+      }
+      const result = stocks.map((s) => {
+        const key = `${String(s.product)}::${Number(s.location)}`;
+        const sumChange = deltaByKey.get(key) ?? 0;
+        const adjustedQty = Number(s.quantity) - sumChange;
+        return {
+          _id: s._id,
+          product: s.product,
+          location: Number(s.location),
+          quantity: adjustedQty,
+        };
+      });
+      return result;
     } catch (error) {
       throw new HttpException(
         'Failed to fetch and process stocks due to an internal error',
