@@ -2589,6 +2589,16 @@ export class OrderService {
       if (!oldOrder) {
         throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
       }
+      if (
+        oldOrder.paidQuantity > 0 &&
+        oldOrder.paidQuantity + orderItem.selectedQuantity > oldOrder.quantity
+      ) {
+        throw new HttpException(
+          'Cannot transfer more than unpaid quantity',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // order total is transferred
       if (orderItem.selectedQuantity === orderItem.totalQuantity) {
         const oldTable = await this.tableService.getTableById(oldOrder.table);
@@ -2624,6 +2634,28 @@ export class OrderService {
       }
       // order partially transferred
       else {
+        if (oldOrder.paidQuantity > 0) {
+          oldOrder.quantity = oldOrder.quantity - orderItem.selectedQuantity;
+          const newOrder = new this.orderModel({
+            ...oldOrder.toObject(),
+            paidQuantity: 0,
+            quantity: orderItem.selectedQuantity,
+            table: transferredTableId,
+          });
+          await newOrder.save();
+          const newTable = await this.tableService.getTableById(
+            transferredTableId,
+          );
+          if (!newTable) {
+            throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+          }
+          newTable.orders.push(newOrder._id);
+          await Promise.all([newTable.save(), oldOrder.save()]);
+          this.orderGateway.emitOrderUpdated(user, oldOrder);
+          this.orderGateway.emitOrderCreated(user, newOrder);
+          this.tableGateway.emitSingleTableChanged(user, oldTable);
+          continue;
+        }
         // Destructure oldOrder to exclude the _id field
         const { _id, ...orderDataWithoutId } = oldOrder?.toObject();
         // Create new order without the _id field
