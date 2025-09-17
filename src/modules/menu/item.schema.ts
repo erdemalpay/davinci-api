@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Product } from '../accounting/product.schema';
+import { Discount } from '../order/discount.schema';
 import { ProductCategory } from './../accounting/productCategory.schema';
 import { MenuCategory } from './category.schema';
 class ItemProduction {
@@ -70,6 +71,9 @@ export class MenuItem extends Document {
 
   @Prop({ required: false, type: String, ref: Product.name })
   matchedProduct: string;
+
+  @Prop({ required: false, type: Number, ref: Discount.name })
+  suggestedDiscount: number;
 
   @Prop([ItemProduction])
   itemProduction: ItemProduction[];
