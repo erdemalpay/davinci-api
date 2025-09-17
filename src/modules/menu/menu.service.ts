@@ -595,9 +595,16 @@ export class MenuService {
       }
     }
 
-    const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+    const updatedItem = await this.itemModel.findByIdAndUpdate(
+      id,
+      {
+        ...updates,
+        suggestedDiscount: updates.suggestedDiscount ?? null,
+      },
+      {
+        new: true,
+      },
+    );
     this.activityService.addUpdateActivity(
       user,
       ActivityType.UPDATE_MENU_ITEM,
