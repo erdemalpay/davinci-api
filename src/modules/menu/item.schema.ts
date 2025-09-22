@@ -72,8 +72,8 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: String, ref: Product.name })
   matchedProduct: string;
 
-  @Prop({ required: false, type: Number, ref: Discount.name })
-  suggestedDiscount: number;
+  @Prop({ required: false, type: [{ type: Number, ref: Discount.name }] })
+  suggestedDiscount: number[];
 
   @Prop([ItemProduction])
   itemProduction: ItemProduction[];

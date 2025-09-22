@@ -112,6 +112,11 @@ export class MenuController {
     return this.menuService.createMultipleIkasProduct(user, payload.itemIds);
   }
 
+  @Post('/items/migrate-suggested-discount')
+  migrateSuggestedDiscount() {
+    return this.menuService.migrateSuggestedDiscounts();
+  }
+
   @Post('/items/create-damaged-item')
   createDamagedItem(
     @ReqUser() user: User,
