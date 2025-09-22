@@ -1153,4 +1153,36 @@ export class MenuService {
     });
     this.menuGateway.emitItemChanged(null, items);
   }
+  async migrateSuggestedDiscounts(): Promise<{ modifiedCount: number }> {
+    const res = await this.itemModel.updateMany({}, [
+      {
+        $set: {
+          suggestedDiscount: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: [{ $type: '$suggestedDiscount' }, 'array'] },
+                  then: '$suggestedDiscount',
+                },
+                {
+                  case: {
+                    $or: [
+                      { $eq: [{ $type: '$suggestedDiscount' }, 'missing'] },
+                      { $eq: ['$suggestedDiscount', null] },
+                    ],
+                  },
+                  then: [],
+                },
+              ],
+              default: ['$suggestedDiscount'],
+            },
+          },
+        },
+      },
+    ]);
+
+    return {
+      modifiedCount: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
+    };
+  }
 }

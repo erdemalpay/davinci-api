@@ -28,7 +28,7 @@ export class CreateItemDto {
   deleted?: boolean;
   sku?: string;
   barcode?: string;
-  suggestedDiscount?: number;
+  suggestedDiscount?: number[];
 }
 export class CreateBulkItemDto {
   name: string;
