@@ -31,6 +31,15 @@ export class EducationController {
     return this.educationService.createEducation(user, createEducationDto);
   }
 
+  @Patch('/order/:id')
+  updateEducationOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body('newOrder') newOrder: number,
+  ) {
+    return this.educationService.updateEducationOrder(user, id, newOrder);
+  }
+
   @Patch('/:id')
   updateEducation(
     @ReqUser() user: User,
