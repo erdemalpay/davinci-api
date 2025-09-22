@@ -56,6 +56,21 @@ export class EducationService {
     return updatedEducation;
   }
 
+  async updateEducationOrder(user: User, id: number, newOrder: number) {
+    const item = await this.educationModel.findById(id);
+    if (!item) {
+      throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
+    }
+    await this.educationModel.findByIdAndUpdate(id, { order: newOrder });
+
+    await this.educationModel.updateMany(
+      { _id: { $ne: id }, order: { $gte: newOrder } },
+      { $inc: { order: 1 } },
+    );
+
+    this.educationGateway.emitEducationChanged(user, item);
+  }
+
   async removeEducation(user: User, id: number) {
     const removedEducation = await this.educationModel.findByIdAndRemove(id);
     if (!removedEducation) {
