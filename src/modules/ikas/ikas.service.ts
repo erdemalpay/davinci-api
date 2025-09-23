@@ -31,6 +31,8 @@ import { IkasGateway } from './ikas.gateway';
 interface SeenUsers {
   [key: string]: boolean;
 }
+const ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
+
 @Injectable()
 export class IkasService {
   private readonly tokenPayload: Record<string, string>;
@@ -1694,5 +1696,98 @@ export class IkasService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  private async getFirstVariantId(productId: string): Promise<string> {
+    const products = await this.getAllProducts();
+    const product = products.find((p) => p.id === productId);
+    if (!product) {
+      throw new HttpException(
+        `Product with ID ${productId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (!product.variants || product.variants.length === 0) {
+      throw new HttpException(
+        `No variants found for product ID ${productId}`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return product.variants[0].id;
+  }
+
+  private async saveVariantPrices(
+    productId: string,
+    variantId: string,
+    prices: Array<{
+      sellPrice: number;
+      discountPrice?: number | null;
+      priceListId?: string | null;
+      currency?: string;
+    }>,
+  ) {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+    const query = `
+      mutation SavePrices($input: SaveVariantPricesInput!) {
+        saveVariantPrices(input: $input)
+      }
+    `;
+    const variantPriceInputs = prices.map((p) => ({
+      productId,
+      variantId,
+      priceListId: p.priceListId ?? null,
+      price: {
+        currency: p.currency ?? 'TRY',
+        sellPrice: p.sellPrice,
+        ...(p.discountPrice != null ? { discountPrice: p.discountPrice } : {}),
+      },
+    }));
+    const variables = { input: { variantPriceInputs } };
+    const response = await this.httpService
+      .post(
+        apiUrl,
+        { query, variables },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+      .toPromise();
+    return response.data?.data?.saveVariantPrices === true;
+  }
+
+  async updateVariantPrices(
+    productId: string,
+    basePrice: number,
+    onlinePrice?: number | null,
+    baseDiscountPrice?: number | null,
+    onlineDiscountPrice?: number | null,
+    currency = 'TRY',
+  ) {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
+    const variantId = await this.getFirstVariantId(productId);
+    const prices = [
+      {
+        sellPrice: basePrice,
+        discountPrice: baseDiscountPrice ?? null,
+        priceListId: null,
+        currency,
+      },
+      ...(onlinePrice != null
+        ? [
+            {
+              sellPrice: onlinePrice,
+              discountPrice: onlineDiscountPrice ?? null,
+              priceListId: ONLINE_PRICE_LIST_ID,
+              currency,
+            },
+          ]
+        : []),
+    ];
+    return this.saveVariantPrices(productId, variantId, prices);
   }
 }
