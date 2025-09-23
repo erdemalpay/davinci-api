@@ -1754,6 +1754,7 @@ export class IkasService {
         },
       )
       .toPromise();
+    console.log('saveVariantPrices response:', response.data);
     return response.data?.data?.saveVariantPrices === true;
   }
 
