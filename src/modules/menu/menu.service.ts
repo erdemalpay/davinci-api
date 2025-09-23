@@ -576,9 +576,9 @@ export class MenuService {
     }
     const priceChanged =
       updates.hasOwnProperty('price') && item.price !== updates.price;
-    const onlinePriceChanged =
-      updates.hasOwnProperty('onlinePrice') &&
-      item.onlinePrice !== updates.onlinePrice;
+    const ikasDiscountedPriceChanged =
+      updates.hasOwnProperty('ikasDiscountedPrice') &&
+      item.ikasDiscountedPrice !== updates.ikasDiscountedPrice;
 
     if (priceChanged) {
       updates.priceHistory = [
@@ -588,18 +588,21 @@ export class MenuService {
       updates.priceHistory = this.prunePriceHistory(updates.priceHistory);
     }
 
-    if ((priceChanged || onlinePriceChanged) && item?.ikasId) {
+    if ((priceChanged || ikasDiscountedPriceChanged) && item?.ikasId) {
+      console.log('Updating price in Ikas for item:', item._id);
       try {
         const basePrice = updates.hasOwnProperty('price')
           ? updates.price
           : item.price;
-        const onlinePrice = updates.hasOwnProperty('onlinePrice')
-          ? updates.onlinePrice
-          : item.onlinePrice ?? null;
+        const ikasDiscountedPrice = updates.hasOwnProperty(
+          'ikasDiscountedPrice',
+        )
+          ? updates.ikasDiscountedPrice
+          : item.ikasDiscountedPrice ?? null;
         await this.IkasService.updateVariantPrices(
           item.ikasId,
           basePrice,
-          onlinePrice,
+          ikasDiscountedPrice,
           updates.ikasDiscountedPrice ?? item.ikasDiscountedPrice ?? null,
           null,
           'TRY',
