@@ -569,7 +569,6 @@ export class IkasService {
     }
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-    console.log('productInput', productInput);
     const saveProductMutation = async () => {
       const data = {
         query: `
@@ -1769,7 +1768,11 @@ export class IkasService {
     if (process.env.NODE_ENV !== 'production') {
       return;
     }
+
     const variantId = await this.getFirstVariantId(productId);
+    console.log(
+      `Updating prices for product ${productId}, variant ${variantId}`,
+    );
     const prices = [
       {
         sellPrice: basePrice,
