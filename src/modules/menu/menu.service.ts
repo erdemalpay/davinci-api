@@ -574,27 +574,43 @@ export class MenuService {
         },
       );
     }
+    const priceChanged =
+      updates.hasOwnProperty('price') && item.price !== updates.price;
+    const onlinePriceChanged =
+      updates.hasOwnProperty('onlinePrice') &&
+      item.onlinePrice !== updates.onlinePrice;
 
-    if (updates.hasOwnProperty('price') && item.price !== updates.price) {
+    if (priceChanged) {
       updates.priceHistory = [
         ...item.priceHistory,
         { price: updates.price, date: new Date().toISOString() },
       ];
       updates.priceHistory = this.prunePriceHistory(updates.priceHistory);
-      if (item?.ikasId) {
-        // Update the price in Ikas service
-        try {
-          await this.IkasService.updateProductPrice(item.ikasId, updates.price);
-        } catch (error) {
-          console.error('Error updating price in Ikas:', error);
-          throw new HttpException(
-            'Failed to update price in Ikas',
-            HttpStatus.INTERNAL_SERVER_ERROR,
-          );
-        }
-      }
     }
 
+    if ((priceChanged || onlinePriceChanged) && item?.ikasId) {
+      try {
+        const basePrice = updates.hasOwnProperty('price')
+          ? updates.price
+          : item.price;
+        const onlinePrice = updates.hasOwnProperty('onlinePrice')
+          ? updates.onlinePrice
+          : item.onlinePrice ?? null;
+        await this.IkasService.updateVariantPrices(
+          item.ikasId,
+          basePrice,
+          onlinePrice,
+          updates.ikasDiscountedPrice ?? item.ikasDiscountedPrice ?? null,
+          null,
+          'TRY',
+        );
+      } catch (error) {
+        throw new HttpException(
+          'Failed to update price in Ikas',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    }
     const updatedItem = await this.itemModel.findByIdAndUpdate(
       id,
       {
