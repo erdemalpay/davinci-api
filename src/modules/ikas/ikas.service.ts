@@ -1696,6 +1696,8 @@ export class IkasService {
       );
     }
   }
+  ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
+
   private async getFirstVariantId(productId: string): Promise<string> {
     const products = await this.getAllProducts();
     const product = products.find((p) => p.id === productId);
@@ -1714,34 +1716,52 @@ export class IkasService {
     return product.variants[0].id;
   }
 
-  private async saveVariantPrices(
+  private async saveVariantPricesForList(
     productId: string,
     variantId: string,
-    prices: Array<{
-      sellPrice: number;
-      discountPrice?: number | null;
+    opts: {
       priceListId?: string | null;
+      sellPrice: number | string;
+      discountPrice?: number | string | null;
       currency?: string;
-    }>,
+    },
   ) {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const sell = Number(opts.sellPrice);
+    const disc = opts.discountPrice != null ? Number(opts.discountPrice) : null;
+
+    const price: any = {
+      currency: opts.currency ?? 'TRY',
+      sellPrice: sell,
+    };
+    if (disc != null) {
+      price.discountPrice = disc;
+    }
+
     const query = `
-      mutation SavePrices($input: SaveVariantPricesInput!) {
-        saveVariantPrices(input: $input)
-      }
-    `;
-    const variantPriceInputs = prices.map((p) => ({
-      productId,
-      variantId,
-      priceListId: p.priceListId ?? null,
-      price: {
-        currency: p.currency ?? 'TRY',
-        sellPrice: p.sellPrice,
-        ...(p.discountPrice != null ? { discountPrice: p.discountPrice } : {}),
-      },
-    }));
-    const variables = { input: { variantPriceInputs } };
+    mutation SavePrices($input: SaveVariantPricesInput!) {
+      saveVariantPrices(input: $input)
+    }
+  `;
+
+    const input: any = {
+      variantPriceInputs: [
+        {
+          productId,
+          variantId,
+          price,
+        },
+      ],
+    };
+
+    if (opts.priceListId) {
+      input.priceListId = opts.priceListId;
+    }
+
+    const variables = { input };
+
     const response = await this.httpService
       .post(
         apiUrl,
@@ -1754,16 +1774,16 @@ export class IkasService {
         },
       )
       .toPromise();
-    console.log('saveVariantPrices response:', response.data);
+
     return response.data?.data?.saveVariantPrices === true;
   }
 
   async updateVariantPrices(
     productId: string,
-    basePrice: number,
-    onlinePrice?: number | null,
-    baseDiscountPrice?: number | null,
-    onlineDiscountPrice?: number | null,
+    basePrice: number | string,
+    onlinePrice?: number | string | null,
+    baseDiscountPrice?: number | string | null,
+    onlineDiscountPrice?: number | string | null,
     currency = 'TRY',
   ) {
     if (process.env.NODE_ENV !== 'production') {
@@ -1771,27 +1791,21 @@ export class IkasService {
     }
 
     const variantId = await this.getFirstVariantId(productId);
-    console.log(
-      `Updating prices for product ${productId}, variant ${variantId}`,
-    );
-    const prices = [
-      {
-        sellPrice: basePrice,
-        discountPrice: baseDiscountPrice ?? null,
-        priceListId: null,
+
+    await this.saveVariantPricesForList(productId, variantId, {
+      priceListId: null,
+      sellPrice: basePrice,
+      discountPrice: baseDiscountPrice ?? null,
+      currency,
+    });
+
+    if (onlinePrice != null) {
+      await this.saveVariantPricesForList(productId, variantId, {
+        priceListId: ONLINE_PRICE_LIST_ID,
+        sellPrice: onlinePrice,
+        discountPrice: onlineDiscountPrice ?? null,
         currency,
-      },
-      ...(onlinePrice != null
-        ? [
-            {
-              sellPrice: onlinePrice,
-              discountPrice: onlineDiscountPrice ?? null,
-              priceListId: ONLINE_PRICE_LIST_ID,
-              currency,
-            },
-          ]
-        : []),
-    ];
-    return this.saveVariantPrices(productId, variantId, prices);
+      });
+    }
   }
 }
