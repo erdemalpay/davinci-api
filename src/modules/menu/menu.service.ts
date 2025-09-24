@@ -631,6 +631,29 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
+  async syncAllIkasPrices(currency = 'TRY') {
+    if (process.env.NODE_ENV !== 'production') return;
+
+    const items = await this.itemModel.find(
+      { ikasId: { $exists: true, $ne: null } },
+      {
+        ikasId: 1,
+        price: 1,
+        onlinePrice: 1,
+        ikasDiscountedPrice: 1,
+        onlineDiscountPrice: 1,
+      },
+    );
+
+    const payload = items.map((it) => ({
+      productId: it.ikasId,
+      basePrice: it.price ?? null,
+      baseDiscountPrice: it.ikasDiscountedPrice ?? null,
+      onlinePrice: it.onlinePrice ?? null,
+      onlineDiscountPrice: it.ikasDiscountedPrice ?? null,
+    }));
+    await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
+  }
   async updateItemsOrder(user: User, id: number, newOrder: number) {
     const item = await this.itemModel.findById(id);
     if (!item) {

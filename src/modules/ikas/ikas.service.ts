@@ -31,6 +31,11 @@ import { IkasGateway } from './ikas.gateway';
 interface SeenUsers {
   [key: string]: boolean;
 }
+type VariantPriceInputLite = {
+  productId: string;
+  variantId: string;
+  price: { currency: string; sellPrice: number; discountPrice?: number | null };
+};
 const ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
 
 @Injectable()
@@ -1814,6 +1819,118 @@ export class IkasService {
         discountPrice: onlineDiscountPrice ?? null,
         currency,
       });
+    }
+  }
+  private variantCache = new Map<string, string>();
+
+  private async getVariantIdCached(productId: string): Promise<string> {
+    if (this.variantCache.has(productId))
+      return this.variantCache.get(productId)!;
+    const id = await this.getFirstVariantId(productId);
+    this.variantCache.set(productId, id);
+    return id;
+  }
+
+  private async saveVariantPricesBatch(
+    variantPriceInputs: VariantPriceInputLite[],
+    priceListId?: string | null,
+  ): Promise<boolean> {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+    const query = `
+      mutation SavePrices($input: SaveVariantPricesInput!) {
+        saveVariantPrices(input: $input)
+      }
+    `;
+
+    const input: any = { variantPriceInputs };
+    if (priceListId) input.priceListId = priceListId;
+
+    const { data } = await this.httpService
+      .post(
+        apiUrl,
+        { query, variables: { input } },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+      .toPromise();
+
+    return data?.data?.saveVariantPrices === true;
+  }
+
+  private chunk<T>(arr: T[], size: number): T[][] {
+    const res: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) res.push(arr.slice(i, i + size));
+    return res;
+  }
+
+  async bulkUpdatePricesForProducts(
+    items: Array<{
+      productId: string;
+      basePrice?: number | string | null;
+      baseDiscountPrice?: number | string | null;
+      onlinePrice?: number | string | null;
+      onlineDiscountPrice?: number | string | null;
+    }>,
+    currency = 'TRY',
+  ) {
+    if (process.env.NODE_ENV !== 'production') return;
+
+    const normalized = await Promise.all(
+      items.map(async (it) => {
+        const variantId = await this.getVariantIdCached(it.productId);
+        return {
+          productId: it.productId,
+          variantId,
+          basePrice: it.basePrice != null ? Number(it.basePrice) : null,
+          baseDiscountPrice:
+            it.baseDiscountPrice != null ? Number(it.baseDiscountPrice) : null,
+          onlinePrice: it.onlinePrice != null ? Number(it.onlinePrice) : null,
+          onlineDiscountPrice:
+            it.onlineDiscountPrice != null
+              ? Number(it.onlineDiscountPrice)
+              : null,
+        };
+      }),
+    );
+
+    const baseInputs: VariantPriceInputLite[] = normalized
+      .filter((x) => x.basePrice != null)
+      .map((x) => ({
+        productId: x.productId,
+        variantId: x.variantId,
+        price: {
+          currency,
+          sellPrice: x.basePrice as number,
+          ...(x.baseDiscountPrice != null
+            ? { discountPrice: x.baseDiscountPrice }
+            : {}),
+        },
+      }));
+
+    const onlineInputs: VariantPriceInputLite[] = normalized
+      .filter((x) => x.onlinePrice != null)
+      .map((x) => ({
+        productId: x.productId,
+        variantId: x.variantId,
+        price: {
+          currency,
+          sellPrice: x.onlinePrice as number,
+          ...(x.onlineDiscountPrice != null
+            ? { discountPrice: x.onlineDiscountPrice }
+            : {}),
+        },
+      }));
+
+    for (const batch of this.chunk(baseInputs, 3000)) {
+      await this.saveVariantPricesBatch(batch);
+    }
+    for (const batch of this.chunk(onlineInputs, 3000)) {
+      await this.saveVariantPricesBatch(batch, ONLINE_PRICE_LIST_ID);
     }
   }
 }
