@@ -117,11 +117,6 @@ export class MenuController {
     return this.menuService.migrateSuggestedDiscounts();
   }
 
-  @Post('ikas/sync-all-prices')
-  syncAllIkasPrices(@ReqUser() user: User) {
-    return this.menuService.syncAllIkasPrices(user);
-  }
-
   @Post('/items/create-damaged-item')
   createDamagedItem(
     @ReqUser() user: User,
