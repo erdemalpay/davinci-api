@@ -242,6 +242,7 @@ export class IkasService {
 
     return allProducts;
   }
+
   async getAllOrders() {
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
@@ -1035,7 +1036,7 @@ export class IkasService {
       console.log('Received data:', data);
 
       const orderLineItems = data?.data?.orderLineItems ?? [];
-      const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
+      const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
       if (!constantUser) {
         throw new HttpException(
@@ -1084,6 +1085,13 @@ export class IkasService {
             await this.accountingService.findPaymentMethodByIkasId(
               data?.data?.salesChannelId,
             );
+          const foundIkasOrder = await this.orderService.findByIkasId(id);
+          if (foundIkasOrder) {
+            console.log(
+              `Order already exists for ikas order id: ${id}, skipping to next item.`,
+            );
+            continue;
+          }
           const ikasOrderNumber = data?.data?.orderNumber;
           let createOrderObject: CreateOrderDto = {
             item: foundMenuItem._id,

@@ -28,6 +28,7 @@ import { OrderNotes } from './orderNotes.schema';
 @Controller('order')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
+
   // orders
   @Get()
   findAllOrders() {
@@ -135,6 +136,10 @@ export class OrderController {
     @Query('location') location?: number,
   ) {
     return this.orderService.findDailySummary(date, location);
+  }
+  @Post('/dedupe-ikas-duplicates')
+  dedupeIkasDuplicates() {
+    return this.orderService.dedupeIkasDuplicates();
   }
 
   @Post('/create_order_for_discount')

@@ -2943,6 +2943,9 @@ export class OrderService {
   findOrderNotes() {
     return this.orderNotesModel.find().exec();
   }
+  findByIkasId(ikasId: string) {
+    return this.orderModel.findOne({ ikasId: ikasId }).exec();
+  }
   async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
     const orderNote = await new this.orderNotesModel(createOrderNoteDto);
     await this.orderGateway.emitOrderNotesChanged(null, orderNote);
@@ -2970,5 +2973,201 @@ export class OrderService {
     }
     await this.orderGateway.emitOrderNotesChanged(null, orderNote);
     return orderNote;
+  }
+  async dedupeIkasDuplicates(options?: { sinceOnly?: Date; dryRun?: boolean }) {
+    const sinceOnly = options?.sinceOnly;
+    const dryRun = !!options?.dryRun;
+
+    const matchStage: any = { ikasId: { $exists: true, $ne: null } };
+    if (sinceOnly) matchStage.createdAt = { $gte: sinceOnly };
+
+    const dupGroups = await this.orderModel.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: '$ikasId',
+          orderIds: { $push: '$_id' },
+          count: { $sum: 1 },
+        },
+      },
+      { $match: { count: { $gt: 1 } } },
+      { $sort: { count: 1 } },
+    ]);
+
+    if (dupGroups.length === 0) {
+      return { ok: true, message: 'No duplicate ikasId groups found.' };
+    }
+    const session = await this.conn.startSession();
+    const results = {
+      groupsProcessed: 0,
+      ordersDeleted: 0,
+      collectionsDeleted: 0,
+      collectionsRewired: 0,
+      survivors: [] as Array<{
+        ikasId: string;
+        survivorOrder: number;
+        keptCollection?: number;
+      }>,
+      dryRun,
+    };
+
+    try {
+      await session.withTransaction(async () => {
+        for (const g of dupGroups) {
+          const ikasId: string = g._id;
+          const orderIds: number[] = g.orderIds;
+
+          const orders = await this.orderModel
+            .find({ _id: { $in: orderIds } })
+            .select('_id createdAt')
+            .sort({ createdAt: 1 })
+            .session(session);
+
+          const collections = await this.collectionModel
+            .find({ 'orders.order': { $in: orderIds } })
+            .session(session);
+
+          const referencedOrderIds = new Set<number>();
+          for (const c of collections) {
+            for (const oi of c.orders ?? []) {
+              if (orderIds.includes(oi.order)) referencedOrderIds.add(oi.order);
+            }
+          }
+
+          let survivorOrderId: number | null = null;
+          if (referencedOrderIds.size > 0) {
+            const earliestReferenced = orders.find((o) =>
+              referencedOrderIds.has(o._id as unknown as number),
+            );
+            survivorOrderId = earliestReferenced?._id as unknown as number;
+          } else {
+            survivorOrderId = orders[0]?._id as unknown as number;
+          }
+          if (survivorOrderId == null) continue;
+
+          const survivorCollections = collections.filter((c) =>
+            (c.orders ?? []).some((oi) => oi.order === survivorOrderId),
+          );
+
+          let keptCollection: any = null;
+
+          if (survivorCollections.length > 0) {
+            keptCollection = survivorCollections.sort(
+              (a, b) =>
+                (a.createdAt?.getTime?.() ?? 0) -
+                (b.createdAt?.getTime?.() ?? 0),
+            )[0];
+          } else if (collections.length > 0) {
+            keptCollection = collections.sort(
+              (a, b) =>
+                (a.createdAt?.getTime?.() ?? 0) -
+                (b.createdAt?.getTime?.() ?? 0),
+            )[0];
+
+            if (!dryRun && keptCollection) {
+              const existingIdx = keptCollection.orders.findIndex(
+                (oi) => oi.order === survivorOrderId,
+              );
+              const dupIdxs = keptCollection.orders
+                .map((oi, idx) => ({ oi, idx }))
+                .filter(
+                  ({ oi }) =>
+                    orderIds.includes(oi.order) && oi.order !== survivorOrderId,
+                )
+                .map(({ idx }) => idx);
+
+              if (existingIdx === -1) {
+                if (dupIdxs.length > 0) {
+                  const firstIdx = dupIdxs[0];
+                  keptCollection.orders[firstIdx].order = survivorOrderId;
+                  for (let i = dupIdxs.length - 1; i >= 1; i--) {
+                    keptCollection.orders.splice(dupIdxs[i], 1);
+                  }
+                } else {
+                  keptCollection.orders.push({
+                    order: survivorOrderId,
+                    paidQuantity: 0,
+                  } as any);
+                }
+              } else {
+                let addPQ = 0;
+                for (const idx of dupIdxs)
+                  addPQ += keptCollection.orders[idx].paidQuantity || 0;
+                keptCollection.orders[existingIdx].paidQuantity =
+                  (keptCollection.orders[existingIdx].paidQuantity || 0) +
+                  addPQ;
+                for (let i = dupIdxs.length - 1; i >= 0; i--) {
+                  keptCollection.orders.splice(dupIdxs[i], 1);
+                }
+              }
+
+              await keptCollection.save({ session });
+              results.collectionsRewired += 1;
+            }
+          }
+
+          const collectionsToDelete = collections.filter(
+            (c) => !keptCollection || c._id !== (keptCollection as any)._id,
+          );
+          if (!dryRun && collectionsToDelete.length > 0) {
+            const delRes = await this.collectionModel.deleteMany(
+              { _id: { $in: collectionsToDelete.map((c) => c._id) } },
+              { session },
+            );
+            results.collectionsDeleted += delRes.deletedCount || 0;
+          }
+
+          if (!dryRun && keptCollection) {
+            await this.collectionModel.updateOne(
+              { _id: keptCollection._id },
+              {
+                $pull: {
+                  orders: {
+                    order: {
+                      $in: orderIds.filter((id) => id !== survivorOrderId),
+                    },
+                  },
+                },
+              },
+              { session },
+            );
+          }
+
+          const ordersToDelete = orderIds.filter(
+            (id) => id !== survivorOrderId,
+          );
+          if (!dryRun && ordersToDelete.length > 0) {
+            await this.collectionModel.updateMany(
+              { 'orders.order': { $in: ordersToDelete } },
+              { $pull: { orders: { order: { $in: ordersToDelete } } } },
+              { session },
+            );
+            const delRes = await this.orderModel.deleteMany(
+              { _id: { $in: ordersToDelete } },
+              { session },
+            );
+            results.ordersDeleted += delRes.deletedCount || 0;
+          }
+
+          results.groupsProcessed += 1;
+          results.survivors.push({
+            ikasId,
+            survivorOrder: survivorOrderId,
+            keptCollection: keptCollection
+              ? (keptCollection._id as unknown as number)
+              : undefined,
+          });
+        }
+      });
+
+      return { ok: true, ...results };
+    } catch (err) {
+      throw new HttpException(
+        `Failed to dedupe ikas duplicates: ${err?.message || err}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await session.endSession();
+    }
   }
 }
