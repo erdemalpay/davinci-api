@@ -32,6 +32,12 @@ import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
+type SyncResult = {
+  total: number;
+  updated: number;
+  failed: number;
+  failures: Array<{ _id: any; reason: string }>;
+};
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -1200,6 +1206,130 @@ export class MenuService {
 
     return {
       modifiedCount: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
+    };
+  }
+  private sleep(ms: number) {
+    return new Promise((res) => setTimeout(res, ms));
+  }
+
+  private async withRetries<T>(
+    fn: () => Promise<T>,
+    attempts = 3,
+    baseDelayMs = 500,
+  ): Promise<T> {
+    let lastErr: any;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        lastErr = err;
+        const status = err?.response?.status ?? err?.status;
+        const delay =
+          status === 429
+            ? baseDelayMs * Math.pow(2, i + 1)
+            : baseDelayMs * (i + 1);
+        await this.sleep(delay);
+      }
+    }
+    throw lastErr;
+  }
+  async syncAllIkasPrices(
+    user: User,
+    opts?: { dryRun?: boolean; concurrency?: number; currency?: string },
+  ): Promise<SyncResult> {
+    const dryRun = !!opts?.dryRun;
+    const concurrency = Math.max(1, opts?.concurrency ?? 5);
+    const currency = opts?.currency ?? 'TRY';
+
+    const items = await this.itemModel
+      .find(
+        { ikasId: { $exists: true, $ne: null } },
+        {
+          _id: 1,
+          ikasId: 1,
+          price: 1,
+          onlinePrice: 1,
+        },
+      )
+      .lean();
+    const failures: SyncResult['failures'] = [];
+    let updated = 0;
+    let idx = 0;
+    const worker = async () => {
+      while (true) {
+        const myIndex = idx++;
+        if (myIndex >= items.length) break;
+        const item = items[myIndex];
+        const basePrice = Number(item.price);
+        const onlinePrice =
+          item.onlinePrice === null || item.onlinePrice === undefined
+            ? null
+            : Number(item.onlinePrice);
+        const baseDisc =
+          item.ikasDiscountedPrice === null ||
+          item.ikasDiscountedPrice === undefined
+            ? null
+            : Number(item.ikasDiscountedPrice);
+
+        const badBase = Number.isNaN(basePrice);
+        const badOnline = onlinePrice !== null && Number.isNaN(onlinePrice);
+        const badBaseDisc = baseDisc !== null && Number.isNaN(baseDisc);
+
+        if (badBase || badOnline || badBaseDisc) {
+          failures.push({
+            _id: item._id,
+            reason: `Non-numeric price: ${JSON.stringify({
+              basePrice,
+              onlinePrice,
+              baseDisc,
+            })}`,
+          });
+          continue;
+        }
+
+        try {
+          if (dryRun) {
+            console.log('[DRY RUN] sync item', {
+              id: String(item._id),
+              ikasId: item.ikasId,
+              basePrice,
+              baseDisc,
+              onlinePrice,
+              currency,
+            });
+            updated++;
+            continue;
+          }
+          await this.withRetries(
+            () =>
+              this.IkasService.updateVariantPrices(
+                item.ikasId,
+                basePrice,
+                onlinePrice,
+                baseDisc,
+                currency,
+              ),
+            3,
+            700,
+          );
+
+          updated++;
+        } catch (err: any) {
+          const msg =
+            err?.response?.data?.errors?.[0]?.message ||
+            err?.message ||
+            'Unknown error';
+          failures.push({ _id: item._id, reason: msg });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+    return {
+      total: items.length,
+      updated,
+      failed: failures.length,
+      failures,
     };
   }
 }
