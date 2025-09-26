@@ -385,7 +385,6 @@ export class MenuService {
         throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
       }
       const locations = await this.locationService.findStockLocations();
-
       let matchedProduct = null;
 
       // Handling matched product
@@ -589,6 +588,8 @@ export class MenuService {
     }
 
     if ((priceChanged || onlinePriceChanged) && item?.ikasId) {
+      const ikasProducts = await this.IkasService.getAllProducts();
+
       console.log('Updating price in Ikas for item:', item._id);
       try {
         const basePrice = updates.hasOwnProperty('price')
@@ -598,6 +599,7 @@ export class MenuService {
           ? updates.onlinePrice
           : item.onlinePrice ?? null;
         await this.IkasService.updateVariantPrices(
+          ikasProducts,
           item.ikasId,
           basePrice,
           onlinePrice,
