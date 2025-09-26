@@ -1864,7 +1864,7 @@ export class IkasService {
         },
       )
       .toPromise();
-
+    console.log('Batch save response:', data);
     return data?.data?.saveVariantPrices === true;
   }
 
@@ -1887,21 +1887,28 @@ export class IkasService {
     if (process.env.NODE_ENV !== 'production') return;
     const products = await this.getAllProducts();
     const normalized = await Promise.all(
-      items.map(async (it) => {
-        const variantId = await this.getVariantIdCached(products, it.productId);
-        return {
-          productId: it.productId,
-          variantId,
-          basePrice: it.basePrice != null ? Number(it.basePrice) : null,
-          baseDiscountPrice:
-            it.baseDiscountPrice != null ? Number(it.baseDiscountPrice) : null,
-          onlinePrice: it.onlinePrice != null ? Number(it.onlinePrice) : null,
-          onlineDiscountPrice:
-            it.onlineDiscountPrice != null
-              ? Number(it.onlineDiscountPrice)
-              : null,
-        };
-      }),
+      items
+        .filter((item) => products.some((p) => p.id === item.productId))
+        .map(async (it) => {
+          const variantId = await this.getVariantIdCached(
+            products,
+            it.productId,
+          );
+          return {
+            productId: it.productId,
+            variantId,
+            basePrice: it.basePrice != null ? Number(it.basePrice) : null,
+            baseDiscountPrice:
+              it.baseDiscountPrice != null
+                ? Number(it.baseDiscountPrice)
+                : null,
+            onlinePrice: it.onlinePrice != null ? Number(it.onlinePrice) : null,
+            onlineDiscountPrice:
+              it.onlineDiscountPrice != null
+                ? Number(it.onlineDiscountPrice)
+                : null,
+          };
+        }),
     );
 
     const baseInputs: VariantPriceInputLite[] = normalized
