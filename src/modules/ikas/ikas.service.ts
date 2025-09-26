@@ -1371,6 +1371,7 @@ export class IkasService {
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
+
       const updatesMapStock: {
         [productId: string]: {
           [variantId: string]: {
@@ -1387,7 +1388,9 @@ export class IkasService {
           };
         };
       } = {};
+
       const IkasOnlinePriceListId = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
+
       for (const item of ikasItems) {
         if (!item.ikasId) continue;
         const product = ikasProducts.find((p) => p.id === item.ikasId);
@@ -1414,12 +1417,7 @@ export class IkasService {
                 stock.quantity;
             }
           }
-        } catch (err) {
-          console.error(
-            `Error fetching product stocks for ${item.ikasId}:`,
-            (err as any).message || err,
-          );
-        }
+        } catch (err) {}
 
         const priceBucket = variant.prices || [];
         const ikasBasePriceObj = priceBucket.find((p) => p.priceListId == null);
@@ -1456,61 +1454,54 @@ export class IkasService {
         }
       }
 
-      const productIdsToUpdateStocks = Object.keys(updatesMapStock);
-      const productIdsToUpdatePrices = Object.keys(updatesMapPrice);
-      const allProductIdsToUpdate = Array.from(
-        new Set([...productIdsToUpdateStocks, ...productIdsToUpdatePrices]),
+      const productIdsToUpdate = Array.from(
+        new Set([
+          ...Object.keys(updatesMapStock),
+          ...Object.keys(updatesMapPrice),
+        ]),
       );
-      if (allProductIdsToUpdate.length === 0) {
-        console.log('No products need a stock or price update.');
-        return;
+      if (productIdsToUpdate.length === 0) {
+        return { message: 'No products need a stock or price update.' };
       }
 
-      const bulkUpdateInputs = allProductIdsToUpdate
-        ?.map((productId) => {
+      const productInputs = productIdsToUpdate
+        .map((productId) => {
           const product = ikasProducts.find((p) => p.id === productId);
           if (!product) return null;
 
-          const productVariantTypes = product?.productVariantTypes
-            ? product?.productVariantTypes?.map((pvt: any) => ({
-                order: pvt.order,
-                variantTypeName: pvt.variantTypeName || null,
-                variantValues: pvt.variantValues
-                  ? pvt.variantValues?.map((val: any) => ({
-                      colorCode: val.colorCode || null,
-                      name: val.name,
-                      sourceId: val.sourceId || null,
-                      thumbnailImageUrl: val.thumbnailImageUrl || null,
-                    }))
-                  : [],
-              }))
-            : [];
+          const variants = (product.variants || []).map((v: any) => {
+            const variantId = v.id;
 
-          const variants = product?.variants?.map((variant: any) => {
-            const variantId = variant.id;
+            let stocks = (v.stocks || []).map((s: any) => ({
+              stockLocationId: s.stockLocationId,
+              stockCount: Number(s.stockCount),
+            }));
 
-            let newStocks = variant.stocks || [];
             if (
               updatesMapStock[productId] &&
               updatesMapStock[productId][variantId]
             ) {
-              newStocks = newStocks?.map((s: any) => {
+              stocks = stocks.map((s: any) => {
                 const overrideQty =
                   updatesMapStock[productId][variantId][s.stockLocationId];
-                if (overrideQty !== undefined) {
-                  return {
-                    stockLocationId: s.stockLocationId,
-                    stockCount: overrideQty,
-                  };
-                }
                 return {
                   stockLocationId: s.stockLocationId,
-                  stockCount: s.stockCount,
+                  stockCount:
+                    overrideQty !== undefined
+                      ? Number(overrideQty)
+                      : Number(s.stockCount),
                 };
               });
             }
 
-            let newPrices = variant.prices || [];
+            let prices = (v.prices || []).map((p: any) => ({
+              sellPrice: Number(p.sellPrice),
+              discountPrice:
+                p.discountPrice == null ? null : Number(p.discountPrice),
+              buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
+              priceListId: p.priceListId ?? null,
+            }));
+
             if (
               updatesMapPrice[productId] &&
               updatesMapPrice[productId][variantId]
@@ -1518,12 +1509,13 @@ export class IkasService {
               const { basePrice, onlinePrice } =
                 updatesMapPrice[productId][variantId];
 
-              newPrices = newPrices?.map((p: any) => {
+              prices = prices.map((p: any) => {
                 if (p.priceListId == null && basePrice !== undefined) {
                   return {
-                    sellPrice: basePrice,
-                    discountPrice: p.discountPrice ?? null,
-                    buyPrice: p.buyPrice ?? null,
+                    sellPrice: Number(basePrice),
+                    discountPrice:
+                      p.discountPrice == null ? null : Number(p.discountPrice),
+                    buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
                     priceListId: null,
                   };
                 }
@@ -1532,26 +1524,28 @@ export class IkasService {
                   onlinePrice !== undefined
                 ) {
                   return {
-                    sellPrice: onlinePrice,
-                    discountPrice: p.discountPrice ?? null,
-                    buyPrice: p.buyPrice ?? null,
+                    sellPrice: Number(onlinePrice),
+                    discountPrice:
+                      p.discountPrice == null ? null : Number(p.discountPrice),
+                    buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
                     priceListId: IkasOnlinePriceListId,
                   };
                 }
                 return {
-                  sellPrice: p.sellPrice,
-                  discountPrice: p.discountPrice ?? null,
-                  buyPrice: p.buyPrice ?? null,
+                  sellPrice: Number(p.sellPrice),
+                  discountPrice:
+                    p.discountPrice == null ? null : Number(p.discountPrice),
+                  buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
                   priceListId: p.priceListId ?? null,
                 };
               });
 
               if (
                 basePrice !== undefined &&
-                !variant.prices.some((p: any) => p.priceListId == null)
+                !v.prices?.some((p: any) => p.priceListId == null)
               ) {
-                newPrices.push({
-                  sellPrice: basePrice,
+                prices.push({
+                  sellPrice: Number(basePrice),
                   discountPrice: null,
                   buyPrice: null,
                   priceListId: null,
@@ -1560,12 +1554,12 @@ export class IkasService {
 
               if (
                 onlinePrice !== undefined &&
-                !variant?.prices?.some(
+                !v.prices?.some(
                   (p: any) => p.priceListId === IkasOnlinePriceListId,
                 )
               ) {
-                newPrices.push({
-                  sellPrice: onlinePrice,
+                prices.push({
+                  sellPrice: Number(onlinePrice),
                   discountPrice: null,
                   buyPrice: null,
                   priceListId: IkasOnlinePriceListId,
@@ -1574,119 +1568,36 @@ export class IkasService {
             }
 
             return {
-              ...variant,
-              isActive: variant.isActive ?? false,
-              prices: newPrices?.map((p: any) => ({
-                sellPrice: p.sellPrice,
-                discountPrice: p.discountPrice ?? null,
-                buyPrice: p.buyPrice ?? null,
-                priceListId: p.priceListId ?? null,
-              })),
-              stocks: newStocks?.map((s: any) => ({
-                stockLocationId: s.stockLocationId,
-                stockCount: s.stockCount,
-              })),
+              id: variantId,
+              isActive: !!v.isActive,
               deleted: false,
+              prices,
+              stocks,
             };
           });
 
           return {
-            id: product?.id,
-            name: product?.name,
-            categories: product?.categories?.map((cat: any) => ({
-              name: cat.name,
-            })),
-            productVariantTypes,
-            type: 'PHYSICAL' as const,
-            variants,
+            id: product.id,
             deleted: false,
+            type: 'PHYSICAL',
+            variants,
           };
         })
-        .filter((input) => input !== null);
-
-      const inputsString = bulkUpdateInputs
-        ?.map((input: any) => {
-          const productVariantTypesString = input.productVariantTypes
-            ?.map((pvt: any) => {
-              const variantValuesString = pvt.variantValues
-                ?.map(
-                  (val: any) =>
-                    `{ colorCode: ${
-                      val.colorCode ? `"${val.colorCode}"` : 'null'
-                    }, name: "${val.name}", sourceId: ${
-                      val.sourceId ? `"${val.sourceId}"` : 'null'
-                    }, thumbnailImageUrl: ${
-                      val.thumbnailImageUrl
-                        ? `"${val.thumbnailImageUrl}"`
-                        : 'null'
-                    } }`,
-                )
-                .join(', ');
-              return `{ order: ${pvt.order}, variantTypeName: ${
-                pvt.variantTypeName ? `"${pvt.variantTypeName}"` : 'null'
-              }, variantValues: [${variantValuesString}] }`;
-            })
-            .join(', ');
-
-          const variantsString = input.variants
-            ?.map((variant: any) => {
-              const pricesString =
-                variant.prices && variant.prices.length > 0
-                  ? `[${variant.prices
-                      ?.map(
-                        (p: any) =>
-                          `{ sellPrice: ${p.sellPrice}, discountPrice: ${
-                            p.discountPrice !== null ? p.discountPrice : 'null'
-                          }, buyPrice: ${
-                            p.buyPrice !== null ? p.buyPrice : 'null'
-                          }, priceListId: ${
-                            p.priceListId ? `"${p.priceListId}"` : 'null'
-                          } }`,
-                      )
-                      .join(', ')}]`
-                  : '[]';
-              const stocksString =
-                variant.stocks && variant.stocks.length > 0
-                  ? `[${variant.stocks
-                      ?.map(
-                        (s: any) =>
-                          `{ stockCount: ${s.stockCount}, stockLocationId: "${s.stockLocationId}" }`,
-                      )
-                      .join(', ')}]`
-                  : '[]';
-              return `{ id: "${variant.id}", isActive: ${variant.isActive}, prices: ${pricesString}, stocks: ${stocksString}, deleted: false, barcodeList:${variant.barcodeList}, hsCode:"${variant.hsCode}", images:${variant.images}, sku:"${variant.sku}", sourceId:"${variant.sourceId}", weight:${variant.weight}}`;
-            })
-            .join(', ');
-
-          const categoriesString = input.categories
-            ?.map((cat: any) => `{ name: "${cat.name}" }`)
-            .join(', ');
-
-          return `{
-          id: "${input.id}",
-          name: "${input.name}",
-          categories: [${categoriesString}],
-          productVariantTypes: [${productVariantTypesString}],
-          type: PHYSICAL,
-          variants: [${variantsString}],
-          deleted: false
-        }`;
-        })
-        .join(', ');
+        .filter(Boolean) as any[];
 
       const mutation = `
-      mutation {
-        bulkUpdateProducts(
-          input: [${inputsString}]
-        )
+      mutation BulkUpdate($input: [SaveProductInput!]!) {
+        bulkUpdateProducts(input: $input)
       }
     `;
+
       const token = await this.getToken();
       const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-      const response = await this.httpService
+
+      const { data } = await this.httpService
         .post(
           apiUrl,
-          { query: mutation },
+          { query: mutation, variables: { input: productInputs } },
           {
             headers: {
               'Content-Type': 'application/json',
@@ -1696,12 +1607,16 @@ export class IkasService {
         )
         .toPromise();
 
+      if (data?.errors?.length) {
+        throw new Error(JSON.stringify(data.errors));
+      }
+
       await this.ikasGateway.emitIkasProductStockChanged();
-      return response.data;
+      return data?.data ?? { ok: true };
     } catch (error: any) {
       console.error(
         'Bulk update failed:',
-        error.response?.data || error.message,
+        error.response?.data || error.message || error,
       );
       throw new HttpException(
         'Unable to perform bulk product stock / price update.',
@@ -1709,6 +1624,7 @@ export class IkasService {
       );
     }
   }
+
   ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
 
   private async getFirstVariantId(
