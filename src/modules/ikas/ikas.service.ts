@@ -1880,7 +1880,6 @@ export class IkasService {
       basePrice?: number | string | null;
       baseDiscountPrice?: number | string | null;
       onlinePrice?: number | string | null;
-      onlineDiscountPrice?: number | string | null;
     }>,
     currency = 'TRY',
   ) {
@@ -1903,10 +1902,6 @@ export class IkasService {
                 ? Number(it.baseDiscountPrice)
                 : null,
             onlinePrice: it.onlinePrice != null ? Number(it.onlinePrice) : null,
-            onlineDiscountPrice:
-              it.onlineDiscountPrice != null
-                ? Number(it.onlineDiscountPrice)
-                : null,
           };
         }),
     );
@@ -1933,9 +1928,6 @@ export class IkasService {
         price: {
           currency,
           sellPrice: x.onlinePrice as number,
-          ...(x.onlineDiscountPrice != null
-            ? { discountPrice: x.onlineDiscountPrice }
-            : {}),
         },
       }));
 

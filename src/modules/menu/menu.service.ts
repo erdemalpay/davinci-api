@@ -643,7 +643,6 @@ export class MenuService {
         price: 1,
         onlinePrice: 1,
         ikasDiscountedPrice: 1,
-        onlineDiscountPrice: 1,
       },
     );
 
@@ -652,7 +651,6 @@ export class MenuService {
       basePrice: it.price ?? null,
       baseDiscountPrice: it.ikasDiscountedPrice ?? null,
       onlinePrice: it.onlinePrice ?? null,
-      onlineDiscountPrice: it.ikasDiscountedPrice ?? null,
     }));
     await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
   }
