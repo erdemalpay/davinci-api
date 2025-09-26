@@ -1366,260 +1366,224 @@ export class IkasService {
       console.error('Error fetching Ikas items:', ikasItemsError.message);
     }
   }
-  async bulkUpdateAllProductStocksAndPrices() {
+  async bulkUpdateAllProductStocks() {
     try {
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
-
-      const updatesMapStock: {
+      const updatesMap: {
         [productId: string]: {
           [variantId: string]: {
             [stockLocationId: string]: number;
           };
         };
       } = {};
-
-      const updatesMapPrice: {
-        [productId: string]: {
-          [variantId: string]: {
-            basePrice?: number;
-            onlinePrice?: number;
-          };
-        };
-      } = {};
-
-      const IkasOnlinePriceListId = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
-
       for (const item of ikasItems) {
-        if (!item.ikasId) continue;
-        const product = ikasProducts.find((p) => p.id === item.ikasId);
-        if (!product) continue;
-        const variant = product?.variants?.[0];
-        if (!variant) continue;
-        const variantId = variant.id;
-
         try {
           const productStocks = await this.accountingService.findProductStock(
             item.matchedProduct,
           );
           for (const stock of productStocks) {
-            const locObj = locations.find((loc) => loc._id === stock.location);
-            if (!locObj || !locObj.ikasId) continue;
-            const currentStockEntry = variant.stocks?.find(
-              (s) => s.stockLocationId === locObj.ikasId,
+            if (!item.ikasId) continue;
+            const product = ikasProducts.find((p) => p.id === item.ikasId);
+            if (!product) {
+              console.error(`Product ${item.ikasId} not found in Ikas`);
+              continue;
+            }
+            const location = locations.find(
+              (loc) => loc._id === stock.location,
             );
-            if (!currentStockEntry) continue;
-            if (currentStockEntry.stockCount !== stock.quantity) {
-              updatesMapStock[item.ikasId] ??= {};
-              updatesMapStock[item.ikasId][variantId] ??= {};
-              updatesMapStock[item.ikasId][variantId][locObj.ikasId] =
+            if (!location || !location.ikasId) continue;
+            const variant = product.variants[0];
+            if (!variant) {
+              console.error(`No variant found for product ${item.ikasId}`);
+              continue;
+            }
+            const currentStock = variant.stocks?.find(
+              (s) => s.stockLocationId === location.ikasId,
+            );
+            if (!currentStock) continue;
+            if (currentStock.stockCount !== stock.quantity) {
+              if (!updatesMap[item.ikasId]) updatesMap[item.ikasId] = {};
+              if (!updatesMap[item.ikasId][variant.id])
+                updatesMap[item.ikasId][variant.id] = {};
+              updatesMap[item.ikasId][variant.id][location.ikasId] =
                 stock.quantity;
             }
           }
-        } catch (err) {}
-
-        const priceBucket = variant.prices || [];
-        const ikasBasePriceObj = priceBucket.find((p) => p.priceListId == null);
-        const ikasOnlinePriceObj = priceBucket.find(
-          (p) => p.priceListId === IkasOnlinePriceListId,
-        );
-
-        if (ikasBasePriceObj) {
-          if (ikasBasePriceObj.sellPrice !== item.price) {
-            updatesMapPrice[item.ikasId] ??= {};
-            updatesMapPrice[item.ikasId][variantId] ??= {};
-            updatesMapPrice[item.ikasId][variantId].basePrice = item.price;
-          }
-        } else {
-          updatesMapPrice[item.ikasId] ??= {};
-          updatesMapPrice[item.ikasId][variantId] ??= {};
-          updatesMapPrice[item.ikasId][variantId].basePrice = item.price;
-        }
-
-        if (item.onlinePrice != null) {
-          if (ikasOnlinePriceObj) {
-            if (ikasOnlinePriceObj.sellPrice !== item.onlinePrice) {
-              updatesMapPrice[item.ikasId] ??= {};
-              updatesMapPrice[item.ikasId][variantId] ??= {};
-              updatesMapPrice[item.ikasId][variantId].onlinePrice =
-                item.onlinePrice;
-            }
-          } else {
-            updatesMapPrice[item.ikasId] ??= {};
-            updatesMapPrice[item.ikasId][variantId] ??= {};
-            updatesMapPrice[item.ikasId][variantId].onlinePrice =
-              item.onlinePrice;
-          }
+        } catch (err) {
+          console.error(
+            `Error fetching product stocks for ${item.ikasId}:`,
+            err.message,
+          );
         }
       }
 
-      const productIdsToUpdate = Array.from(
-        new Set([
-          ...Object.keys(updatesMapStock),
-          ...Object.keys(updatesMapPrice),
-        ]),
-      );
+      const productIdsToUpdate = Object.keys(updatesMap);
       if (productIdsToUpdate.length === 0) {
-        return { message: 'No products need a stock or price update.' };
+        console.log('No products need a stock update.');
+        return;
       }
-
-      const productInputs = productIdsToUpdate
+      const bulkUpdateInputs = productIdsToUpdate
         .map((productId) => {
           const product = ikasProducts.find((p) => p.id === productId);
-          if (!product) return null;
+          if (!product) {
+            console.error(
+              `Product ${productId} not found in fetched products.`,
+            );
+            return null;
+          }
 
-          const variants = (product.variants || []).map((v: any) => {
-            const variantId = v.id;
+          const productVariantTypes = product?.productVariantTypes
+            ? product.productVariantTypes?.map((pvt: any) => ({
+                order: pvt.order,
+                variantTypeName: pvt.variantTypeName || null,
+                variantValues: pvt.variantValues
+                  ? pvt.variantValues.map((val: any) => ({
+                      colorCode: val.colorCode || null,
+                      name: val.name,
+                      sourceId: val.sourceId || null,
+                      thumbnailImageUrl: val.thumbnailImageUrl || null,
+                    }))
+                  : [],
+              }))
+            : [];
+          const variants = product?.variants?.map((variant: any) => {
+            const updatedStocks =
+              updatesMap[productId] && updatesMap[productId][variant.id]
+                ? variant?.stocks?.map((stock: any) => {
+                    if (
+                      updatesMap[productId][variant.id][
+                        stock.stockLocationId
+                      ] !== undefined
+                    ) {
+                      return {
+                        stockCount:
+                          updatesMap[productId][variant.id][
+                            stock.stockLocationId
+                          ],
+                        stockLocationId: stock.stockLocationId,
+                      };
+                    }
+                    return stock;
+                  })
+                : variant?.stocks ?? [];
 
-            let stocks = (v.stocks || []).map((s: any) => ({
-              stockLocationId: s.stockLocationId,
-              stockCount: Number(s.stockCount),
-            }));
-
-            if (
-              updatesMapStock[productId] &&
-              updatesMapStock[productId][variantId]
-            ) {
-              stocks = stocks.map((s: any) => {
-                const overrideQty =
-                  updatesMapStock[productId][variantId][s.stockLocationId];
-                return {
-                  stockLocationId: s.stockLocationId,
-                  stockCount:
-                    overrideQty !== undefined
-                      ? Number(overrideQty)
-                      : Number(s.stockCount),
-                };
-              });
-            }
-
-            let prices = (v.prices || []).map((p: any) => ({
-              sellPrice: Number(p.sellPrice),
-              discountPrice:
-                p.discountPrice == null ? null : Number(p.discountPrice),
-              buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
-              priceListId: p.priceListId ?? null,
-            }));
-
-            if (
-              updatesMapPrice[productId] &&
-              updatesMapPrice[productId][variantId]
-            ) {
-              const { basePrice, onlinePrice } =
-                updatesMapPrice[productId][variantId];
-
-              prices = prices.map((p: any) => {
-                if (p.priceListId == null && basePrice !== undefined) {
-                  return {
-                    sellPrice: Number(basePrice),
-                    discountPrice:
-                      p.discountPrice == null ? null : Number(p.discountPrice),
-                    buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
-                    priceListId: null,
-                  };
-                }
-                if (
-                  p.priceListId === IkasOnlinePriceListId &&
-                  onlinePrice !== undefined
-                ) {
-                  return {
-                    sellPrice: Number(onlinePrice),
-                    discountPrice:
-                      p.discountPrice == null ? null : Number(p.discountPrice),
-                    buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
-                    priceListId: IkasOnlinePriceListId,
-                  };
-                }
-                return {
-                  sellPrice: Number(p.sellPrice),
-                  discountPrice:
-                    p.discountPrice == null ? null : Number(p.discountPrice),
-                  buyPrice: p.buyPrice == null ? null : Number(p.buyPrice),
-                  priceListId: p.priceListId ?? null,
-                };
-              });
-
-              if (
-                basePrice !== undefined &&
-                !v.prices?.some((p: any) => p.priceListId == null)
-              ) {
-                prices.push({
-                  sellPrice: Number(basePrice),
-                  discountPrice: null,
-                  buyPrice: null,
-                  priceListId: null,
-                });
-              }
-
-              if (
-                onlinePrice !== undefined &&
-                !v.prices?.some(
-                  (p: any) => p.priceListId === IkasOnlinePriceListId,
-                )
-              ) {
-                prices.push({
-                  sellPrice: Number(onlinePrice),
-                  discountPrice: null,
-                  buyPrice: null,
-                  priceListId: IkasOnlinePriceListId,
-                });
-              }
-            }
+            const prices = variant?.prices
+              ? variant?.prices?.map((price: any) => ({
+                  sellPrice: price.sellPrice,
+                }))
+              : [];
 
             return {
-              id: variantId,
-              isActive: !!v.isActive,
-              deleted: false,
-              prices,
-              stocks,
+              id: variant.id || null,
+              isActive:
+                variant.isActive !== undefined ? variant.isActive : false,
+              prices: prices,
+              stocks: updatedStocks || [],
             };
           });
 
           return {
             id: product.id,
-            deleted: false,
-            type: 'PHYSICAL',
-            variants,
+            categories: product.categories,
+            productVariantTypes: productVariantTypes,
+            variants: variants,
+            name: product.name,
           };
         })
-        .filter(Boolean) as any[];
+        .filter((input) => input !== null);
 
-      const mutation = `
-      mutation BulkUpdate($input: [SaveProductInput!]!) {
-        bulkUpdateProducts(input: $input)
-      }
-    `;
+      console.log('Bulk update inputs:', bulkUpdateInputs);
+      const inputsString = bulkUpdateInputs
+        .map((input: any) => {
+          const productVariantTypesString = input?.productVariantTypes
+            .map((pvt: any) => {
+              const variantValuesString = pvt.variantValues
+                .map(
+                  (val: any) =>
+                    `{ colorCode: ${
+                      val.colorCode ? `"${val.colorCode}"` : 'null'
+                    }, name: "${val.name}", sourceId: ${
+                      val.sourceId ? `"${val.sourceId}"` : 'null'
+                    }, thumbnailImageUrl: ${
+                      val.thumbnailImageUrl
+                        ? `"${val.thumbnailImageUrl}"`
+                        : 'null'
+                    } }`,
+                )
+                .join(', ');
+              return `{ order: ${pvt.order}, variantTypeName: ${
+                pvt.variantTypeName ? `"${pvt.variantTypeName}"` : 'null'
+              }, variantValues: [${variantValuesString}] }`;
+            })
+            .join(', ');
+          const variantsString = input.variants
+            .map((variant: any) => {
+              const pricesString =
+                variant.prices && variant.prices.length > 0
+                  ? `[${variant.prices
+                      .map((price: any) => `{ sellPrice: ${price.sellPrice} }`)
+                      .join(', ')}]`
+                  : '[]';
+              const stocksString =
+                variant.stocks && variant.stocks.length > 0
+                  ? `[${variant.stocks
+                      .map(
+                        (s: any) =>
+                          `{ stockCount: ${s.stockCount}, stockLocationId: "${s.stockLocationId}" }`,
+                      )
+                      .join(', ')}]`
+                  : '[]';
 
+              return `{ id: ${
+                variant.id ? `"${variant.id}"` : 'null'
+              },  isActive: ${
+                variant.isActive
+              }, prices: ${pricesString},  stocks: ${stocksString},deleted: false }`;
+            })
+            .join(', ');
+          const categoriesString = input.categories
+            .map((cat: any) => {
+              return `{ name: "${cat.name}" }`;
+            })
+            .join(', ');
+          return `{
+          id: ${input.id ? `"${input.id}"` : 'null'},
+          name: "${input.name}",
+          categories: [${categoriesString}],
+          productVariantTypes: [${productVariantTypesString}],
+          type: PHYSICAL,
+          variants: [${variantsString}],
+          deleted: false
+        }`;
+        })
+        .join(', ');
+
+      const data = {
+        query: `mutation {
+        bulkUpdateProducts(input: [${inputsString}])
+   }
+`,
+      };
+      console.log(inputsString);
       const token = await this.getToken();
       const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-
-      const { data } = await this.httpService
-        .post(
-          apiUrl,
-          { query: mutation, variables: { input: productInputs } },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
+      const response = await this.httpService
+        .post(apiUrl, data, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        )
+        })
         .toPromise();
 
-      if (data?.errors?.length) {
-        throw new Error(JSON.stringify(data.errors));
-      }
-
       await this.ikasGateway.emitIkasProductStockChanged();
-      return data?.data ?? { ok: true };
-    } catch (error: any) {
-      console.error(
-        'Bulk update failed:',
-        error.response?.data || error.message || error,
-      );
+      return response.data;
+    } catch (error) {
+      console.log(error.response.data.errors);
       throw new HttpException(
-        'Unable to perform bulk product stock / price update.',
+        'Unable to perform bulk product stock update.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
