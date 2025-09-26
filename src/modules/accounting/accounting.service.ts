@@ -1276,14 +1276,6 @@ export class AccountingService {
               );
             }
           }
-
-          try {
-            await this.updateIkasStock(
-              String(expense.product),
-              Number(expense.location),
-              Number(rollback.stockDelta),
-            );
-          } catch {}
         }
 
         if (expense.isPaid) {
@@ -1359,8 +1351,8 @@ export class AccountingService {
     if (anySuccess) {
       this.accountingGateway.emitExpenseChanged(user);
       this.accountingGateway.emitProductChanged(user);
+      await this.ikasService.bulkUpdateAllProductStocks();
     }
-
     return errorDatas;
   }
 
