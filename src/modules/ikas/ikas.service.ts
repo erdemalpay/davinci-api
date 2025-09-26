@@ -1711,8 +1711,10 @@ export class IkasService {
   }
   ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
 
-  private async getFirstVariantId(productId: string): Promise<string> {
-    const products = await this.getAllProducts();
+  private async getFirstVariantId(
+    products: any,
+    productId: string,
+  ): Promise<string> {
     const product = products.find((p) => p.id === productId);
     if (!product) {
       throw new HttpException(
@@ -1792,6 +1794,7 @@ export class IkasService {
   }
 
   async updateVariantPrices(
+    products: any,
     productId: string,
     basePrice: number | string,
     onlinePrice?: number | string | null,
@@ -1803,7 +1806,7 @@ export class IkasService {
       return;
     }
 
-    const variantId = await this.getFirstVariantId(productId);
+    const variantId = await this.getFirstVariantId(products, productId);
 
     await this.saveVariantPricesForList(productId, variantId, {
       priceListId: null,
@@ -1823,10 +1826,13 @@ export class IkasService {
   }
   private variantCache = new Map<string, string>();
 
-  private async getVariantIdCached(productId: string): Promise<string> {
+  private async getVariantIdCached(
+    products: any,
+    productId: string,
+  ): Promise<string> {
     if (this.variantCache.has(productId))
       return this.variantCache.get(productId)!;
-    const id = await this.getFirstVariantId(productId);
+    const id = await this.getFirstVariantId(products, productId);
     this.variantCache.set(productId, id);
     return id;
   }
@@ -1879,10 +1885,10 @@ export class IkasService {
     currency = 'TRY',
   ) {
     if (process.env.NODE_ENV !== 'production') return;
-
+    const products = await this.getAllProducts();
     const normalized = await Promise.all(
       items.map(async (it) => {
-        const variantId = await this.getVariantIdCached(it.productId);
+        const variantId = await this.getVariantIdCached(products, it.productId);
         return {
           productId: it.productId,
           variantId,
