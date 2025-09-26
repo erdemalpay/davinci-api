@@ -7,7 +7,6 @@ export class CreateCategoryDto {
   isAutoServed: boolean;
   isOnlineOrder?: boolean;
   discounts?: number[];
-  orderCategoryOrder: number;
 }
 
 export class CreateItemDto {

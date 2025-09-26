@@ -2,6 +2,7 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { T_FUNCTION, TFunction } from 'src/i18n/t.provider';
 import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
@@ -57,6 +58,7 @@ export class MenuService {
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
+    @Inject(T_FUNCTION) private readonly t: TFunction,
   ) {}
 
   findAllCategories() {
@@ -164,12 +166,17 @@ export class MenuService {
     this.menuGateway.emitItemChanged(user, items);
   }
   async createCategory(user: User, createCategoryDto: CreateCategoryDto) {
+    await this.t('Hello').then((res) => console.log(res));
+    console.log(await this.t('common.Hello', {}, 'tr')); // should print "Merhaba"
+    console.log(await this.t('Hello', {}, 'tr')); // should print "Merhaba"
+    console.log(user);
     const lastCategory = await this.categoryModel
       .findOne({})
       .sort({ order: 'desc' });
     const category = await this.categoryModel.create({
       ...createCategoryDto,
       order: lastCategory ? lastCategory.order + 1 : 1,
+      orderCategoryOrder: lastCategory ? lastCategory.order + 1 : 1,
       locations: [1, 2],
       active: true,
     });

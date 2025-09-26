@@ -3,6 +3,17 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
+import {
+  AcceptLanguageResolver,
+  CookieResolver,
+  HeaderResolver,
+  I18nModule,
+  QueryResolver,
+} from 'nestjs-i18n';
+
+import * as path from 'path';
+import { I18nExtrasModule } from './i18n/i18n-extras.module';
+import { InMemoryLoader } from './i18n/in-memory-loader';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
@@ -44,6 +55,22 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 });
 
 const modules = [
+  I18nModule.forRoot({
+    fallbackLanguage: 'en',
+    fallbacks: { 'en-*': 'en', 'tr-*': 'tr' },
+    loader: InMemoryLoader,
+    loaderOptions: {
+      path: path.resolve(process.cwd(), 'i18n-empty'),
+      watch: false,
+    },
+    resolvers: [
+      new AcceptLanguageResolver(),
+      new HeaderResolver(['x-custom-lang']),
+      { use: QueryResolver, options: ['lang', 'locale', 'l'] },
+      new CookieResolver(['lang', 'locale']),
+    ],
+  }),
+  I18nExtrasModule,
   ConfigModule.forRoot({ isGlobal: true }),
   ScheduleModule.forRoot(),
   ActivityModule,
