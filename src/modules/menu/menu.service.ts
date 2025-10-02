@@ -2,6 +2,7 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
@@ -57,6 +58,7 @@ export class MenuService {
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
+    private readonly i18n: I18nService,
   ) {}
 
   findAllCategories() {
@@ -170,6 +172,7 @@ export class MenuService {
     const category = await this.categoryModel.create({
       ...createCategoryDto,
       order: lastCategory ? lastCategory.order + 1 : 1,
+      orderCategoryOrder: lastCategory ? lastCategory.order + 1 : 1,
       locations: [1, 2],
       active: true,
     });
