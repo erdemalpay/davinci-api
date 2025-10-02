@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { usernamify } from 'src/utils/usernamify';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -9,7 +10,6 @@ import { Check } from './check.schema';
 import { CreateCheckDto, CreateChecklistDto } from './checklist.dto';
 import { ChecklistGateway } from './checklist.gateway';
 import { Checklist } from './checklist.schema';
-
 @Injectable()
 export class ChecklistService {
   constructor(
@@ -18,6 +18,7 @@ export class ChecklistService {
     @InjectModel(Check.name) private checkModel: Model<Check>,
     private checklistGateway: ChecklistGateway,
     private readonly notificationService: NotificationService,
+    private readonly i18n: I18nService,
   ) {}
 
   async createChecklist(user: User, createChecklistDto: CreateChecklistDto) {
@@ -100,6 +101,14 @@ export class ChecklistService {
       const unCompletedDuties = check?.duties?.filter(
         (duty) => !duty.isCompleted,
       );
+      const notificationMessage = (await this.i18n.t('UncompletedDuties', {
+        args: {
+          count: unCompletedDuties.length,
+          dutyWord: unCompletedDuties.length === 1 ? 'duty' : 'duties',
+          checklist: check.checklist,
+          user: check.user,
+        },
+      })) as string;
       if (unCompletedDuties?.length > 0) {
         await this.notificationService.createNotification({
           type: 'WARNING',
@@ -108,7 +117,7 @@ export class ChecklistService {
           selectedRoles: [1],
           seenBy: [],
           event: NotificationEventType.UNCOMPLETEDCHECKLIST,
-          message: `Uncompleted ${unCompletedDuties.length} duties in checklist ${check.checklist} for user ${check.user}`,
+          message: notificationMessage,
         });
       }
     }

@@ -17,6 +17,7 @@ import {
   PipelineStage,
   UpdateQuery,
 } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
@@ -84,6 +85,8 @@ export class OrderService {
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
     private readonly buttonCallService: ButtonCallService,
+    private readonly i18n: I18nService,
+
     @Inject(forwardRef(() => GameplayService))
     private readonly gameplayService: GameplayService,
   ) {}
@@ -1155,15 +1158,23 @@ export class OrderService {
             { unique: [], seenUsers: {} },
           )
           ?.unique?.map((visit) => visit.user) ?? [];
+      const notificationMessage = (await this.i18n.t(
+        'OrderNotConfirmedForMinutes',
+        {
+          args: {
+            brand: 'Farm Burger',
+            product: (order.item as any).name,
+            minutes: 5,
+          },
+        },
+      )) as string;
       await this.notificationService.createNotification({
         type: 'WARNING',
         selectedUsers: (uniqueVisitUsers as any) ?? [],
         selectedLocations: [2],
         seenBy: [],
         event: NotificationEventType.FARMNOTCONFIRMED,
-        message: `Farm Burger: Order ${
-          (order.item as any).name
-        } is not confirmed for 5 minutes!`,
+        message: notificationMessage,
       });
     }
   }

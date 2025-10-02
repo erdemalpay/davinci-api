@@ -238,6 +238,13 @@ export class MenuService {
           { unique: [], seenUsers: {} },
         )
         ?.unique?.map((visit) => visit.user) ?? [];
+    const statusKey = updates?.active
+      ? 'Status.Activated'
+      : 'Status.Deactivated';
+    const status = await this.i18n.t(statusKey);
+    const notificationMessage = (await this.i18n.t('BrandActivationStatus', {
+      args: { brand: 'Farm Burger', status },
+    })) as string;
     await this.notificationService.createNotification({
       type: updates?.active ? 'INFORMATION' : 'WARNING',
       selectedUsers: (uniqueVisitUsers as any) ?? [],
@@ -246,7 +253,7 @@ export class MenuService {
       event: updates?.active
         ? NotificationEventType.FARMBURGERACTIVATED
         : NotificationEventType.FARMBURGERDEACTIVATED,
-      message: `Farm Burger ${updates?.active ? 'activated' : 'deactivated'}`,
+      message: notificationMessage,
     });
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
