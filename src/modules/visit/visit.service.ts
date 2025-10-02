@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { LocationService } from '../location/location.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -29,6 +30,7 @@ export class VisitService {
     private readonly notificationService: NotificationService,
     private readonly locationService: LocationService,
     private readonly shiftService: ShiftService,
+    private readonly i18n: I18nService,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -62,13 +64,20 @@ export class VisitService {
     });
     if (foundShift) {
       if (createVisitDto.startHour > foundShift.shift) {
+        const notificationMessage = (await this.i18n.t('ShiftLateNotice', {
+          args: {
+            user: user.name,
+            shift: foundShift.shift,
+            enteredAt: createVisitDto.startHour,
+          },
+        })) as string;
         await this.notificationService.createNotification({
           type: 'WARNING',
           selectedUsers: [user._id],
           selectedRoles: [1],
           seenBy: [],
           event: NotificationEventType.LATESHIFTSTART,
-          message: `${user.name} is late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${createVisitDto.startHour}`,
+          message: notificationMessage,
         });
       }
     }
@@ -206,13 +215,20 @@ export class VisitService {
       });
       if (foundShift) {
         if (cafeVisitDto.hour > foundShift.shift) {
+          const notificationMessage = (await this.i18n.t('ShiftLateNotice', {
+            args: {
+              user: user.name,
+              shift: foundShift.shift,
+              enteredAt: cafeVisitDto.hour,
+            },
+          })) as string;
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
             selectedRoles: [1],
             seenBy: [],
             event: NotificationEventType.LATESHIFTSTART,
-            message: `${user.name} is late for shift. Shift was at ${foundShift.shift} and ${user.name} entered at ${cafeVisitDto.hour}`,
+            message: notificationMessage,
           });
         }
       }
@@ -257,13 +273,23 @@ export class VisitService {
       });
       if (foundShift && foundShift.shiftEndHour) {
         if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+          const notificationMessage = (await this.i18n.t(
+            'ShiftEndEarlyNotice',
+            {
+              args: {
+                user: user.name,
+                shiftEnd: foundShift.shiftEndHour,
+                exitedAt: cafeVisitDto.hour,
+              },
+            },
+          )) as string;
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
             selectedRoles: [1],
             seenBy: [],
             event: NotificationEventType.EARLYSHIFTEND,
-            message: `${user.name} is early for shift end. Shift end was at ${foundShift.shiftEndHour} and ${user.name} exited at ${cafeVisitDto.hour}`,
+            message: notificationMessage,
           });
         }
       }

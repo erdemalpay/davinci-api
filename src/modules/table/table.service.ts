@@ -9,6 +9,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -59,6 +60,7 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
+    private readonly i18n: I18nService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -511,6 +513,13 @@ export class TableService {
     });
 
     if (unclosedTables.length > 0) {
+      const notificationMessage = (await this.i18n.t('UnclosedTablesToday', {
+        args: {
+          count: unclosedTables.length,
+          beVerb: unclosedTables.length === 1 ? 'is' : 'are',
+          tableWord: unclosedTables.length === 1 ? 'table' : 'tables',
+        },
+      })) as string;
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
         selectedUsers: [],
@@ -518,7 +527,7 @@ export class TableService {
         selectedLocations: [2],
         seenBy: [],
         event: NotificationEventType.NIGHTOPENTABLE,
-        message: `There are ${unclosedTables.length} unclosed tables for today.`,
+        message: notificationMessage,
       });
     } else {
       this.logger.log('No unclosed tables found');

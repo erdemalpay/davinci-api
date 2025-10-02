@@ -2,6 +2,7 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
+import { I18nService } from 'nestjs-i18n';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
@@ -93,6 +94,7 @@ export class AccountingService {
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
+    private readonly i18n: I18nService,
   ) {}
   //   Products
   findAllProducts() {
@@ -2177,6 +2179,12 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
+        const notificationMessage = (await this.i18n.t('StockZeroReached', {
+          args: {
+            product: foundProduct.name,
+            location: stockLocation.name,
+          },
+        })) as string;
         const notificationDto: CreateNotificationDto = {
           type: zeroNotificationEvent.type,
           createdBy: zeroNotificationEvent.createdBy,
@@ -2185,9 +2193,7 @@ export class AccountingService {
           selectedLocations: zeroNotificationEvent.selectedLocations,
           seenBy: [],
           event: NotificationEventType.ZEROSTOCK,
-          message:
-            zeroNotificationEvent.message ||
-            `${foundProduct.name} has reached zero stock in ${stockLocation.name}`,
+          message: notificationMessage,
         };
 
         await this.notificationService.createNotification(
@@ -2205,7 +2211,12 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-        console.log(negativeNotificationEvent);
+        const notificationMessage = (await this.i18n.t('StockNegativeReached', {
+          args: {
+            product: foundProduct.name,
+            location: stockLocation.name,
+          },
+        })) as string;
         const notificationDto: CreateNotificationDto = {
           type: negativeNotificationEvent.type,
           createdBy: negativeNotificationEvent.createdBy,
@@ -2214,9 +2225,7 @@ export class AccountingService {
           selectedLocations: negativeNotificationEvent.selectedLocations,
           seenBy: [],
           event: NotificationEventType.NEGATIVESTOCK,
-          message:
-            negativeNotificationEvent.message ||
-            `${foundProduct.name} has reached negative stock in ${stockLocation.name}`,
+          message: negativeNotificationEvent.message || notificationMessage,
         };
         await this.notificationService.createNotification(
           notificationDto,
@@ -2239,6 +2248,14 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
+        const notificationMessage = (await this.i18n.t('LossProduct', {
+          args: {
+            quantity: consumptStockDto.quantity,
+            product: foundProduct.name,
+            location: stockLocation.name,
+            unitWord: consumptStockDto.quantity === 1 ? 'unit' : 'units',
+          },
+        })) as string;
         const notificationDto: CreateNotificationDto = {
           type: lossProductEvent.type,
           createdBy: lossProductEvent.createdBy,
@@ -2247,13 +2264,7 @@ export class AccountingService {
           selectedLocations: lossProductEvent.selectedLocations,
           seenBy: [],
           event: NotificationEventType.LOSSPRODUCT,
-          message:
-            lossProductEvent.message ||
-            `${consumptStockDto.quantity} unit${
-              consumptStockDto.quantity > 1 ? 's' : ''
-            } of ${foundProduct.name} have been recorded as loss at ${
-              stockLocation.name
-            }.`,
+          message: notificationMessage,
         };
         await this.notificationService.createNotification(
           notificationDto,
@@ -2539,6 +2550,13 @@ export class AccountingService {
         const countLocation = locations.find(
           (location) => location._id === count.location,
         );
+        const notificationMessage = (await this.i18n.t('CountListCompleted', {
+          args: {
+            user: user?.name,
+            location: countLocation?.name,
+            list: countList?.name,
+          },
+        })) as string;
         const notificationDto: CreateNotificationDto = {
           type: notificationEvent.type,
           createdBy: notificationEvent.createdBy,
@@ -2547,9 +2565,7 @@ export class AccountingService {
           selectedLocations: notificationEvent.selectedLocations,
           seenBy: [],
           event: NotificationEventType.COMPLETECOUNT,
-          message:
-            notificationEvent.message ||
-            `${user?.name} at ${countLocation?.name} is completed the count list ${countList?.name}`,
+          message: notificationMessage,
         };
 
         await this.notificationService.createNotification(
