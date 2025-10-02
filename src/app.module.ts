@@ -12,7 +12,6 @@ import {
 } from 'nestjs-i18n';
 
 import * as path from 'path';
-import { I18nExtrasModule } from './i18n/i18n-extras.module';
 import { InMemoryLoader } from './i18n/in-memory-loader';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
@@ -58,19 +57,16 @@ const modules = [
   I18nModule.forRoot({
     fallbackLanguage: 'en',
     fallbacks: { 'en-*': 'en', 'tr-*': 'tr' },
-    loader: InMemoryLoader,
-    loaderOptions: {
-      path: path.resolve(process.cwd(), 'i18n-empty'),
-      watch: false,
-    },
+    loader: InMemoryLoader, // custom loader class (no fs)
+    // loaderOptions are ignored by custom loaders; ok to omit:
+    loaderOptions: { path: path.resolve(process.cwd(), 'i18n') },
     resolvers: [
-      new AcceptLanguageResolver(),
-      new HeaderResolver(['x-custom-lang']),
-      { use: QueryResolver, options: ['lang', 'locale', 'l'] },
-      new CookieResolver(['lang', 'locale']),
+      { use: QueryResolver, options: ['lang', 'locale', 'l'] }, // ?lang=tr
+      new HeaderResolver(['x-custom-lang']), // x-custom-lang: tr
+      new AcceptLanguageResolver(), // Accept-Language: tr-TR
+      new CookieResolver(['lang', 'locale']), // cookie: lang=tr
     ],
   }),
-  I18nExtrasModule,
   ConfigModule.forRoot({ isGlobal: true }),
   ScheduleModule.forRoot(),
   ActivityModule,

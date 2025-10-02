@@ -1,15 +1,15 @@
+// src/i18n/in-memory.loader.ts
+import { Injectable } from '@nestjs/common';
 import { I18nLoader } from 'nestjs-i18n';
-import en from './en/common.json';
-import tr from './tr/common.json';
+import { EN } from '../i18n/en/en';
+import { TR } from '../i18n/tr/tr';
 
+@Injectable()
 export class InMemoryLoader implements I18nLoader {
-  async languages(): Promise<string[]> {
+  async languages() {
     return ['en', 'tr'];
   }
   async load() {
-    return {
-      en: { common: en },
-      tr: { common: tr },
-    };
+    return { en: EN, tr: TR };
   }
 }
