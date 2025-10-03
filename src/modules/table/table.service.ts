@@ -64,6 +64,20 @@ export class TableService {
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
+    const foundTable = await this.tableModel.findOne({
+      location: tableDto.location,
+      date: tableDto.date,
+      status: { $ne: TableStatus.CANCELLED },
+      finishHour: { $exists: false },
+      $or: [{ name: tableDto.name }, { tables: { $in: [tableDto.name] } }],
+    });
+    if (foundTable) {
+      throw new HttpException(
+        'Table with the same name already exists for the given date and location',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const createdTable = await this.tableModel.create({
       ...tableDto,
       createdBy: user._id,
