@@ -24,22 +24,28 @@ export class ActivityService {
   }
 
   async getActivities(query: ActivityQueryDto) {
-    const { user, date, type, after, before } = query;
-    const filter: any = {};
-
+    const {
+      page = 1,
+      limit = 10,
+      user,
+      date,
+      type,
+      after,
+      before,
+      sort,
+      asc,
+    } = query;
+    const filter: Record<string, any> = {};
     if (user) filter.user = user;
     if (type) filter.type = type;
-
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);
       const end = this.parseLocalDate(dBefore);
       end.setHours(23, 59, 59, 999);
-
       filter.createdAt = { $gte: start, $lte: end };
     } else {
-      const rangeFilter: any = {};
-
+      const rangeFilter: Record<string, any> = {};
       if (after) {
         const start = this.parseLocalDate(after);
         rangeFilter.$gte = start;
@@ -49,12 +55,40 @@ export class ActivityService {
         end.setHours(23, 59, 59, 999);
         rangeFilter.$lte = end;
       }
-
       if (Object.keys(rangeFilter).length) {
         filter.createdAt = rangeFilter;
       }
     }
-    return this.activityModel.find(filter).sort({ createdAt: -1 }).exec();
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      sortObject[sort] = dir;
+    } else {
+      sortObject.createdAt = -1;
+    }
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+    const [data, totalNumber] = await Promise.all([
+      this.activityModel
+        .find(filter)
+        .sort(sortObject)
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.activityModel.countDocuments(filter),
+    ]);
+    const totalPages = Math.ceil(totalNumber / limitNum);
+    return {
+      data,
+      totalNumber,
+      totalPages,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
 
   getActivityById(gameId: number) {
