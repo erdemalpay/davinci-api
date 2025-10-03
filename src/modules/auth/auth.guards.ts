@@ -36,7 +36,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       const req = context.switchToHttp().getRequest();
       if (user.language) {
         req.i18nLang = normalizeLocale(user.language);
-        console.log('req.i18nLang set to', req.i18nLang);
       }
       return user;
     }
