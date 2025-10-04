@@ -137,6 +137,19 @@ export class CreateInvoiceDto {
   paymentMethod?: string;
   isStockIncrement?: boolean;
 }
+export class CountQueryDto {
+  page?: number;
+  limit?: number;
+  createdBy?: string;
+  countList?: string;
+  location?: number | string;
+  date?: string;
+  after?: string;
+  before?: string;
+  sort?: string;
+  asc?: number | '1' | '0' | '-1';
+}
+
 export class CreateExpenseDto {
   product?: string;
   service?: string;

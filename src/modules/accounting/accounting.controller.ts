@@ -638,6 +638,33 @@ export class AccountingController {
     return this.accountingService.findAllCounts();
   }
 
+  @Get('/counts/query')
+  findQueryCounts(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('createdBy') createdBy?: string,
+    @Query('countList') countList?: string,
+    @Query('location') location?: number | string,
+    @Query('date') date?: string,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number | '1' | '0' | '-1',
+  ) {
+    return this.accountingService.findQueryCounts({
+      page,
+      limit,
+      createdBy,
+      countList,
+      location,
+      date,
+      after,
+      before,
+      sort,
+      asc: typeof asc === 'string' ? Number(asc) : asc,
+    });
+  }
+
   @Post('/counts')
   createCount(@ReqUser() user: User, @Body() createCountDto: CreateCountDto) {
     return this.accountingService.createCount(user, createCountDto);
