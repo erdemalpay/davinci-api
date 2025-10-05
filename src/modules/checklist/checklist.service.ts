@@ -1,15 +1,21 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
+import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { I18nService } from 'nestjs-i18n';
+import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { Check } from './check.schema';
-import { CreateCheckDto, CreateChecklistDto } from './checklist.dto';
+import {
+  CheckQueryDto,
+  CreateCheckDto,
+  CreateChecklistDto,
+} from './checklist.dto';
 import { ChecklistGateway } from './checklist.gateway';
 import { Checklist } from './checklist.schema';
+
 @Injectable()
 export class ChecklistService {
   constructor(
@@ -33,6 +39,84 @@ export class ChecklistService {
 
   findAllChecklist() {
     return this.checklistModel.find();
+  }
+
+  parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  async findQueryChecks(query: CheckQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      createdBy,
+      checklist,
+      location,
+      date,
+      after,
+      before,
+      sort,
+      asc,
+    } = query;
+    const filter: FilterQuery<Check> = {};
+    if (createdBy) filter.user = createdBy;
+    if (checklist) filter.checklist = checklist;
+    if (location !== undefined && location !== null && `${location}` !== '') {
+      const locNum =
+        typeof location === 'string' ? Number(location) : (location as number);
+      if (!Number.isNaN(locNum)) filter.location = locNum;
+    }
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const end = this.parseLocalDate(before);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = end;
+      }
+      if (Object.keys(rangeFilter).length) {
+        filter.createdAt = rangeFilter;
+      }
+    }
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      sortObject[sort] = dir;
+    } else {
+      sortObject.createdAt = -1;
+    }
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+    const [data, totalNumber] = await Promise.all([
+      this.checkModel
+        .find(filter)
+        .sort(sortObject)
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.checkModel.countDocuments(filter),
+    ]);
+    const totalPages = Math.ceil(totalNumber / limitNum);
+    return {
+      data,
+      totalNumber,
+      totalPages,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
 
   async updateChecklist(

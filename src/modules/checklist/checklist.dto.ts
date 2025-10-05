@@ -15,3 +15,15 @@ export class CreateCheckDto {
   isCompleted: boolean;
   createdAt: Date;
 }
+export class CheckQueryDto {
+  page?: number;
+  limit?: number;
+  createdBy?: string;
+  checklist?: string;
+  location?: number | string;
+  date?: string;
+  after?: string;
+  before?: string;
+  sort?: string;
+  asc?: number | '1' | '0' | '-1';
+}
