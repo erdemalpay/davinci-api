@@ -11,6 +11,7 @@ import {
   CreateCashoutDto,
   CreateCheckoutControlDto,
   CreateIncomeDto,
+  IncomeQueryDto,
 } from './checkout.dto';
 import { CheckoutGateway } from './checkout.gateway';
 import { CheckoutControl } from './checkoutControl.schema';
@@ -58,6 +59,92 @@ export class CheckoutService {
       match.date = { $lte: before };
     }
     return this.incomeModel.find(match).sort({ date: -1 }).exec();
+  }
+  parseLocalDate(dateString: string): Date {
+    const [y, m, d] = dateString.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  async findPaginatedQueryIncomes(query: IncomeQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      user,
+      date,
+      after,
+      before,
+      sort,
+      asc,
+    } = query;
+
+    const filter: Record<string, any> = {};
+
+    if (user && `${user}`.trim() !== '') {
+      filter.user = user;
+    }
+
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const endD = this.parseLocalDate(before);
+        endD.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = endD;
+      }
+      if (Object.keys(rangeFilter).length) filter.createdAt = rangeFilter;
+    }
+
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      sortObject[sort] = dir;
+    } else {
+      sortObject.createdAt = -1;
+    }
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, totalNumber, totalAgg] = await Promise.all([
+      this.incomeModel
+        .find(filter)
+        .sort(sortObject)
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.incomeModel.countDocuments(filter),
+      this.incomeModel
+        .aggregate([
+          { $match: filter },
+          { $group: { _id: null, sum: { $sum: '$amount' } } },
+        ])
+        .exec(),
+    ]);
+
+    const totalPages = Math.ceil(totalNumber / limitNum);
+    const generalTotal = totalAgg?.[0]?.sum ?? 0;
+
+    return {
+      data,
+      totalNumber,
+      totalPages,
+      generalTotal,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
   async createIncome(user: User, createIncomeDto: CreateIncomeDto) {
     const income = await this.incomeModel.create({
