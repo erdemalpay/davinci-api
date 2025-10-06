@@ -26,3 +26,17 @@ export enum ButtonCallTypeEnum {
   GAMEMASTERCALL = 'GAMEMASTERCALL',
   ORDERCALL = 'ORDERCALL',
 }
+
+export class ButtonCallQueryDto {
+  page?: number;
+  limit?: number;
+  location?: number;
+  tableName?: string;
+  cancelledBy?: string;
+  date?: string;
+  after?: string;
+  before?: string;
+  type?: string;
+  sort?: string;
+  asc?: number | '1' | '0' | '-1';
+}
