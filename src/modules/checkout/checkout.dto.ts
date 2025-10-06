@@ -33,3 +33,13 @@ export type CashoutDateFilter = {
   before?: string;
   date?: string;
 };
+export class IncomeQueryDto {
+  page?: number | string;
+  limit?: number | string;
+  user?: string;
+  date?: string;
+  after?: string;
+  before?: string;
+  sort?: string;
+  asc?: number | '1' | '0' | '-1';
+}
