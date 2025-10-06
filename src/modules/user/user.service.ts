@@ -42,7 +42,9 @@ export class UserService implements OnModuleInit {
       userProps.imageUrl !== '' ? userProps : { ...userProps, imageUrl: null },
     );
     user.password = await hash('dv' /* temporary dummy password*/, 10);
-    user._id = usernamify(user.name);
+    if (user._id !== 'dv') {
+      user._id = usernamify(user.name);
+    }
     user.active = true;
     await user.save();
     this.userGateway.emitUserChanged(user);
