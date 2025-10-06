@@ -24,7 +24,11 @@ import { OrderService } from '../order/order.service';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
-import { CreateOrderDto, OrderStatus } from './../order/order.dto';
+import {
+  CreateOrderDto,
+  OrderCollectionStatus,
+  OrderStatus,
+} from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { Feedback } from './feedback.schema';
 import {
@@ -175,6 +179,59 @@ export class TableService {
 
   async close(user: User, id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
+
+    // Validate all orders are paid before closing
+    const orders = await this.orderService.findGivenTableOrders(id);
+    const collections = await this.orderService.findGivenTableCollection(id);
+
+    // Filter out cancelled orders
+    const activeOrders = orders.filter(
+      (order) => order.status !== OrderStatus.CANCELLED,
+    );
+
+    // Calculate total order amount
+    const totalOrderAmount = activeOrders.reduce((acc, order) => {
+      return acc + order.unitPrice * order.quantity;
+    }, 0);
+
+    // Calculate total discount amount
+    const totalDiscountAmount = activeOrders.reduce((acc, order) => {
+      if (!order.discount) {
+        return acc;
+      }
+      const discountValue =
+        (order.unitPrice * order.quantity * (order.discountPercentage ?? 0)) /
+          100 +
+        (order.discountAmount ?? 0) * order.quantity;
+      return acc + discountValue;
+    }, 0);
+
+    // Calculate total collection amount
+    const totalCollectionAmount = collections
+      .filter(
+        (collection) => collection.status !== OrderCollectionStatus.CANCELLED,
+      )
+      .reduce((acc, collection) => {
+        return acc + (collection.amount ?? 0);
+      }, 0);
+
+    // Check if all items are marked as paid
+    const allItemsPaid = activeOrders.every(
+      (order) => order.paidQuantity === order.quantity,
+    );
+
+    // Check if payment amount is sufficient
+    const paymentSufficient =
+      totalCollectionAmount >= totalOrderAmount - totalDiscountAmount;
+
+    // Validation: Cannot close table with unpaid orders
+    if (!allItemsPaid || !paymentSufficient) {
+      throw new HttpException(
+        'Cannot close table with unpaid orders',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Close the previous gameplay
     if (table.gameplays.length) {
       const lastGameplayId = table.gameplays[table.gameplays.length - 1];
