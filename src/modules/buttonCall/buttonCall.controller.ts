@@ -33,6 +33,35 @@ export class ButtonCallController {
     return this.buttonCallService.find(date, location, type);
   }
 
+  @Get('/query')
+  findButtonCallsQuery(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('location') location?: number,
+    @Query('tableName') tableName?: string,
+    @Query('cancelledBy') cancelledBy?: string,
+    @Query('date') date?: string,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('type') type?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number | '1' | '0' | '-1',
+  ) {
+    return this.buttonCallService.findButtonCallsQuery({
+      page,
+      limit,
+      location,
+      tableName,
+      cancelledBy,
+      date,
+      after,
+      before,
+      type,
+      sort,
+      asc,
+    });
+  }
+
   @Public()
   @ApiResponse({ type: ButtonCall })
   @Post()
