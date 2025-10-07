@@ -159,10 +159,41 @@ export class NotificationService {
 
   async markAsRead(user: User, notificationId: number) {
     try {
+      if (notificationId === -1) {
+        const toUpdate = await this.notificationModel
+          .find({
+            seenBy: { $ne: user._id },
+            $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
+          })
+          .select('_id selectedUsers selectedRoles selectedLocations')
+          .lean();
+
+        if (!toUpdate.length) {
+          return { modifiedCount: 0 };
+        }
+
+        const ids = toUpdate.map((n) => n._id);
+        const { modifiedCount } = await this.notificationModel.updateMany(
+          { _id: { $in: ids }, seenBy: { $ne: user._id } },
+          { $addToSet: { seenBy: user._id } },
+        );
+        const updated = await this.notificationModel.find({
+          _id: { $in: ids },
+        });
+        for (const n of updated) {
+          this.notificationGateway.emitNotificationChanged(
+            n,
+            n?.selectedUsers ?? [],
+            n?.selectedRoles ?? [],
+            n?.selectedLocations ?? [],
+          );
+        }
+        return { modifiedCount };
+      }
       const notification = await this.notificationModel
         .findOneAndUpdate(
           { _id: notificationId, seenBy: { $ne: user._id } },
-          { $push: { seenBy: user._id } },
+          { $addToSet: { seenBy: user._id } }, // use $addToSet to be safe
           { new: true },
         )
         .exec();
@@ -183,6 +214,7 @@ export class NotificationService {
       );
     }
   }
+
   async updateNotification(
     user: User,
     id: number,
