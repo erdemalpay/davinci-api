@@ -175,6 +175,28 @@ export class TableService {
 
   async close(user: User, id: number, tableDto: TableDto) {
     const table = await this.tableModel.findById(id);
+
+    // Validate all orders are paid before closing
+    const orders = await this.orderService.findGivenTableOrders(id);
+
+    // Filter out cancelled orders
+    const activeOrders = orders.filter(
+      (order) => order.status !== OrderStatus.CANCELLED,
+    );
+
+    // Check if all items are marked as paid
+    const allItemsPaid = activeOrders.every(
+      (order) => order.paidQuantity === order.quantity,
+    );
+
+    // Validation: Cannot close table with unpaid orders
+    if (!allItemsPaid) {
+      throw new HttpException(
+        'Cannot close table with unpaid orders',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Close the previous gameplay
     if (table.gameplays.length) {
       const lastGameplayId = table.gameplays[table.gameplays.length - 1];
