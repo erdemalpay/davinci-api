@@ -29,6 +29,29 @@ export class CheckoutController {
   getIncome() {
     return this.checkoutService.findAllIncome();
   }
+  @Get('/income/paginated/query')
+  findPaginatedQueryIncomes(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('user') user?: string,
+    @Query('date') date?: string,
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number | '1' | '0' | '-1',
+  ) {
+    return this.checkoutService.findPaginatedQueryIncomes({
+      page,
+      limit,
+      user,
+      date,
+      after,
+      before,
+      sort,
+      asc,
+    });
+  }
+
   @Get('/income/query')
   findQueryIncome(
     @Query('after') after?: string,

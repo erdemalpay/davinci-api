@@ -4,11 +4,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
+import { dateRanges } from 'src/utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { User } from '../user/user.schema';
 import { ButtonCallGateway } from './buttonCall.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
+  ButtonCallQueryDto,
   ButtonCallTypeEnum,
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
@@ -26,8 +28,10 @@ export class ButtonCallService {
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
   private readonly buttonCallNeoPort: string = process.env.BUTTON_CALL_NEO_PORT;
 
-  private readonly buttonCallBahceliIP: string = process.env.BUTTON_CALL_BAHCELI_IP;
-  private readonly buttonCallBahceliPort: string = process.env.BUTTON_CALL_BAHCELI_PORT;
+  private readonly buttonCallBahceliIP: string =
+    process.env.BUTTON_CALL_BAHCELI_IP;
+  private readonly buttonCallBahceliPort: string =
+    process.env.BUTTON_CALL_BAHCELI_PORT;
 
   async create(createButtonCallDto: CreateButtonCallDto, user?: User) {
     const existingButtonCall = await this.buttonCallModel.findOne({
@@ -117,9 +121,9 @@ export class ButtonCallService {
 
     const apiUrl =
       'http://' +
-      ((location == 1) ? this.buttonCallBahceliIP : this.buttonCallNeoIP) +
+      (location == 1 ? this.buttonCallBahceliIP : this.buttonCallNeoIP) +
       ':' +
-      ((location == 1) ? this.buttonCallBahceliPort : this.buttonCallNeoPort) +
+      (location == 1 ? this.buttonCallBahceliPort : this.buttonCallNeoPort) +
       '/transmit';
     try {
       const response = await lastValueFrom(
@@ -197,6 +201,117 @@ export class ButtonCallService {
     if (type) query.finishHour = { $exists: !(type === 'active') };
 
     return this.buttonCallModel.find(query);
+  }
+  parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  async findButtonCallsQuery(query: ButtonCallQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      location,
+      tableName,
+      cancelledBy,
+      date,
+      after,
+      before,
+      type,
+      sort,
+      asc,
+    } = query;
+
+    const filter: Record<string, any> = {};
+    if (location !== undefined && location !== null && `${location}` !== '') {
+      const locNum =
+        typeof location === 'string' ? Number(location) : (location as number);
+      if (!Number.isNaN(locNum)) filter.location = locNum;
+    }
+    if (tableName && `${tableName}`.trim() !== '') {
+      filter.tableName = { $regex: new RegExp(`${tableName}`, 'i') };
+    }
+    if (cancelledBy !== undefined && cancelledBy !== null) {
+      const arr = Array.isArray(cancelledBy)
+        ? cancelledBy
+        : `${cancelledBy}`.includes(',')
+        ? `${cancelledBy}`
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [`${cancelledBy}`];
+      if (arr.length) filter.cancelledBy = { $in: arr };
+    }
+    if (type !== undefined && type !== null) {
+      const types = Array.isArray(type)
+        ? type
+        : `${type}`.includes(',')
+        ? `${type}`
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [`${type}`];
+      const wantActive = types.includes('active');
+      const wantFinished = types.includes('finished');
+      const concreteTypes = types.filter(
+        (t) => t !== 'active' && t !== 'finished',
+      );
+
+      if (wantActive && !wantFinished) filter.finishHour = { $exists: false };
+      else if (wantFinished && !wantActive)
+        filter.finishHour = { $exists: true };
+
+      if (concreteTypes.length) filter.type = { $in: concreteTypes };
+    }
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const endD = this.parseLocalDate(before);
+        endD.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = endD;
+      }
+      if (Object.keys(rangeFilter).length) filter.createdAt = rangeFilter;
+    }
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      sortObject[sort] = dir;
+    } else {
+      sortObject.createdAt = -1;
+    }
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+    const [data, totalNumber] = await Promise.all([
+      this.buttonCallModel
+        .find(filter)
+        .sort(sortObject)
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+      this.buttonCallModel.countDocuments(filter),
+    ]);
+    const totalPages = Math.ceil(totalNumber / limitNum);
+    return {
+      data,
+      totalNumber,
+      totalPages,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
 
   async remove(id: number) {
