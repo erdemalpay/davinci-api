@@ -74,6 +74,8 @@ export enum ActivityType {
   UPDATE_ACCOUNT_PRODUCT = 'UPDATE_ACCOUNT_PRODUCT',
   FARM_BURGER_ACTIVATED = 'FARM_BURGER_ACTIVATED',
   FARM_BURGER_DEACTIVATED = 'FARM_BURGER_DEACTIVATED',
+  KOVADA_PILAV_ACTIVATED = 'KOVADA_PILAV_ACTIVATED',
+  KOVADA_PILAV_DEACTIVATED = 'KOVADA_PILAV_DEACTIVATED',
 }
 
 export type ActivityTypePayload = {
@@ -158,6 +160,8 @@ export type ActivityTypePayload = {
   };
   [ActivityType.FARM_BURGER_ACTIVATED]: void;
   [ActivityType.FARM_BURGER_DEACTIVATED]: void;
+  [ActivityType.KOVADA_PILAV_ACTIVATED]: void;
+  [ActivityType.KOVADA_PILAV_DEACTIVATED]: void;
 };
 
 export class ActivityQueryDto {

@@ -216,8 +216,12 @@ export class MenuService {
     this.activityService.addActivity(
       user,
       updates?.active
-        ? ActivityType.FARM_BURGER_ACTIVATED
-        : ActivityType.FARM_BURGER_DEACTIVATED,
+        ? id === 30
+          ? ActivityType.FARM_BURGER_ACTIVATED
+          : ActivityType.KOVADA_PILAV_ACTIVATED
+        : id === 30
+        ? ActivityType.FARM_BURGER_DEACTIVATED
+        : ActivityType.KOVADA_PILAV_DEACTIVATED,
       null,
     );
     const visits = await this.visitService.findByDateAndLocation(
