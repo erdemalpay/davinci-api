@@ -34,10 +34,10 @@ export class NotificationController {
     @ReqUser() user: User,
     @Body()
     payload: {
-      id: number;
+      ids: number[];
     },
   ) {
-    return this.notificationService.markAsRead(user, payload.id);
+    return this.notificationService.markAsRead(user, payload.ids);
   }
 
   @Get()

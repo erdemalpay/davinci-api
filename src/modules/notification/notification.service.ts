@@ -58,7 +58,7 @@ export class NotificationService {
       const notifications = await this.notificationModel
         .find({
           seenBy: { $ne: user._id },
-          $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
+          $or: [{ selectedUsers: user._id }, { selectedRoles: user.role._id }],
         })
         .sort({ createdAt: -1 })
         .exec();
@@ -73,7 +73,7 @@ export class NotificationService {
   async findUserAllNotifications(user: User, query: NotificationQueryDto) {
     const { after, before, type, event } = query;
     const filterQuery: any = {
-      $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
+      $or: [{ selectedUsers: user._id }, { selectedRoles: user.role._id }],
     };
 
     if (after) {
@@ -157,22 +157,27 @@ export class NotificationService {
     return notification;
   }
 
-  async markAsRead(user: User, notificationId: number) {
+  async markAsRead(user: User, notificationIds: number[]) {
     try {
-      if (notificationId === -1) {
+      if (!notificationIds || notificationIds.length === 0) {
+        return { modifiedCount: 0, updatedIds: [] as number[] };
+      }
+      const accessFilter = {
+        $or: [{ selectedUsers: user._id }, { selectedRoles: user.role._id }],
+      };
+      if (notificationIds.includes(-1)) {
         const toUpdate = await this.notificationModel
           .find({
             seenBy: { $ne: user._id },
-            $or: [{ selectedUsers: user._id }, { selectedRoles: user.role }],
+            ...accessFilter,
           })
           .select('_id selectedUsers selectedRoles selectedLocations')
           .lean();
-
         if (!toUpdate.length) {
-          return { modifiedCount: 0 };
+          return { modifiedCount: 0, updatedIds: [] as number[] };
         }
 
-        const ids = toUpdate.map((n) => n._id);
+        const ids = toUpdate.map((n: any) => n._id);
         const { modifiedCount } = await this.notificationModel.updateMany(
           { _id: { $in: ids }, seenBy: { $ne: user._id } },
           { $addToSet: { seenBy: user._id } },
@@ -180,36 +185,44 @@ export class NotificationService {
         const updated = await this.notificationModel.find({
           _id: { $in: ids },
         });
-        for (const n of updated) {
-          this.notificationGateway.emitNotificationChanged(
-            n,
-            n?.selectedUsers ?? [],
-            n?.selectedRoles ?? [],
-            n?.selectedLocations ?? [],
-          );
-        }
-        return { modifiedCount };
+
+        this.notificationGateway.emitNotificationChanged('notificationChanged');
+        return { modifiedCount, updatedIds: ids };
       }
-      const notification = await this.notificationModel
-        .findOneAndUpdate(
-          { _id: notificationId, seenBy: { $ne: user._id } },
-          { $addToSet: { seenBy: user._id } }, // use $addToSet to be safe
-          { new: true },
-        )
-        .exec();
-      if (!notification) {
-        throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
+
+      const explicitIds = [
+        ...new Set(notificationIds.filter((id) => id !== -1)),
+      ];
+      if (explicitIds.length === 0) {
+        return { modifiedCount: 0, updatedIds: [] as number[] };
       }
-      this.notificationGateway.emitNotificationChanged(
-        notification,
-        notification?.selectedUsers ?? [],
-        notification?.selectedRoles ?? [],
-        notification?.selectedLocations ?? [],
+
+      const toUpdate = await this.notificationModel
+        .find({
+          _id: { $in: explicitIds },
+          seenBy: { $ne: user._id },
+          ...accessFilter,
+        })
+        .select('_id selectedUsers selectedRoles selectedLocations')
+        .lean();
+
+      if (!toUpdate.length) {
+        return { modifiedCount: 0, updatedIds: [] as number[] };
+      }
+
+      const ids = toUpdate.map((n: any) => n._id);
+
+      const { modifiedCount } = await this.notificationModel.updateMany(
+        { _id: { $in: ids }, seenBy: { $ne: user._id } },
+        { $addToSet: { seenBy: user._id } },
       );
-      return notification;
+
+      const updated = await this.notificationModel.find({ _id: { $in: ids } });
+      this.notificationGateway.emitNotificationChanged('notificationChanged');
+      return { modifiedCount, updatedIds: ids };
     } catch (error) {
       throw new HttpException(
-        'Failed to mark notification as read',
+        'Failed to mark notifications as read',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
