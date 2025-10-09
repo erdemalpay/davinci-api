@@ -678,7 +678,7 @@ export class MenuService {
       { _id: { $ne: id }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-
+    await this.syncAllIkasPrices('TRY');
     this.menuGateway.emitItemChanged(user, item);
   }
   async updateCategoriesOrder(
