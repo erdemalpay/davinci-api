@@ -891,6 +891,14 @@ export class OrderService {
     orders: CreateOrderDto[],
     table: Table,
   ) {
+    // Check if table is closed (finishHour exists)
+    if (table.finishHour) {
+      throw new HttpException(
+        'Cannot add orders to a closed table',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const createdOrders: number[] = [];
     const soundRoles = new Set<number>();
     for (const order of orders) {
@@ -1021,6 +1029,17 @@ export class OrderService {
         'Quantity must be greater than 0',
         HttpStatus.BAD_REQUEST,
       );
+    }
+
+    // Check if table is closed (finishHour exists)
+    if (createOrderDto.table) {
+      const table = await this.tableService.findById(createOrderDto.table);
+      if (table && table.finishHour) {
+        throw new HttpException(
+          'Cannot add orders to a closed table',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
     const order = new this.orderModel({
       ...createOrderDto,
