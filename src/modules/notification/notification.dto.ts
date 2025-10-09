@@ -23,6 +23,10 @@ export class NotificationQueryDto {
   before?: string;
   type?: string;
   event?: string;
+  sort?: string;
+  asc?: number;
+  page?: number;
+  limit?: number;
 }
 
 export enum NotificationEventType {

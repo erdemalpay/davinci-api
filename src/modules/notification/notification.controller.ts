@@ -40,18 +40,26 @@ export class NotificationController {
     return this.notificationService.markAsRead(user, payload.ids);
   }
 
-  @Get()
+  @Get('/query')
   findAllNotifications(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
     @Query('after') after?: string,
     @Query('before') before?: string,
     @Query('type') type?: string,
     @Query('event') event?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
   ) {
-    return this.notificationService.findAllNotifications({
+    return this.notificationService.findQueryNotifications({
+      page,
+      limit,
       after,
       before,
       type,
       event,
+      sort,
+      asc,
     });
   }
 

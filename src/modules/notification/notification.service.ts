@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, UpdateQuery } from 'mongoose';
+import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import {
   CreateNotificationDto,
@@ -17,34 +17,76 @@ export class NotificationService {
     private readonly notificationGateway: NotificationGateway,
   ) {}
 
-  async findAllNotifications(query: NotificationQueryDto) {
-    const { after, before, type, event } = query;
-    const filterQuery = {};
+  parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  async findQueryNotifications(query: NotificationQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      after,
+      before,
+      type,
+      event,
+      sort,
+      asc,
+    } = query;
+
+    const filter: FilterQuery<Notification> = {};
+
+    if (type) filter.type = type;
+    if (event) filter.event = event;
+
+    const rangeFilter: Record<string, any> = {};
     if (after) {
-      const startDate = new Date(after);
-      startDate.setUTCHours(0, 0, 0, 0);
-      filterQuery['createdAt'] = { $gte: startDate };
+      const start = this.parseLocalDate(after);
+      rangeFilter.$gte = start;
     }
     if (before) {
-      const endDate = new Date(before);
-      endDate.setUTCHours(23, 59, 59, 999);
-      filterQuery['createdAt'] = {
-        ...filterQuery['createdAt'],
-        $lte: endDate,
-      };
+      const end = this.parseLocalDate(before);
+      end.setHours(23, 59, 59, 999);
+      rangeFilter.$lte = end;
     }
-    if (type) {
-      filterQuery['type'] = type;
+    if (Object.keys(rangeFilter).length) {
+      filter.createdAt = rangeFilter;
     }
-    if (event) {
-      filterQuery['event'] = event;
+
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      sortObject[sort] = dir;
+    } else {
+      sortObject.createdAt = -1;
     }
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
     try {
-      const notifications = await this.notificationModel
-        .find(filterQuery)
-        .sort({ createdAt: -1 })
-        .exec();
-      return notifications;
+      const [data, totalNumber] = await Promise.all([
+        this.notificationModel
+          .find(filter)
+          .sort(sortObject)
+          .skip(skip)
+          .limit(limitNum)
+          .lean()
+          .exec(),
+        this.notificationModel.countDocuments(filter),
+      ]);
+
+      const totalPages = Math.ceil(totalNumber / limitNum);
+
+      return {
+        data,
+        totalNumber,
+        totalPages,
+        page: pageNum,
+        limit: limitNum,
+      };
     } catch (error) {
       throw new HttpException(
         'Failed to fetch notifications',
