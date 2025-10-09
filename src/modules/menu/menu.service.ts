@@ -663,7 +663,6 @@ export class MenuService {
     const payload = items.map((it) => ({
       productId: it.ikasId,
       basePrice: it.price ?? null,
-      baseDiscountPrice: it.ikasDiscountedPrice ?? null,
       onlinePrice: it.onlinePrice ?? null,
     }));
     await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
