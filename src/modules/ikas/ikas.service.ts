@@ -123,6 +123,7 @@ export class IkasService {
           id
           name
           }
+        dynamicPriceListIds
         shortDescription
         weight
         baseUnit {
