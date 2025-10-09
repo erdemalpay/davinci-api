@@ -124,6 +124,7 @@ export class IkasService {
           name
           }
         dynamicPriceListIds
+        hiddenSalesChannelIds
         shortDescription
         weight
         baseUnit {
