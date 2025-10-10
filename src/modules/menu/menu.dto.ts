@@ -47,6 +47,8 @@ export class CreateKitchenDto {
   name: string;
   isConfirmationRequired: boolean;
   locatins: number[];
+  selectedUsers?: string[];
+  soundRoles?: number[];
 }
 
 export class CreatePopularDto {
