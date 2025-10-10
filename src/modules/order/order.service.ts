@@ -166,21 +166,37 @@ export class OrderService {
     return result;
   }
   async findQueryOrders(query: OrderQueryDto) {
-    const filterQuery = {
+    const filterQuery: Record<string, any> = {
       quantity: { $gt: 0 },
     };
     const { after, before, category, location, isIkasPickUp } = query;
+    const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
-      const startDate = new Date(after);
-      startDate.setUTCHours(0, 0, 0, 0);
-      filterQuery['tableDate'] = { $gte: startDate };
+      let startUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
+        const [y, m, d] = after.split('-').map(Number);
+        const istStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+        startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(after);
+        startUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = { $gte: startUtc };
     }
+
     if (before) {
-      const endDate = new Date(before);
-      endDate.setUTCHours(23, 59, 59, 999);
-      filterQuery['tableDate'] = {
-        ...filterQuery['tableDate'],
-        $lte: endDate,
+      let endUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
+        const [y, m, d] = before.split('-').map(Number);
+        const istEnd = new Date(y, m - 1, d, 23, 59, 59, 999);
+        endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(before);
+        endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = {
+        ...(filterQuery.tableDate ?? {}),
+        $lte: endUtc,
       };
     }
     const filterKeys = [
@@ -1938,19 +1954,35 @@ export class OrderService {
     }
   }
   async findQueryCollections(query: CollectionQueryDto) {
-    const filterQuery = {};
+    const filterQuery: Record<string, any> = {};
     const { after, before, location } = query;
+    const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
-      const startDate = new Date(after);
-      startDate.setUTCHours(0, 0, 0, 0);
-      filterQuery['tableDate'] = { $gte: startDate };
+      let startUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
+        const [y, m, d] = after.split('-').map(Number);
+        const istStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+        startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(after);
+        startUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = { $gte: startUtc };
     }
+
     if (before) {
-      const endDate = new Date(before);
-      endDate.setUTCHours(23, 59, 59, 999);
-      filterQuery['tableDate'] = {
-        ...filterQuery['tableDate'],
-        $lte: endDate,
+      let endUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
+        const [y, m, d] = before.split('-').map(Number);
+        const istEnd = new Date(y, m - 1, d, 23, 59, 59, 999);
+        endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(before);
+        endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = {
+        ...(filterQuery.tableDate ?? {}),
+        $lte: endUtc,
       };
     }
     if (location) {
