@@ -916,7 +916,8 @@ export class OrderService {
     }
 
     const createdOrders: number[] = [];
-    const soundRoles = new Set<number>();
+    const kitchenSoundRoles = new Set<number>();
+    const kitchenSelectedUsers = new Set<string>();
     for (const order of orders) {
       if (order.quantity <= 0) {
         continue;
@@ -963,9 +964,16 @@ export class OrderService {
           createdOrder.status !== OrderStatus.AUTOSERVED &&
           createdOrder.status !== OrderStatus.SERVED
         ) {
+          if ((orderWithItem?.kitchen as any)?.selectedUsers) {
+            (orderWithItem?.kitchen as any)?.selectedUsers.forEach(
+              (userId: string) => {
+                kitchenSelectedUsers.add(userId);
+              },
+            );
+          }
           (orderWithItem?.kitchen as any)?.soundRoles.forEach(
             (role: number) => {
-              soundRoles.add(role);
+              kitchenSoundRoles.add(role);
             },
           );
         }
@@ -1034,7 +1042,8 @@ export class OrderService {
       user,
       table,
       table.location,
-      Array.from(soundRoles),
+      Array.from(kitchenSoundRoles),
+      Array.from(kitchenSelectedUsers),
     );
     return createdOrders;
   }

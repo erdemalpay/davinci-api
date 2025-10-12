@@ -71,12 +71,14 @@ export class OrderGateway
     table: Table,
     location: number,
     soundRoles: any,
+    selectedUsers: any,
   ) {
     this.server.emit('createMultipleOrder', {
       socketUser,
       table,
       location,
       soundRoles,
+      selectedUsers,
     });
   }
   emitOrderGroupChanged() {
