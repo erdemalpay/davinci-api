@@ -7,6 +7,7 @@ export class CreateCategoryDto {
   isAutoServed: boolean;
   isOnlineOrder?: boolean;
   discounts?: number[];
+  isKitchenMenu?: boolean;
 }
 
 export class CreateItemDto {

@@ -29,6 +29,9 @@ export class MenuCategory extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   isOnlineOrder: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isKitchenMenu: boolean;
+
   @Prop({ required: true, type: Boolean, default: true })
   active: boolean;
 

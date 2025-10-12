@@ -200,7 +200,22 @@ export class MenuService {
           });
         }),
       );
+
       this.menuGateway.emitItemChanged(user, items);
+    }
+    if (updates.isKitchenMenu) {
+      const ordersPage = await this.panelControlService.getPage('orders');
+      if (
+        !ordersPage.tabs.find(
+          (tab) => tab.name === category.name + ' ' + 'Menu',
+        )
+      ) {
+        ordersPage.tabs.push({
+          name: category.name + ' ' + 'Menu',
+          permissionsRoles: [1],
+        });
+        await ordersPage.save();
+      }
     }
     this.menuGateway.emitCategoryChanged(user, category);
     return category;

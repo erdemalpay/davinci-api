@@ -173,7 +173,7 @@ export class MenuController {
   ) {
     return this.menuService.updateMultipleItems(user, payload.items);
   }
-  @Patch('/categories-farm/:id')
+  @Patch('/categories-kitchen/:id')
   updateFarmCategory(
     @ReqUser() user: User,
     @Param('id') id: number,
