@@ -1481,18 +1481,10 @@ export class IkasService {
                     return stock;
                   })
                 : variant?.stocks ?? [];
-
-            const prices = variant?.prices
-              ? variant?.prices?.map((price: any) => ({
-                  sellPrice: price.sellPrice,
-                }))
-              : [];
-
             return {
               id: variant.id || null,
               isActive:
                 variant.isActive !== undefined ? variant.isActive : false,
-              prices: prices,
               stocks: updatedStocks || [],
             };
           });
@@ -1533,12 +1525,6 @@ export class IkasService {
             .join(', ');
           const variantsString = input.variants
             .map((variant: any) => {
-              const pricesString =
-                variant.prices && variant.prices.length > 0
-                  ? `[${variant.prices
-                      .map((price: any) => `{ sellPrice: ${price.sellPrice} }`)
-                      .join(', ')}]`
-                  : '[]';
               const stocksString =
                 variant.stocks && variant.stocks.length > 0
                   ? `[${variant.stocks
@@ -1553,7 +1539,7 @@ export class IkasService {
                 variant.id ? `"${variant.id}"` : 'null'
               },  isActive: ${
                 variant.isActive
-              }, prices: ${pricesString},  stocks: ${stocksString},deleted: false }`;
+              },  stocks: ${stocksString},deleted: false }`;
             })
             .join(', ');
           const categoriesString = input.categories
