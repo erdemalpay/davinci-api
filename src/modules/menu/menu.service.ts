@@ -176,6 +176,18 @@ export class MenuService {
       locations: [1, 2],
       active: true,
     });
+    if (createCategoryDto?.kitchen) {
+      const orderDataPage = await this.panelControlService.getPage(
+        'order_datas',
+      );
+      if (!orderDataPage.tabs.find((tab) => tab.name === category.name)) {
+        orderDataPage.tabs.push({
+          name: category.name,
+          permissionsRoles: [1],
+        });
+        await orderDataPage.save();
+      }
+    }
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
@@ -215,6 +227,18 @@ export class MenuService {
           permissionsRoles: [1],
         });
         await ordersPage.save();
+      }
+    }
+    if (updates?.kitchen) {
+      const orderDataPage = await this.panelControlService.getPage(
+        'order_datas',
+      );
+      if (!orderDataPage.tabs.find((tab) => tab.name === category.name)) {
+        orderDataPage.tabs.push({
+          name: category.name,
+          permissionsRoles: [1],
+        });
+        await orderDataPage.save();
       }
     }
     this.menuGateway.emitCategoryChanged(user, category);
