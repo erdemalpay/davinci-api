@@ -176,7 +176,7 @@ export class MenuService {
       locations: [1, 2],
       active: true,
     });
-    if (createCategoryDto?.kitchen) {
+    if (createCategoryDto?.isKitchenMenu) {
       const orderDataPage = await this.panelControlService.getPage(
         'order_datas',
       );
@@ -217,19 +217,6 @@ export class MenuService {
     }
     if (updates.isKitchenMenu) {
       const ordersPage = await this.panelControlService.getPage('orders');
-      if (
-        !ordersPage.tabs.find(
-          (tab) => tab.name === category.name + ' ' + 'Menu',
-        )
-      ) {
-        ordersPage.tabs.push({
-          name: category.name + ' ' + 'Menu',
-          permissionsRoles: [1],
-        });
-        await ordersPage.save();
-      }
-    }
-    if (updates?.kitchen) {
       const orderDataPage = await this.panelControlService.getPage(
         'order_datas',
       );
@@ -238,7 +225,19 @@ export class MenuService {
           name: category.name,
           permissionsRoles: [1],
         });
-        await orderDataPage.save();
+        if (
+          !ordersPage.tabs.find(
+            (tab) => tab.name === category.name + ' ' + 'Menu',
+          )
+        ) {
+          ordersPage.tabs.push({
+            name: category.name + ' ' + 'Menu',
+            permissionsRoles: [1],
+          });
+          Promise.all([await ordersPage.save(), await orderDataPage.save()]);
+        }
+      }
+      if (updates?.kitchen) {
       }
     }
     this.menuGateway.emitCategoryChanged(user, category);
