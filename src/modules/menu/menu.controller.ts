@@ -179,7 +179,7 @@ export class MenuController {
     @Param('id') id: number,
     @Body() updates: UpdateQuery<MenuCategory>,
   ) {
-    return this.menuService.updateFarmCategory(user, id, updates);
+    return this.menuService.updateKitchenCategory(user, id, updates);
   }
 
   @Post('/categories/set-order-category')

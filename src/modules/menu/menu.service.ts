@@ -7,7 +7,6 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -176,7 +175,7 @@ export class MenuService {
       locations: [1, 2],
       active: true,
     });
-    if (createCategoryDto?.kitchen) {
+    if (createCategoryDto?.isKitchenMenu) {
       const orderDataPage = await this.panelControlService.getPage(
         'order_datas',
       );
@@ -217,19 +216,6 @@ export class MenuService {
     }
     if (updates.isKitchenMenu) {
       const ordersPage = await this.panelControlService.getPage('orders');
-      if (
-        !ordersPage.tabs.find(
-          (tab) => tab.name === category.name + ' ' + 'Menu',
-        )
-      ) {
-        ordersPage.tabs.push({
-          name: category.name + ' ' + 'Menu',
-          permissionsRoles: [1],
-        });
-        await ordersPage.save();
-      }
-    }
-    if (updates?.kitchen) {
       const orderDataPage = await this.panelControlService.getPage(
         'order_datas',
       );
@@ -238,13 +224,25 @@ export class MenuService {
           name: category.name,
           permissionsRoles: [1],
         });
-        await orderDataPage.save();
+        if (
+          !ordersPage.tabs.find(
+            (tab) => tab.name === category.name + ' ' + 'Menu',
+          )
+        ) {
+          ordersPage.tabs.push({
+            name: category.name + ' ' + 'Menu',
+            permissionsRoles: [1],
+          });
+          Promise.all([await ordersPage.save(), await orderDataPage.save()]);
+        }
+      }
+      if (updates?.kitchen) {
       }
     }
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
   }
-  async updateFarmCategory(
+  async updateKitchenCategory(
     user: User,
     id: number,
     updates: UpdateQuery<MenuCategory>,
@@ -252,17 +250,7 @@ export class MenuService {
     const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.activityService.addActivity(
-      user,
-      updates?.active
-        ? id === 30
-          ? ActivityType.FARM_BURGER_ACTIVATED
-          : ActivityType.KOVADA_PILAV_ACTIVATED
-        : id === 30
-        ? ActivityType.FARM_BURGER_DEACTIVATED
-        : ActivityType.KOVADA_PILAV_DEACTIVATED,
-      null,
-    );
+    // TODO:add activity for on off status of kitchen
     const visits = await this.visitService.findByDateAndLocation(
       format(new Date(), 'yyyy-MM-dd'),
       2,
@@ -286,16 +274,14 @@ export class MenuService {
       : 'Status.Deactivated';
     const status = await this.i18n.t(statusKey);
     const notificationMessage = (await this.i18n.t('BrandActivationStatus', {
-      args: { brand: 'Farm Burger', status },
+      args: { brand: category.name, status },
     })) as string;
+    // TODO:add event for kitchen active inactive case
     await this.notificationService.createNotification({
       type: updates?.active ? 'INFORMATION' : 'WARNING',
       selectedUsers: (uniqueVisitUsers as any) ?? [],
       selectedLocations: [2],
       seenBy: [],
-      event: updates?.active
-        ? NotificationEventType.FARMBURGERACTIVATED
-        : NotificationEventType.FARMBURGERDEACTIVATED,
       message: notificationMessage,
     });
     this.menuGateway.emitCategoryChanged(user, category);
