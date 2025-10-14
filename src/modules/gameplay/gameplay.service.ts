@@ -7,7 +7,7 @@ import { ActivityService } from '../activity/activity.service';
 import { User } from '../user/user.schema';
 import {
   GameplayQueryDto,
-  GameplayQueryGroupDto
+  GameplayQueryGroupDto,
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
@@ -70,92 +70,123 @@ export class GameplayService {
   }
 
   async queryData(query: GameplayQueryDto) {
-    const filterQuery = {};
     const {
+      page = 1,
+      limit = 10,
       location,
       startDate,
       endDate,
       game,
       mentor,
-      page,
-      limit,
       sort,
       asc,
       groupBy,
     } = query;
 
-    // Existing filter logic
-    if (startDate || endDate) {
-      filterQuery['date'] = {};
-    }
-    if (endDate) {
-      filterQuery['date']['$lte'] = endDate;
-    }
-    if (startDate) {
-      filterQuery['date']['$gte'] = startDate;
-    }
-    if (game) {
-      filterQuery['game'] = game;
-    }
-    if (mentor) {
-      filterQuery['mentor'] = mentor;
-    }
-    if (location) {
-      filterQuery['location'] = location;
+    const filter: Record<string, any> = {};
+    if (location !== undefined && location !== null && `${location}` !== '') {
+      const locNum =
+        typeof location === 'string' ? Number(location) : (location as number);
+      filter.location = Number.isNaN(locNum) ? location : locNum;
     }
 
-    // Check if groupBy exists, and if so, use aggregation
+    if (game) filter.game = game;
+    if (mentor) filter.mentor = mentor;
+    if (startDate || endDate) {
+      const range: Record<string, any> = {};
+      if (startDate) {
+        filter.date = { $gte: startDate };
+      }
+      if (endDate) {
+        filter.date = { ...filter.date, $lte: endDate };
+      }
+    }
+    const sortObject: Record<string, 1 | -1> = {};
+    if (sort) {
+      const dirRaw =
+        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
+      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      if (groupBy?.length) {
+        if (sort === 'total') {
+          sortObject['total'] = dir;
+        } else {
+          sortObject[`_id.${sort}`] = dir;
+        }
+      } else {
+        sortObject[sort] = dir;
+      }
+    } else {
+      if (groupBy?.length) {
+        sortObject['total'] = -1;
+      } else {
+        sortObject['date'] = -1 as const;
+      }
+    }
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
     if (groupBy && groupBy.length) {
-      // Initial grouping object
-      const initialGroup: any = {
-        _id: {},
-        total: { $sum: 1 },
-      };
-      groupBy.forEach((field) => {
-        initialGroup._id[field] = `$${field}`;
+      const idSpec = groupBy.reduce<Record<string, string>>((acc, f) => {
+        acc[f] = `$${f}`;
+        return acc;
+      }, {});
+
+      const pipeline: any[] = [
+        { $match: filter },
+        { $group: { _id: idSpec, total: { $sum: 1 } } },
+      ];
+      if (Object.keys(sortObject).length) {
+        pipeline.push({ $sort: sortObject });
+      }
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limitNum }],
+          meta: [{ $count: 'totalNumber' }],
+        },
       });
 
-      const aggregation = [{ $match: filterQuery }, { $group: initialGroup }];
+      const agg = await this.gameplayModel.aggregate(pipeline).exec();
+      const first = agg[0] || { data: [], meta: [] };
+      const data = first.data ?? [];
+      const totalNumber = (first.meta?.[0]?.totalNumber as number) ?? 0;
+      const totalPages = Math.ceil(totalNumber / limitNum);
+      const normalized = data.map((row: any) => ({
+        ...row._id,
+        total: row.total,
+      }));
 
-      // If there's more than one field, we want to create nested groups
-      if (groupBy.length > 1) {
-        const secondaryGroups = groupBy.slice(1).map((field) => {
-          return {
-            $group: {
-              _id: `$_id.${groupBy[0]}`,
-              [field]: {
-                $push: {
-                  field: `$_id.${field}`,
-                  count: '$total',
-                },
-              },
-              total: { $sum: '$total' },
-            },
-          };
-        });
-        aggregation.push(...secondaryGroups);
-      }
-
-      const items = await this.gameplayModel.aggregate(aggregation).exec();
-      return { totalCount: items.length, items };
+      return {
+        data: normalized,
+        totalNumber,
+        totalPages,
+        page: pageNum,
+        limit: limitNum,
+      };
     }
+    const [data, totalNumber] = await Promise.all([
+      this.gameplayModel
+        .find(filter)
+        .sort(sortObject)
+        .skip(skip)
+        .limit(limitNum)
+        .populate({ path: 'mentor', select: 'name' })
+        .populate({ path: 'game', select: 'name' })
+        .lean()
+        .exec(),
+      this.gameplayModel.countDocuments(filter),
+    ]);
 
-    // Existing sorting logic (used when groupBy is not provided)
-    const sortObject = {};
-    if (sort) {
-      sortObject[sort] = asc;
-    }
+    const totalPages = Math.ceil(totalNumber / limitNum);
 
-    const totalCount = await this.gameplayModel.countDocuments(filterQuery);
-    const items = await this.gameplayModel
-      .find(filterQuery)
-      .sort(sortObject)
-      .skip(page ? (page - 1) * limit : 0)
-      .limit(limit || 0)
-      .populate({ path: 'mentor', select: 'name' })
-      .populate({ path: 'game', select: 'name' });
-    return { totalCount, items };
+    return {
+      data,
+      totalNumber,
+      totalPages,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
+
   async groupGameMentorLocation() {
     return this.gameplayModel.aggregate([
       {
