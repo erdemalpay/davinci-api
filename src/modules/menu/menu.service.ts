@@ -7,6 +7,7 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -26,7 +27,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
@@ -250,7 +251,7 @@ export class MenuService {
     const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    // TODO:add activity for on off status of kitchen
+
     const visits = await this.visitService.findByDateAndLocation(
       format(new Date(), 'yyyy-MM-dd'),
       2,
@@ -276,12 +277,14 @@ export class MenuService {
     const notificationMessage = (await this.i18n.t('BrandActivationStatus', {
       args: { brand: category.name, status },
     })) as string;
-    // TODO:add event for kitchen active inactive case
     await this.notificationService.createNotification({
       type: updates?.active ? 'INFORMATION' : 'WARNING',
       selectedUsers: (uniqueVisitUsers as any) ?? [],
       selectedLocations: [2],
       seenBy: [],
+      event: updates?.active
+        ? NotificationEventType.KITCHENACTIVATED
+        : NotificationEventType.KITCHENDEACTIVATED,
       message: notificationMessage,
     });
     this.menuGateway.emitCategoryChanged(user, category);
