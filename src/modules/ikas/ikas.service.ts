@@ -29,6 +29,8 @@ import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
 import { IkasGateway } from './ikas.gateway';
 
+const NEORAMA_DEPO_LOCATION = 6;
+
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -1384,6 +1386,8 @@ export class IkasService {
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
+
+      const ikasLocation = locations.find((loc) => !!loc.ikasId)?._id || NEORAMA_DEPO_LOCATION;
       
       // Collect all stock updates that need to be made
       const stockUpdates: Array<{
@@ -1394,17 +1398,18 @@ export class IkasService {
       }> = [];
 
       for (const item of ikasItems) {
+        if (!item.ikasId) continue;
         try {
-          const productStocks = await this.accountingService.findProductStock(
+          const product = ikasProducts.find((p) => p.id === item.ikasId);
+          if (!product) {
+            console.error(`Product ${item.ikasId} not found in Ikas`);
+            continue;
+          }
+          const productStocks = await this.accountingService.findProductStockByLocation(
             item.matchedProduct,
+            ikasLocation,
           );
           for (const stock of productStocks) {
-            if (!item.ikasId) continue;
-            const product = ikasProducts.find((p) => p.id === item.ikasId);
-            if (!product) {
-              console.error(`Product ${item.ikasId} not found in Ikas`);
-              continue;
-            }
             const location = locations.find(
               (loc) => loc._id === stock.location,
             );
@@ -1458,11 +1463,14 @@ export class IkasService {
         }));
 
         const data = {
-          query: `mutation {
-            saveProductStockLocations(input: {
-              productStockLocationInputs: ${JSON.stringify(productStockLocationInputs)}
-            })
+          query: `mutation saveProductStockLocations($input: SaveStockLocationsInput!) {
+            saveProductStockLocations(input: $input)
           }`,
+          variables: {
+            input: {
+              productStockLocationInputs: productStockLocationInputs
+            }
+          }
         };
 
         try {
@@ -1480,17 +1488,17 @@ export class IkasService {
           } else {
             console.error(`Batch ${Math.floor(i / batchSize) + 1} failed to update`);
           }
+          this.ikasGateway.emitIkasProductStockChanged();
+          console.log('Bulk stock update completed');
+          return { success: true, updatedCount: stockUpdates.length };
         } catch (error) {
           console.error(
             `Error updating batch ${Math.floor(i / batchSize) + 1}:`,
             JSON.stringify(error.response?.data || error.message, null, 2),
           );
+          return { success: false, updatedCount: 0 };
         }
       }
-
-      await this.ikasGateway.emitIkasProductStockChanged();
-      console.log('Bulk stock update completed');
-      return { success: true, updatedCount: stockUpdates.length };
     } catch (error) {
       console.log(error.response?.data?.errors || error.message);
       throw new HttpException(

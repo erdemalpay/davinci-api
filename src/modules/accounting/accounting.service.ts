@@ -10,7 +10,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType,
+  NotificationEventType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -46,7 +46,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct,
+  UpdateMultipleProduct
 } from './accounting.dto';
 import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
@@ -1757,6 +1757,11 @@ export class AccountingService {
   }
   async findProductStock(productId: string) {
     const stocks = await this.stockModel.find({ product: productId });
+    return stocks;
+  }
+  
+  async findProductStockByLocation(productId: string, location: number) {
+    const stocks = await this.stockModel.find({ product: productId, location: location });
     return stocks;
   }
 
