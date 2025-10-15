@@ -10,12 +10,13 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType
+  NotificationEventType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { UserService } from '../user/user.service';
 import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
 import { AssetService } from './../asset/asset.service';
@@ -46,7 +47,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
@@ -95,6 +96,7 @@ export class AccountingService {
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
+    private readonly userService: UserService,
     private readonly i18n: I18nService,
   ) {}
   //   Products
@@ -1759,9 +1761,12 @@ export class AccountingService {
     const stocks = await this.stockModel.find({ product: productId });
     return stocks;
   }
-  
+
   async findProductStockByLocation(productId: string, location: number) {
-    const stocks = await this.stockModel.find({ product: productId, location: location });
+    const stocks = await this.stockModel.find({
+      product: productId,
+      location: location,
+    });
     return stocks;
   }
 
@@ -2536,10 +2541,13 @@ export class AccountingService {
       before,
       sort,
       asc,
+      search, // <-- NEW
     } = query;
+
     const filter: FilterQuery<Count> = {};
     if (createdBy) filter.user = createdBy;
     if (countList) filter.countList = countList;
+
     if (location !== undefined && location !== null && `${location}` !== '') {
       const locNum =
         typeof location === 'string' ? Number(location) : (location as number);
@@ -2566,6 +2574,76 @@ export class AccountingService {
         filter.createdAt = rangeFilter;
       }
     }
+    if (search && `${search}`.trim() !== '') {
+      const raw = `${search}`.trim();
+      const [
+        searchedUserIds,
+        searchedCountListIds,
+        searchedProductIds,
+        searchedLocationIds,
+      ] = await Promise.all([
+        this.userService.searchUserIds(raw).catch(() => []),
+        this.countListModel
+          .find({ name: { $regex: new RegExp(raw, 'i') } })
+          .select('_id')
+          .lean()
+          .then((docs) => docs.map((d) => String(d._id)))
+          .catch(() => []),
+        this.productModel
+          .find({
+            $or: [
+              { name: { $regex: new RegExp(raw, 'i') } },
+              { sku: { $regex: new RegExp(raw, 'i') } },
+              { code: { $regex: new RegExp(raw, 'i') } },
+            ],
+          })
+          .select('_id')
+          .lean()
+          .then((docs) => docs.map((d) => String(d._id)))
+          .catch(() => []),
+        this.locationService?.searchLocationIds
+          ? this.locationService
+              .searchLocationIds(raw)
+              .then((ids: number[]) => ids)
+              .catch(() => [])
+          : [],
+      ]);
+
+      const numericSearch = Number(raw);
+      const isNumeric = !Number.isNaN(numericSearch);
+      const directIdMatch = raw.length > 0 ? [{ _id: raw }] : [];
+      const orList: FilterQuery<Count>[] = [];
+
+      if (searchedUserIds.length)
+        orList.push({ user: { $in: searchedUserIds } });
+      if (searchedCountListIds.length)
+        orList.push({ countList: { $in: searchedCountListIds } });
+      if (searchedProductIds.length) {
+        orList.push({
+          products: { $elemMatch: { product: { $in: searchedProductIds } } },
+        });
+      }
+      if (searchedLocationIds.length)
+        orList.push({ location: { $in: searchedLocationIds } });
+      if (isNumeric) orList.push({ location: numericSearch });
+      if (directIdMatch.length) orList.push(...directIdMatch);
+
+      if (!orList.length) {
+        orList.push(
+          { user: { $regex: new RegExp(raw, 'i') } },
+          { countList: { $regex: new RegExp(raw, 'i') } },
+          { _id: raw },
+        );
+      }
+      if (orList.length) {
+        const existing = Object.keys(filter).length ? [filter] : [];
+        (filter as any).$and = [...existing, { $or: orList }];
+        for (const k of Object.keys(filter)) {
+          if (k !== '$and') delete (filter as any)[k];
+        }
+      }
+    }
+
     const sortObject: Record<string, 1 | -1> = {};
     if (sort) {
       const dirRaw =
@@ -2578,6 +2656,7 @@ export class AccountingService {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
+
     const [data, totalNumber] = await Promise.all([
       this.countModel
         .find(filter)
@@ -2588,6 +2667,7 @@ export class AccountingService {
         .exec(),
       this.countModel.countDocuments(filter),
     ]);
+
     const totalPages = Math.ceil(totalNumber / limitNum);
     return {
       data,

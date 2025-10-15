@@ -135,6 +135,13 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findById(id).populate('role');
     return user;
   }
+  async searchUserIds(search: string) {
+    const searchUserIds = await this.userModel
+      .find({ name: { $regex: new RegExp(search, 'i') } })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
+    return searchUserIds;
+  }
 
   async findByIdWithoutPopulate(id: string) {
     const user = await this.userModel.findById(id);
