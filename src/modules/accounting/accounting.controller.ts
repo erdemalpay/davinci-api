@@ -649,6 +649,7 @@ export class AccountingController {
     @Query('after') after?: string,
     @Query('before') before?: string,
     @Query('sort') sort?: string,
+    @Query('search') search?: string,
     @Query('asc') asc?: number | '1' | '0' | '-1',
   ) {
     return this.accountingService.findQueryCounts({
@@ -661,6 +662,7 @@ export class AccountingController {
       after,
       before,
       sort,
+      search,
       asc: typeof asc === 'string' ? Number(asc) : asc,
     });
   }

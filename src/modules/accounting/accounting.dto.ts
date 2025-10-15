@@ -148,6 +148,7 @@ export class CountQueryDto {
   before?: string;
   sort?: string;
   asc?: number | '1' | '0' | '-1';
+  search?: string;
 }
 
 export class CreateExpenseDto {
