@@ -1175,10 +1175,11 @@ export class OrderService {
     return order;
   }
   async checkConfirmationTimeout(orderId: string) {
-    const order = await this.orderModel.findById(orderId).populate({
-      path: 'item',
-      select: 'name',
-    });
+    const order = await this.orderModel
+      .findById(orderId)
+      .populate({ path: 'item', select: 'name' })
+      .populate({ path: 'kitchen', select: 'name' });
+
     if (!order) {
       throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
     }
@@ -1206,7 +1207,7 @@ export class OrderService {
         'OrderNotConfirmedForMinutes',
         {
           args: {
-            brand: 'Farm Burger',
+            brand: (order?.kitchen as any)?.name,
             product: (order.item as any).name,
             minutes: 5,
           },
@@ -1217,7 +1218,7 @@ export class OrderService {
         selectedUsers: (uniqueVisitUsers as any) ?? [],
         selectedLocations: [2],
         seenBy: [],
-        event: NotificationEventType.FARMNOTCONFIRMED,
+        event: NotificationEventType.KITCHENNOTCONFIRMED,
         message: notificationMessage,
       });
     }

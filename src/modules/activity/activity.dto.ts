@@ -72,10 +72,8 @@ export enum ActivityType {
   UPDATE_RESERVATION = 'UPDATE_RESERVATION',
   UPDATE_AUTHORIZATION = 'UPDATE_AUTHORIZATION',
   UPDATE_ACCOUNT_PRODUCT = 'UPDATE_ACCOUNT_PRODUCT',
-  FARM_BURGER_ACTIVATED = 'FARM_BURGER_ACTIVATED',
-  FARM_BURGER_DEACTIVATED = 'FARM_BURGER_DEACTIVATED',
-  KOVADA_PILAV_ACTIVATED = 'KOVADA_PILAV_ACTIVATED',
-  KOVADA_PILAV_DEACTIVATED = 'KOVADA_PILAV_DEACTIVATED',
+  KITCHEN_ACTIVATED = 'KITCHEN_ACTIVATED',
+  KITCHEN_DEACTIVATED = 'KITCHEN_DEACTIVATED',
 }
 
 export type ActivityTypePayload = {
@@ -158,10 +156,8 @@ export type ActivityTypePayload = {
     currentAccountProduct: Product;
     newAccountProduct: Product;
   };
-  [ActivityType.FARM_BURGER_ACTIVATED]: void;
-  [ActivityType.FARM_BURGER_DEACTIVATED]: void;
-  [ActivityType.KOVADA_PILAV_ACTIVATED]: void;
-  [ActivityType.KOVADA_PILAV_DEACTIVATED]: void;
+  [ActivityType.KITCHEN_ACTIVATED]: { kitchen: string };
+  [ActivityType.KITCHEN_DEACTIVATED]: { kitchen: string };
 };
 
 export class ActivityQueryDto {
