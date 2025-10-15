@@ -1488,17 +1488,17 @@ export class IkasService {
           } else {
             console.error(`Batch ${Math.floor(i / batchSize) + 1} failed to update`);
           }
-          this.ikasGateway.emitIkasProductStockChanged();
-          console.log('Bulk stock update completed');
-          return { success: true, updatedCount: stockUpdates.length };
+          
         } catch (error) {
           console.error(
             `Error updating batch ${Math.floor(i / batchSize) + 1}:`,
             JSON.stringify(error.response?.data || error.message, null, 2),
           );
-          return { success: false, updatedCount: 0 };
         }
       }
+      this.ikasGateway.emitIkasProductStockChanged();
+      console.log('Bulk stock update completed');
+      return { success: true, updatedCount: stockUpdates.length };
     } catch (error) {
       console.log(error.response?.data?.errors || error.message);
       throw new HttpException(
