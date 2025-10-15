@@ -26,7 +26,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
@@ -332,8 +332,8 @@ export class MenuService {
 
   async getAllIkasItems() {
     const items = await this.itemModel.find({
-      ikasId: { $ne: null },
-      matchedProduct: { $ne: null },
+      ikasId: { $nin: [null, ''] },
+      matchedProduct: { $nin: [null, ''] },
       deleted: { $ne: true },
     });
     return items;
