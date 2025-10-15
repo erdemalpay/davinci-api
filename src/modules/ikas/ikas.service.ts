@@ -1420,7 +1420,7 @@ export class IkasService {
               continue;
             }
             const currentStock = variant.stocks?.find(
-              (s) => s.stockLocationId === location.ikasId,
+              (s: { stockLocationId: string }) => s.stockLocationId === location.ikasId,
             );
             if (!currentStock) continue;
             if (currentStock.stockCount !== stock.quantity) {
