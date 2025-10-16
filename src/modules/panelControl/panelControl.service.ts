@@ -14,8 +14,13 @@ import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
-import { CreatePageDto, CreatePanelSettingsDto } from './panelControl.dto';
+import {
+  CreateDisabledConditionDto,
+  CreatePageDto,
+  CreatePanelSettingsDto,
+} from './panelControl.dto';
 import { PanelControlGateway } from './panelControl.gateway';
 import { PanelSettings } from './panelSettings.schema';
 
@@ -23,14 +28,14 @@ import { PanelSettings } from './panelSettings.schema';
 export class PanelControlService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
-
+    @InjectModel(DisabledCondition.name)
+    private disabledConditionModel: Model<DisabledCondition>,
     @InjectModel(PanelSettings.name)
     private panelSettingsModel: Model<PanelSettings>,
     private readonly panelControlGateway: PanelControlGateway,
     private readonly redisService: RedisService,
     private readonly httpAdapterHost: HttpAdapterHost,
     private readonly httpService: HttpService,
-
     @Inject(forwardRef(() => AuthorizationService))
     private readonly authorizationService: AuthorizationService,
   ) {}
@@ -224,5 +229,57 @@ export class PanelControlService implements OnApplicationBootstrap {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+  //disabled conditions
+  async findAllDisabledConditions() {
+    try {
+      const conditions = await this.disabledConditionModel.find();
+      return conditions;
+    } catch (error) {
+      console.error(
+        'Failed to retrieve disabled conditions from database:',
+        error,
+      );
+      throw new HttpException(
+        'Could not retrieve disabled conditions',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  async createDisabledCondition(
+    user: User,
+    createDto: CreateDisabledConditionDto,
+  ) {
+    const condition = new this.disabledConditionModel(createDto);
+    condition._id = usernamify(condition.name);
+    await condition.save();
+    this.panelControlGateway.emitDisabledConditionChanged(user, condition);
+    return condition;
+  }
+  async updateDisabledCondition(
+    user: User,
+    id: string,
+    updates: UpdateQuery<DisabledCondition>,
+  ) {
+    const newCondition = await this.disabledConditionModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.panelControlGateway.emitDisabledConditionChanged(user, newCondition);
+
+    return newCondition;
+  }
+  async getDisabledCondition(id: string) {
+    const condition = await this.disabledConditionModel.findById(id);
+    return condition;
+  }
+  async removeDisabledCondition(user: User, id: string) {
+    const condition = await this.disabledConditionModel.findByIdAndRemove(id);
+    this.panelControlGateway.emitDisabledConditionChanged(user, condition);
+    return condition;
   }
 }

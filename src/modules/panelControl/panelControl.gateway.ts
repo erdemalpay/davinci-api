@@ -51,4 +51,7 @@ export class PanelControlGateway
   emitPanelSettingsChanged(user: User, panelSettings: any) {
     this.server.emit('panelSettingsChanged', { user, panelSettings });
   }
+  emitDisabledConditionChanged(user: User, disabledCondition: any) {
+    this.server.emit('disabledConditionChanged', { user, disabledCondition });
+  }
 }
