@@ -2190,12 +2190,29 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-        const notificationMessage = (await this.i18n.t('StockZeroReached', {
+        const translationArgs = {
           args: {
             product: foundProduct.name,
             location: stockLocation.name,
           },
-        })) as string;
+        };
+
+        const [
+          notificationMessage,
+          notificationMessageEn,
+          notificationMessageTr,
+        ] = await Promise.all([
+          this.i18n.t('StockZeroReached', translationArgs) as Promise<string>,
+          this.i18n.t('StockZeroReached', {
+            ...translationArgs,
+            lang: 'en',
+          }) as Promise<string>,
+          this.i18n.t('StockZeroReached', {
+            ...translationArgs,
+            lang: 'tr',
+          }) as Promise<string>,
+        ]);
+
         const notificationDto: CreateNotificationDto = {
           type: zeroNotificationEvent.type,
           createdBy: zeroNotificationEvent.createdBy,
@@ -2205,6 +2222,8 @@ export class AccountingService {
           seenBy: [],
           event: NotificationEventType.ZEROSTOCK,
           message: notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         };
 
         await this.notificationService.createNotification(
@@ -2222,12 +2241,32 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-        const notificationMessage = (await this.i18n.t('StockNegativeReached', {
+        const translationArgs = {
           args: {
             product: foundProduct.name,
             location: stockLocation.name,
           },
-        })) as string;
+        };
+
+        const [
+          notificationMessage,
+          notificationMessageEn,
+          notificationMessageTr,
+        ] = await Promise.all([
+          this.i18n.t(
+            'StockNegativeReached',
+            translationArgs,
+          ) as Promise<string>,
+          this.i18n.t('StockNegativeReached', {
+            ...translationArgs,
+            lang: 'en',
+          }) as Promise<string>,
+          this.i18n.t('StockNegativeReached', {
+            ...translationArgs,
+            lang: 'tr',
+          }) as Promise<string>,
+        ]);
+
         const notificationDto: CreateNotificationDto = {
           type: negativeNotificationEvent.type,
           createdBy: negativeNotificationEvent.createdBy,
@@ -2237,6 +2276,8 @@ export class AccountingService {
           seenBy: [],
           event: NotificationEventType.NEGATIVESTOCK,
           message: negativeNotificationEvent.message || notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         };
         await this.notificationService.createNotification(
           notificationDto,
@@ -2259,14 +2300,31 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-        const notificationMessage = (await this.i18n.t('LossProduct', {
+        const translationArgs = {
           args: {
             quantity: consumptStockDto.quantity,
             product: foundProduct.name,
             location: stockLocation.name,
             unitWord: consumptStockDto.quantity === 1 ? 'unit' : 'units',
           },
-        })) as string;
+        };
+
+        const [
+          notificationMessage,
+          notificationMessageEn,
+          notificationMessageTr,
+        ] = await Promise.all([
+          this.i18n.t('LossProduct', translationArgs) as Promise<string>,
+          this.i18n.t('LossProduct', {
+            ...translationArgs,
+            lang: 'en',
+          }) as Promise<string>,
+          this.i18n.t('LossProduct', {
+            ...translationArgs,
+            lang: 'tr',
+          }) as Promise<string>,
+        ]);
+
         const notificationDto: CreateNotificationDto = {
           type: lossProductEvent.type,
           createdBy: lossProductEvent.createdBy,
@@ -2276,6 +2334,8 @@ export class AccountingService {
           seenBy: [],
           event: NotificationEventType.LOSSPRODUCT,
           message: notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         };
         await this.notificationService.createNotification(
           notificationDto,
@@ -2714,13 +2774,30 @@ export class AccountingService {
         const countLocation = locations.find(
           (location) => location._id === count.location,
         );
-        const notificationMessage = (await this.i18n.t('CountListCompleted', {
+        const translationArgs = {
           args: {
             user: user?.name,
             location: countLocation?.name,
             list: countList?.name,
           },
-        })) as string;
+        };
+
+        const [
+          notificationMessage,
+          notificationMessageEn,
+          notificationMessageTr,
+        ] = await Promise.all([
+          this.i18n.t('CountListCompleted', translationArgs) as Promise<string>,
+          this.i18n.t('CountListCompleted', {
+            ...translationArgs,
+            lang: 'en',
+          }) as Promise<string>,
+          this.i18n.t('CountListCompleted', {
+            ...translationArgs,
+            lang: 'tr',
+          }) as Promise<string>,
+        ]);
+
         const notificationDto: CreateNotificationDto = {
           type: notificationEvent.type,
           createdBy: notificationEvent.createdBy,
@@ -2730,6 +2807,8 @@ export class AccountingService {
           seenBy: [],
           event: NotificationEventType.COMPLETECOUNT,
           message: notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         };
 
         await this.notificationService.createNotification(
