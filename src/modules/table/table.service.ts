@@ -549,13 +549,28 @@ export class TableService {
     });
 
     if (unclosedTables.length > 0) {
-      const notificationMessage = (await this.i18n.t('UnclosedTablesToday', {
+      const translationArgs = {
         args: {
           count: unclosedTables.length,
           beVerb: unclosedTables.length === 1 ? 'is' : 'are',
           tableWord: unclosedTables.length === 1 ? 'table' : 'tables',
         },
-      })) as string;
+      };
+      const [
+        notificationMessage,
+        notificationMessageEn,
+        notificationMessageTr,
+      ] = await Promise.all([
+        this.i18n.t('UnclosedTablesToday', translationArgs) as Promise<string>,
+        this.i18n.t('UnclosedTablesToday', {
+          ...translationArgs,
+          lang: 'en',
+        }) as Promise<string>,
+        this.i18n.t('UnclosedTablesToday', {
+          ...translationArgs,
+          lang: 'tr',
+        }) as Promise<string>,
+      ]);
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
         selectedUsers: [],
@@ -564,6 +579,8 @@ export class TableService {
         seenBy: [],
         event: NotificationEventType.NIGHTOPENTABLE,
         message: notificationMessage,
+        messageEn: notificationMessageEn,
+        messageTr: notificationMessageTr,
       });
     } else {
       this.logger.log('No unclosed tables found');

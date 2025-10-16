@@ -4,7 +4,10 @@ import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { I18nService } from 'nestjs-i18n';
 import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
-import { NotificationEventType } from '../notification/notification.dto';
+import {
+  NotificationEventType,
+  NotificationType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { Check } from './check.schema';
@@ -185,23 +188,40 @@ export class ChecklistService {
       const unCompletedDuties = check?.duties?.filter(
         (duty) => !duty.isCompleted,
       );
-      const notificationMessage = (await this.i18n.t('UncompletedDuties', {
+      const translationArgs = {
         args: {
           count: unCompletedDuties.length,
           dutyWord: unCompletedDuties.length === 1 ? 'duty' : 'duties',
           checklist: check.checklist,
           user: check.user,
         },
-      })) as string;
+      };
+      const [
+        notificationMessage,
+        notificationMessageEn,
+        notificationMessageTr,
+      ] = await Promise.all([
+        this.i18n.t('UncompletedDuties', translationArgs) as Promise<string>,
+        this.i18n.t('UncompletedDuties', {
+          ...translationArgs,
+          lang: 'en',
+        }) as Promise<string>,
+        this.i18n.t('UncompletedDuties', {
+          ...translationArgs,
+          lang: 'tr',
+        }) as Promise<string>,
+      ]);
       if (unCompletedDuties?.length > 0) {
         await this.notificationService.createNotification({
-          type: 'WARNING',
+          type: NotificationType.WARNING,
           selectedUsers: [],
           selectedLocations: [],
           selectedRoles: [1],
           seenBy: [],
           event: NotificationEventType.UNCOMPLETEDCHECKLIST,
           message: notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         });
       }
     }

@@ -2314,12 +2314,12 @@ export class AccountingService {
           notificationMessageEn,
           notificationMessageTr,
         ] = await Promise.all([
-          this.i18n.t('LossProduct', translationArgs) as Promise<string>,
-          this.i18n.t('LossProduct', {
+          this.i18n.t('StockLossRecorded', translationArgs) as Promise<string>,
+          this.i18n.t('StockLossRecorded', {
             ...translationArgs,
             lang: 'en',
           }) as Promise<string>,
-          this.i18n.t('LossProduct', {
+          this.i18n.t('StockLossRecorded', {
             ...translationArgs,
             lang: 'tr',
           }) as Promise<string>,

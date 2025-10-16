@@ -64,13 +64,29 @@ export class VisitService {
     });
     if (foundShift) {
       if (createVisitDto.startHour > foundShift.shift) {
-        const notificationMessage = (await this.i18n.t('ShiftLateNotice', {
+        const translationArgs = {
           args: {
             user: user.name,
             shift: foundShift.shift,
             enteredAt: createVisitDto.startHour,
           },
-        })) as string;
+        };
+        const [
+          notificationMessage,
+          notificationMessageEn,
+          notificationMessageTr,
+        ] = await Promise.all([
+          this.i18n.t('ShiftLateNotice', translationArgs) as Promise<string>,
+          this.i18n.t('ShiftLateNotice', {
+            ...translationArgs,
+            lang: 'en',
+          }) as Promise<string>,
+          this.i18n.t('ShiftLateNotice', {
+            ...translationArgs,
+            lang: 'tr',
+          }) as Promise<string>,
+        ]);
+
         await this.notificationService.createNotification({
           type: 'WARNING',
           selectedUsers: [user._id],
@@ -78,6 +94,8 @@ export class VisitService {
           seenBy: [],
           event: NotificationEventType.LATESHIFTSTART,
           message: notificationMessage,
+          messageEn: notificationMessageEn,
+          messageTr: notificationMessageTr,
         });
       }
     }
@@ -273,16 +291,31 @@ export class VisitService {
       });
       if (foundShift && foundShift.shiftEndHour) {
         if (cafeVisitDto.hour < foundShift.shiftEndHour) {
-          const notificationMessage = (await this.i18n.t(
-            'ShiftEndEarlyNotice',
-            {
-              args: {
-                user: user.name,
-                shiftEnd: foundShift.shiftEndHour,
-                exitedAt: cafeVisitDto.hour,
-              },
+          const translationArgs = {
+            args: {
+              user: user.name,
+              shiftEnd: foundShift.shiftEndHour,
+              exitedAt: cafeVisitDto.hour,
             },
-          )) as string;
+          };
+          const [
+            notificationMessage,
+            notificationMessageEn,
+            notificationMessageTr,
+          ] = await Promise.all([
+            this.i18n.t(
+              'ShiftEndEarlyNotice',
+              translationArgs,
+            ) as Promise<string>,
+            this.i18n.t('ShiftEndEarlyNotice', {
+              ...translationArgs,
+              lang: 'en',
+            }) as Promise<string>,
+            this.i18n.t('ShiftEndEarlyNotice', {
+              ...translationArgs,
+              lang: 'tr',
+            }) as Promise<string>,
+          ]);
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
@@ -290,6 +323,8 @@ export class VisitService {
             seenBy: [],
             event: NotificationEventType.EARLYSHIFTEND,
             message: notificationMessage,
+            messageEn: notificationMessageEn,
+            messageTr: notificationMessageTr,
           });
         }
       }

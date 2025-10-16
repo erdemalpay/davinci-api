@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
 import {
   NotificationEventType,
-  NotificationType
+  NotificationType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
@@ -1185,15 +1185,29 @@ export class IkasService {
                       { unique: [], seenUsers: {} },
                     )
                     ?.unique?.map((visit) => visit.user) ?? [];
-
-                const notificationMessage = (await this.i18n.t(
-                  'IkasPickupOrderArrived',
-                  {
-                    args: {
-                      product: foundMenuItem.name,
-                    },
+                const translationArgs = {
+                  args: {
+                    product: foundMenuItem.name,
                   },
-                )) as string;
+                };
+                const [
+                  notificationMessage,
+                  notificationMessageEn,
+                  notificationMessageTr,
+                ] = await Promise.all([
+                  this.i18n.t(
+                    'IkasPickupOrderArrived',
+                    translationArgs,
+                  ) as Promise<string>,
+                  this.i18n.t('IkasPickupOrderArrived', {
+                    ...translationArgs,
+                    lang: 'en',
+                  }) as Promise<string>,
+                  this.i18n.t('IkasPickupOrderArrived', {
+                    ...translationArgs,
+                    lang: 'tr',
+                  }) as Promise<string>,
+                ]);
                 await this.notificationService.createNotification({
                   type: NotificationType.INFORMATION,
                   selectedUsers: (uniqueVisitUsers as any) ?? [],
@@ -1201,6 +1215,8 @@ export class IkasService {
                   seenBy: [],
                   event: NotificationEventType.IKASTAKEAWAY,
                   message: notificationMessage,
+                  messageEn: notificationMessageEn,
+                  messageTr: notificationMessageTr,
                 });
               }
             }
@@ -1387,8 +1403,9 @@ export class IkasService {
       const ikasProducts = await this.getAllProducts();
       const locations = await this.locationService.findAllLocations();
 
-      const ikasLocation = locations.find((loc) => !!loc.ikasId)?._id || NEORAMA_DEPO_LOCATION;
-      
+      const ikasLocation =
+        locations.find((loc) => !!loc.ikasId)?._id || NEORAMA_DEPO_LOCATION;
+
       // Collect all stock updates that need to be made
       const stockUpdates: Array<{
         productId: string;
@@ -1405,10 +1422,11 @@ export class IkasService {
             console.error(`Product ${item.ikasId} not found in Ikas`);
             continue;
           }
-          const productStocks = await this.accountingService.findProductStockByLocation(
-            item.matchedProduct,
-            ikasLocation,
-          );
+          const productStocks =
+            await this.accountingService.findProductStockByLocation(
+              item.matchedProduct,
+              ikasLocation,
+            );
           for (const stock of productStocks) {
             const location = locations.find(
               (loc) => loc._id === stock.location,
@@ -1420,7 +1438,8 @@ export class IkasService {
               continue;
             }
             const currentStock = variant.stocks?.find(
-              (s: { stockLocationId: string }) => s.stockLocationId === location.ikasId,
+              (s: { stockLocationId: string }) =>
+                s.stockLocationId === location.ikasId,
             );
             if (!currentStock) continue;
             if (currentStock.stockCount !== stock.quantity) {
@@ -1454,8 +1473,8 @@ export class IkasService {
 
       for (let i = 0; i < stockUpdates.length; i += batchSize) {
         const batch = stockUpdates.slice(i, i + batchSize);
-        
-        const productStockLocationInputs = batch.map(update => ({
+
+        const productStockLocationInputs = batch.map((update) => ({
           productId: update.productId,
           variantId: update.variantId,
           stockLocationId: update.stockLocationId,
@@ -1468,9 +1487,9 @@ export class IkasService {
           }`,
           variables: {
             input: {
-              productStockLocationInputs: productStockLocationInputs
-            }
-          }
+              productStockLocationInputs: productStockLocationInputs,
+            },
+          },
         };
 
         try {
@@ -1484,11 +1503,14 @@ export class IkasService {
             .toPromise();
 
           if (response.data.data.saveProductStockLocations) {
-            console.log(`Batch ${Math.floor(i / batchSize) + 1} updated successfully`);
+            console.log(
+              `Batch ${Math.floor(i / batchSize) + 1} updated successfully`,
+            );
           } else {
-            console.error(`Batch ${Math.floor(i / batchSize) + 1} failed to update`);
+            console.error(
+              `Batch ${Math.floor(i / batchSize) + 1} failed to update`,
+            );
           }
-          
         } catch (error) {
           console.error(
             `Error updating batch ${Math.floor(i / batchSize) + 1}:`,
