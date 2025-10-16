@@ -16,6 +16,12 @@ export class Notification extends Document {
   @Prop({ required: false, type: String })
   message: string;
 
+  @Prop({ required: false, type: String })
+  messageEn: string;
+
+  @Prop({ required: false, type: String })
+  messageTr: string;
+
   @Prop({ required: false, type: String, ref: User.name })
   createdBy: string;
 
