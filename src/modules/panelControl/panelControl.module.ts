@@ -1,9 +1,11 @@
 import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { Action } from 'rxjs/internal/scheduler/Action';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { RedisModule } from './../redis/redis.module';
+import { ActionSchema } from './action.schema';
 import {
   DisabledCondition,
   DisabledConditionSchema,
@@ -17,6 +19,7 @@ import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Page.name, useFactory: () => PageSchema },
   { name: DisabledCondition.name, useFactory: () => DisabledConditionSchema },
+  { name: Action.name, useFactory: () => ActionSchema },
 
   createAutoIncrementConfig(PanelSettings.name, PanelSettingsSchema),
 ]);

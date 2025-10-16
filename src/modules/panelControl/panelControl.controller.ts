@@ -10,8 +10,11 @@ import {
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { Action } from './action.schema';
+import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
 import {
+  CreateActionDto,
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
@@ -106,7 +109,7 @@ export class PanelControlController {
   updateDisabledCondition(
     @ReqUser() user: User,
     @Param('id') id: string,
-    @Body() updates: UpdateQuery<CreateDisabledConditionDto>,
+    @Body() updates: UpdateQuery<DisabledCondition>,
   ) {
     return this.panelControlService.updateDisabledCondition(user, id, updates);
   }
@@ -119,5 +122,26 @@ export class PanelControlController {
   @Delete('/disabled-conditions/:id')
   deleteDisabledCondition(@ReqUser() user: User, @Param('id') id: string) {
     return this.panelControlService.removeDisabledCondition(user, id);
+  }
+
+  //actions
+  @Get('/actions')
+  getActions() {
+    return this.panelControlService.findAllActions();
+  }
+
+  @Post('/actions')
+  createAction(@Body() createActionDto: CreateActionDto) {
+    return this.panelControlService.createAction(createActionDto);
+  }
+
+  @Patch('/actions/:id')
+  updateAction(@Param('id') id: string, @Body() updates: UpdateQuery<Action>) {
+    return this.panelControlService.updateAction(id, updates);
+  }
+
+  @Delete('/actions/:id')
+  deleteAction(@Param('id') id: string) {
+    return this.panelControlService.removeAction(id);
   }
 }

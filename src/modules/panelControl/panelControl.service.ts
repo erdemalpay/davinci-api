@@ -14,9 +14,11 @@ import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
 import {
+  CreateActionDto,
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
@@ -28,6 +30,7 @@ import { PanelSettings } from './panelSettings.schema';
 export class PanelControlService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
+    @InjectModel(Action.name) private actionModel: Model<Action>,
     @InjectModel(DisabledCondition.name)
     private disabledConditionModel: Model<DisabledCondition>,
     @InjectModel(PanelSettings.name)
@@ -251,12 +254,21 @@ export class PanelControlService implements OnApplicationBootstrap {
     user: User,
     createDto: CreateDisabledConditionDto,
   ) {
-    const condition = new this.disabledConditionModel(createDto);
+    const condition = new this.disabledConditionModel({
+      ...createDto,
+      actions:
+        createDto?.actions?.map((action) => ({
+          action: action,
+          permissionsRoles: [],
+        })) || [],
+    });
+
     condition._id = usernamify(condition.name);
     await condition.save();
     this.panelControlGateway.emitDisabledConditionChanged(user, condition);
     return condition;
   }
+
   async updateDisabledCondition(
     user: User,
     id: string,
@@ -281,5 +293,40 @@ export class PanelControlService implements OnApplicationBootstrap {
     const condition = await this.disabledConditionModel.findByIdAndRemove(id);
     this.panelControlGateway.emitDisabledConditionChanged(user, condition);
     return condition;
+  }
+  //actions
+  async findAllActions() {
+    try {
+      const actions = await this.actionModel.find();
+      return actions;
+    } catch (error) {
+      console.error('Failed to retrieve actions from database:', error);
+      throw new HttpException(
+        'Could not retrieve actions',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  async createAction(createActionDto: CreateActionDto) {
+    const action = new this.actionModel(createActionDto);
+    action._id = usernamify(action.name);
+    await action.save();
+    this.panelControlGateway.emitActionChanged(action);
+    return action;
+  }
+
+  async updateAction(id: string, updates: UpdateQuery<Action>) {
+    const newAction = await this.actionModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    this.panelControlGateway.emitActionChanged(newAction);
+    return newAction;
+  }
+
+  async removeAction(id: string) {
+    const action = await this.actionModel.findByIdAndRemove(id);
+    this.panelControlGateway.emitActionChanged(action);
+    return action;
   }
 }
