@@ -27,7 +27,7 @@ export class CreateOrderDto {
   isOnlinePrice?: boolean;
   isReturned?: boolean;
   stockLocation?: number;
-  discountNote?: string;
+  discountNote?: string | string[];
   kitchen?: string;
   stockNote?: string;
   paymentMethod?: string;
