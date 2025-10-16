@@ -11,7 +11,11 @@ import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { Page } from './page.schema';
-import { CreatePageDto, CreatePanelSettingsDto } from './panelControl.dto';
+import {
+  CreateDisabledConditionDto,
+  CreatePageDto,
+  CreatePanelSettingsDto,
+} from './panelControl.dto';
 import { PanelControlService } from './panelControl.service';
 
 @Controller('panel-control')
@@ -81,5 +85,39 @@ export class PanelControlController {
       message,
       languageCode,
     );
+  }
+  //disabled conditions
+  @Get('/disabled-conditions')
+  getDisabledConditions() {
+    return this.panelControlService.findAllDisabledConditions();
+  }
+  @Post('/disabled-conditions')
+  createDisabledCondition(
+    @ReqUser() user: User,
+    @Body() createDisabledConditionDto: CreateDisabledConditionDto,
+  ) {
+    return this.panelControlService.createDisabledCondition(
+      user,
+      createDisabledConditionDto,
+    );
+  }
+
+  @Patch('/disabled-conditions/:id')
+  updateDisabledCondition(
+    @ReqUser() user: User,
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<CreateDisabledConditionDto>,
+  ) {
+    return this.panelControlService.updateDisabledCondition(user, id, updates);
+  }
+
+  @Get('/disabled-conditions/:id')
+  getDisabledCondition(@Param('id') id: string) {
+    return this.panelControlService.getDisabledCondition(id);
+  }
+
+  @Delete('/disabled-conditions/:id')
+  deleteDisabledCondition(@ReqUser() user: User, @Param('id') id: string) {
+    return this.panelControlService.removeDisabledCondition(user, id);
   }
 }

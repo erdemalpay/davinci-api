@@ -10,3 +10,9 @@ export class CreatePanelSettingsDto {
   isHoliday: boolean;
   isVisitEntryDisabled: boolean;
 }
+
+export class CreateDisabledConditionDto {
+  _id: string;
+  name: string;
+  permissionRoles: number[];
+}
