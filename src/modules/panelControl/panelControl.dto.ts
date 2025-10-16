@@ -1,3 +1,4 @@
+import { Actions } from './disabledCondition.schema';
 import { PageTab } from './page.schema';
 
 export class CreatePageDto {
@@ -14,5 +15,10 @@ export class CreatePanelSettingsDto {
 export class CreateDisabledConditionDto {
   _id: string;
   name: string;
-  permissionRoles: number[];
+  page: string;
+  actions: Actions[];
+}
+
+export class CreateActionDto {
+  name: string;
 }
