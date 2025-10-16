@@ -922,6 +922,10 @@ export class OrderService {
       if (order.quantity <= 0) {
         continue;
       }
+
+      if (Array.isArray(order.discountNote)) {
+        order.discountNote = order.discountNote.join(',');
+      }
       const createdOrder = new this.orderModel({
         ...order,
         tableDate: table.date,
@@ -1048,12 +1052,16 @@ export class OrderService {
     return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
+    console.group('createOrder', createOrderDto);
     const users = await this.userService.findAllUsers();
     if (createOrderDto.quantity <= 0) {
       throw new HttpException(
         'Quantity must be greater than 0',
         HttpStatus.BAD_REQUEST,
       );
+    }
+    if (Array.isArray(createOrderDto.discountNote)) {
+      createOrderDto.discountNote = createOrderDto.discountNote.join(',');
     }
 
     // Check if table is closed (finishHour exists)
