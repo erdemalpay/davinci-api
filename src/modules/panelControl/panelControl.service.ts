@@ -258,7 +258,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       ...createDto,
       actions:
         createDto?.actions?.map((action) => ({
-          name: action,
+          action: action,
           permissionsRoles: [],
         })) || [],
     });
