@@ -274,9 +274,27 @@ export class MenuService {
       ? 'Status.Activated'
       : 'Status.Deactivated';
     const status = await this.i18n.t(statusKey);
-    const notificationMessage = (await this.i18n.t('BrandActivationStatus', {
-      args: { brand: category.name, status },
-    })) as string;
+    const translationArgs = {
+      args: {
+        brand: category.name,
+        status,
+      },
+    };
+    const [notificationMessage, notificationMessageEn, notificationMessageTr] =
+      await Promise.all([
+        this.i18n.t(
+          'BrandActivationStatus',
+          translationArgs,
+        ) as Promise<string>,
+        this.i18n.t('BrandActivationStatus', {
+          ...translationArgs,
+          lang: 'en',
+        }) as Promise<string>,
+        this.i18n.t('BrandActivationStatus', {
+          ...translationArgs,
+          lang: 'tr',
+        }) as Promise<string>,
+      ]);
     await this.notificationService.createNotification({
       type: updates?.active ? 'INFORMATION' : 'WARNING',
       selectedUsers: (uniqueVisitUsers as any) ?? [],
@@ -286,6 +304,8 @@ export class MenuService {
         ? NotificationEventType.KITCHENACTIVATED
         : NotificationEventType.KITCHENDEACTIVATED,
       message: notificationMessage,
+      messageEn: notificationMessageEn,
+      messageTr: notificationMessageTr,
     });
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
