@@ -74,6 +74,7 @@ export enum ActivityType {
   UPDATE_ACCOUNT_PRODUCT = 'UPDATE_ACCOUNT_PRODUCT',
   KITCHEN_ACTIVATED = 'KITCHEN_ACTIVATED',
   KITCHEN_DEACTIVATED = 'KITCHEN_DEACTIVATED',
+  ORDER_DIVIDED = 'ORDER_DIVIDED',
 }
 
 export type ActivityTypePayload = {
@@ -158,6 +159,7 @@ export type ActivityTypePayload = {
   };
   [ActivityType.KITCHEN_ACTIVATED]: { kitchen: string };
   [ActivityType.KITCHEN_DEACTIVATED]: { kitchen: string };
+  [ActivityType.ORDER_DIVIDED]: { currentOrder: Order; newOrder: Order };
 };
 
 export class ActivityQueryDto {

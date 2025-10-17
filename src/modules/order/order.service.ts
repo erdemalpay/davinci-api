@@ -2425,6 +2425,15 @@ export class OrderService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+      try {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.ORDER_DIVIDED,
+          { currentOrder: oldOrder.toObject(), newOrder: newOrder.toObject() },
+        );
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
     }
     return orders;
   }
