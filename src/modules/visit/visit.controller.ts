@@ -90,7 +90,7 @@ export class VisitController {
   }
 
   @Delete('/:id')
-  removeVisit(@Param('id') id: number) {
-    return this.visitService.remove(id);
+  removeVisit(@ReqUser() user: User, @Param('id') id: number) {
+    return this.visitService.remove(user, id);
   }
 }

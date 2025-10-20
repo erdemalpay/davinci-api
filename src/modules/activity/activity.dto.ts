@@ -16,6 +16,7 @@ import { Vendor } from './../accounting/vendor.schema';
 import { Game } from './../game/game.schema';
 import { MenuItem } from './../menu/item.schema';
 import { Order } from './../order/order.schema';
+import { Visit } from './../visit/visit.schema';
 export class ActivityDto {
   @IsNumber()
   _id: number;
@@ -75,6 +76,7 @@ export enum ActivityType {
   KITCHEN_ACTIVATED = 'KITCHEN_ACTIVATED',
   KITCHEN_DEACTIVATED = 'KITCHEN_DEACTIVATED',
   ORDER_DIVIDED = 'ORDER_DIVIDED',
+  DELETE_VISIT = 'DELETE_VISIT',
 }
 
 export type ActivityTypePayload = {
@@ -160,6 +162,7 @@ export type ActivityTypePayload = {
   [ActivityType.KITCHEN_ACTIVATED]: { kitchen: string };
   [ActivityType.KITCHEN_DEACTIVATED]: { kitchen: string };
   [ActivityType.ORDER_DIVIDED]: { currentOrder: Order; newOrder: Order };
+  [ActivityType.DELETE_VISIT]: Visit;
 };
 
 export class ActivityQueryDto {
