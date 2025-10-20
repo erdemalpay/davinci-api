@@ -39,6 +39,7 @@ export class ButtonCallService {
       type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
       location: createButtonCallDto.location,
       finishHour: { $exists: false },
+      date: format(new Date(), 'yyyy-MM-dd'),
     });
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
