@@ -9,7 +9,7 @@ import { ActivityService } from './activity.service';
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Activity.name, ActivitySchema),
 ]);
-//deneme
+
 @Module({
   imports: [mongooseModule],
   providers: [ActivityService, ActivityGateway],
