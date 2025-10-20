@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { I18nService } from 'nestjs-i18n';
+import { ActivityService } from '../activity/activity.service';
+import { ActivityType } from '../activity/activity.dto';
 import { LocationService } from '../location/location.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -31,6 +33,7 @@ export class VisitService {
     private readonly locationService: LocationService,
     private readonly shiftService: ShiftService,
     private readonly i18n: I18nService,
+    private readonly activityService: ActivityService,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -120,11 +123,22 @@ export class VisitService {
     this.visitGateway.emitVisitChanged(user, visit);
     return visit;
   }
-  async remove(id: number) {
+  async remove(user: User, id: number) {
     const visit = await this.visitModel.findByIdAndDelete(id);
     if (!visit) {
       throw new NotFoundException(`Visit with id ${id} not found`);
     }
+
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.DELETE_VISIT,
+        visit,
+      );
+    } catch (error) {
+      console.error('Failed to add activity:', error);
+    }
+
     this.visitGateway.emitVisitChanged(visit.user, visit);
     return visit;
   }
