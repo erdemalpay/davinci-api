@@ -942,6 +942,12 @@ export class OrderService {
         if (!discount) {
           throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
         }
+        if (discount?.isNoteRequired && !order.discountNote) {
+          throw new HttpException(
+            'Discount note is required for this discount',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
         if (discount?.percentage) {
           createdOrder.discountPercentage = discount.percentage;
           if (createdOrder.discountPercentage >= 100) {
@@ -1086,6 +1092,12 @@ export class OrderService {
 
       if (!discount) {
         throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
+      }
+      if (discount?.isNoteRequired && !createOrderDto.discountNote) {
+        throw new HttpException(
+          'Discount note is required for this discount',
+          HttpStatus.BAD_REQUEST,
+        );
       }
       order.discount = discount._id;
       if (discount?.percentage) {
