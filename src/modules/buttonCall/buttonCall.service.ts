@@ -49,7 +49,7 @@ export class ButtonCallService {
     }
 
     try {
-      const createdButtonCall = new this.buttonCallModel({
+      const createdButtonCall = await this.buttonCallModel.create({
         ...createButtonCallDto,
         date: format(new Date(), 'yyyy-MM-dd'),
         type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
@@ -57,7 +57,6 @@ export class ButtonCallService {
         ...(user && { createdBy: user._id }),
       });
       this.buttonCallGateway.emitButtonCallChanged(createdButtonCall);
-      await createdButtonCall.save();
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -313,6 +312,66 @@ export class ButtonCallService {
       page: pageNum,
       limit: limitNum,
     };
+  }
+  async getTodayQueuePositionsByType(query: {
+    tableName: string;
+    location?: number;
+  }) {
+    const { tableName, location } = query;
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const filter: Record<string, any> = {
+      finishHour: { $exists: false },
+      createdAt: { $gte: start, $lte: end },
+      date: format(new Date(), 'yyyy-MM-dd'),
+    };
+    if (location !== undefined) filter.location = location;
+
+    type Row = { tableName: string; createdAt: Date; type: string };
+
+    const activeToday = await this.buttonCallModel
+      .find(filter)
+      .select({ tableName: 1, createdAt: 1, type: 1 })
+      .sort({ type: 1, createdAt: 1 })
+      .lean<Row[]>()
+      .exec();
+
+    const byType: Record<
+      string,
+      {
+        isQueued: boolean;
+        position: number | null;
+        waitingCount: number;
+        totalActive: number;
+      }
+    > = {};
+
+    const groups: Record<string, Row[]> = {};
+    for (const d of activeToday) {
+      (groups[d.type] ??= []).push(d);
+    }
+
+    for (const [type, list] of Object.entries(groups)) {
+      const index = list.findIndex((d) => d.tableName === tableName);
+      const totalActive = list.length;
+
+      byType[type] =
+        index === -1
+          ? { isQueued: false, position: null, waitingCount: 0, totalActive }
+          : {
+              isQueued: true,
+              position: index + 1,
+              waitingCount: index,
+              totalActive,
+            };
+    }
+
+    return byType;
   }
 
   async remove(id: number) {
