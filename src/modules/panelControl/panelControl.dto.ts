@@ -22,3 +22,10 @@ export class CreateDisabledConditionDto {
 export class CreateActionDto {
   name: string;
 }
+
+export class CreateTaskTrackDto {
+  task: string;
+  users: string[];
+  type: string[];
+  createdAt: string;
+}

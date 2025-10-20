@@ -18,8 +18,10 @@ import {
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
+  CreateTaskTrackDto,
 } from './panelControl.dto';
 import { PanelControlService } from './panelControl.service';
+import { TaskTrack } from './taskTrack.schema';
 
 @Controller('panel-control')
 export class PanelControlController {
@@ -143,5 +145,29 @@ export class PanelControlController {
   @Delete('/actions/:id')
   deleteAction(@Param('id') id: string) {
     return this.panelControlService.removeAction(id);
+  }
+
+  //task tracks
+  @Get('/task-tracks')
+  getTaskTracks() {
+    return this.panelControlService.findAllTaskTracks();
+  }
+
+  @Post('/task-tracks')
+  createTaskTrack(@Body() createTaskTrackDto: CreateTaskTrackDto) {
+    return this.panelControlService.createTaskTrack(createTaskTrackDto);
+  }
+
+  @Patch('/task-tracks/:id')
+  updateTaskTrack(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<TaskTrack>,
+  ) {
+    return this.panelControlService.updateTaskTrack(id, updates);
+  }
+
+  @Delete('/task-tracks/:id')
+  deleteTaskTrack(@Param('id') id: number) {
+    return this.panelControlService.removeTaskTrack(id);
   }
 }
