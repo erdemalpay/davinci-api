@@ -75,6 +75,18 @@ export class ButtonCallController {
     return this.buttonCallService.create(createButtonCallDto, user);
   }
 
+  @Public()
+  @Get('/queue')
+  getTodayQueuePosition(
+    @Query('location') location: number,
+    @Query('tableName') tableName: string,
+  ) {
+    return this.buttonCallService.getTodayQueuePositionsByType({
+      location,
+      tableName,
+    });
+  }
+
   @ApiResponse({ type: ButtonCall })
   @Patch()
   closeButtonCall(
