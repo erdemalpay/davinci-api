@@ -57,4 +57,7 @@ export class PanelControlGateway
   emitActionChanged(action: any) {
     this.server.emit('actionChanged', { action });
   }
+  emitTaskTrackChanged(taskTrack: any) {
+    this.server.emit('taskTrackChanged', { taskTrack });
+  }
 }

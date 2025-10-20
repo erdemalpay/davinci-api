@@ -22,15 +22,18 @@ import {
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
+  CreateTaskTrackDto,
 } from './panelControl.dto';
 import { PanelControlGateway } from './panelControl.gateway';
 import { PanelSettings } from './panelSettings.schema';
+import { TaskTrack } from './taskTrack.schema';
 
 @Injectable()
 export class PanelControlService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(Action.name) private actionModel: Model<Action>,
+    @InjectModel(TaskTrack.name) private taskTrackModel: Model<TaskTrack>,
     @InjectModel(DisabledCondition.name)
     private disabledConditionModel: Model<DisabledCondition>,
     @InjectModel(PanelSettings.name)
@@ -328,5 +331,41 @@ export class PanelControlService implements OnApplicationBootstrap {
     const action = await this.actionModel.findByIdAndRemove(id);
     this.panelControlGateway.emitActionChanged(action);
     return action;
+  }
+
+  async findAllTaskTracks() {
+    try {
+      const taskTracks = await this.taskTrackModel.find();
+      return taskTracks;
+    } catch (error) {
+      console.error('Failed to retrieve taskTracks from database:', error);
+      throw new HttpException(
+        'Could not retrieve task tracks',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+  async createTaskTrack(createTaskTrackDto: CreateTaskTrackDto) {
+    const taskTrack = await this.taskTrackModel.create(createTaskTrackDto);
+    this.panelControlGateway.emitTaskTrackChanged(taskTrack);
+    return taskTrack;
+  }
+
+  async updateTaskTrack(id: number, updates: UpdateQuery<TaskTrack>) {
+    const newTaskTrack = await this.taskTrackModel.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+      },
+    );
+    this.panelControlGateway.emitTaskTrackChanged(newTaskTrack);
+    return newTaskTrack;
+  }
+
+  async removeTaskTrack(id: number) {
+    const taskTrack = await this.taskTrackModel.findByIdAndRemove(id);
+    this.panelControlGateway.emitTaskTrackChanged(taskTrack);
+    return taskTrack;
   }
 }

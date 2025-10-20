@@ -15,13 +15,14 @@ import { PanelControlController } from './panelControl.controller';
 import { PanelControlGateway } from './panelControl.gateway';
 import { PanelControlService } from './panelControl.service';
 import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
+import { TaskTrack, TaskTrackSchema } from './taskTrack.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Page.name, useFactory: () => PageSchema },
   { name: DisabledCondition.name, useFactory: () => DisabledConditionSchema },
   { name: Action.name, useFactory: () => ActionSchema },
-
   createAutoIncrementConfig(PanelSettings.name, PanelSettingsSchema),
+  createAutoIncrementConfig(TaskTrack.name, TaskTrackSchema),
 ]);
 
 @Module({
