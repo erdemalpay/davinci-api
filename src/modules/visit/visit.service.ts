@@ -102,6 +102,17 @@ export class VisitService {
         });
       }
     }
+
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_VISIT,
+        visit,
+      );
+    } catch (error) {
+      console.error('Failed to add activity:', error);
+    }
+
     this.visitGateway.emitVisitChanged(user, visit);
     return visit;
   }
@@ -120,6 +131,17 @@ export class VisitService {
         new: true,
       },
     );
+
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.FINISH_VISIT,
+        visit,
+      );
+    } catch (error) {
+      console.error('Failed to add activity:', error);
+    }
+
     this.visitGateway.emitVisitChanged(user, visit);
     return visit;
   }
@@ -265,6 +287,16 @@ export class VisitService {
         }
       }
 
+      try {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CREATE_VISIT,
+          visit,
+        );
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
+
       this.visitGateway.emitVisitChanged(user, visit);
       return visit;
     }
@@ -285,6 +317,17 @@ export class VisitService {
         .sort({ date: -1, startHour: -1 });
       if (lastVisit) {
         await lastVisit.updateOne({ finishHour: cafeVisitDto.hour });
+
+        try {
+          await this.activityService.addActivity(
+            user,
+            ActivityType.FINISH_VISIT,
+            lastVisit,
+          );
+        } catch (error) {
+          console.error('Failed to add activity:', error);
+        }
+
         this.visitGateway.emitVisitChanged(user, lastVisit);
         return lastVisit;
       }
@@ -342,6 +385,17 @@ export class VisitService {
           });
         }
       }
+
+      try {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.FINISH_VISIT,
+          visit,
+        );
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
+
       this.visitGateway.emitVisitChanged(user, visit);
       return visit;
     }
