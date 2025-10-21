@@ -77,6 +77,8 @@ export enum ActivityType {
   KITCHEN_DEACTIVATED = 'KITCHEN_DEACTIVATED',
   ORDER_DIVIDED = 'ORDER_DIVIDED',
   DELETE_VISIT = 'DELETE_VISIT',
+  CREATE_VISIT = 'CREATE_VISIT',
+  FINISH_VISIT = 'FINISH_VISIT',
 }
 
 export type ActivityTypePayload = {
@@ -163,6 +165,8 @@ export type ActivityTypePayload = {
   [ActivityType.KITCHEN_DEACTIVATED]: { kitchen: string };
   [ActivityType.ORDER_DIVIDED]: { currentOrder: Order; newOrder: Order };
   [ActivityType.DELETE_VISIT]: Visit;
+  [ActivityType.CREATE_VISIT]: Visit;
+  [ActivityType.FINISH_VISIT]: Visit;
 };
 
 export class ActivityQueryDto {
