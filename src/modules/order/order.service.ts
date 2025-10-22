@@ -169,7 +169,7 @@ export class OrderService {
     const filterQuery: Record<string, any> = {
       quantity: { $gt: 0 },
     };
-    const { after, before, category, location, isIkasPickUp } = query;
+    const { after, before, category, location, isIkasPickUp, item } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
       let startUtc: Date;
@@ -213,6 +213,9 @@ export class OrderService {
         .map((item) => item.trim())
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
+    }
+    if (item !== undefined) {
+      filterQuery['item'] = Number(item);
     }
     filterKeys.forEach((key) => {
       if (query[key]) {
