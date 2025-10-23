@@ -1326,6 +1326,9 @@ export class IkasService {
   }
 
   async updateAllProductStocks() {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
     try {
       const ikasItems = await this.menuService.getAllIkasItems();
       console.log('Fetched Ikas Items:', ikasItems);
@@ -1398,6 +1401,9 @@ export class IkasService {
     }
   }
   async bulkUpdateAllProductStocks() {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
     try {
       const ikasItems = await this.menuService.getAllIkasItems();
       const ikasProducts = await this.getAllProducts();
