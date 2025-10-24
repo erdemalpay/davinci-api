@@ -21,7 +21,10 @@ export type DateRangeKey =
   | 'twoMonthsAgo'
   | 'sameDayLastMonthToToday'
   | 'thisYear'
-  | 'lastYear';
+  | 'lastYear'
+  | "nextWeek"
+  | "nextMonth"
+  | "fromTodayToEndOfNextMonth";
 
 export const dateRanges: {
   [key in DateRangeKey]: () => {
@@ -98,4 +101,43 @@ export const dateRanges: {
     after: formatDate(startOfYear(subYears(new Date(), 1))),
     date: 'lastYear',
   }),
+  nextWeek: () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+
+    const nextFriday = new Date(nextMonday);
+    nextFriday.setDate(nextMonday.getDate() + 4);
+
+    return {
+      before: formatDate(nextFriday),
+      after: formatDate(nextMonday),
+      date: 'nextWeek',
+    };
+  },
+  nextMonth: () => {
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+
+    return {
+      before: formatDate(endOfMonth(nextMonth)),
+      after: formatDate(startOfMonth(nextMonth)),
+      date: 'nextMonth',
+    };
+  },
+  fromTodayToEndOfNextMonth: () => {
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+
+    return {
+      before: formatDate(endOfMonth(nextMonth)),
+      after: formatDate(today),
+      date: 'fromTodayToEndOfNextMonth',
+    };
+  },
 };
