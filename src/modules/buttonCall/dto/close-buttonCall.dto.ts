@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CloseButtonCallDto {
   @ApiProperty()
@@ -16,4 +16,9 @@ export class CloseButtonCallDto {
   @IsNotEmpty()
   @IsString()
   readonly hour: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  readonly type?: string;
 }

@@ -75,6 +75,7 @@ export class ButtonCallService {
       tableName: closeButtonCallDto.tableName,
       location: closeButtonCallDto.location,
       finishHour: { $exists: false },
+      ...(closeButtonCallDto.type && { type: closeButtonCallDto.type }),
     });
     if (!closedButtonCall) {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
@@ -88,7 +89,7 @@ export class ButtonCallService {
       finishHour: closeButtonCallDto.hour,
       cancelledBy: user._id,
     });
-    closedButtonCall.save();
+    await closedButtonCall.save();
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
