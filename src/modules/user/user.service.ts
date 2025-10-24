@@ -133,6 +133,9 @@ export class UserService implements OnModuleInit {
 
   async findById(id: string) {
     const user = await this.userModel.findById(id).populate('role');
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
     return user;
   }
   async searchUserIds(search: string) {
@@ -215,9 +218,12 @@ export class UserService implements OnModuleInit {
       imageUrl: '',
     };
 
-    const user = await this.findById(userProps._id);
-
-    if (user) return;
+    try {
+      const user = await this.findById(userProps._id);
+      if (user) return;
+    } catch (error) {
+      // User not found, create it
+    }
 
     await this.create(userProps);
 

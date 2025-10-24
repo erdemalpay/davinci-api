@@ -22,7 +22,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-
-    return (await this.userService.findById(payload.username)).populate('role');
+    const user = await this.userService.findById(payload.username);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user;
   }
 }
