@@ -26,6 +26,7 @@ import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
+import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { Feedback } from './feedback.schema';
 import {
   CreateFeedbackDto,
@@ -35,14 +36,6 @@ import {
 } from './table.dto';
 import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
-
-export enum ReservationStatusEnum {
-  WAITING = 'Waiting',
-  COMING = 'Coming',
-  NOT_COMING = 'Not coming',
-  NOT_RESPONDED = 'Not responded',
-  CAME = 'Already came',
-}
 
 @Injectable()
 export class TableService {
