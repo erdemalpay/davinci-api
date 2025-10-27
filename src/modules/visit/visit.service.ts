@@ -2,10 +2,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
-import { I18nService } from 'nestjs-i18n';
-import { ActivityService } from '../activity/activity.service';
 import { ActivityType } from '../activity/activity.dto';
-import { LocationService } from '../location/location.service';
+import { ActivityService } from '../activity/activity.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
@@ -30,9 +28,7 @@ export class VisitService {
     private readonly visitGateway: VisitGateway,
     private readonly userService: UserService,
     private readonly notificationService: NotificationService,
-    private readonly locationService: LocationService,
     private readonly shiftService: ShiftService,
-    private readonly i18n: I18nService,
     private readonly activityService: ActivityService,
   ) {}
 
@@ -67,28 +63,14 @@ export class VisitService {
     });
     if (foundShift) {
       if (createVisitDto.startHour > foundShift.shift) {
-        const translationArgs = {
-          args: {
+        const message = {
+          key: 'ShiftLateNotice',
+          params: {
             user: user.name,
             shift: foundShift.shift,
             enteredAt: createVisitDto.startHour,
           },
         };
-        const [
-          notificationMessage,
-          notificationMessageEn,
-          notificationMessageTr,
-        ] = await Promise.all([
-          this.i18n.t('ShiftLateNotice', translationArgs) as Promise<string>,
-          this.i18n.t('ShiftLateNotice', {
-            ...translationArgs,
-            lang: 'en',
-          }) as Promise<string>,
-          this.i18n.t('ShiftLateNotice', {
-            ...translationArgs,
-            lang: 'tr',
-          }) as Promise<string>,
-        ]);
 
         await this.notificationService.createNotification({
           type: 'WARNING',
@@ -96,9 +78,7 @@ export class VisitService {
           selectedRoles: [1],
           seenBy: [],
           event: NotificationEventType.LATESHIFTSTART,
-          message: notificationMessage,
-          messageEn: notificationMessageEn,
-          messageTr: notificationMessageTr,
+          message,
         });
       }
     }
@@ -269,20 +249,22 @@ export class VisitService {
       });
       if (foundShift) {
         if (cafeVisitDto.hour > foundShift.shift) {
-          const notificationMessage = (await this.i18n.t('ShiftLateNotice', {
-            args: {
+          const message = {
+            key: 'ShiftLateNotice',
+            params: {
               user: user.name,
               shift: foundShift.shift,
               enteredAt: cafeVisitDto.hour,
             },
-          })) as string;
+          };
+
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
             selectedRoles: [1],
             seenBy: [],
             event: NotificationEventType.LATESHIFTSTART,
-            message: notificationMessage,
+            message,
           });
         }
       }
@@ -348,40 +330,22 @@ export class VisitService {
       });
       if (foundShift && foundShift.shiftEndHour) {
         if (cafeVisitDto.hour < foundShift.shiftEndHour) {
-          const translationArgs = {
-            args: {
+          const message = {
+            key: 'ShiftEndEarlyNotice',
+            params: {
               user: user.name,
               shiftEnd: foundShift.shiftEndHour,
               exitedAt: cafeVisitDto.hour,
             },
           };
-          const [
-            notificationMessage,
-            notificationMessageEn,
-            notificationMessageTr,
-          ] = await Promise.all([
-            this.i18n.t(
-              'ShiftEndEarlyNotice',
-              translationArgs,
-            ) as Promise<string>,
-            this.i18n.t('ShiftEndEarlyNotice', {
-              ...translationArgs,
-              lang: 'en',
-            }) as Promise<string>,
-            this.i18n.t('ShiftEndEarlyNotice', {
-              ...translationArgs,
-              lang: 'tr',
-            }) as Promise<string>,
-          ]);
+
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
             selectedRoles: [1],
             seenBy: [],
             event: NotificationEventType.EARLYSHIFTEND,
-            message: notificationMessage,
-            messageEn: notificationMessageEn,
-            messageTr: notificationMessageTr,
+            message,
           });
         }
       }

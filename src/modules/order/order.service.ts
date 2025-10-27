@@ -17,7 +17,6 @@ import {
   PipelineStage,
   UpdateQuery,
 } from 'mongoose';
-import { I18nService } from 'nestjs-i18n';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
@@ -85,7 +84,6 @@ export class OrderService {
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
     private readonly buttonCallService: ButtonCallService,
-    private readonly i18n: I18nService,
 
     @Inject(forwardRef(() => GameplayService))
     private readonly gameplayService: GameplayService,
@@ -1225,40 +1223,22 @@ export class OrderService {
             { unique: [], seenUsers: {} },
           )
           ?.unique?.map((visit) => visit.user) ?? [];
-      const translationArgs = {
-        args: {
+      const message = {
+        key: 'OrderNotConfirmedForMinutes',
+        params: {
           brand: (order?.kitchen as any)?.name,
           product: (order.item as any).name,
           minutes: 5,
         },
       };
-      const [
-        notificationMessage,
-        notificationMessageEn,
-        notificationMessageTr,
-      ] = await Promise.all([
-        this.i18n.t(
-          'OrderNotConfirmedForMinutes',
-          translationArgs,
-        ) as Promise<string>,
-        this.i18n.t('OrderNotConfirmedForMinutes', {
-          ...translationArgs,
-          lang: 'en',
-        }) as Promise<string>,
-        this.i18n.t('OrderNotConfirmedForMinutes', {
-          ...translationArgs,
-          lang: 'tr',
-        }) as Promise<string>,
-      ]);
+
       await this.notificationService.createNotification({
         type: 'WARNING',
         selectedUsers: (uniqueVisitUsers as any) ?? [],
         selectedLocations: [2],
         seenBy: [],
         event: NotificationEventType.KITCHENNOTCONFIRMED,
-        message: notificationMessage,
-        messageEn: notificationMessageEn,
-        messageTr: notificationMessageTr,
+        message,
       });
     }
   }

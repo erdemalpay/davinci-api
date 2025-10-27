@@ -1,7 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
-import { I18nService } from 'nestjs-i18n';
 import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
 import {
@@ -27,7 +26,6 @@ export class ChecklistService {
     @InjectModel(Check.name) private checkModel: Model<Check>,
     private checklistGateway: ChecklistGateway,
     private readonly notificationService: NotificationService,
-    private readonly i18n: I18nService,
   ) {}
 
   async createChecklist(user: User, createChecklistDto: CreateChecklistDto) {
@@ -188,29 +186,16 @@ export class ChecklistService {
       const unCompletedDuties = check?.duties?.filter(
         (duty) => !duty.isCompleted,
       );
-      const translationArgs = {
-        args: {
+      const message = {
+        key: 'UncompletedDuties',
+        params: {
           count: unCompletedDuties.length,
           dutyWord: unCompletedDuties.length === 1 ? 'duty' : 'duties',
           checklist: check.checklist,
           user: check.user,
         },
       };
-      const [
-        notificationMessage,
-        notificationMessageEn,
-        notificationMessageTr,
-      ] = await Promise.all([
-        this.i18n.t('UncompletedDuties', translationArgs) as Promise<string>,
-        this.i18n.t('UncompletedDuties', {
-          ...translationArgs,
-          lang: 'en',
-        }) as Promise<string>,
-        this.i18n.t('UncompletedDuties', {
-          ...translationArgs,
-          lang: 'tr',
-        }) as Promise<string>,
-      ]);
+
       if (unCompletedDuties?.length > 0) {
         await this.notificationService.createNotification({
           type: NotificationType.WARNING,
@@ -219,9 +204,7 @@ export class ChecklistService {
           selectedRoles: [1],
           seenBy: [],
           event: NotificationEventType.UNCOMPLETEDCHECKLIST,
-          message: notificationMessage,
-          messageEn: notificationMessageEn,
-          messageTr: notificationMessageTr,
+          message,
         });
       }
     }

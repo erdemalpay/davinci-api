@@ -9,7 +9,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
-import { I18nService } from 'nestjs-i18n';
 import { DailyPlayerCount } from 'src/types';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -21,12 +20,12 @@ import {
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
+import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
-import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { Feedback } from './feedback.schema';
 import {
   CreateFeedbackDto,
@@ -53,7 +52,6 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
-    private readonly i18n: I18nService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -542,28 +540,14 @@ export class TableService {
     });
 
     if (unclosedTables.length > 0) {
-      const translationArgs = {
-        args: {
+      const message = {
+        key: 'UnclosedTablesToday',
+        params: {
           count: unclosedTables.length,
           beVerb: unclosedTables.length === 1 ? 'is' : 'are',
           tableWord: unclosedTables.length === 1 ? 'table' : 'tables',
         },
       };
-      const [
-        notificationMessage,
-        notificationMessageEn,
-        notificationMessageTr,
-      ] = await Promise.all([
-        this.i18n.t('UnclosedTablesToday', translationArgs) as Promise<string>,
-        this.i18n.t('UnclosedTablesToday', {
-          ...translationArgs,
-          lang: 'en',
-        }) as Promise<string>,
-        this.i18n.t('UnclosedTablesToday', {
-          ...translationArgs,
-          lang: 'tr',
-        }) as Promise<string>,
-      ]);
       await this.notificationService.createNotification({
         type: NotificationType.WARNING,
         selectedUsers: [],
@@ -571,9 +555,7 @@ export class TableService {
         selectedLocations: [2],
         seenBy: [],
         event: NotificationEventType.NIGHTOPENTABLE,
-        message: notificationMessage,
-        messageEn: notificationMessageEn,
-        messageTr: notificationMessageTr,
+        message,
       });
     } else {
       this.logger.log('No unclosed tables found');

@@ -1,7 +1,8 @@
 export class CreateNotificationDto {
-  message?: string;
-  messageEn?: string;
-  messageTr?: string;
+  message: {
+    key: string;
+    params: Record<string, any>;
+  };
   type: string;
   createdBy?: string;
   selectedUsers?: string[];
