@@ -78,6 +78,7 @@ export class CreateCountDto {
   createdAt: Date;
   products: CountProductDto[];
   countList: string;
+  expenseTypes?: string[];
 }
 
 export class CountProductDto {
