@@ -71,7 +71,7 @@ export class TableService {
       finishHour: { $exists: false },
       $or: [{ name: tableDto.name }, { tables: { $in: [tableDto.name] } }],
     });
-    if (foundTable) {
+    if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
       throw new HttpException(
         'Table with the same name already exists for the given date and location',
         HttpStatus.BAD_REQUEST,
