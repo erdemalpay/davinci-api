@@ -8,7 +8,8 @@ export enum ReservationStatusEnum {
   COMING = 'Coming',
   NOT_COMING = 'Not coming',
   NOT_RESPONDED = 'Not responded',
-  CAME = 'Already came',
+  ALREADY_CAME = 'Already came',
+  CANCELLED = 'Cancelled',
 }
 
 @Schema({ _id: false })
