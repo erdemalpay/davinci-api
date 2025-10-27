@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
-import { I18nService } from 'nestjs-i18n';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
 import {
@@ -60,7 +59,6 @@ export class IkasService {
     private readonly ikasGateway: IkasGateway,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
-    private readonly i18n: I18nService,
   ) {
     this.tokenPayload = {
       grant_type: 'client_credentials',
@@ -1185,38 +1183,20 @@ export class IkasService {
                       { unique: [], seenUsers: {} },
                     )
                     ?.unique?.map((visit) => visit.user) ?? [];
-                const translationArgs = {
-                  args: {
+                const message = {
+                  key: 'IkasPickupOrderArrived',
+                  params: {
                     product: foundMenuItem.name,
                   },
                 };
-                const [
-                  notificationMessage,
-                  notificationMessageEn,
-                  notificationMessageTr,
-                ] = await Promise.all([
-                  this.i18n.t(
-                    'IkasPickupOrderArrived',
-                    translationArgs,
-                  ) as Promise<string>,
-                  this.i18n.t('IkasPickupOrderArrived', {
-                    ...translationArgs,
-                    lang: 'en',
-                  }) as Promise<string>,
-                  this.i18n.t('IkasPickupOrderArrived', {
-                    ...translationArgs,
-                    lang: 'tr',
-                  }) as Promise<string>,
-                ]);
+
                 await this.notificationService.createNotification({
                   type: NotificationType.INFORMATION,
                   selectedUsers: (uniqueVisitUsers as any) ?? [],
                   selectedLocations: [2],
                   seenBy: [],
                   event: NotificationEventType.IKASTAKEAWAY,
-                  message: notificationMessage,
-                  messageEn: notificationMessageEn,
-                  messageTr: notificationMessageTr,
+                  message,
                 });
               }
             }

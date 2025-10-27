@@ -3,16 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
-import {
-  AcceptLanguageResolver,
-  CookieResolver,
-  HeaderResolver,
-  I18nModule,
-  QueryResolver,
-} from 'nestjs-i18n';
-
-import * as path from 'path';
-import { InMemoryLoader } from './i18n/in-memory-loader';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
@@ -54,19 +44,6 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 });
 
 const modules = [
-  I18nModule.forRoot({
-    fallbackLanguage: 'en',
-    fallbacks: { 'en-*': 'en', 'tr-*': 'tr' },
-    loader: InMemoryLoader, // custom loader class (no fs)
-    // loaderOptions are ignored by custom loaders; ok to omit:
-    loaderOptions: { path: path.resolve(process.cwd(), 'i18n') },
-    resolvers: [
-      { use: QueryResolver, options: ['lang', 'locale', 'l'] }, // ?lang=tr
-      new HeaderResolver(['x-custom-lang']), // x-custom-lang: tr
-      new AcceptLanguageResolver(), // Accept-Language: tr-TR
-      new CookieResolver(['lang', 'locale']), // cookie: lang=tr
-    ],
-  }),
   ConfigModule.forRoot({ isGlobal: true }),
   ScheduleModule.forRoot(),
   ActivityModule,

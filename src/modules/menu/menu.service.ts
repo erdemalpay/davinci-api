@@ -2,7 +2,6 @@ import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
-import { I18nService } from 'nestjs-i18n';
 import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
@@ -58,7 +57,6 @@ export class MenuService {
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
-    private readonly i18n: I18nService,
   ) {}
 
   findAllCategories() {
@@ -273,28 +271,13 @@ export class MenuService {
     const statusKey = updates?.active
       ? 'Status.Activated'
       : 'Status.Deactivated';
-    const status = await this.i18n.t(statusKey);
-    const translationArgs = {
-      args: {
+    const message = {
+      key: 'BrandActivationStatus',
+      params: {
         brand: category.name,
-        status,
       },
     };
-    const [notificationMessage, notificationMessageEn, notificationMessageTr] =
-      await Promise.all([
-        this.i18n.t(
-          'BrandActivationStatus',
-          translationArgs,
-        ) as Promise<string>,
-        this.i18n.t('BrandActivationStatus', {
-          ...translationArgs,
-          lang: 'en',
-        }) as Promise<string>,
-        this.i18n.t('BrandActivationStatus', {
-          ...translationArgs,
-          lang: 'tr',
-        }) as Promise<string>,
-      ]);
+
     await this.notificationService.createNotification({
       type: updates?.active ? 'INFORMATION' : 'WARNING',
       selectedUsers: (uniqueVisitUsers as any) ?? [],
@@ -303,9 +286,7 @@ export class MenuService {
       event: updates?.active
         ? NotificationEventType.KITCHENACTIVATED
         : NotificationEventType.KITCHENDEACTIVATED,
-      message: notificationMessage,
-      messageEn: notificationMessageEn,
-      messageTr: notificationMessageTr,
+      message,
     });
     this.menuGateway.emitCategoryChanged(user, category);
     return category;
