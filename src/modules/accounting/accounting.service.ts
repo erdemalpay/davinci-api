@@ -192,6 +192,34 @@ export class AccountingService {
 
       product.baseQuantities = initialBaseQuantities;
       await product.save();
+      if (product.expenseType.length) {
+        await this.countListModel.updateMany(
+          { expenseTypes: { $in: product.expenseType } },
+          [
+            {
+              $set: {
+                products: {
+                  $cond: [
+                    { $in: [product._id, '$products.product'] },
+                    '$products',
+                    {
+                      $concatArrays: [
+                        '$products',
+                        [{ product: product._id, locations: [] }],
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        );
+        await this.accountingGateway.emitCountListChanged(
+          null,
+          product.expenseType,
+        );
+      }
+
       if (createProductDto?.matchedMenuItem) {
         await this.menuService.updateProductItem(
           user,
@@ -3086,6 +3114,34 @@ export class AccountingService {
           });
           newProduct._id = usernamify(name);
           await newProduct.save();
+
+          if (newProduct.expenseType.length) {
+            await this.countListModel.updateMany(
+              { expenseTypes: { $in: newProduct.expenseType } },
+              [
+                {
+                  $set: {
+                    products: {
+                      $cond: [
+                        { $in: [newProduct._id, '$products.product'] },
+                        '$products',
+                        {
+                          $concatArrays: [
+                            '$products',
+                            [{ product: newProduct._id, locations: [] }],
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            );
+            await this.accountingGateway.emitCountListChanged(
+              null,
+              newProduct.expenseType,
+            );
+          }
           isProductCreated = true;
         }
         //if category and price provided then the menuItem will be created
