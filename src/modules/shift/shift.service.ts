@@ -71,16 +71,18 @@ export class ShiftService {
     } catch (error) {
       throw new Error('Failed to fetch shifts');
     }
-    const shiftsMap = new Map<string, any>();
+    const shiftsMap = new Map<string, any[]>();
     for (const shift of shiftsData) {
-      shiftsMap.set(shift.day, shift);
+      const existing = shiftsMap.get(shift.day) || [];
+      existing.push(shift);
+      shiftsMap.set(shift.day, existing);
     }
-    const result = daysInRange.map((day) => {
-      if (shiftsMap.has(day)) {
-        return shiftsMap.get(day);
-      } else {
-        return { day, shifts: [] };
+    const result = daysInRange.flatMap((day) => {
+      const dayShifts = shiftsMap.get(day);
+      if (dayShifts && dayShifts.length > 0) {
+        return dayShifts;
       }
+      return [{ day, shifts: [] }];
     });
 
     return result;
