@@ -1,10 +1,12 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { ShiftGateway } from './shift.gateway';
 import { Shift } from './shift.schema';
+
+@Injectable()
 export class ShiftService {
   constructor(
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
