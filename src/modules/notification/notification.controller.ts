@@ -49,6 +49,7 @@ export class NotificationController {
     @Query('type') type?: string,
     @Query('event') event?: string,
     @Query('sort') sort?: string,
+    @Query('search') search?: string,
     @Query('asc') asc?: number,
   ) {
     return this.notificationService.findQueryNotifications({
@@ -59,6 +60,7 @@ export class NotificationController {
       type,
       event,
       sort,
+      search,
       asc,
     });
   }

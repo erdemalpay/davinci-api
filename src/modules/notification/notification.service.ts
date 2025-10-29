@@ -1,7 +1,9 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
+import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
+import { UserService } from '../user/user.service';
 import {
   CreateNotificationDto,
   NotificationQueryDto,
@@ -15,6 +17,8 @@ export class NotificationService {
     @InjectModel(Notification.name)
     private notificationModel: Model<Notification>,
     private readonly notificationGateway: NotificationGateway,
+    private readonly locationService: LocationService,
+    private readonly userService: UserService,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -30,6 +34,7 @@ export class NotificationService {
       type,
       event,
       sort,
+      search,
       asc,
     } = query;
 
@@ -54,18 +59,46 @@ export class NotificationService {
 
     const sortObject: Record<string, 1 | -1> = {};
     if (sort) {
-      const dirRaw =
-        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
-      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
       sortObject[sort] = dir;
     } else {
       sortObject.createdAt = -1;
     }
 
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
     const skip = (pageNum - 1) * limitNum;
 
+    if (search && String(search).trim().length > 0) {
+      const rx = new RegExp(String(search).trim(), 'i');
+      const numeric = Number(search);
+      const isNumeric = !Number.isNaN(numeric);
+      const [searchedLocationIds, searchedUserIds] = await Promise.all([
+        this.locationService.searchLocationIds(search),
+        this.userService.searchUserIds(search),
+      ]);
+      const orConds: FilterQuery<Notification>[] = [
+        { type: { $regex: rx } },
+        { event: { $regex: rx } },
+        { message: { $regex: rx } },
+        ...(searchedUserIds.length
+          ? [
+              { createdBy: { $in: searchedUserIds } },
+              { selectedUsers: { $in: searchedUserIds } },
+              { seenBy: { $in: searchedUserIds } },
+            ]
+          : []),
+        ...(searchedLocationIds.length
+          ? [{ selectedLocations: { $in: searchedLocationIds } }]
+          : []),
+      ];
+      if (isNumeric) {
+        orConds.push({ _id: numeric as any });
+      }
+      if (orConds.length) {
+        filter.$or = orConds;
+      }
+    }
     try {
       const [data, totalNumber] = await Promise.all([
         this.notificationModel
