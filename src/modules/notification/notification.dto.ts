@@ -27,6 +27,7 @@ export class NotificationQueryDto {
   type?: string;
   event?: string;
   sort?: string;
+  search?: string;
   asc?: number;
   page?: number;
   limit?: number;
