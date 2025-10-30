@@ -275,6 +275,7 @@ export class MenuService {
       key: 'BrandActivationStatus',
       params: {
         brand: category.name,
+        status: statusKey,
       },
     };
 
