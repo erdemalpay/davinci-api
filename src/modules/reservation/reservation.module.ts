@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { ActivityModule } from './../activity/activity.module';
 import { ReservationController } from './reservation.controller';
+import { ReservationCronService } from './reservation.cron.service';
 import { ReservationGateway } from './reservation.gateway';
 import { Reservation, ReservationSchema } from './reservation.schema';
 import { ReservationService } from './reservation.service';
@@ -13,7 +14,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 @Module({
   imports: [mongooseModule, GameplayModule, ActivityModule],
-  providers: [ReservationService, ReservationGateway],
+  providers: [ReservationService, ReservationGateway, ReservationCronService],
   exports: [ReservationService, ReservationGateway],
   controllers: [ReservationController],
 })

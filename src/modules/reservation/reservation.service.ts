@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, format } from 'date-fns';
+import { addHours, addMinutes, format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -79,6 +79,10 @@ export class ReservationService {
         status: updates.status,
         ...(updates.status === 'Coming' && {
           approvedHour: format(gmtPlus3Now, 'HH:mm'),
+          comingExpiresAt: addMinutes(gmtPlus3Now, 1),
+        }),
+        ...(updates.status !== 'Coming' && {
+          comingExpiresAt: null,
         }),
         $inc: { callCount: 1 },
       },
@@ -115,5 +119,28 @@ export class ReservationService {
     return this.reservationModel
       .find({ location, date })
       .sort({ order: 'desc' });
+  }
+
+  async cancelExpiredComingReservations() {
+    const gmtPlus3Now = addHours(new Date(), 3);
+    const expiredReservations = await this.reservationModel.find({
+      status: 'Coming',
+      comingExpiresAt: { $lt: gmtPlus3Now },
+    });
+
+    for (const reservation of expiredReservations) {
+      await this.reservationModel.findByIdAndUpdate(
+        reservation._id,
+        {
+          status: 'Cancelled',
+          comingExpiresAt: null,
+        },
+        { new: true },
+      );
+      // Emit websocket event for each cancelled reservation
+      this.reservationGateway.emitReservationChanged(null, reservation);
+    }
+
+    return expiredReservations.length;
   }
 }
