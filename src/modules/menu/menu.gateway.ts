@@ -59,6 +59,8 @@ export class MenuGateway
 
   async emitCategoryChanged(user: User, category: any) {
     await this.redisService.reset(RedisKeys.MenuItems);
+    await this.redisService.reset(RedisKeys.MenuCategories);
+    await this.redisService.reset(RedisKeys.ActiveMenuCategories);
     this.server.emit('categoryChanged', { user, category });
   }
 
