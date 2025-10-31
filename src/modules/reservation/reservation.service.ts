@@ -129,7 +129,7 @@ export class ReservationService {
     });
 
     for (const reservation of expiredReservations) {
-      await this.reservationModel.findByIdAndUpdate(
+      const updatedReservation = await this.reservationModel.findByIdAndUpdate(
         reservation._id,
         {
           status: 'Cancelled',
@@ -138,7 +138,7 @@ export class ReservationService {
         { new: true },
       );
       // Emit websocket event for each cancelled reservation
-      this.reservationGateway.emitReservationChanged(null, reservation);
+      this.reservationGateway.emitReservationChanged(null, updatedReservation);
     }
 
     return expiredReservations.length;
