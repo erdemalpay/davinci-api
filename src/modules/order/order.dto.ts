@@ -38,7 +38,7 @@ export class CreateOrderDto {
   ikasCustomer?: IkasCustomer;
   isIkasCustomerPicked?: boolean;
   ikasOrderNumber?: string;
-}//deneme
+}
 export type OrderType = {
   _id: number;
   location: number;
