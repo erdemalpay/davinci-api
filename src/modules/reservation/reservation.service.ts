@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, format } from 'date-fns';
+import { addHours, addMinutes, format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -8,6 +8,10 @@ import { User } from '../user/user.schema';
 import { ReservationDto } from './reservation.dto';
 import { ReservationGateway } from './reservation.gateway';
 import { Reservation } from './reservation.schema';
+
+type ReservationUpdatePayload = UpdateQuery<Reservation> & {
+  comingDurationInMinutes?: number;
+};
 
 @Injectable()
 export class ReservationService {
@@ -54,6 +58,7 @@ export class ReservationService {
     );
     return reservation;
   }
+
   async updateReservationsOrder(user: User, id: number, newOrder: number) {
     const reservation = await this.reservationModel.findById(id);
     if (!reservation) {
@@ -68,17 +73,26 @@ export class ReservationService {
 
     this.reservationGateway.emitReservationChanged(user, reservation);
   }
+
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
     const oldReservation = await this.reservationModel.findById(id);
+    const reservationUpdates = updates as ReservationUpdatePayload;
+    const duration = reservationUpdates.comingDurationInMinutes ?? 30;
+    const { comingDurationInMinutes, ...updateWithoutDuration } =
+      reservationUpdates;
     const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
       {
         callHour,
-        status: updates.status,
-        ...(updates.status === 'Coming' && {
+        status: updateWithoutDuration.status,
+        ...(updateWithoutDuration.status === 'Coming' && {
           approvedHour: format(gmtPlus3Now, 'HH:mm'),
+          comingExpiresAt: addMinutes(gmtPlus3Now, duration),
+        }),
+        ...(updateWithoutDuration.status !== 'Coming' && {
+          comingExpiresAt: null,
         }),
         $inc: { callCount: 1 },
       },
@@ -115,5 +129,28 @@ export class ReservationService {
     return this.reservationModel
       .find({ location, date })
       .sort({ order: 'desc' });
+  }
+
+  async cancelExpiredComingReservations() {
+    const gmtPlus3Now = addHours(new Date(), 3);
+    const expiredReservations = await this.reservationModel.find({
+      status: 'Coming',
+      comingExpiresAt: { $lt: gmtPlus3Now },
+    });
+
+    for (const reservation of expiredReservations) {
+      const updatedReservation = await this.reservationModel.findByIdAndUpdate(
+        reservation._id,
+        {
+          status: 'Cancelled',
+          comingExpiresAt: null,
+        },
+        { new: true },
+      );
+      // Emit websocket event for each cancelled reservation
+      this.reservationGateway.emitReservationChanged(null, updatedReservation);
+    }
+
+    return expiredReservations.length;
   }
 }

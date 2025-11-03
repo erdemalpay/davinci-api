@@ -53,6 +53,9 @@ export class Reservation extends Document {
   @Prop({ default: ReservationStatusEnum.WAITING })
   status: ReservationStatusEnum;
 
+  @Prop({ required: false, type: Date })
+  comingExpiresAt: Date;
+
   @Prop({ required: false, type: String })
   note: string;
 }
