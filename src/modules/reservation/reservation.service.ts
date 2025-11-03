@@ -9,6 +9,10 @@ import { ReservationDto } from './reservation.dto';
 import { ReservationGateway } from './reservation.gateway';
 import { Reservation } from './reservation.schema';
 
+type ReservationUpdatePayload = UpdateQuery<Reservation> & {
+  comingDurationInMinutes?: number;
+};
+
 @Injectable()
 export class ReservationService {
   constructor(
@@ -54,6 +58,7 @@ export class ReservationService {
     );
     return reservation;
   }
+
   async updateReservationsOrder(user: User, id: number, newOrder: number) {
     const reservation = await this.reservationModel.findById(id);
     if (!reservation) {
@@ -68,16 +73,17 @@ export class ReservationService {
 
     this.reservationGateway.emitReservationChanged(user, reservation);
   }
+
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
     const oldReservation = await this.reservationModel.findById(id);
 
-    // Extract custom duration, default to 30 minutes
-    const duration = (updates as any).comingDurationInMinutes ?? 30;
+    const reservationUpdates = updates as ReservationUpdatePayload;
+    const duration = reservationUpdates.comingDurationInMinutes ?? 30;
 
-    // Remove comingDurationInMinutes from updates before passing to MongoDB
-    const { comingDurationInMinutes, ...updateWithoutDuration } = updates as any;
+    const { comingDurationInMinutes, ...updateWithoutDuration } =
+      reservationUpdates;
 
     const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
