@@ -103,6 +103,7 @@ export class CreateDiscountDto {
   isNoteRequired?: boolean;
   isOnlineOrder?: boolean;
   isStoreOrder?: boolean;
+  isVisibleOnPaymentScreen?: boolean;
   status?: string;
   note?: string;
 }

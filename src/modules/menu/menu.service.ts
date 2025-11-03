@@ -59,11 +59,75 @@ export class MenuService {
     private readonly visitService: VisitService,
   ) {}
 
-  findAllCategories() {
-    return this.categoryModel.find().sort({ order: 'asc' });
+  async findAllCategories() {
+    try {
+      // Attempt to retrieve categories from Redis cache
+      const redisCategories = await this.redisService.get(
+        RedisKeys.MenuCategories,
+      );
+      if (redisCategories) {
+        return redisCategories; // Return cached categories if available
+      }
+    } catch (error) {
+      console.error('Failed to retrieve categories from Redis:', error);
+    }
+
+    try {
+      const allCategories = await this.categoryModel
+        .find()
+        .sort({ order: 'asc' })
+        .exec();
+
+      // If categories are found, cache them in Redis
+      if (allCategories.length > 0) {
+        await this.redisService.set(RedisKeys.MenuCategories, allCategories);
+      }
+      return allCategories; // Return categories from the database
+    } catch (error) {
+      console.error('Failed to retrieve categories from database:', error);
+      throw new HttpException(
+        'Could not retrieve categories',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
-  findActiveCategories() {
-    return this.categoryModel.find({ active: true }).sort({ order: 'asc' });
+  async findActiveCategories() {
+    try {
+      // Attempt to retrieve active categories from Redis cache
+      const redisActiveCategories = await this.redisService.get(
+        RedisKeys.ActiveMenuCategories,
+      );
+      if (redisActiveCategories) {
+        return redisActiveCategories; // Return cached active categories if available
+      }
+    } catch (error) {
+      console.error('Failed to retrieve active categories from Redis:', error);
+    }
+
+    try {
+      const activeCategories = await this.categoryModel
+        .find({ active: true })
+        .sort({ order: 'asc' })
+        .exec();
+
+      // If active categories are found, cache them in Redis
+      if (activeCategories.length > 0) {
+        await this.redisService.set(
+          RedisKeys.ActiveMenuCategories,
+          activeCategories,
+        );
+      }
+      return activeCategories; // Return active categories from the database
+    } catch (error) {
+      console.error(
+        'Failed to retrieve active categories from database:',
+        error,
+      );
+      throw new HttpException(
+        'Could not retrieve active categories',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
   async findAllItems(): Promise<MenuItem[]> {
     return this.itemModel.find().sort({ order: 'asc' }).exec();

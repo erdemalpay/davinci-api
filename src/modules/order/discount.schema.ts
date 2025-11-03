@@ -28,6 +28,9 @@ export class Discount extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   isNoteRequired: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isVisibleOnPaymentScreen: boolean;
+
   @Prop({ required: false, type: String })
   status: string;
 }
