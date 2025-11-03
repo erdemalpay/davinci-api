@@ -78,13 +78,10 @@ export class ReservationService {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
     const oldReservation = await this.reservationModel.findById(id);
-
     const reservationUpdates = updates as ReservationUpdatePayload;
     const duration = reservationUpdates.comingDurationInMinutes ?? 30;
-
     const { comingDurationInMinutes, ...updateWithoutDuration } =
       reservationUpdates;
-
     const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
       {
