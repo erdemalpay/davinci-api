@@ -72,16 +72,23 @@ export class ReservationService {
     const gmtPlus3Now = addHours(new Date(), 3);
     const callHour = format(gmtPlus3Now, 'HH:mm');
     const oldReservation = await this.reservationModel.findById(id);
+
+    // Extract custom duration, default to 30 minutes
+    const duration = (updates as any).comingDurationInMinutes ?? 30;
+
+    // Remove comingDurationInMinutes from updates before passing to MongoDB
+    const { comingDurationInMinutes, ...updateWithoutDuration } = updates as any;
+
     const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
       {
         callHour,
-        status: updates.status,
-        ...(updates.status === 'Coming' && {
+        status: updateWithoutDuration.status,
+        ...(updateWithoutDuration.status === 'Coming' && {
           approvedHour: format(gmtPlus3Now, 'HH:mm'),
-          comingExpiresAt: addMinutes(gmtPlus3Now, 1),
+          comingExpiresAt: addMinutes(gmtPlus3Now, duration),
         }),
-        ...(updates.status !== 'Coming' && {
+        ...(updateWithoutDuration.status !== 'Coming' && {
           comingExpiresAt: null,
         }),
         $inc: { callCount: 1 },

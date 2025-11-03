@@ -36,6 +36,9 @@ export class ReservationDto {
 
   @IsString()
   status?: string;
+
+  @IsNumber()
+  comingDurationInMinutes?: number;
 }
 
 export class ReservationResponse {
