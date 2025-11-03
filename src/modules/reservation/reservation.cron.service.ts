@@ -8,7 +8,7 @@ export class ReservationCronService {
 
   constructor(private readonly reservationService: ReservationService) {}
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_MINUTE)
   async handleExpiredComingReservations() {
 
     const cancelledCount =
