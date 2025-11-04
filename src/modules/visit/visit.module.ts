@@ -8,6 +8,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { ShiftModule } from '../shift/shift.module';
 import { CafeActivity, CafeActivitySchema } from './cafeActivity.schema';
 import { VisitController } from './visit.controller';
+import { VisitCronService } from './visit.cron.service';
 import { VisitGateway } from './visit.gateway';
 import { Visit, VisitSchema } from './visit.schema';
 import { VisitService } from './visit.service';
@@ -26,7 +27,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ShiftModule,
     ActivityModule,
   ],
-  providers: [VisitService, VisitGateway],
+  providers: [VisitService, VisitGateway, VisitCronService],
   exports: [VisitService, VisitGateway],
   controllers: [VisitController],
 })
