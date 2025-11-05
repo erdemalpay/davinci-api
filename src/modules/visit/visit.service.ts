@@ -471,4 +471,46 @@ export class VisitService {
     this.visitGateway.emitCafeActivityChanged(activity);
     return activity;
   }
+
+  async notifyUnfinishedVisits() {
+    // Find all open visits (visits without finishHour)
+    const openVisits = await this.visitModel
+      .find({ finishHour: { $exists: false } })
+      .populate({
+        path: 'user',
+        select: 'name _id',
+      })
+      .populate({
+        path: 'location',
+        select: 'name _id',
+      })
+      .lean();
+
+    if (openVisits.length === 0) {
+      return 0;
+    }
+
+    // Send notification for each unfinished visit
+    for (const visit of openVisits) {
+      const message = {
+        key: 'UnfinishedVisit',
+        params: {
+          user: visit.user.name,
+          location: visit.location.name,
+          date: visit.date,
+          startHour: visit.startHour,
+        },
+      };
+
+      await this.notificationService.createNotification({
+        type: 'WARNING',
+        selectedRoles: [1], // RoleEnum.MANAGER
+        seenBy: [],
+        event: NotificationEventType.UNFINISHEDVISIT,
+        message,
+      });
+    }
+
+    return openVisits.length;
+  }
 }
