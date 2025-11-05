@@ -102,8 +102,16 @@ export class VisitService {
   }
 
   async finish(user: User, id: number) {
-    const gmtPlus3Now = addHours(new Date(), 3);
+
+    const existingVisit = await this.visitModel.findById(id);
+    if (!existingVisit) {
+      throw new NotFoundException(`Visit with id ${id} not found`);
+    }
+
+    const now = new Date();
+    const gmtPlus3Now = addHours(now, 3);
     const finishHour = format(gmtPlus3Now, 'HH:mm');
+    const realTime = format(now, 'HH:mm');
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
       { finishHour },
@@ -111,6 +119,39 @@ export class VisitService {
         new: true,
       },
     );
+
+    if (!existingVisit.finishHour) {
+      const shifts = await this.shiftService.findQueryShifts({
+        after: visit.date,
+        before: visit.date,
+        location: visit.location as unknown as number,
+      });
+      const foundShift = shifts[0]?.shifts?.find((shift) => {
+        return shift.user.includes(user._id);
+      });
+
+      if (foundShift && foundShift.shiftEndHour) {
+        if (realTime < foundShift.shiftEndHour) {
+          const message = {
+            key: 'ShiftEndEarlyNotice',
+            params: {
+              user: user.name,
+              shiftEnd: foundShift.shiftEndHour,
+              exitedAt: realTime,
+            },
+          };
+
+          await this.notificationService.createNotification({
+            type: 'WARNING',
+            selectedUsers: [user._id],
+            selectedRoles: [1], // RoleEnum.MANAGER
+            seenBy: [],
+            event: NotificationEventType.EARLYSHIFTEND,
+            message,
+          });
+        }
+      }
+    }
 
     try {
       await this.activityService.addActivity(
@@ -298,6 +339,40 @@ export class VisitService {
         })
         .sort({ date: -1, startHour: -1 });
       if (lastVisit) {
+
+        if (!lastVisit.finishHour) {
+          const shifts = await this.shiftService.findQueryShifts({
+            after: cafeVisitDto.date,
+            before: cafeVisitDto.date,
+            location: cafeVisitDto.location,
+          });
+          const foundShift = shifts[0]?.shifts?.find((shift) => {
+            return shift.user.includes(user._id);
+          });
+
+          if (foundShift && foundShift.shiftEndHour) {
+            if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+              const message = {
+                key: 'ShiftEndEarlyNotice',
+                params: {
+                  user: user.name,
+                  shiftEnd: foundShift.shiftEndHour,
+                  exitedAt: cafeVisitDto.hour,
+                },
+              };
+
+              await this.notificationService.createNotification({
+                type: 'WARNING',
+                selectedUsers: [user._id],
+                selectedRoles: [1],
+                seenBy: [],
+                event: NotificationEventType.EARLYSHIFTEND,
+                message,
+              });
+            }
+          }
+        }
+
         await lastVisit.updateOne({ finishHour: cafeVisitDto.hour });
 
         try {
