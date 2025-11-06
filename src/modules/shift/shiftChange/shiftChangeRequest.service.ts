@@ -482,7 +482,6 @@ export class ShiftChangeRequestService {
   async rejectByTargetUser(
     requestId: number,
     targetUserId: string,
-    updateDto: UpdateShiftChangeRequestDto,
   ) {
     const request = await this.shiftChangeRequestModel.findById(requestId);
 
@@ -509,10 +508,6 @@ export class ShiftChangeRequestService {
     request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
     request.processedAt = new Date();
 
-    if (updateDto.managerNote) {
-      request.managerNote = updateDto.managerNote;
-    }
-
     await request.save();
 
     await this.notificationService.createNotification({
@@ -520,7 +515,7 @@ export class ShiftChangeRequestService {
         key: 'SHIFT_CHANGE_REJECTED',
         params: {
           rejectedBy: targetUserId,
-          reason: updateDto.managerNote || '',
+
         },
       },
       type: 'WARNING',
