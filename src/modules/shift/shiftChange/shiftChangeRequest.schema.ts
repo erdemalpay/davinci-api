@@ -18,9 +18,8 @@ class ShiftSnapshot {
   @Prop({ required: false, type: String })
   endTime: string; // Vardiya bitiş saati (örn: "17:00")
 
-  @Prop({ required: false, type: Number, ref: Location.name })
+  @Prop({ required: true, type: Number, ref: Location.name })
   location: number;
-  //burası tekrar değerlendirilecek gerekliliği
   @Prop({ required: false, type: String, ref: User.name })
   chefUser: string;
 

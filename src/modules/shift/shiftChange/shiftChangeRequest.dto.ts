@@ -5,7 +5,7 @@ export class ShiftSnapshotDto {
   day: string;
   startTime: string; // Vardiya başlangıç saati (örn: "09:00")
   endTime?: string; // Vardiya bitiş saati (örn: "17:00")
-  location?: number;
+  location: number;
   chefUser?: string;
   userId: string; // Bu shift'e atanmış kullanıcı
 }

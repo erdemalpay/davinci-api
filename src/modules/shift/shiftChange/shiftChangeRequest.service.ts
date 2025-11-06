@@ -45,6 +45,52 @@ export class ShiftChangeRequestService {
       );
     }
 
+    // Verify requester shift exists in database and requester is actually assigned to it
+    // Use $elemMatch to ensure both shift time and user are in the SAME array element
+    const requesterShiftDoc = await this.shiftModel
+      .findOne({
+        _id: createDto.requesterShift.shiftId,
+        day: createDto.requesterShift.day,
+        location: createDto.requesterShift.location,
+        shifts: {
+          $elemMatch: {
+            shift: createDto.requesterShift.startTime,
+            user: requesterId,
+          },
+        },
+      })
+      .exec();
+
+    if (!requesterShiftDoc) {
+      throw new HttpException(
+        'Requester shift not found or requester is not assigned to this shift',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Verify target shift exists in database and target user is actually assigned to it
+    // Use $elemMatch to ensure both shift time and user are in the SAME array element
+    const targetShiftDoc = await this.shiftModel
+      .findOne({
+        _id: createDto.targetShift.shiftId,
+        day: createDto.targetShift.day,
+        location: createDto.targetShift.location,
+        shifts: {
+          $elemMatch: {
+            shift: createDto.targetShift.startTime,
+            user: createDto.targetUserId,
+          },
+        },
+      })
+      .exec();
+
+    if (!targetShiftDoc) {
+      throw new HttpException(
+        'Target shift not found or target user is not assigned to this shift',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Check for shift overlaps (especially important for TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
       // Target user will receive requester's shift, check if it overlaps with their existing shifts
@@ -70,7 +116,7 @@ export class ShiftChangeRequestService {
         createDto.targetShift.day,
         createDto.targetShift.startTime,
         createDto.targetShift.endTime,
-        createDto.targetShift.shiftId,
+        createDto.requesterShift.shiftId,
       );
 
       const targetHasOverlap = await this.checkShiftOverlap(
@@ -78,7 +124,7 @@ export class ShiftChangeRequestService {
         createDto.requesterShift.day,
         createDto.requesterShift.startTime,
         createDto.requesterShift.endTime,
-        createDto.requesterShift.shiftId,
+        createDto.targetShift.shiftId,
       );
 
       if (requesterHasOverlap) {
@@ -454,19 +500,19 @@ export class ShiftChangeRequestService {
 
     // Check each shift for overlap
     for (const shiftDoc of shifts) {
-      // Skip the shift we're trying to swap/transfer
-      if (excludeShiftId && shiftDoc._id === excludeShiftId) {
-        continue;
-      }
-
       for (const shiftValue of shiftDoc.shifts) {
         // Check if user is in this shift
         if (!shiftValue.user.includes(userId)) {
           continue;
         }
 
-        // Skip if it's the same shift time (this is the shift being given away)
-        if (shiftValue.shift === startTime && shiftDoc._id === excludeShiftId) {
+        // Skip the specific slot we're trying to swap/transfer (not the entire document)
+        // Must check both document ID and shift time to identify the exact slot
+        if (
+          excludeShiftId &&
+          shiftDoc._id === excludeShiftId &&
+          shiftValue.shift === startTime
+        ) {
           continue;
         }
 
