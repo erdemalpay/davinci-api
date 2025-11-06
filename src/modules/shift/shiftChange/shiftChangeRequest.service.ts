@@ -11,7 +11,7 @@ import {
   ShiftChangeRequestFilterDto,
   UpdateShiftChangeRequestDto,
 } from './shiftChangeRequest.dto';
-import { ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
+import { ApprovalStatus, ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
 import { ShiftChangeRequest } from './shiftChangeRequest.schema';
 
 @Injectable()
@@ -288,7 +288,7 @@ export class ShiftChangeRequestService {
       );
     }
 
-    if (request.managerApproved) {
+    if (request.managerApprovalStatus === ApprovalStatus.APPROVED) {
       throw new HttpException(
         'Manager already approved this request',
         HttpStatus.BAD_REQUEST,
@@ -296,7 +296,7 @@ export class ShiftChangeRequestService {
     }
 
     // Mark manager approval
-    request.managerApproved = true;
+    request.managerApprovalStatus = ApprovalStatus.APPROVED;
     request.managerApprovedAt = new Date();
     request.managerApprovedBy = managerId;
     if (updateDto.managerNote) {
@@ -304,7 +304,7 @@ export class ShiftChangeRequestService {
     }
 
     // Check if both approvals are complete
-    if (request.targetUserApproved) {
+    if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -370,17 +370,17 @@ export class ShiftChangeRequestService {
       );
     }
 
-    if (request.targetUserApproved) {
+    if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
       throw new HttpException(
         'Target user already approved this request',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    request.targetUserApproved = true;
+    request.targetUserApprovalStatus = ApprovalStatus.APPROVED;
     request.targetUserApprovedAt = new Date();
 
-    if (request.managerApproved) {
+    if (request.managerApprovalStatus === ApprovalStatus.APPROVED) {
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -452,13 +452,20 @@ export class ShiftChangeRequestService {
     request.status = ShiftChangeStatus.REJECTED;
     request.processedAt = new Date();
 
-    if (isTargetUser || isRequester) {
-      // If target user or requester rejects
+    if (isTargetUser) {
+      // Target user rejects
+      request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
+      if (updateDto.managerNote) {
+        request.managerNote = updateDto.managerNote;
+      }
+    } else if (isRequester) {
+      // Requester rejects (cancels their own request)
       if (updateDto.managerNote) {
         request.managerNote = updateDto.managerNote;
       }
     } else {
-      // If manager rejects
+      // Manager rejects
+      request.managerApprovalStatus = ApprovalStatus.REJECTED;
       request.processedByManagerId = userId;
       if (updateDto.managerNote) {
         request.managerNote = updateDto.managerNote;

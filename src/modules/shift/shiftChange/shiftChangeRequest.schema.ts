@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../../location/location.schema';
 import { User } from '../../user/user.schema';
-import { ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
+import { ApprovalStatus, ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
 
 class ShiftSnapshot {
   @Prop({ required: true, type: Number })
@@ -66,8 +66,13 @@ export class ShiftChangeRequest extends Document {
   })
   status: string;
 
-  @Prop({ required: true, type: Boolean, default: false })
-  managerApproved: boolean;
+  @Prop({
+    required: true,
+    type: String,
+    enum: ApprovalStatus,
+    default: ApprovalStatus.PENDING
+  })
+  managerApprovalStatus: string;
 
   @Prop({ required: false, type: Date })
   managerApprovedAt?: Date;
@@ -75,8 +80,13 @@ export class ShiftChangeRequest extends Document {
   @Prop({ required: false, type: String, ref: User.name })
   managerApprovedBy?: string;
 
-  @Prop({ required: true, type: Boolean, default: false })
-  targetUserApproved: boolean;
+  @Prop({
+    required: true,
+    type: String,
+    enum: ApprovalStatus,
+    default: ApprovalStatus.PENDING
+  })
+  targetUserApprovalStatus: string;
 
   @Prop({ required: false, type: Date })
   targetUserApprovedAt?: Date;
