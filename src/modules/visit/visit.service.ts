@@ -100,7 +100,7 @@ export class VisitService {
   createManually(visitDto: VisitDto) {
     return this.visitModel.create(visitDto);
   }
-
+ //de
   async finish(user: User, id: number) {
 
     const existingVisit = await this.visitModel.findById(id);
