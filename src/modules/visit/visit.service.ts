@@ -100,7 +100,7 @@ export class VisitService {
   createManually(visitDto: VisitDto) {
     return this.visitModel.create(visitDto);
   }
- //de
+
   async finish(user: User, id: number) {
 
     const existingVisit = await this.visitModel.findById(id);
@@ -473,9 +473,15 @@ export class VisitService {
   }
 
   async notifyUnfinishedVisits() {
-    // Find all open visits (visits without finishHour)
+    // Only check visits from the last 2 days to avoid spamming with old records
+    const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
+
+    // Find open visits (visits without finishHour) from the last 2 days
     const openVisits = await this.visitModel
-      .find({ finishHour: { $exists: false } })
+      .find({
+        finishHour: { $exists: false },
+        date: { $gte: twoDaysAgo }
+      })
       .populate({
         path: 'user',
         select: 'name _id',
