@@ -86,4 +86,9 @@ export class ShiftChangeRequestController {
       updateDto,
     );
   }
+
+  @Patch('/:id/cancel')
+  cancelByRequester(@ReqUser() user: User, @Param('id') id: number) {
+    return this.shiftChangeRequestService.cancelByRequester(id, user._id);
+  }
 }

@@ -531,6 +531,49 @@ export class ShiftChangeRequestService {
     return request;
   }
 
+  async cancelByRequester(requestId: number, requesterId: string) {
+    const request = await this.shiftChangeRequestModel.findById(requestId);
+
+    if (!request) {
+      throw new HttpException('Request not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (request.requesterId !== requesterId) {
+      throw new HttpException(
+        'Only requester can cancel this request',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (request.status !== ShiftChangeStatus.PENDING) {
+      throw new HttpException(
+        'Request already processed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Requester cancels
+    request.status = ShiftChangeStatus.CANCELLED;
+    request.processedAt = new Date();
+
+    await request.save();
+
+    // Notify target user only
+    await this.notificationService.createNotification({
+      message: {
+        key: 'SHIFT_CHANGE_CANCELLED',
+        params: {
+          requesterId,
+        },
+      },
+      type: 'INFORMATION',
+      selectedUsers: [request.targetUserId],
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    return request;
+  }
+
   private async swapShifts(request: ShiftChangeRequest) {
     const { requesterShift, targetShift } = request;
 
