@@ -50,7 +50,7 @@ export class ShiftChangeRequest extends Document {
     enum: ShiftChangeType,
     default: ShiftChangeType.SWAP
   })
-  type: string; // SWAP: karşılıklı değişim, TRANSFER: tek taraflı devir
+  type: string;
 
   @Prop({ required: true, type: String })
   requesterNote: string;
@@ -65,6 +65,21 @@ export class ShiftChangeRequest extends Document {
     default: ShiftChangeStatus.PENDING
   })
   status: string;
+
+  @Prop({ required: true, type: Boolean, default: false })
+  managerApproved: boolean;
+
+  @Prop({ required: false, type: Date })
+  managerApprovedAt?: Date;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  managerApprovedBy?: string;
+
+  @Prop({ required: true, type: Boolean, default: false })
+  targetUserApproved: boolean;
+
+  @Prop({ required: false, type: Date })
+  targetUserApprovedAt?: Date;
 
   @Prop({ required: false, type: String, ref: User.name })
   processedByManagerId: string;

@@ -3,15 +3,14 @@ import { ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
 export class ShiftSnapshotDto {
   shiftId: number;
   day: string;
-  startTime: string; // Vardiya başlangıç saati (örn: "09:00")
-  endTime?: string; // Vardiya bitiş saati (örn: "17:00")
+  startTime: string;
+  endTime?: string;
   location: number;
-  chefUser?: string;
-  userId: string; // Bu shift'e atanmış kullanıcı
+  userId: string;
 }
 
 export class CreateShiftChangeRequestDto {
-  targetUserId: string; //bu gerekli olmayabilir
+  targetUserId: string;
   requesterShift: ShiftSnapshotDto;
   targetShift: ShiftSnapshotDto;
   type: ShiftChangeType; // SWAP veya TRANSFER

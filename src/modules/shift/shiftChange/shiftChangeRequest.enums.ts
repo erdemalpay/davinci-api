@@ -5,6 +5,6 @@ export enum ShiftChangeStatus {
 }
 
 export enum ShiftChangeType {
-  SWAP = 'SWAP',           // Karşılıklı değişim (iki taraflı)
-  TRANSFER = 'TRANSFER',   // Tek taraflı devir (sadece requester shift'ini verir)
+  SWAP = 'SWAP',
+  TRANSFER = 'TRANSFER',
 }

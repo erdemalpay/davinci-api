@@ -29,7 +29,7 @@ export class ShiftChangeRequestService {
     requesterId: string,
     createDto: CreateShiftChangeRequestDto,
   ) {
-    // Validate requester is in requesterShift
+    // requester is in requesterShift validation
     if (createDto.requesterShift.userId !== requesterId) {
       throw new HttpException(
         'Requester must be in requester shift',
@@ -37,7 +37,7 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Validate target user is in targetShift
+    // target user is in targetShift validation
     if (createDto.targetShift.userId !== createDto.targetUserId) {
       throw new HttpException(
         'Target user must be in target shift',
@@ -45,8 +45,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Verify requester shift exists in database and requester is actually assigned to it
-    // Use $elemMatch to ensure both shift time and user are in the SAME array element
     const requesterShiftDoc = await this.shiftModel
       .findOne({
         _id: createDto.requesterShift.shiftId,
@@ -68,8 +66,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Verify target shift exists in database and target user is actually assigned to it
-    // Use $elemMatch to ensure both shift time and user are in the SAME array element
     const targetShiftDoc = await this.shiftModel
       .findOne({
         _id: createDto.targetShift.shiftId,
@@ -93,7 +89,7 @@ export class ShiftChangeRequestService {
 
     // Check for shift overlaps (especially important for TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
-      // Target user will receive requester's shift, check if it overlaps with their existing shifts
+
       const hasOverlap = await this.checkShiftOverlap(
         createDto.targetUserId,
         createDto.requesterShift.day,
@@ -108,7 +104,7 @@ export class ShiftChangeRequestService {
           HttpStatus.CONFLICT,
         );
       }
-      //swapta böyle bir kontrole gerek var mı?
+
     } else if (createDto.type === ShiftChangeType.SWAP) {
       // In swap, check both users for overlaps
       const requesterHasOverlap = await this.checkShiftOverlap(
@@ -150,7 +146,6 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    // Send notification to target user
     await this.notificationService.createNotification({
       message: {
         key: 'SHIFT_CHANGE_REQUESTED',
@@ -165,9 +160,6 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
-    // Send notification to managers
-    // Note: You need to implement getManagerUsers() or use roles
-    // For now, we'll send to all users with manager role
     await this.notificationService.createNotification({
       message: {
         key: 'SHIFT_CHANGE_REQUESTED',
@@ -177,7 +169,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1], // Assuming 1 is manager role
+      selectedRoles: [1], // Assuming 1 is MANAGER role
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
@@ -278,7 +270,7 @@ export class ShiftChangeRequestService {
     };
   }
 
-  async approveRequest(
+  async approveByManager(
     requestId: number,
     managerId: string,
     updateDto: UpdateShiftChangeRequestDto,
@@ -296,41 +288,149 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Perform shift change based on type
-    if (request.type === ShiftChangeType.SWAP) {
-      await this.swapShifts(request);
-    } else if (request.type === ShiftChangeType.TRANSFER) {
-      await this.transferShift(request);
+    if (request.managerApproved) {
+      throw new HttpException(
+        'Manager already approved this request',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    // Update request
-    request.status = ShiftChangeStatus.APPROVED;
-    request.processedByManagerId = managerId;
-    request.processedAt = new Date();
+    // Mark manager approval
+    request.managerApproved = true;
+    request.managerApprovedAt = new Date();
+    request.managerApprovedBy = managerId;
     if (updateDto.managerNote) {
       request.managerNote = updateDto.managerNote;
     }
-    await request.save();
 
-    // Send notifications to both users
-    await this.notificationService.createNotification({
-      message: {
-        key: 'SHIFT_CHANGE_APPROVED',
-        params: {
-          managerId,
+    // Check if both approvals are complete
+    if (request.targetUserApproved) {
+      // Both approved, perform the shift change
+      if (request.type === ShiftChangeType.SWAP) {
+        await this.swapShifts(request);
+      } else if (request.type === ShiftChangeType.TRANSFER) {
+        await this.transferShift(request);
+      }
+
+      request.status = ShiftChangeStatus.APPROVED;
+      request.processedByManagerId = managerId;
+      request.processedAt = new Date();
+
+      await request.save();
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'SHIFT_CHANGE_APPROVED',
+          params: {
+            managerId,
+          },
         },
-      },
-      type: 'SUCCESS',
-      selectedUsers: [request.requesterId, request.targetUserId],
-      event: NotificationEventType.SHIFTCHANGEAPPROVED,
-    });
+        type: 'SUCCESS',
+        selectedUsers: [request.requesterId, request.targetUserId, managerId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+    } else {
+
+      await request.save();
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'SHIFT_CHANGE_MANAGER_APPROVED',
+          params: {
+            managerId,
+          },
+        },
+        type: 'INFORMATION',
+        selectedUsers: [request.targetUserId],
+        event: NotificationEventType.SHIFTCHANGEREQUESTED,
+      });
+    }
+
+    return request;
+  }
+
+  async approveByTargetUser(requestId: number, targetUserId: string) {
+    const request = await this.shiftChangeRequestModel.findById(requestId);
+
+    if (!request) {
+      throw new HttpException('Request not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (request.status !== ShiftChangeStatus.PENDING) {
+      throw new HttpException(
+        'Request already processed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (request.targetUserId !== targetUserId) {
+      throw new HttpException(
+        'Only target user can approve this request',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (request.targetUserApproved) {
+      throw new HttpException(
+        'Target user already approved this request',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    request.targetUserApproved = true;
+    request.targetUserApprovedAt = new Date();
+
+    if (request.managerApproved) {
+      // Both approved, perform the shift change
+      if (request.type === ShiftChangeType.SWAP) {
+        await this.swapShifts(request);
+      } else if (request.type === ShiftChangeType.TRANSFER) {
+        await this.transferShift(request);
+      }
+
+      request.status = ShiftChangeStatus.APPROVED;
+      request.processedAt = new Date();
+
+      await request.save();
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'SHIFT_CHANGE_APPROVED',
+          params: {
+            targetUserId,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [
+          request.requesterId,
+          request.targetUserId,
+          request.managerApprovedBy,
+        ],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+    } else {
+
+      await request.save();
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'SHIFT_CHANGE_TARGET_APPROVED',
+          params: {
+            targetUserId,
+          },
+        },
+        type: 'INFORMATION',
+        selectedRoles: [1], // Manager role
+        event: NotificationEventType.SHIFTCHANGEREQUESTED,
+      });
+    }
 
     return request;
   }
 
   async rejectRequest(
     requestId: number,
-    managerId: string,
+    userId: string,
     updateDto: UpdateShiftChangeRequestDto,
   ) {
     const request = await this.shiftChangeRequestModel.findById(requestId);
@@ -346,26 +446,37 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Update request
+    const isTargetUser = request.targetUserId === userId;
+    const isRequester = request.requesterId === userId;
+
     request.status = ShiftChangeStatus.REJECTED;
-    request.processedByManagerId = managerId;
     request.processedAt = new Date();
-    if (updateDto.managerNote) {
-      request.managerNote = updateDto.managerNote;
+
+    if (isTargetUser || isRequester) {
+      // If target user or requester rejects
+      if (updateDto.managerNote) {
+        request.managerNote = updateDto.managerNote;
+      }
+    } else {
+      // If manager rejects
+      request.processedByManagerId = userId;
+      if (updateDto.managerNote) {
+        request.managerNote = updateDto.managerNote;
+      }
     }
+
     await request.save();
 
-    // Send notifications to both users
     await this.notificationService.createNotification({
       message: {
         key: 'SHIFT_CHANGE_REJECTED',
         params: {
-          managerId,
+          rejectedBy: userId,
           reason: updateDto.managerNote || '',
         },
       },
       type: 'WARNING',
-      selectedUsers: [request.requesterId, request.targetUserId],
+      selectedUsers: [request.requesterId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
@@ -375,7 +486,6 @@ export class ShiftChangeRequestService {
   private async swapShifts(request: ShiftChangeRequest) {
     const { requesterShift, targetShift } = request;
 
-    // Remove requester from their shift and add to target shift
     await this.removeUserFromShift(
       requesterShift.day,
       requesterShift.startTime,
@@ -390,7 +500,6 @@ export class ShiftChangeRequestService {
       targetShift.endTime,
     );
 
-    // Remove target from their shift and add to requester shift
     await this.removeUserFromShift(
       targetShift.day,
       targetShift.startTime,
@@ -412,8 +521,7 @@ export class ShiftChangeRequestService {
     location: number,
     userId: string,
   ) {
-    // Find the shift document and remove user from the specific shift time slot
-    // Note: 'shifts.shift' in query refers to the original schema field name
+
     const shiftDoc = await this.shiftModel
       .findOneAndUpdate(
         { day, location, 'shifts.shift': startTime },
@@ -441,14 +549,13 @@ export class ShiftChangeRequestService {
     userId: string,
     endTime?: string,
   ) {
-    // ShiftService.addShift uses 'shift' parameter name (original schema)
+
     await this.shiftService.addShift(day, startTime, location, userId, endTime);
   }
 
   private async transferShift(request: ShiftChangeRequest) {
     const { requesterShift, targetUserId } = request;
 
-    // Remove requester from their shift
     await this.removeUserFromShift(
       requesterShift.day,
       requesterShift.startTime,
@@ -456,7 +563,6 @@ export class ShiftChangeRequestService {
       requesterShift.userId,
     );
 
-    // Add target user to requester's shift (target keeps their own shift)
     await this.addUserToShift(
       requesterShift.day,
       requesterShift.startTime,
@@ -473,7 +579,7 @@ export class ShiftChangeRequestService {
     endTime: string,
     excludeShiftId?: number,
   ): Promise<boolean> {
-    // Find all shifts for this user on this day
+
     const shifts = await this.shiftModel
       .find({
         day,
@@ -485,7 +591,6 @@ export class ShiftChangeRequestService {
       return false;
     }
 
-    // Parse the times for comparison
     const [reqStartHour, reqStartMin] = startTime.split(':').map(Number);
     const reqStartMinutes = reqStartHour * 60 + reqStartMin;
 
@@ -494,11 +599,10 @@ export class ShiftChangeRequestService {
       const [reqEndHour, reqEndMin] = endTime.split(':').map(Number);
       reqEndMinutes = reqEndHour * 60 + reqEndMin;
     } else {
-      // If no end time, assume 8 hour shift
+
       reqEndMinutes = reqStartMinutes + 8 * 60;
     }
 
-    // Check each shift for overlap
     for (const shiftDoc of shifts) {
       for (const shiftValue of shiftDoc.shifts) {
         // Check if user is in this shift
@@ -506,8 +610,6 @@ export class ShiftChangeRequestService {
           continue;
         }
 
-        // Skip the specific slot we're trying to swap/transfer (not the entire document)
-        // Must check both document ID and shift time to identify the exact slot
         if (
           excludeShiftId &&
           shiftDoc._id === excludeShiftId &&
@@ -516,7 +618,6 @@ export class ShiftChangeRequestService {
           continue;
         }
 
-        // Parse existing shift times
         const [existingStartHour, existingStartMin] = shiftValue.shift
           .split(':')
           .map(Number);
@@ -532,8 +633,6 @@ export class ShiftChangeRequestService {
           existingEndMinutes = existingStartMinutes + 8 * 60;
         }
 
-        // Check for overlap
-        // Two time ranges overlap if: start1 < end2 && start2 < end1
         const hasOverlap =
           reqStartMinutes < existingEndMinutes &&
           existingStartMinutes < reqEndMinutes;
