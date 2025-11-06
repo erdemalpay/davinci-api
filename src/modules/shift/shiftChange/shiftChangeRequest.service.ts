@@ -37,14 +37,7 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // target user is in targetShift validation
-    if (createDto.targetShift.userId !== createDto.targetUserId) {
-      throw new HttpException(
-        'Target user must be in target shift',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
+    // Verify requester shift exists in database
     const requesterShiftDoc = await this.shiftModel
       .findOne({
         _id: createDto.requesterShift.shiftId,
@@ -66,25 +59,37 @@ export class ShiftChangeRequestService {
       );
     }
 
-    const targetShiftDoc = await this.shiftModel
-      .findOne({
-        _id: createDto.targetShift.shiftId,
-        day: createDto.targetShift.day,
-        location: createDto.targetShift.location,
-        shifts: {
-          $elemMatch: {
-            shift: createDto.targetShift.startTime,
-            user: createDto.targetUserId,
-          },
-        },
-      })
-      .exec();
+    // For SWAP, validate target user is in target shift
+    // For TRANSFER, target user doesn't need to be in any shift
+    if (createDto.type === ShiftChangeType.SWAP) {
+      // target user is in targetShift validation
+      if (createDto.targetShift.userId !== createDto.targetUserId) {
+        throw new HttpException(
+          'Target user must be in target shift',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
-    if (!targetShiftDoc) {
-      throw new HttpException(
-        'Target shift not found or target user is not assigned to this shift',
-        HttpStatus.BAD_REQUEST,
-      );
+      const targetShiftDoc = await this.shiftModel
+        .findOne({
+          _id: createDto.targetShift.shiftId,
+          day: createDto.targetShift.day,
+          location: createDto.targetShift.location,
+          shifts: {
+            $elemMatch: {
+              shift: createDto.targetShift.startTime,
+              user: createDto.targetUserId,
+            },
+          },
+        })
+        .exec();
+
+      if (!targetShiftDoc) {
+        throw new HttpException(
+          'Target shift not found or target user is not assigned to this shift',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     // Check for shift overlaps (especially important for TRANSFER)
