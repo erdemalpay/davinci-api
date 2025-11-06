@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Location } from '../location/location.schema';
+import { User } from '../user/user.schema';
 
 export enum ReservationStatusEnum {
   WAITING = 'Waiting',
@@ -22,6 +23,9 @@ export class Reservation extends Document {
 
   @Prop({ required: true })
   name: string;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  createdBy: string;
 
   @Prop({ required: true })
   phone: string;

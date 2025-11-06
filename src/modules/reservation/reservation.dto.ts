@@ -17,6 +17,9 @@ export class ReservationDto {
   phone: string;
 
   @IsString()
+  createdBy: string;
+
+  @IsString()
   date?: string;
 
   @IsString()
