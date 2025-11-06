@@ -56,18 +56,31 @@ export class ShiftChangeRequestController {
     );
   }
 
+  @Patch('/:id/manager-reject')
+  rejectByManager(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updateDto: UpdateShiftChangeRequestDto,
+  ) {
+    return this.shiftChangeRequestService.rejectByManager(
+      id,
+      user._id,
+      updateDto,
+    );
+  }
+
   @Patch('/:id/target-approve')
   approveByTargetUser(@ReqUser() user: User, @Param('id') id: number) {
     return this.shiftChangeRequestService.approveByTargetUser(id, user._id);
   }
 
-  @Patch('/:id/reject')
-  rejectRequest(
+  @Patch('/:id/target-reject')
+  rejectByTargetUser(
     @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updateDto: UpdateShiftChangeRequestDto,
   ) {
-    return this.shiftChangeRequestService.rejectRequest(
+    return this.shiftChangeRequestService.rejectByTargetUser(
       id,
       user._id,
       updateDto,

@@ -433,9 +433,9 @@ export class ShiftChangeRequestService {
     return request;
   }
 
-  async rejectRequest(
+  async rejectByManager(
     requestId: number,
-    userId: string,
+    managerId: string,
     updateDto: UpdateShiftChangeRequestDto,
   ) {
     const request = await this.shiftChangeRequestModel.findById(requestId);
@@ -451,30 +451,14 @@ export class ShiftChangeRequestService {
       );
     }
 
-    const isTargetUser = request.targetUserId === userId;
-    const isRequester = request.requesterId === userId;
-
+    // Manager rejects
     request.status = ShiftChangeStatus.REJECTED;
+    request.managerApprovalStatus = ApprovalStatus.REJECTED;
+    request.processedByManagerId = managerId;
     request.processedAt = new Date();
 
-    if (isTargetUser) {
-      // Target user rejects
-      request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
-      if (updateDto.managerNote) {
-        request.managerNote = updateDto.managerNote;
-      }
-    } else if (isRequester) {
-      // Requester rejects (cancels their own request)
-      if (updateDto.managerNote) {
-        request.managerNote = updateDto.managerNote;
-      }
-    } else {
-      // Manager rejects
-      request.managerApprovalStatus = ApprovalStatus.REJECTED;
-      request.processedByManagerId = userId;
-      if (updateDto.managerNote) {
-        request.managerNote = updateDto.managerNote;
-      }
+    if (updateDto.managerNote) {
+      request.managerNote = updateDto.managerNote;
     }
 
     await request.save();
@@ -483,7 +467,59 @@ export class ShiftChangeRequestService {
       message: {
         key: 'SHIFT_CHANGE_REJECTED',
         params: {
-          rejectedBy: userId,
+          rejectedBy: managerId,
+          reason: updateDto.managerNote || '',
+        },
+      },
+      type: 'WARNING',
+      selectedUsers: [request.requesterId],
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    return request;
+  }
+
+  async rejectByTargetUser(
+    requestId: number,
+    targetUserId: string,
+    updateDto: UpdateShiftChangeRequestDto,
+  ) {
+    const request = await this.shiftChangeRequestModel.findById(requestId);
+
+    if (!request) {
+      throw new HttpException('Request not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (request.status !== ShiftChangeStatus.PENDING) {
+      throw new HttpException(
+        'Request already processed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (request.targetUserId !== targetUserId) {
+      throw new HttpException(
+        'Only target user can reject this request',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Target user rejects
+    request.status = ShiftChangeStatus.REJECTED;
+    request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
+    request.processedAt = new Date();
+
+    if (updateDto.managerNote) {
+      request.managerNote = updateDto.managerNote;
+    }
+
+    await request.save();
+
+    await this.notificationService.createNotification({
+      message: {
+        key: 'SHIFT_CHANGE_REJECTED',
+        params: {
+          rejectedBy: targetUserId,
           reason: updateDto.managerNote || '',
         },
       },
