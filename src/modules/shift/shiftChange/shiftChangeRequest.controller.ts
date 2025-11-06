@@ -80,11 +80,7 @@ export class ShiftChangeRequestController {
     @Param('id') id: number,
     @Body() updateDto: UpdateShiftChangeRequestDto,
   ) {
-    return this.shiftChangeRequestService.rejectByTargetUser(
-      id,
-      user._id,
-      updateDto,
-    );
+    return this.shiftChangeRequestService.rejectByTargetUser(id, user._id);
   }
 
   @Patch('/:id/cancel')
