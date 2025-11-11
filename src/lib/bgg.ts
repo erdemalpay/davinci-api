@@ -1,49 +1,56 @@
 import axios from 'axios';
+import { getBggThing } from 'bgg-xml-api-client';
 import { GameDto } from 'src/modules/game/game.dto';
 
-const BGG_API_URL = 'https://boardgamegeek.com/xmlapi2/thing';
+type BggNameNode = { type?: string; value?: string };
+type BggThingItem = {
+  id?: number | string;
+  type?: string;
+  name?: BggNameNode | BggNameNode[];
+  image?: string;
+  thumbnail?: string;
+};
 
-const buildHeaders = () => ({
-  'User-Agent': 'Mozilla/5.0',
-  ...(process.env.BGG_API_TOKEN && {
-    Authorization: `Bearer ${process.env.BGG_API_TOKEN}`
-  }),
-});
+const DEFAULT_USER_AGENT = 'Mozilla/5.0';
 
-const parseItem = (itemXml: string): GameDto | undefined => {
-  const idMatch = itemXml.match(/<item[^>]*id="(\d+)"/);
-  const typeMatch = itemXml.match(/<item[^>]*type="([^"]+)"/);
-  const primaryNameMatch = itemXml.match(/<name[^>]*type="primary"[^>]*value="([^"]+)"/);
-  const fallbackNameMatch = itemXml.match(/<name[^>]*value="([^"]+)"/);
-  const imageMatch = itemXml.match(/<image>([^<]+)<\/image>/);
-  const thumbnailMatch = itemXml.match(/<thumbnail>([^<]+)<\/thumbnail>/);
+const ensureBggHeaders = () => {
+  const headers = axios.defaults.headers.common;
+  headers['User-Agent'] = process.env.BGG_USER_AGENT ?? DEFAULT_USER_AGENT;
 
-  const name = (primaryNameMatch ?? fallbackNameMatch)?.[1];
+  if (process.env.BGG_API_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.BGG_API_TOKEN}`;
+  }
+};
+
+const selectName = (name?: BggThingItem['name']): string | undefined => {
+  if (!name) return undefined;
+  const names = Array.isArray(name) ? name : [name];
+  return (names.find(({ type }) => type === 'primary') ?? names[0])?.value;
+};
+
+const toGameDto = (item: BggThingItem | undefined, fallbackId: number): GameDto | undefined => {
+  if (!item) return undefined;
+  const name = selectName(item.name);
   if (!name) return undefined;
 
   return {
-    _id: Number(idMatch?.[1]),
+    _id: Number(item.id ?? fallbackId),
     name,
-    expansion: typeMatch?.[1] === 'boardgameexpansion',
-    image: imageMatch?.[1] ?? '',
-    thumbnail: thumbnailMatch?.[1] ?? '',
+    expansion: item.type === 'boardgameexpansion',
+    image: item.image ?? '',
+    thumbnail: item.thumbnail ?? '',
   };
 };
 
-const extractItems = (xml: string): GameDto[] => {
-  const itemMatches = xml.matchAll(/<item[^>]*>[\s\S]*?<\/item>/g);
-  return Array.from(itemMatches, match => parseItem(match[0])).filter(Boolean) as GameDto[];
-};
+export const getGameDetails = async (id: number): Promise<GameDto | undefined> => {
+  ensureBggHeaders();
 
-export const getGameDetails = async (id: number): Promise<GameDto> => {
   try {
-    const response = await axios.get(BGG_API_URL, {
-      params: { id },
-      headers: buildHeaders(),
-      timeout: 30000,
-    });
+    const response = await getBggThing({ id });
+    const { item } = response.data;
+    const parsedItem = Array.isArray(item) ? item[0] : item;
+    const game = toGameDto(parsedItem, id);
 
-    const game = extractItems(response.data)[0];
     if (!game) {
       console.warn(`Item not found with id: ${id}`);
       return;
