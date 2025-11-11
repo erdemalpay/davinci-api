@@ -13,7 +13,7 @@ export class CreateShiftChangeRequestDto {
   targetUserId: string;
   requesterShift: ShiftSnapshotDto;
   targetShift: ShiftSnapshotDto;
-  type: ShiftChangeType; // SWAP veya TRANSFER
+  type: ShiftChangeType;
   requesterNote: string;
 }
 
