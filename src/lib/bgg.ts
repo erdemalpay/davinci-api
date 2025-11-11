@@ -55,18 +55,3 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
     return;
   }
 };
-
-export const getMultipleGameDetails = async (ids: number) => {
-  try {
-    const response = await axios.get(BGG_API_URL, {
-      params: { id: ids },
-      headers: buildHeaders(),
-      timeout: 30000,
-    });
-
-    return extractItems(response.data);
-  } catch (err) {
-    console.error(`Error fetching games with ids: ${ids}`, err);
-    return [];
-  }
-};
