@@ -11,11 +11,9 @@ type BggThingItem = {
   thumbnail?: string;
 };
 
-const DEFAULT_USER_AGENT = 'Mozilla/5.0';
-
 const ensureBggHeaders = () => {
   const headers = axios.defaults.headers.common;
-  headers['User-Agent'] = process.env.BGG_USER_AGENT ?? DEFAULT_USER_AGENT;
+  headers['User-Agent'] = 'Mozilla/5.0';
 
   if (process.env.BGG_API_TOKEN) {
     headers.Authorization = `Bearer ${process.env.BGG_API_TOKEN}`;
