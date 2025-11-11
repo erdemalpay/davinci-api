@@ -41,8 +41,6 @@ const parseXmlItem = (xmlString: string): any => {
 
 export const getGameDetails = async (id: number): Promise<GameDto> => {
   try {
-    console.log(`Fetching game details for BGG ID: ${id}`);
-
     const headers: any = {
       'User-Agent': 'Mozilla/5.0',
     };
@@ -51,7 +49,6 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
 
     if (apiToken) {
       headers['Authorization'] = `Bearer ${apiToken}`;
-      console.log('Using BGG API token');
     } else {
       console.warn('No BGG_API_TOKEN found in environment variables!');
     }
@@ -61,8 +58,6 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
       headers,
       timeout: 30000,
     });
-
-    console.log('BGG API Response status:', response.status);
 
     if (response.status !== 200) {
       console.warn(`Unexpected status: ${response.status}`);
