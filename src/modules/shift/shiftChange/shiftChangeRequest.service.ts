@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
-import { User } from '../../user/user.schema';
+import { UserService } from '../../user/user.service';
 import { Shift } from '../shift.schema';
 import { ShiftService } from '../shift.service';
 import {
@@ -23,7 +23,27 @@ export class ShiftChangeRequestService {
     private shiftModel: Model<Shift>,
     private readonly shiftService: ShiftService,
     private readonly notificationService: NotificationService,
+    private readonly userService: UserService,
   ) {}
+
+  private async getUserNames(
+    userIds: (string | undefined | null)[],
+  ): Promise<Record<string, string>> {
+    const uniqueIds = [
+      ...new Set(userIds.filter((id): id is string => Boolean(id))),
+    ];
+    if (!uniqueIds.length) {
+      return {};
+    }
+
+    const users = await Promise.all(
+      uniqueIds.map((id) => this.userService.findById(id)),
+    );
+    return uniqueIds.reduce<Record<string, string>>((acc, id, index) => {
+      acc[id] = users[index]?.name ?? id;
+      return acc;
+    }, {});
+  }
 
   async createRequest(
     requesterId: string,
@@ -151,11 +171,19 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      requesterId,
+      createDto.targetUserId,
+    ]);
+    const requesterName = userNames[requesterId] ?? 'Unknown User';
+    const targetName =
+      userNames[createDto.targetUserId] ?? 'Unknown User';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REQUESTED',
+        key: 'ShiftChangeRequestForTarget',
         params: {
-          requesterId,
+          requesterName,
           day: createDto.requesterShift.day,
           startTime: createDto.requesterShift.startTime,
         },
@@ -167,10 +195,12 @@ export class ShiftChangeRequestService {
 
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REQUESTED',
+        key: 'ShiftChangeRequestForManagers',
         params: {
-          requesterId,
-          targetUserId: createDto.targetUserId,
+          requesterName,
+          targetName,
+          day: createDto.requesterShift.day,
+          startTime: createDto.requesterShift.startTime,
         },
       },
       type: 'INFORMATION',
@@ -300,6 +330,15 @@ export class ShiftChangeRequestService {
       );
     }
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      request.targetUserId,
+      managerId,
+    ]);
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+    const managerName = userNames[managerId] ?? 'Unknown User';
+
     // Mark manager approval
     request.managerApprovalStatus = ApprovalStatus.APPROVED;
     request.managerApprovedAt = new Date();
@@ -325,9 +364,11 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_APPROVED',
+          key: 'ShiftChangeApproved',
           params: {
-            managerId,
+            requesterName,
+            targetName,
+            approvedBy: managerName,
           },
         },
         type: 'SUCCESS',
@@ -340,9 +381,11 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_MANAGER_APPROVED',
+          key: 'ShiftChangeManagerApproved',
           params: {
-            managerId,
+            managerName,
+            requesterName,
+            targetName,
           },
         },
         type: 'INFORMATION',
@@ -382,6 +425,13 @@ export class ShiftChangeRequestService {
       );
     }
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      request.targetUserId,
+    ]);
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+
     request.targetUserApprovalStatus = ApprovalStatus.APPROVED;
     request.targetUserApprovedAt = new Date();
 
@@ -400,9 +450,11 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_APPROVED',
+          key: 'ShiftChangeApproved',
           params: {
-            targetUserId,
+            requesterName,
+            targetName,
+            approvedBy: targetName,
           },
         },
         type: 'SUCCESS',
@@ -419,9 +471,10 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_TARGET_APPROVED',
+          key: 'ShiftChangeTargetApproved',
           params: {
-            targetUserId,
+            targetName,
+            requesterName,
           },
         },
         type: 'INFORMATION',
@@ -463,12 +516,21 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      managerId,
+    ]);
+    const managerName = userNames[managerId] ?? 'Unknown User';
+    const reasonText = updateDto.managerNote
+      ? `: ${updateDto.managerNote}`
+      : '';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REJECTED',
+        key: 'ShiftChangeRejected',
         params: {
-          rejectedBy: managerId,
-          reason: updateDto.managerNote || '',
+          rejectedByName: managerName,
+          reasonText,
         },
       },
       type: 'WARNING',
@@ -510,12 +572,18 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      targetUserId,
+    ]);
+    const targetName = userNames[targetUserId] ?? 'Unknown User';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REJECTED',
+        key: 'ShiftChangeRejected',
         params: {
-          rejectedBy: targetUserId,
-
+          rejectedByName: targetName,
+          reasonText: '',
         },
       },
       type: 'WARNING',
@@ -553,12 +621,15 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([requesterId]);
+    const requesterName = userNames[requesterId] ?? 'Unknown User';
+
     // Notify target user only
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_CANCELLED',
+        key: 'ShiftChangeCancelled',
         params: {
-          requesterId,
+          requesterName,
         },
       },
       type: 'INFORMATION',

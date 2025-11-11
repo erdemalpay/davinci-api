@@ -12,6 +12,7 @@ import {
   ShiftChangeRequestSchema,
 } from './shiftChange/shiftChangeRequest.schema';
 import { ShiftChangeRequestService } from './shiftChange/shiftChangeRequest.service';
+import { UserModule } from '../user/user.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Shift.name, ShiftSchema),
@@ -22,7 +23,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, NotificationModule],
+  imports: [mongooseModule, NotificationModule, UserModule],
   providers: [ShiftService, ShiftGateway, ShiftChangeRequestService],
   exports: [ShiftService, ShiftGateway, ShiftChangeRequestService],
   controllers: [ShiftController, ShiftChangeRequestController],
