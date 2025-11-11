@@ -2,7 +2,8 @@ import axios from 'axios';
 import { GameDto } from 'src/modules/game/game.dto';
 
 const BGG_API_URL = 'https://boardgamegeek.com/xmlapi2/thing';
-const BGG_API_TOKEN = process.env.BGG_API_TOKEN;
+
+const getBggApiToken = () => process.env.BGG_API_TOKEN;
 
 // Simple XML parser for BGG response
 const parseXmlItem = (xmlString: string): any => {
@@ -46,8 +47,10 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
       'User-Agent': 'Mozilla/5.0',
     };
 
-    if (BGG_API_TOKEN) {
-      headers['Authorization'] = `Bearer ${BGG_API_TOKEN}`;
+    const apiToken = getBggApiToken();
+
+    if (apiToken) {
+      headers['Authorization'] = `Bearer ${apiToken}`;
       console.log('Using BGG API token');
     } else {
       console.warn('No BGG_API_TOKEN found in environment variables!');
@@ -92,8 +95,10 @@ export const getMultipleGameDetails = async (ids: number) => {
       'User-Agent': 'Mozilla/5.0',
     };
 
-    if (BGG_API_TOKEN) {
-      headers['Authorization'] = `Bearer ${BGG_API_TOKEN}`;
+    const apiToken = getBggApiToken();
+
+    if (apiToken) {
+      headers['Authorization'] = `Bearer ${apiToken}`;
     }
 
     const response = await axios.get(BGG_API_URL, {
