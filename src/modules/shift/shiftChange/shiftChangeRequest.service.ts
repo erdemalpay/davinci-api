@@ -330,15 +330,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    const userNames = await this.getUserNames([
-      request.requesterId,
-      request.targetUserId,
-      managerId,
-    ]);
-    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
-    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
-    const managerName = userNames[managerId] ?? 'Unknown User';
-
     // Mark manager approval
     request.managerApprovalStatus = ApprovalStatus.APPROVED;
     request.managerApprovedAt = new Date();
@@ -349,6 +340,14 @@ export class ShiftChangeRequestService {
 
     // Check if both approvals are complete
     if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+        managerId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+      const managerName = userNames[managerId] ?? 'Unknown User';
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -364,28 +363,44 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeApproved',
+          key: 'ShiftChangeApprovedRequesterManager',
           params: {
-            requesterName,
             targetName,
-            approvedBy: managerName,
           },
         },
         type: 'SUCCESS',
-        selectedUsers: [request.requesterId, request.targetUserId, managerId],
+        selectedUsers: [request.requesterId, managerId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'ShiftChangeApprovedTarget',
+          params: {
+            requesterName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [request.targetUserId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
     } else {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        managerId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const managerName = userNames[managerId] ?? 'Unknown User';
 
       await request.save();
 
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeManagerApproved',
+          key: 'ShiftChangeManagerApprovedPendingTarget',
           params: {
-            managerName,
             requesterName,
-            targetName,
+            managerName,
           },
         },
         type: 'INFORMATION',
@@ -425,17 +440,19 @@ export class ShiftChangeRequestService {
       );
     }
 
-    const userNames = await this.getUserNames([
-      request.requesterId,
-      request.targetUserId,
-    ]);
-    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
-    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
-
     request.targetUserApprovalStatus = ApprovalStatus.APPROVED;
     request.targetUserApprovedAt = new Date();
 
     if (request.managerApprovalStatus === ApprovalStatus.APPROVED) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+        request.managerApprovedBy,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+      const managerName =
+        userNames[request.managerApprovedBy as string] ?? 'Unknown User';
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -450,28 +467,48 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeApproved',
+          key: 'ShiftChangeApprovedRequesterTarget',
           params: {
             requesterName,
             targetName,
-            approvedBy: targetName,
+            managerName,
           },
         },
         type: 'SUCCESS',
         selectedUsers: [
           request.requesterId,
           request.targetUserId,
-          request.managerApprovedBy,
         ],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
+
+      if (request.managerApprovedBy) {
+        await this.notificationService.createNotification({
+          message: {
+            key: 'ShiftChangeApprovedInformManager',
+            params: {
+              targetName,
+            },
+          },
+          type: 'SUCCESS',
+          selectedUsers: [request.managerApprovedBy],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
+      }
     } else {
 
       await request.save();
 
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeTargetApproved',
+          key: 'ShiftChangeTargetApprovedPendingManager',
           params: {
             targetName,
             requesterName,
@@ -521,15 +558,17 @@ export class ShiftChangeRequestService {
       managerId,
     ]);
     const managerName = userNames[managerId] ?? 'Unknown User';
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
     const reasonText = updateDto.managerNote
       ? `: ${updateDto.managerNote}`
       : '';
 
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeRejected',
+        key: 'ShiftChangeRejectedByManager',
         params: {
-          rejectedByName: managerName,
+          managerName,
+          requesterName,
           reasonText,
         },
       },
@@ -577,13 +616,14 @@ export class ShiftChangeRequestService {
       targetUserId,
     ]);
     const targetName = userNames[targetUserId] ?? 'Unknown User';
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
 
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeRejected',
+        key: 'ShiftChangeRejectedByTarget',
         params: {
-          rejectedByName: targetName,
-          reasonText: '',
+          targetName,
+          requesterName,
         },
       },
       type: 'WARNING',
