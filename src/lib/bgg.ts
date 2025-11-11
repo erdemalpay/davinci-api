@@ -3,25 +3,14 @@ import { GameDto } from 'src/modules/game/game.dto';
 
 const BGG_API_URL = 'https://boardgamegeek.com/xmlapi2/thing';
 
-type Headers = Record<string, string>;
+const buildHeaders = () => ({
+  'User-Agent': 'Mozilla/5.0',
+  ...(process.env.BGG_API_TOKEN && {
+    Authorization: `Bearer ${process.env.BGG_API_TOKEN}`
+  }),
+});
 
-const buildHeaders = (): Headers => {
-  const headers: Headers = {
-    'User-Agent': 'Mozilla/5.0',
-  };
-
-  const apiToken = process.env.BGG_API_TOKEN;
-
-  if (apiToken) {
-    headers.Authorization = `Bearer ${apiToken}`;
-  } else {
-    console.warn('No BGG_API_TOKEN found in environment variables!');
-  }
-
-  return headers;
-};
-
-const parseItem = (itemXml: string, fallbackId?: number): GameDto | undefined => {
+const parseItem = (itemXml: string): GameDto | undefined => {
   const idMatch = itemXml.match(/<item[^>]*id="(\d+)"/);
   const typeMatch = itemXml.match(/<item[^>]*type="([^"]+)"/);
   const primaryNameMatch = itemXml.match(/<name[^>]*type="primary"[^>]*value="([^"]+)"/);
@@ -30,13 +19,10 @@ const parseItem = (itemXml: string, fallbackId?: number): GameDto | undefined =>
   const thumbnailMatch = itemXml.match(/<thumbnail>([^<]+)<\/thumbnail>/);
 
   const name = (primaryNameMatch ?? fallbackNameMatch)?.[1];
-
-  if (!name) {
-    return undefined;
-  }
+  if (!name) return undefined;
 
   return {
-    _id: Number(idMatch?.[1] ?? fallbackId),
+    _id: Number(idMatch?.[1]),
     name,
     expansion: typeMatch?.[1] === 'boardgameexpansion',
     image: imageMatch?.[1] ?? '',
@@ -46,16 +32,7 @@ const parseItem = (itemXml: string, fallbackId?: number): GameDto | undefined =>
 
 const extractItems = (xml: string): GameDto[] => {
   const itemMatches = xml.matchAll(/<item[^>]*>[\s\S]*?<\/item>/g);
-  const parsedItems: GameDto[] = [];
-
-  for (const match of itemMatches) {
-    const game = parseItem(match[0]);
-    if (game) {
-      parsedItems.push(game);
-    }
-  }
-
-  return parsedItems;
+  return Array.from(itemMatches, match => parseItem(match[0])).filter(Boolean) as GameDto[];
 };
 
 export const getGameDetails = async (id: number): Promise<GameDto> => {
@@ -66,15 +43,13 @@ export const getGameDetails = async (id: number): Promise<GameDto> => {
       timeout: 30000,
     });
 
-    const items = extractItems(response.data);
-    const game = items[0];
-
+    const game = extractItems(response.data)[0];
     if (!game) {
-      console.warn(`Item not found or invalid for id: ${id}`);
+      console.warn(`Item not found with id: ${id}`);
       return;
     }
 
-    return { ...game, _id: game._id ?? id };
+    return game;
   } catch (err) {
     console.error(`Error fetching game with id: ${id}`, err);
     return;
