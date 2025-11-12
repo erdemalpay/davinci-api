@@ -406,26 +406,43 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeApprovedRequesterManager',
+          key: `ShiftChangeApprovedRequester_${request.type}`,
           params: {
             targetName,
-          },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [request.requesterId, managerId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
-
-      await this.notificationService.createNotification({
-        message: {
-          key: 'ShiftChangeApprovedTarget',
-          params: {
             requesterName,
             managerName,
           },
         },
         type: 'SUCCESS',
+        selectedUsers: [request.requesterId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedTarget_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
         selectedUsers: [request.targetUserId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedManager_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [managerId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
     } else {
@@ -510,7 +527,7 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'ShiftChangeApprovedRequesterTarget',
+          key: `ShiftChangeApprovedRequester_${request.type}`,
           params: {
             requesterName,
             targetName,
@@ -518,19 +535,32 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedUsers: [
-          request.requesterId,
-          request.targetUserId,
-        ],
+        selectedUsers: [request.requesterId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedTarget_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [request.targetUserId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
       if (request.managerApprovedBy) {
         await this.notificationService.createNotification({
           message: {
-            key: 'ShiftChangeApprovedInformManager',
+            key: `ShiftChangeApprovedManager_${request.type}`,
             params: {
+              requesterName,
               targetName,
+              managerName,
             },
           },
           type: 'SUCCESS',
