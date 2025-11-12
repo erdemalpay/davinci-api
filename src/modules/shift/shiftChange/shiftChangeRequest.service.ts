@@ -5,6 +5,7 @@ import { LocationService } from '../../location/location.service';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { UserService } from '../../user/user.service';
+import { ShiftGateway } from '../shift.gateway';
 import { Shift } from '../shift.schema';
 import { ShiftService } from '../shift.service';
 import {
@@ -26,6 +27,7 @@ export class ShiftChangeRequestService {
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
+    private readonly shiftGateway: ShiftGateway,
   ) {}
 
   private async getUserNames(
@@ -251,6 +253,8 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'created', request });
+
     return request;
   }
 
@@ -445,6 +449,8 @@ export class ShiftChangeRequestService {
         selectedUsers: [managerId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
       const userNames = await this.getUserNames([
         request.requesterId,
@@ -467,6 +473,8 @@ export class ShiftChangeRequestService {
         selectedUsers: [request.targetUserId],
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'manager_approved', request });
     }
 
     return request;
@@ -568,6 +576,8 @@ export class ShiftChangeRequestService {
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
       }
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
 
       await request.save();
@@ -591,6 +601,8 @@ export class ShiftChangeRequestService {
         selectedRoles: [1], // Manager role
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'target_approved', request });
     }
 
     return request;
@@ -666,6 +678,8 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
+
     return request;
   }
 
@@ -719,6 +733,8 @@ export class ShiftChangeRequestService {
       selectedUsers: [request.requesterId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
 
     return request;
   }
@@ -782,6 +798,8 @@ export class ShiftChangeRequestService {
       selectedRoles: [1],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'cancelled', request });
 
     return request;
   }

@@ -44,4 +44,8 @@ export class ShiftGateway
   emitShiftChanged(user?: User, shift?: any) {
     this.server.emit('shiftChanged', { user, shift });
   }
+
+  emitShiftChangeRequestChanged(data?: any) {
+    this.server.emit('shiftChangeRequestChanged', data);
+  }
 }
