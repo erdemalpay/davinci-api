@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   mongo:
     image: mongo:5
@@ -12,35 +14,42 @@ services:
       test:
         [
           'CMD-SHELL',
-          "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' || exit 1",
+          "mongosh 'mongodb://127.0.0.1:27017/admin?directConnection=true&serverSelectionTimeoutMS=2000' --quiet --eval 'db.adminCommand({ ping: 1 })' || exit 1",
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   mongo-init-replica:
     image: mongo:5
     depends_on:
       mongo:
-        condition: service_healthy
-    entrypoint:
-      [
+        condition: service_started
+    restart: 'no'
+    entrypoint: [
         'bash',
         '-lc',
-        'mongosh --quiet --host davinci-db:27017 --eval ''try{rs.status()}catch(e){rs.initiate({_id:"rs0",members:[{_id:0,host:"davinci-db:27017"}]})}''',
+        "for i in {1..60}; do \
+        mongosh 'mongodb://davinci-db:27017/admin?serverSelectionTimeoutMS=2000' --quiet --eval 'db.runCommand({ ping: 1 })' && break || sleep 2; \
+        done; \
+        mongosh --quiet 'mongodb://davinci-db:27017/admin' --eval 'try { rs.status() } catch(e) { rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"davinci-db:27017\"}]}) }'",
       ]
-    restart: 'no'
+
   davinci-redis-staging:
     image: redis:latest
     container_name: davinci-redis-staging
     restart: always
     ports:
       - '6379:6379'
+
   davinci-redis-production:
     image: redis:latest
     container_name: davinci-redis-production
     restart: always
     ports:
       - '6380:6379'
+
   davinci-api-production:
     build:
       context: ./
@@ -54,6 +63,7 @@ services:
       - '8070:4000'
     volumes:
       - ./logs:/app/logs
+
   davinci-api-staging:
     build:
       context: ./
