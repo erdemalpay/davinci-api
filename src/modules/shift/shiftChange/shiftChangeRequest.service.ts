@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { LocationService } from '../../location/location.service';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { UserService } from '../../user/user.service';
@@ -24,6 +25,7 @@ export class ShiftChangeRequestService {
     private readonly shiftService: ShiftService,
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
+    private readonly locationService: LocationService,
   ) {}
 
   private async getUserNames(
@@ -41,6 +43,25 @@ export class ShiftChangeRequestService {
     );
     return uniqueIds.reduce<Record<string, string>>((acc, id, index) => {
       acc[id] = users[index]?.name ?? id;
+      return acc;
+    }, {});
+  }
+
+  private async getLocationNames(
+    locationIds: (number | undefined | null)[],
+  ): Promise<Record<number, string>> {
+    const uniqueIds = [
+      ...new Set(locationIds.filter((id): id is number => id != null)),
+    ];
+    if (!uniqueIds.length) {
+      return {};
+    }
+
+    const locations = await Promise.all(
+      uniqueIds.map((id) => this.locationService.findLocationById(id)),
+    );
+    return uniqueIds.reduce<Record<number, string>>((acc, id, index) => {
+      acc[id] = locations[index]?.name ?? id.toString();
       return acc;
     }, {});
   }
@@ -179,13 +200,29 @@ export class ShiftChangeRequestService {
     const targetName =
       userNames[createDto.targetUserId] ?? 'Unknown User';
 
+    const locationNames = await this.getLocationNames([
+      createDto.requesterShift.location,
+      createDto.targetShift?.location,
+    ]);
+    const requesterLocationName = locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
+    const targetLocationName = createDto.targetShift?.location
+      ? (locationNames[createDto.targetShift.location] ?? 'Unknown Location')
+      : '';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeRequestForTarget',
+        key: `ShiftChangeRequestForTarget_${createDto.type}`,
         params: {
           requesterName,
-          day: createDto.requesterShift.day,
-          startTime: createDto.requesterShift.startTime,
+          targetName,
+          requesterShiftDay: createDto.requesterShift.day,
+          requesterShiftStartTime: createDto.requesterShift.startTime,
+          requesterShiftEndTime: createDto.requesterShift.endTime,
+          requesterShiftLocation: requesterLocationName,
+          targetShiftDay: createDto.targetShift?.day || '',
+          targetShiftStartTime: createDto.targetShift?.startTime || '',
+          targetShiftEndTime: createDto.targetShift?.endTime || '',
+          targetShiftLocation: targetLocationName,
         },
       },
       type: 'INFORMATION',
@@ -195,12 +232,18 @@ export class ShiftChangeRequestService {
 
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeRequestForManagers',
+        key: `ShiftChangeRequestForManagers_${createDto.type}`,
         params: {
           requesterName,
           targetName,
-          day: createDto.requesterShift.day,
-          startTime: createDto.requesterShift.startTime,
+          requesterShiftDay: createDto.requesterShift.day,
+          requesterShiftStartTime: createDto.requesterShift.startTime,
+          requesterShiftEndTime: createDto.requesterShift.endTime,
+          requesterShiftLocation: requesterLocationName,
+          targetShiftDay: createDto.targetShift?.day || '',
+          targetShiftStartTime: createDto.targetShift?.startTime || '',
+          targetShiftEndTime: createDto.targetShift?.endTime || '',
+          targetShiftLocation: targetLocationName,
         },
       },
       type: 'INFORMATION',
