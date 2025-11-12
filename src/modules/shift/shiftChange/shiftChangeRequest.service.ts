@@ -481,7 +481,7 @@ export class ShiftChangeRequestService {
         ],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
-//
+
       if (request.managerApprovedBy) {
         await this.notificationService.createNotification({
           message: {
