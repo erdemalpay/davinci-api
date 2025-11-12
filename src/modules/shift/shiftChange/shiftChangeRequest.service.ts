@@ -750,14 +750,19 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    const userNames = await this.getUserNames([requesterId]);
+    const userNames = await this.getUserNames([
+      requesterId,
+      request.targetUserId,
+    ]);
     const requesterName = userNames[requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
 
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeCancelled',
+        key: `ShiftChangeCancelled_${request.type}`,
         params: {
           requesterName,
+          targetName,
         },
       },
       type: 'INFORMATION',
@@ -767,9 +772,10 @@ export class ShiftChangeRequestService {
 
     await this.notificationService.createNotification({
       message: {
-        key: 'ShiftChangeCancelled',
+        key: `ShiftChangeCancelled_${request.type}`,
         params: {
           requesterName,
+          targetName,
         },
       },
       type: 'INFORMATION',
