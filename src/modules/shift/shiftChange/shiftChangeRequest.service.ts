@@ -598,10 +598,12 @@ export class ShiftChangeRequestService {
 
     const userNames = await this.getUserNames([
       request.requesterId,
+      request.targetUserId,
       managerId,
     ]);
     const managerName = userNames[managerId] ?? 'Unknown User';
     const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
     const reasonText = updateDto.managerNote
       ? `: ${updateDto.managerNote}`
       : '';
@@ -617,6 +619,20 @@ export class ShiftChangeRequestService {
       },
       type: 'WARNING',
       selectedUsers: [request.requesterId],
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    await this.notificationService.createNotification({
+      message: {
+        key: 'ShiftChangeRejectedByManager',
+        params: {
+          managerName,
+          requesterName,
+          reasonText,
+        },
+      },
+      type: 'WARNING',
+      selectedUsers: [request.targetUserId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
