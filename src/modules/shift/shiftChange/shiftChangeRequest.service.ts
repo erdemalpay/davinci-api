@@ -664,7 +664,6 @@ export class ShiftChangeRequestService {
     const userNames = await this.getUserNames([requesterId]);
     const requesterName = userNames[requesterId] ?? 'Unknown User';
 
-    // Notify target user only
     await this.notificationService.createNotification({
       message: {
         key: 'ShiftChangeCancelled',
@@ -674,6 +673,18 @@ export class ShiftChangeRequestService {
       },
       type: 'INFORMATION',
       selectedUsers: [request.targetUserId],
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    await this.notificationService.createNotification({
+      message: {
+        key: 'ShiftChangeCancelled',
+        params: {
+          requesterName,
+        },
+      },
+      type: 'INFORMATION',
+      selectedRoles: [1],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
