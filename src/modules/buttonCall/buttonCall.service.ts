@@ -81,7 +81,7 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    const obj: any = {
+    const obj: { duration: string; finishHour: string; cancelledBy?: string } = {
       duration: convertToHMS(
         convertToSeconds(closeButtonCallDto.hour) -
           convertToSeconds(closedButtonCall.startHour),
