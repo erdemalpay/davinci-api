@@ -98,16 +98,13 @@ export class ButtonCallService {
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
-      await this.notifyCafe(user, closeButtonCallDto);
+      await this.notifyCafe(closeButtonCallDto);
     }
 
     return closedButtonCall;
   }
 
-  async notifyCafe(user: User, closeButtonCallDto: CloseButtonCallDto) {
-    if (!user) {
-      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-    }
+  async notifyCafe(closeButtonCallDto: CloseButtonCallDto) {
     const location = closeButtonCallDto.location;
     if (location == 1) {
       if (!this.buttonCallBahceliIP || !this.buttonCallBahceliPort) {

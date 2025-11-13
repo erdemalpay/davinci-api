@@ -122,7 +122,7 @@ export class ButtonCallController {
     if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
-    return this.buttonCallService.close(null, closeButtonCallDto, false);
+    return this.buttonCallService.close(null, closeButtonCallDto, true);
   }
 
   @Get('/average-duration')
@@ -142,6 +142,6 @@ export class ButtonCallController {
     if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
-    return this.buttonCallService.notifyCafe(user, closeButtonCallDto);
+    return this.buttonCallService.notifyCafe(closeButtonCallDto);
   }
 }
