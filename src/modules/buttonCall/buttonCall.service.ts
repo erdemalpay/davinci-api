@@ -81,14 +81,19 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    closedButtonCall.set({
+    const obj: any = {
       duration: convertToHMS(
         convertToSeconds(closeButtonCallDto.hour) -
           convertToSeconds(closedButtonCall.startHour),
       ),
       finishHour: closeButtonCallDto.hour,
-      ...(user && { cancelledBy: user._id }),
-    });
+    };
+
+    if (user) {
+      obj.cancelledBy = user._id;
+    }
+
+    closedButtonCall.set(obj);
     await closedButtonCall.save();
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
