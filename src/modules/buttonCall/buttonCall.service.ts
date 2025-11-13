@@ -67,7 +67,7 @@ export class ButtonCallService {
   }
 
   async close(
-    user: User,
+    user: User | null,
     closeButtonCallDto: CloseButtonCallDto,
     notifyCafe = false,
   ) {
@@ -81,35 +81,35 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    closedButtonCall.set({
+    const obj: { duration: string; finishHour: string; cancelledBy?: string } = {
       duration: convertToHMS(
         convertToSeconds(closeButtonCallDto.hour) -
           convertToSeconds(closedButtonCall.startHour),
       ),
       finishHour: closeButtonCallDto.hour,
-      cancelledBy: user._id,
-    });
+    };
+
+    if (user) {
+      obj.cancelledBy = user._id;
+    }
+
+    closedButtonCall.set(obj);
     await closedButtonCall.save();
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
-      await this.notifyCafe(user, closeButtonCallDto);
+      await this.notifyCafe(closeButtonCallDto);
     }
 
     return closedButtonCall;
   }
 
-  async notifyCafe(user: User, closeButtonCallDto: CloseButtonCallDto) {
-    if (!user) {
-      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-    }
+  async notifyCafe(closeButtonCallDto: CloseButtonCallDto) {
     const location = closeButtonCallDto.location;
+
     if (location == 1) {
       if (!this.buttonCallBahceliIP || !this.buttonCallBahceliPort) {
-        throw new HttpException(
-          'IP and PORT must be specified.',
-          HttpStatus.PRECONDITION_REQUIRED,
-        );
+        return;
       }
     } else if (location == 2) {
       if (!this.buttonCallNeoIP || !this.buttonCallNeoPort) {
@@ -142,10 +142,8 @@ export class ButtonCallService {
           .pipe(timeout(10000)),
       );
     } catch (error) {
-      throw new HttpException(
-        error.message ?? 'Error notifying cafe',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Error notifying cafe:', error.message);
+
     }
   }
   async averageButtonCallStats(date: string, location: number) {
