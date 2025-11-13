@@ -450,6 +450,21 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
+      // Notify all managers and game managers about completed shift change
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCompletedForManagers_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
       this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
       const userNames = await this.getUserNames([
@@ -576,6 +591,21 @@ export class ShiftChangeRequestService {
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
       }
+
+      // Notify all managers and game managers about completed shift change
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCompletedForManagers_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
 
       this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
