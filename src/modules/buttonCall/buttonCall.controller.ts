@@ -113,6 +113,18 @@ export class ButtonCallController {
     return this.buttonCallService.close(user, closeButtonCallDto, true);
   }
 
+  @Public()
+  @ApiResponse({ type: ButtonCall })
+  @Post('close-from-customer')
+  closeButtonCallFromCustomer(
+    @Body() closeButtonCallDto: CloseButtonCallDto,
+  ) {
+    if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.close(null, closeButtonCallDto, false);
+  }
+
   @Get('/average-duration')
   averageDuration(
     @Query('date') date: string,

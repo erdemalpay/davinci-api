@@ -67,7 +67,7 @@ export class ButtonCallService {
   }
 
   async close(
-    user: User,
+    user: User | null,
     closeButtonCallDto: CloseButtonCallDto,
     notifyCafe = false,
   ) {
@@ -87,7 +87,7 @@ export class ButtonCallService {
           convertToSeconds(closedButtonCall.startHour),
       ),
       finishHour: closeButtonCallDto.hour,
-      cancelledBy: user._id,
+      ...(user && { cancelledBy: user._id }),
     });
     await closedButtonCall.save();
     this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
