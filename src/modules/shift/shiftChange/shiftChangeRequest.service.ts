@@ -249,7 +249,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
@@ -461,7 +461,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -603,7 +603,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -628,7 +628,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'INFORMATION',
-        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
@@ -825,7 +825,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
