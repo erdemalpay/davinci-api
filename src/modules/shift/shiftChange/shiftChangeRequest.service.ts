@@ -249,7 +249,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1], // Assuming 1 is MANAGER role
+      selectedRoles: [1, 3], // Manager (1) and GameManager (3)
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
@@ -628,7 +628,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'INFORMATION',
-        selectedRoles: [1], // Manager role
+        selectedRoles: [1, 3], // Manager (1) and GameManager (3)
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
@@ -825,7 +825,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1],
+      selectedRoles: [1, 3], // Manager (1) and GameManager (3)
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
