@@ -44,4 +44,8 @@ export class PointGateway
   emitPointChanged(user: User, point: any) {
     this.server.emit('pointChanged', { user, point });
   }
+
+  emitPointHistoryChanged(user: User, pointHistory: any) {
+    this.server.emit('pointHistoryChanged', { user, pointHistory });
+  }
 }

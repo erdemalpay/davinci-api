@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from '../user/user.decorator';
@@ -24,8 +25,39 @@ export class PointController {
   }
 
   @Get('/user/:userId')
-  getUserPoints(@Param('userId') userId: number) {
+  getUserPoints(@Param('userId') userId: string) {
     return this.pointService.findUserPoints(userId);
+  }
+
+  @Get('/history')
+  getAllPointHistories() {
+    return this.pointService.findAllPointHistories();
+  }
+
+  @Get('/history/query')
+  findAllPointHistoriesWithPagination(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('pointUser') pointUser?: string,
+    @Query('status') status?: string,
+    @Query('before') before?: string,
+    @Query('after') after?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number | '1' | '0' | '-1',
+  ) {
+    return this.pointService.findAllPointHistoriesWithPagination(page, limit, {
+      pointUser,
+      status,
+      before,
+      after,
+      sort,
+      asc: typeof asc === 'string' ? Number(asc) : asc,
+    });
+  }
+
+  @Get('/history/user/:userId')
+  getUserPointHistories(@Param('userId') userId: string) {
+    return this.pointService.findUserPointHistories(userId);
   }
 
   @Post()
