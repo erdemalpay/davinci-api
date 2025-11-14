@@ -23,6 +23,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
 import { OrderModule } from './modules/order/order.module';
 import { PanelControlModule } from './modules/panelControl/panelControl.module';
+import { PointModule } from './modules/point/point.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
 import { RewardModule } from './modules/reward/reward.module';
@@ -67,6 +68,7 @@ const modules = [
   AccountingModule,
   CheckoutModule,
   PanelControlModule,
+  PointModule,
   OrderModule,
   RedisModule,
   ButtonCallModule,
