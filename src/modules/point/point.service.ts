@@ -142,7 +142,7 @@ export class PointService {
         {
           point: existingPoint._id,
           pointUser: existingPoint.user,
-          createdBy: createPointDto.user,
+          createdBy: user._id,
           status: PointHistoryStatusEnum.POINTCREATE,
           currentAmount: existingPoint.amount,
           change: createPointDto.amount,
@@ -161,7 +161,7 @@ export class PointService {
       {
         point: point._id,
         pointUser: point.user,
-        createdBy: createPointDto.user,
+        createdBy: user._id,
         status: PointHistoryStatusEnum.POINTCREATE,
         currentAmount: point.amount,
         change: createPointDto.amount,
@@ -206,7 +206,7 @@ export class PointService {
         {
           point: point._id,
           pointUser: point.user,
-          createdBy: point.user,
+          createdBy: user._id,
           status: PointHistoryStatusEnum.POINTUPDATE,
           currentAmount: point.amount,
           change: point.amount - oldAmount,
@@ -238,7 +238,7 @@ export class PointService {
       {
         point: point._id,
         pointUser: point.user,
-        createdBy: point.user,
+        createdBy: user._id,
         status: PointHistoryStatusEnum.POINTDELETE,
         currentAmount: 0,
         change: -oldAmount,
