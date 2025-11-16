@@ -26,12 +26,6 @@ export class GameService {
   }
 
   async getGameDetails(gameId: number) {
-
-    const gameInDb = await this.gameModel.findById(gameId);
-    if (gameInDb) {
-      return gameInDb;
-    }
-
     return getGameDetails(gameId);
   }
 
