@@ -1,9 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { LocationService } from '../../location/location.service';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
-import { User } from '../../user/user.schema';
+import { UserService } from '../../user/user.service';
+import { ShiftGateway } from '../shift.gateway';
 import { Shift } from '../shift.schema';
 import { ShiftService } from '../shift.service';
 import {
@@ -23,7 +25,48 @@ export class ShiftChangeRequestService {
     private shiftModel: Model<Shift>,
     private readonly shiftService: ShiftService,
     private readonly notificationService: NotificationService,
+    private readonly userService: UserService,
+    private readonly locationService: LocationService,
+    private readonly shiftGateway: ShiftGateway,
   ) {}
+
+  private async getUserNames(
+    userIds: (string | undefined | null)[],
+  ): Promise<Record<string, string>> {
+    const uniqueIds = [
+      ...new Set(userIds.filter((id): id is string => Boolean(id))),
+    ];
+    if (!uniqueIds.length) {
+      return {};
+    }
+
+    const users = await Promise.all(
+      uniqueIds.map((id) => this.userService.findById(id)),
+    );
+    return uniqueIds.reduce<Record<string, string>>((acc, id, index) => {
+      acc[id] = users[index]?.name ?? id;
+      return acc;
+    }, {});
+  }
+
+  private async getLocationNames(
+    locationIds: (number | undefined | null)[],
+  ): Promise<Record<number, string>> {
+    const uniqueIds = [
+      ...new Set(locationIds.filter((id): id is number => id != null)),
+    ];
+    if (!uniqueIds.length) {
+      return {};
+    }
+
+    const locations = await Promise.all(
+      uniqueIds.map((id) => this.locationService.findLocationById(id)),
+    );
+    return uniqueIds.reduce<Record<number, string>>((acc, id, index) => {
+      acc[id] = locations[index]?.name ?? id.toString();
+      return acc;
+    }, {});
+  }
 
   async createRequest(
     requesterId: string,
@@ -151,13 +194,37 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      requesterId,
+      createDto.targetUserId,
+    ]);
+    const requesterName = userNames[requesterId] ?? 'Unknown User';
+    const targetName =
+      userNames[createDto.targetUserId] ?? 'Unknown User';
+
+    const locationNames = await this.getLocationNames([
+      createDto.requesterShift.location,
+      createDto.targetShift?.location,
+    ]);
+    const requesterLocationName = locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
+    const targetLocationName = createDto.targetShift?.location
+      ? (locationNames[createDto.targetShift.location] ?? 'Unknown Location')
+      : '';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REQUESTED',
+        key: `ShiftChangeRequestForTarget_${createDto.type}`,
         params: {
-          requesterId,
-          day: createDto.requesterShift.day,
-          startTime: createDto.requesterShift.startTime,
+          requesterName,
+          targetName,
+          requesterShiftDay: createDto.requesterShift.day,
+          requesterShiftStartTime: createDto.requesterShift.startTime,
+          requesterShiftEndTime: createDto.requesterShift.endTime,
+          requesterShiftLocation: requesterLocationName,
+          targetShiftDay: createDto.targetShift?.day || '',
+          targetShiftStartTime: createDto.targetShift?.startTime || '',
+          targetShiftEndTime: createDto.targetShift?.endTime || '',
+          targetShiftLocation: targetLocationName,
         },
       },
       type: 'INFORMATION',
@@ -167,16 +234,26 @@ export class ShiftChangeRequestService {
 
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REQUESTED',
+        key: `ShiftChangeRequestForManagers_${createDto.type}`,
         params: {
-          requesterId,
-          targetUserId: createDto.targetUserId,
+          requesterName,
+          targetName,
+          requesterShiftDay: createDto.requesterShift.day,
+          requesterShiftStartTime: createDto.requesterShift.startTime,
+          requesterShiftEndTime: createDto.requesterShift.endTime,
+          requesterShiftLocation: requesterLocationName,
+          targetShiftDay: createDto.targetShift?.day || '',
+          targetShiftStartTime: createDto.targetShift?.startTime || '',
+          targetShiftEndTime: createDto.targetShift?.endTime || '',
+          targetShiftLocation: targetLocationName,
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1], // Assuming 1 is MANAGER role
+      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'created', request });
 
     return request;
   }
@@ -310,6 +387,14 @@ export class ShiftChangeRequestService {
 
     // Check if both approvals are complete
     if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+        managerId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+      const managerName = userNames[managerId] ?? 'Unknown User';
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -325,30 +410,86 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_APPROVED',
+          key: `ShiftChangeApprovedRequester_${request.type}`,
           params: {
-            managerId,
+            targetName,
+            requesterName,
+            managerName,
           },
         },
         type: 'SUCCESS',
-        selectedUsers: [request.requesterId, request.targetUserId, managerId],
+        selectedUsers: [request.requesterId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedTarget_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [request.targetUserId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedManager_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [managerId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      // Notify all managers and game managers about completed shift change
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCompletedForManagers_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        managerId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const managerName = userNames[managerId] ?? 'Unknown User';
 
       await request.save();
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_MANAGER_APPROVED',
+          key: 'ShiftChangeManagerApprovedPendingTarget',
           params: {
-            managerId,
+            requesterName,
+            managerName,
           },
         },
         type: 'INFORMATION',
         selectedUsers: [request.targetUserId],
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'manager_approved', request });
     }
 
     return request;
@@ -386,6 +527,15 @@ export class ShiftChangeRequestService {
     request.targetUserApprovedAt = new Date();
 
     if (request.managerApprovalStatus === ApprovalStatus.APPROVED) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+        request.managerApprovedBy,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+      const managerName =
+        userNames[request.managerApprovedBy as string] ?? 'Unknown User';
       // Both approved, perform the shift change
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
@@ -400,34 +550,89 @@ export class ShiftChangeRequestService {
 
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_APPROVED',
+          key: `ShiftChangeApprovedRequester_${request.type}`,
           params: {
-            targetUserId,
+            requesterName,
+            targetName,
+            managerName,
           },
         },
         type: 'SUCCESS',
-        selectedUsers: [
-          request.requesterId,
-          request.targetUserId,
-          request.managerApprovedBy,
-        ],
+        selectedUsers: [request.requesterId],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeApprovedTarget_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedUsers: [request.targetUserId],
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      if (request.managerApprovedBy) {
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeApprovedManager_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
+          },
+          type: 'SUCCESS',
+          selectedUsers: [request.managerApprovedBy],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
+      }
+
+      // Notify all managers and game managers about completed shift change
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCompletedForManagers_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+            managerName,
+          },
+        },
+        type: 'SUCCESS',
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        event: NotificationEventType.SHIFTCHANGEAPPROVED,
+      });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
     } else {
 
       await request.save();
 
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        request.targetUserId,
+      ]);
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+
       await this.notificationService.createNotification({
         message: {
-          key: 'SHIFT_CHANGE_TARGET_APPROVED',
+          key: 'ShiftChangeTargetApprovedPendingManager',
           params: {
-            targetUserId,
+            targetName,
+            requesterName,
           },
         },
         type: 'INFORMATION',
-        selectedRoles: [1], // Manager role
+        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
+
+      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'target_approved', request });
     }
 
     return request;
@@ -463,18 +668,47 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      request.targetUserId,
+      managerId,
+    ]);
+    const managerName = userNames[managerId] ?? 'Unknown User';
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+    const reasonText = updateDto.managerNote
+      ? `: ${updateDto.managerNote}`
+      : '';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REJECTED',
+        key: 'ShiftChangeRejectedByManager',
         params: {
-          rejectedBy: managerId,
-          reason: updateDto.managerNote || '',
+          managerName,
+          requesterName,
+          reasonText,
         },
       },
       type: 'WARNING',
       selectedUsers: [request.requesterId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
+
+    await this.notificationService.createNotification({
+      message: {
+        key: 'ShiftChangeRejectedByManager',
+        params: {
+          managerName,
+          requesterName,
+          reasonText,
+        },
+      },
+      type: 'WARNING',
+      selectedUsers: [request.targetUserId],
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
 
     return request;
   }
@@ -510,18 +744,27 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
+    const userNames = await this.getUserNames([
+      request.requesterId,
+      targetUserId,
+    ]);
+    const targetName = userNames[targetUserId] ?? 'Unknown User';
+    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_REJECTED',
+        key: 'ShiftChangeRejectedByTarget',
         params: {
-          rejectedBy: targetUserId,
-
+          targetName,
+          requesterName,
         },
       },
       type: 'WARNING',
       selectedUsers: [request.requesterId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
 
     return request;
   }
@@ -553,18 +796,40 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    // Notify target user only
+    const userNames = await this.getUserNames([
+      requesterId,
+      request.targetUserId,
+    ]);
+    const requesterName = userNames[requesterId] ?? 'Unknown User';
+    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+
     await this.notificationService.createNotification({
       message: {
-        key: 'SHIFT_CHANGE_CANCELLED',
+        key: `ShiftChangeCancelled_${request.type}`,
         params: {
-          requesterId,
+          requesterName,
+          targetName,
         },
       },
       type: 'INFORMATION',
       selectedUsers: [request.targetUserId],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
+
+    await this.notificationService.createNotification({
+      message: {
+        key: `ShiftChangeCancelled_${request.type}`,
+        params: {
+          requesterName,
+          targetName,
+        },
+      },
+      type: 'INFORMATION',
+      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+      event: NotificationEventType.SHIFTCHANGEREJECTED,
+    });
+
+    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'cancelled', request });
 
     return request;
   }
