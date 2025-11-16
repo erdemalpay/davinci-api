@@ -94,6 +94,7 @@ export class CreateCollectionDto {
   ikasId?: string;
   tableDate?: Date;
   ikasOrderNumber?: string;
+  pointUser?: string;
 }
 
 export class CreateDiscountDto {

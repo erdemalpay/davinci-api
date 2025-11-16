@@ -8,6 +8,7 @@ import { TableModule } from 'src/modules/table/table.module';
 import { ButtonCallModule } from '../buttonCall/buttonCall.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { NotificationModule } from '../notification/notification.module';
+import { PointModule } from '../point/point.module';
 import { RedisModule } from '../redis/redis.module';
 import { RedisService } from '../redis/redis.service';
 import { UserModule } from '../user/user.module';
@@ -74,6 +75,7 @@ const { host, port } = config.get<DBConfig>('redis');
     forwardRef(() => TableModule),
     forwardRef(() => MenuModule),
     forwardRef(() => UserModule),
+    forwardRef(() => PointModule),
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderGateway, OrderConfirmationProcessor],

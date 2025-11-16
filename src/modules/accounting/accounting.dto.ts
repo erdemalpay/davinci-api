@@ -99,6 +99,7 @@ export class CreatePaymentMethodDto {
   ikasId?: string;
   isPaymentMade?: boolean;
   isUsedAtExpense?: boolean;
+  isPointPayment?: boolean;
 }
 
 export class CreateStockDto {

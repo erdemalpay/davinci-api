@@ -24,6 +24,9 @@ export class PaymentMethod extends Document {
 
   @Prop({ required: true, type: Boolean, default: true })
   isUsedAtExpense: boolean;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isPointPayment: boolean;
 }
 
 export const PaymentMethodSchema = SchemaFactory.createForClass(PaymentMethod);
