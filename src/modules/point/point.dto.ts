@@ -2,6 +2,8 @@ export enum PointHistoryStatusEnum {
   POINTCREATE = 'POINTCREATE',
   POINTUPDATE = 'POINTUPDATE',
   POINTDELETE = 'POINTDELETE',
+  COLLECTIONCREATED = 'COLLECTIONCREATED',
+  COLLECTIONCANCELLED = 'COLLECTIONCANCELLED',
 }
 
 export class CreatePointDto {
@@ -17,7 +19,7 @@ export class CreatePointHistoryDto {
   point: number;
   pointUser: string;
   createdBy: string;
-  orderId?: number;
+  collectionId?: number;
   tableId?: number;
   status: PointHistoryStatusEnum;
   currentAmount: number;

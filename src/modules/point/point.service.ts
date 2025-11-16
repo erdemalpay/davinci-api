@@ -248,4 +248,82 @@ export class PointService {
 
     return point;
   }
+
+  async consumePoint(
+    userId: string,
+    amount: number,
+    collectionId: number,
+    tableId?: number,
+    createdBy?: string,
+  ) {
+    const userPoint = await this.pointModel.findOne({ user: userId });
+
+    if (!userPoint) {
+      throw new HttpException(
+        'No points found for this user',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (userPoint.amount < amount) {
+      throw new HttpException('Insufficient points', HttpStatus.BAD_REQUEST);
+    }
+
+    const oldAmount = userPoint.amount;
+    userPoint.amount -= amount;
+    await userPoint.save();
+
+    this.pointGateway.emitPointChanged(null, userPoint);
+
+    // Create point history
+    await this.createPointHistory({
+      point: userPoint._id,
+      pointUser: userPoint.user,
+      createdBy: createdBy || userId,
+      collectionId,
+      tableId,
+      status: PointHistoryStatusEnum.COLLECTIONCREATED,
+      currentAmount: userPoint.amount,
+      change: -amount,
+    });
+
+    return userPoint;
+  }
+
+  async refundPoint(
+    userId: string,
+    amount: number,
+    collectionId: number,
+    tableId?: number,
+    createdBy?: string,
+  ) {
+    const userPoint = await this.pointModel.findOne({ user: userId });
+
+    if (!userPoint) {
+      throw new HttpException(
+        'No points found for this user',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const oldAmount = userPoint.amount;
+    userPoint.amount += amount;
+    await userPoint.save();
+
+    this.pointGateway.emitPointChanged(null, userPoint);
+
+    // Create point history
+    await this.createPointHistory({
+      point: userPoint._id,
+      pointUser: userPoint.user,
+      createdBy: createdBy || userId,
+      collectionId,
+      tableId,
+      status: PointHistoryStatusEnum.COLLECTIONCANCELLED,
+      currentAmount: userPoint.amount,
+      change: amount,
+    });
+
+    return userPoint;
+  }
 }

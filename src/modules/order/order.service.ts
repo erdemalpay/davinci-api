@@ -23,6 +23,7 @@ import { ButtonCallService } from '../buttonCall/buttonCall.service';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
+import { PointService } from '../point/point.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { TableTypes } from '../table/table.dto';
@@ -87,6 +88,9 @@ export class OrderService {
 
     @Inject(forwardRef(() => GameplayService))
     private readonly gameplayService: GameplayService,
+
+    @Inject(forwardRef(() => PointService))
+    private readonly pointService: PointService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -2188,6 +2192,17 @@ export class OrderService {
       await this.updateOrders(user, newOrders);
     }
 
+    // Consume points if pointUser is provided
+    if (createCollectionDto.pointUser) {
+      await this.pointService.consumePoint(
+        createCollectionDto.pointUser,
+        createCollectionDto.amount,
+        collection._id,
+        createCollectionDto.table,
+        createCollectionDto.createdBy ?? user._id,
+      );
+    }
+
     try {
       await collection.save();
       this.orderGateway.emitCollectionChanged(user, collection);
@@ -2221,6 +2236,7 @@ export class OrderService {
             deferEmit: true,
           });
         }
+        const oldCollection = await this.collectionModel.findById(id);
         const collection = await this.collectionModel.findByIdAndUpdate(
           id,
           filteredUpdates,
@@ -2230,6 +2246,16 @@ export class OrderService {
           throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
         }
         if (filteredUpdates.status === OrderCollectionStatus.CANCELLED) {
+          // Refund points if the collection had a pointUser
+          if (oldCollection?.pointUser) {
+            await this.pointService.refundPoint(
+              oldCollection.pointUser,
+              oldCollection.amount,
+              collection._id,
+              oldCollection.table,
+              user._id,
+            );
+          }
           activity = await this.activityService.addActivity(
             user,
             ActivityType.CANCEL_PAYMENT,
