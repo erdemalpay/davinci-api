@@ -48,6 +48,9 @@ export class Collection extends Document {
   @Prop({ required: true, type: String, ref: PaymentMethod.name })
   paymentMethod: string;
 
+  @Prop({ required: false, type: String, ref: User.name })
+  pointUser: string;
+
   @Prop([OrderCollectionItem])
   orders: OrderCollectionItem[];
 
