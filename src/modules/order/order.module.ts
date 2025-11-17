@@ -22,11 +22,11 @@ import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
 import { OrderConfirmationProcessor } from './order-confirmation.processor';
 import { OrderController } from './order.controller';
-import { OrderGateway } from './order.gateway';
 import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
 import { OrderNotes, OrderNotesSchema } from './orderNotes.schema';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
@@ -39,6 +39,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 const { host, port } = config.get<DBConfig>('redis');
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     ActivityModule,
     RedisModule,
@@ -47,7 +48,8 @@ const { host, port } = config.get<DBConfig>('redis');
     GameplayModule,
     NotificationModule,
     BullModule.forRootAsync({
-      imports: [RedisModule],
+      imports: [
+    WebSocketModule,RedisModule],
       inject: [RedisService],
       useFactory: (redisService: RedisService): BullModuleOptions =>
         ({
@@ -78,7 +80,7 @@ const { host, port } = config.get<DBConfig>('redis');
     forwardRef(() => PointModule),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderGateway, OrderConfirmationProcessor],
+  providers: [OrderService, OrderConfirmationProcessor],
   exports: [OrderService],
 })
 export class OrderModule {}

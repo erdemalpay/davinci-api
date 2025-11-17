@@ -48,7 +48,6 @@ import {
   StockQueryDto,
   UpdateMultipleProduct,
 } from './accounting.dto';
-import { AccountingGateway } from './accounting.gateway';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
 import { CountList } from './countList.schema';
@@ -62,6 +61,7 @@ import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { Vendor } from './vendor.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 const path = require('path');
 
@@ -87,7 +87,7 @@ export class AccountingService {
     private readonly menuService: MenuService,
     private readonly activityService: ActivityService,
     private readonly checkoutService: CheckoutService,
-    private readonly accountingGateway: AccountingGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
     @Inject(forwardRef(() => IkasService))
@@ -183,7 +183,7 @@ export class AccountingService {
           baseQuantities: initialBaseQuantities,
           deleted: false,
         });
-        await this.accountingGateway.emitProductChanged(user, deletedProduct);
+        await this.websocketGateway.emitProductChanged(user, deletedProduct);
         return deletedProduct;
       }
 
@@ -214,7 +214,7 @@ export class AccountingService {
             },
           ],
         );
-        await this.accountingGateway.emitCountListChanged(
+        await this.websocketGateway.emitCountListChanged(
           null,
           product.expenseType,
         );
@@ -230,7 +230,7 @@ export class AccountingService {
         );
       }
 
-      await this.accountingGateway.emitProductChanged(user, product);
+      await this.websocketGateway.emitProductChanged(user, product);
       return product;
     } catch (error) {
       throw new HttpException(
@@ -258,20 +258,20 @@ export class AccountingService {
       countList.products = updatedProducts;
       await countList.save();
     }
-    this.accountingGateway.emitCountListChanged(user, countLists);
+    this.websocketGateway.emitCountListChanged(user, countLists);
 
     // updateStocks
     await this.stockModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.accountingGateway.emitStockChanged(user, stayedProduct);
+    this.websocketGateway.emitStockChanged(user, stayedProduct);
     // update invoices
     await this.expenseModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.accountingGateway.emitInvoiceChanged(user, stayedProduct);
+    this.websocketGateway.emitInvoiceChanged(user, stayedProduct);
     //update menu items
     await this.menuService.updateMenuItemProduct(
       user,
@@ -320,7 +320,7 @@ export class AccountingService {
     await this.productModel.findByIdAndUpdate(removedProduct, {
       deleted: true,
     });
-    await this.accountingGateway.emitProductChanged(user, product);
+    await this.websocketGateway.emitProductChanged(user, product);
     return product;
   }
 
@@ -370,7 +370,7 @@ export class AccountingService {
       product,
       updatedProduct,
     );
-    await this.accountingGateway.emitProductChanged(user, updatedProduct);
+    await this.websocketGateway.emitProductChanged(user, updatedProduct);
 
     return updatedProduct;
   }
@@ -399,7 +399,7 @@ export class AccountingService {
         new: true,
       },
     );
-    await this.accountingGateway.emitProductChanged(user, updatedProduct);
+    await this.websocketGateway.emitProductChanged(user, updatedProduct);
     return updatedProduct;
   }
 
@@ -415,7 +415,7 @@ export class AccountingService {
     }
     product.deleted = true;
     await product.save();
-    await this.accountingGateway.emitProductChanged(user, product);
+    await this.websocketGateway.emitProductChanged(user, product);
     return product;
   }
 
@@ -473,7 +473,7 @@ export class AccountingService {
     const service = new this.serviceModel(createServiceDto);
     service._id = usernamify(service.name);
     await service.save();
-    this.accountingGateway.emitServiceChanged(user, service);
+    this.websocketGateway.emitServiceChanged(user, service);
     return service;
   }
 
@@ -481,7 +481,7 @@ export class AccountingService {
     const service = await this.serviceModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.accountingGateway.emitServiceChanged(user, service);
+    this.websocketGateway.emitServiceChanged(user, service);
     return service;
   }
 
@@ -494,7 +494,7 @@ export class AccountingService {
       );
     }
     const service = await this.serviceModel.findByIdAndRemove(id);
-    this.accountingGateway.emitServiceChanged(user, service);
+    this.websocketGateway.emitServiceChanged(user, service);
     return service;
   }
   //   Expense Types
@@ -514,7 +514,7 @@ export class AccountingService {
       ActivityType.CREATE_EXPENSETYPE,
       expenseType,
     );
-    this.accountingGateway.emitExpenseTypeChanged(user, expenseType);
+    this.websocketGateway.emitExpenseTypeChanged(user, expenseType);
     return expenseType;
   }
 
@@ -537,7 +537,7 @@ export class AccountingService {
       oldExpenseType,
       newExpenseType,
     );
-    this.accountingGateway.emitExpenseTypeChanged(user, newExpenseType);
+    this.websocketGateway.emitExpenseTypeChanged(user, newExpenseType);
     return newExpenseType;
   }
 
@@ -566,7 +566,7 @@ export class AccountingService {
       ActivityType.DELETE_EXPENSETYPE,
       expenseType,
     );
-    this.accountingGateway.emitExpenseTypeChanged(user, expenseType);
+    this.websocketGateway.emitExpenseTypeChanged(user, expenseType);
     return expenseType;
   }
   //   Brands
@@ -579,7 +579,7 @@ export class AccountingService {
     brand._id = usernamify(brand.name);
     await brand.save();
     this.activityService.addActivity(user, ActivityType.CREATE_BRAND, brand);
-    this.accountingGateway.emitBrandChanged(user, brand);
+    this.websocketGateway.emitBrandChanged(user, brand);
     return brand;
   }
   async createMultipleBrand(user: User, createBrandDtos: CreateBrandDto[]) {
@@ -604,7 +604,7 @@ export class AccountingService {
       .filter((result) => result.success)
       .map((result) => result.brand);
     if (successfulBrands.length > 0) {
-      this.accountingGateway.emitBrandChanged(user, successfulBrands);
+      this.websocketGateway.emitBrandChanged(user, successfulBrands);
     }
     return brands;
   }
@@ -620,7 +620,7 @@ export class AccountingService {
       oldBrand,
       newBrand,
     );
-    this.accountingGateway.emitBrandChanged(user, newBrand);
+    this.websocketGateway.emitBrandChanged(user, newBrand);
     return newBrand;
   }
 
@@ -637,7 +637,7 @@ export class AccountingService {
     }
     const brand = await this.brandModel.findByIdAndRemove(id);
     this.activityService.addActivity(user, ActivityType.DELETE_BRAND, brand);
-    this.accountingGateway.emitBrandChanged(user, brand);
+    this.websocketGateway.emitBrandChanged(user, brand);
     return brand;
   }
 
@@ -651,7 +651,7 @@ export class AccountingService {
     vendor._id = usernamify(vendor.name);
     await vendor.save();
     this.activityService.addActivity(user, ActivityType.CREATE_VENDOR, vendor);
-    this.accountingGateway.emitVendorChanged(user, vendor);
+    this.websocketGateway.emitVendorChanged(user, vendor);
     return vendor;
   }
 
@@ -666,7 +666,7 @@ export class AccountingService {
       oldVendor,
       newVendor,
     );
-    this.accountingGateway.emitVendorChanged(user, newVendor);
+    this.websocketGateway.emitVendorChanged(user, newVendor);
     return newVendor;
   }
 
@@ -686,7 +686,7 @@ export class AccountingService {
     }
     const vendor = await this.vendorModel.findByIdAndRemove(id);
     this.activityService.addActivity(user, ActivityType.DELETE_VENDOR, vendor);
-    this.accountingGateway.emitVendorChanged(user, vendor);
+    this.websocketGateway.emitVendorChanged(user, vendor);
     return vendor;
   }
 
@@ -704,7 +704,7 @@ export class AccountingService {
     );
     productCategory._id = usernamify(productCategory.name);
     await productCategory.save();
-    this.accountingGateway.emitProductCategoryChanged(user, productCategory);
+    this.websocketGateway.emitProductCategoryChanged(user, productCategory);
     return productCategory;
   }
 
@@ -719,7 +719,7 @@ export class AccountingService {
         new: true,
       });
 
-    this.accountingGateway.emitProductCategoryChanged(user, newProductCategory);
+    this.websocketGateway.emitProductCategoryChanged(user, newProductCategory);
     return newProductCategory;
   }
 
@@ -728,7 +728,7 @@ export class AccountingService {
     const productCategory = await this.productCategoryModel.findByIdAndRemove(
       id,
     );
-    this.accountingGateway.emitProductCategoryChanged(user, productCategory);
+    this.websocketGateway.emitProductCategoryChanged(user, productCategory);
     return productCategory;
   }
 
@@ -754,7 +754,7 @@ export class AccountingService {
       ActivityType.CREATE_PAYMENTMETHOD,
       paymentMethod,
     );
-    this.accountingGateway.emitPaymentMethodChanged(user, paymentMethod);
+    this.websocketGateway.emitPaymentMethodChanged(user, paymentMethod);
     return paymentMethod;
   }
 
@@ -777,7 +777,7 @@ export class AccountingService {
       oldPaymentMethod,
       newPaymentMethod,
     );
-    this.accountingGateway.emitPaymentMethodChanged(user, newPaymentMethod);
+    this.websocketGateway.emitPaymentMethodChanged(user, newPaymentMethod);
     return newPaymentMethod;
   }
 
@@ -805,7 +805,7 @@ export class AccountingService {
       ActivityType.DELETE_PAYMENTMETHOD,
       paymentMethod,
     );
-    this.accountingGateway.emitPaymentMethodChanged(user, paymentMethod);
+    this.websocketGateway.emitPaymentMethodChanged(user, paymentMethod);
     return paymentMethod;
   }
 
@@ -872,7 +872,7 @@ export class AccountingService {
       ...createPaymentDto,
       user: user,
     });
-    this.accountingGateway.emitPaymentChanged(user, payment);
+    this.websocketGateway.emitPaymentChanged(user, payment);
     return payment;
   }
 
@@ -880,13 +880,13 @@ export class AccountingService {
     const newPayment = await this.paymentModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.accountingGateway.emitPaymentChanged(user, newPayment);
+    this.websocketGateway.emitPaymentChanged(user, newPayment);
     return newPayment;
   }
 
   async removePayment(user: User, id: string) {
     const payment = await this.paymentModel.findByIdAndRemove(id);
-    this.accountingGateway.emitPaymentChanged(user, payment);
+    this.websocketGateway.emitPaymentChanged(user, payment);
     return payment;
   }
   // Invoices
@@ -1249,7 +1249,7 @@ export class AccountingService {
               { new: true },
             );
 
-            this.accountingGateway.emitStockChanged(user, newStock);
+            this.websocketGateway.emitStockChanged(user, newStock);
 
             if (rollback.stockDelta !== 0) {
               const stockHist = await this.productStockHistoryModel.create({
@@ -1262,7 +1262,7 @@ export class AccountingService {
                 createdAt: new Date(),
               });
               rollback.stockHistoryId = stockHist._id;
-              this.accountingGateway.emitProductStockHistoryChanged(
+              this.websocketGateway.emitProductStockHistoryChanged(
                 user,
                 stockHist,
               );
@@ -1282,7 +1282,7 @@ export class AccountingService {
               quantity: rollback.stockDelta,
             });
             await stockDoc.save();
-            this.accountingGateway.emitStockChanged(user, stockDoc);
+            this.websocketGateway.emitStockChanged(user, stockDoc);
 
             await this.activityService.addActivity(
               user,
@@ -1301,7 +1301,7 @@ export class AccountingService {
                 createdAt: new Date(),
               });
               rollback.stockHistoryId = stockHist._id;
-              this.accountingGateway.emitProductStockHistoryChanged(
+              this.websocketGateway.emitProductStockHistoryChanged(
                 user,
                 stockHist,
               );
@@ -1324,11 +1324,11 @@ export class AccountingService {
           ]);
           const payment = payArr[0];
           rollback.paymentId = payment._id;
-          this.accountingGateway.emitPaymentChanged(user, payment);
+          this.websocketGateway.emitPaymentChanged(user, payment);
         }
 
-        this.accountingGateway.emitExpenseChanged(user, expense);
-        this.accountingGateway.emitProductChanged(user);
+        this.websocketGateway.emitExpenseChanged(user, expense);
+        this.websocketGateway.emitProductChanged(user);
         this.activityService.addActivity(
           user,
           ActivityType.CREATE_EXPENSE as any,
@@ -1380,8 +1380,8 @@ export class AccountingService {
     }
 
     if (anySuccess) {
-      this.accountingGateway.emitExpenseChanged(user);
-      this.accountingGateway.emitProductChanged(user);
+      this.websocketGateway.emitExpenseChanged(user);
+      this.websocketGateway.emitProductChanged(user);
       await this.ikasService.bulkUpdateAllProductStocks();
     }
     return errorDatas;
@@ -1419,7 +1419,7 @@ export class AccountingService {
             { new: true },
           );
           if (!isMultipleCreate) {
-            await this.accountingGateway.emitProductChanged(user, product);
+            await this.websocketGateway.emitProductChanged(user, product);
           }
         }
       }
@@ -1444,7 +1444,7 @@ export class AccountingService {
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
           );
-          this.accountingGateway.emitServiceChanged(user, service);
+          this.websocketGateway.emitServiceChanged(user, service);
         }
       }
 
@@ -1453,7 +1453,7 @@ export class AccountingService {
         user: user._id,
       });
       if (!isMultipleCreate) {
-        this.accountingGateway.emitExpenseChanged(user, expense);
+        this.websocketGateway.emitExpenseChanged(user, expense);
       }
       if (
         createExpenseDto?.isStockIncrement &&
@@ -1530,7 +1530,7 @@ export class AccountingService {
         },
         { new: true },
       );
-      this.accountingGateway.emitExpenseChanged(user, newExpense);
+      this.websocketGateway.emitExpenseChanged(user, newExpense);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
@@ -1566,7 +1566,7 @@ export class AccountingService {
         },
         { new: true },
       );
-      this.accountingGateway.emitExpenseChanged(user, newExpense);
+      this.websocketGateway.emitExpenseChanged(user, newExpense);
       this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_EXPENSE,
@@ -1631,7 +1631,7 @@ export class AccountingService {
       },
       { new: true },
     );
-    this.accountingGateway.emitExpenseChanged(user, newExpense);
+    this.websocketGateway.emitExpenseChanged(user, newExpense);
     this.activityService.addUpdateActivity(
       user,
       ActivityType.UPDATE_EXPENSE,
@@ -1657,7 +1657,7 @@ export class AccountingService {
     }
     //remove from the expense
     await this.expenseModel.findByIdAndDelete(id);
-    this.accountingGateway.emitExpenseChanged(user, expense);
+    this.websocketGateway.emitExpenseChanged(user, expense);
     this.activityService.addActivity(
       user,
       ActivityType.DELETE_EXPENSE,
@@ -1669,7 +1669,7 @@ export class AccountingService {
     } else if (expense.type === ExpenseTypes.NONSTOCKABLE) {
       await this.paymentModel.deleteMany({ serviceInvoice: id });
     }
-    this.accountingGateway.emitPaymentChanged(user, null);
+    this.websocketGateway.emitPaymentChanged(user, null);
     // updating the unit price if the expense is stockable
     if (expense.type === ExpenseTypes.STOCKABLE) {
       const product = await this.productModel.findById(expense.product);
@@ -1728,7 +1728,7 @@ export class AccountingService {
       }
 
       await product.save();
-      await this.accountingGateway.emitProductChanged(user, product);
+      await this.websocketGateway.emitProductChanged(user, product);
     }
     // updating the  service unit price if the expense is non-stockable
     if (expense.type === ExpenseTypes.NONSTOCKABLE) {
@@ -1963,7 +1963,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
-      this.accountingGateway.emitStockChanged(user, newStock);
+      this.websocketGateway.emitStockChanged(user, newStock);
       // create stock history with currentAmount
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -1991,7 +1991,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
-      this.accountingGateway.emitStockChanged(user, stock);
+      this.websocketGateway.emitStockChanged(user, stock);
       // create Activity
       await this.activityService.addActivity(
         user,
@@ -2085,7 +2085,7 @@ export class AccountingService {
         arrayFilters: [{ 'elem.product': product }],
       },
     );
-    this.accountingGateway.emitCountChanged(user, count);
+    this.websocketGateway.emitCountChanged(user, count);
     const foundProduct = await this.productModel.findOne({ _id: product });
     if (!foundProduct.deleted) {
       await this.createStock(user, {
@@ -2122,7 +2122,7 @@ export class AccountingService {
       quantity: -quantity,
       status: StockHistoryStatusEnum.STOCKTRANSFER,
     });
-    this.accountingGateway.emitStockChanged(user, stock);
+    this.websocketGateway.emitStockChanged(user, stock);
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {
@@ -2152,7 +2152,7 @@ export class AccountingService {
         deletedStock,
       );
       // Remove the stock item
-      this.accountingGateway.emitStockChanged(user, deletedStock);
+      this.websocketGateway.emitStockChanged(user, deletedStock);
       return deletedStock;
     } catch (error) {
       throw new HttpException(
@@ -2170,14 +2170,14 @@ export class AccountingService {
     for (const stockHistory of ProductStockHistory) {
       await this.productStockHistoryModel.findByIdAndRemove(stockHistory.id);
     }
-    this.accountingGateway.emitProductStockHistoryChanged(
+    this.websocketGateway.emitProductStockHistoryChanged(
       user,
       ProductStockHistory,
     );
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
-    this.accountingGateway.emitStockChanged(user, productStocks);
+    this.websocketGateway.emitStockChanged(user, productStocks);
   }
 
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
@@ -2327,7 +2327,7 @@ export class AccountingService {
               : stock.quantity,
         });
       }
-      this.accountingGateway.emitStockChanged(user, newStock);
+      this.websocketGateway.emitStockChanged(user, newStock);
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
@@ -2472,7 +2472,7 @@ export class AccountingService {
       ...createProductStockHistoryDto,
       createdAt: new Date(),
     });
-    this.accountingGateway.emitProductStockHistoryChanged(
+    this.websocketGateway.emitProductStockHistoryChanged(
       user,
       productStockHistory,
     );
@@ -2506,7 +2506,7 @@ export class AccountingService {
           new: true,
         });
     }
-    await this.accountingGateway.emitProductStockHistoryChanged(
+    await this.websocketGateway.emitProductStockHistoryChanged(
       user,
       productStockHistory,
     );
@@ -2520,7 +2520,7 @@ export class AccountingService {
     countList.locations = [1, 2];
     countList.active = true;
     await countList.save();
-    this.accountingGateway.emitCountListChanged(user, countList);
+    this.websocketGateway.emitCountListChanged(user, countList);
     return countList;
   }
   findAllCountLists() {
@@ -2535,7 +2535,7 @@ export class AccountingService {
     const countList = await this.countListModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.accountingGateway.emitCountListChanged(user, countList);
+    this.websocketGateway.emitCountListChanged(user, countList);
     return countList;
   }
 
@@ -2548,7 +2548,7 @@ export class AccountingService {
       );
     }
     const countList = await this.countListModel.findByIdAndRemove(id);
-    this.accountingGateway.emitCountListChanged(user, countList);
+    this.websocketGateway.emitCountListChanged(user, countList);
     return countList;
   }
   // count
@@ -2724,7 +2724,7 @@ export class AccountingService {
     }
     const count = new this.countModel(createCountDto);
     count._id = usernamify(count.user + new Date().toISOString());
-    this.accountingGateway.emitCountChanged(user, count);
+    this.websocketGateway.emitCountChanged(user, count);
     return count.save();
   }
 
@@ -2771,13 +2771,13 @@ export class AccountingService {
         );
       }
     }
-    this.accountingGateway.emitCountChanged(user, count);
+    this.websocketGateway.emitCountChanged(user, count);
     return count;
   }
 
   async removeCount(user: User, id: string) {
     const count = await this.countModel.findByIdAndRemove(id);
-    this.accountingGateway.emitCountChanged(user, count);
+    this.websocketGateway.emitCountChanged(user, count);
     return count;
   }
 
@@ -2813,7 +2813,7 @@ export class AccountingService {
         });
       }
     }
-    await this.accountingGateway.emitProductChanged();
+    await this.websocketGateway.emitProductChanged();
   }
   async updateMultipleBaseQuantities(
     user: User,
@@ -2833,7 +2833,7 @@ export class AccountingService {
 
     // Wait for all update operations to finish concurrently
     const updatedProducts = await Promise.all(updatePromises);
-    await this.accountingGateway.emitProductChanged(user);
+    await this.websocketGateway.emitProductChanged(user);
     // Remove any null results (if a product wasn't updated)
     return updatedProducts.filter((product) => product);
   }
@@ -2936,7 +2936,7 @@ export class AccountingService {
         errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
       }
     }
-    this.accountingGateway.emitProductChanged();
+    this.websocketGateway.emitProductChanged();
     return errorDatas;
   }
   async addMultipleProductAndMenuItem(
@@ -3137,7 +3137,7 @@ export class AccountingService {
                 },
               ],
             );
-            await this.accountingGateway.emitCountListChanged(
+            await this.websocketGateway.emitCountListChanged(
               null,
               newProduct.expenseType,
             );
@@ -3252,7 +3252,7 @@ export class AccountingService {
       }
     }
 
-    this.accountingGateway.emitBulkProductAndMenuItemChanged();
+    this.websocketGateway.emitBulkProductAndMenuItemChanged();
     return errorDatas;
   }
   async createStockForAllLocations(user: User) {
@@ -3283,7 +3283,7 @@ export class AccountingService {
         }
       }
       await Promise.all(createStockTasks);
-      this.accountingGateway.emitStockChanged(user, '');
+      this.websocketGateway.emitStockChanged(user, '');
       console.log('All missing stocks created.');
     } catch (error) {
       console.error('Failed to create stocks:', error);
@@ -3315,7 +3315,7 @@ export class AccountingService {
         }
       }),
     );
-    await this.accountingGateway.emitProductChanged();
-    await this.accountingGateway.emitStockChanged();
+    await this.websocketGateway.emitProductChanged();
+    await this.websocketGateway.emitStockChanged();
   }
 }

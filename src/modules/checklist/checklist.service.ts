@@ -9,13 +9,13 @@ import {
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { Check } from './check.schema';
 import {
   CheckQueryDto,
   CreateCheckDto,
   CreateChecklistDto,
 } from './checklist.dto';
-import { ChecklistGateway } from './checklist.gateway';
 import { Checklist } from './checklist.schema';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class ChecklistService {
     @InjectModel(Checklist.name)
     private checklistModel: Model<Checklist>,
     @InjectModel(Check.name) private checkModel: Model<Check>,
-    private checklistGateway: ChecklistGateway,
+    private websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -34,7 +34,7 @@ export class ChecklistService {
     checklist.locations = [1, 2];
     checklist.active = true;
     await checklist.save();
-    this.checklistGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged(user, checklist);
     return checklist;
   }
 
@@ -128,7 +128,7 @@ export class ChecklistService {
     const checklist = await this.checklistModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.checklistGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged(user, checklist);
     return checklist;
   }
   async setChecklistsOrder() {
@@ -151,7 +151,7 @@ export class ChecklistService {
       );
     }
     const checklist = await this.checklistModel.findByIdAndRemove(id);
-    this.checklistGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged(user, checklist);
     return checklist;
   }
 
@@ -174,7 +174,7 @@ export class ChecklistService {
     }
     const check = new this.checkModel(createCheckDto);
     check._id = usernamify(check.user + new Date().toISOString());
-    this.checklistGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged(user, check);
     return check.save();
   }
 
@@ -208,13 +208,13 @@ export class ChecklistService {
         });
       }
     }
-    this.checklistGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged(user, check);
     return check;
   }
 
   async removeCheck(user: User, id: string) {
     const check = await this.checkModel.findByIdAndRemove(id);
-    this.checklistGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged(user, check);
     return check;
   }
 }

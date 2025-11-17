@@ -13,9 +13,9 @@ import {
   CreateIncomeDto,
   IncomeQueryDto,
 } from './checkout.dto';
-import { CheckoutGateway } from './checkout.gateway';
 import { CheckoutControl } from './checkoutControl.schema';
 import { Income } from './income.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class CheckoutService {
@@ -24,7 +24,7 @@ export class CheckoutService {
     @InjectModel(Cashout.name) private cashoutModel: Model<Cashout>,
     @InjectModel(CheckoutControl.name)
     private checkoutControlModel: Model<CheckoutControl>,
-    private readonly checkoutGateway: CheckoutGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
   // income
   findAllIncome() {
@@ -151,19 +151,19 @@ export class CheckoutService {
       ...createIncomeDto,
       user: user._id,
     });
-    this.checkoutGateway.emitIncomeChanged(user, income);
+    this.websocketGateway.emitIncomeChanged(user, income);
     return income;
   }
   async updateIncome(user: User, id: string, updates: UpdateQuery<Income>) {
     const income = await this.incomeModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.checkoutGateway.emitIncomeChanged(user, income);
+    this.websocketGateway.emitIncomeChanged(user, income);
     return income;
   }
   async removeIncome(user: User, id: string) {
     const income = await this.incomeModel.findByIdAndRemove(id);
-    this.checkoutGateway.emitIncomeChanged(user, income);
+    this.websocketGateway.emitIncomeChanged(user, income);
     return income;
   }
 
@@ -207,19 +207,19 @@ export class CheckoutService {
       ...createCashoutDto,
       user: user._id,
     });
-    this.checkoutGateway.emitCashoutChanged(user, cashout);
+    this.websocketGateway.emitCashoutChanged(user, cashout);
     return cashout;
   }
   async updateCashout(user: User, id: string, updates: UpdateQuery<Cashout>) {
     const cashout = await this.cashoutModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.checkoutGateway.emitCashoutChanged(user, cashout);
+    this.websocketGateway.emitCashoutChanged(user, cashout);
     return cashout;
   }
   async removeCashout(usre: User, id: string) {
     const cashout = await this.cashoutModel.findByIdAndRemove(id);
-    this.checkoutGateway.emitCashoutChanged(usre, cashout);
+    this.websocketGateway.emitCashoutChanged(usre, cashout);
     return cashout;
   }
 
@@ -277,7 +277,7 @@ export class CheckoutService {
       ...createCheckoutControlDto,
       user: user._id,
     });
-    this.checkoutGateway.emitCheckoutControlChanged(user, CheckoutControl);
+    this.websocketGateway.emitCheckoutControlChanged(user, CheckoutControl);
     return CheckoutControl;
   }
   async updateCheckoutControl(
@@ -292,14 +292,14 @@ export class CheckoutService {
         new: true,
       },
     );
-    this.checkoutGateway.emitCheckoutControlChanged(user, checkoutControl);
+    this.websocketGateway.emitCheckoutControlChanged(user, checkoutControl);
     return checkoutControl;
   }
   async removeCheckoutControl(user: User, id: string) {
     const checkoutControl = await this.checkoutControlModel.findByIdAndRemove(
       id,
     );
-    this.checkoutGateway.emitCheckoutControlChanged(user, checkoutControl);
+    this.websocketGateway.emitCheckoutControlChanged(user, checkoutControl);
     return checkoutControl;
   }
 }

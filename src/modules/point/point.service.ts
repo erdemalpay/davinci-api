@@ -2,13 +2,13 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreatePointDto,
   CreatePointHistoryDto,
   PointHistoryFilter,
   PointHistoryStatusEnum,
 } from './point.dto';
-import { PointGateway } from './point.gateway';
 import { Point } from './point.schema';
 import { PointHistory } from './pointHistory.schema';
 
@@ -19,7 +19,7 @@ export class PointService {
     private pointModel: Model<Point>,
     @InjectModel(PointHistory.name)
     private pointHistoryModel: Model<PointHistory>,
-    private pointGateway: PointGateway,
+    private websocketGateway: AppWebSocketGateway,
   ) {}
 
   async createPointHistory(
@@ -32,7 +32,7 @@ export class PointService {
     });
     await pointHistory.save();
     if (user) {
-      this.pointGateway.emitPointHistoryChanged(user, pointHistory);
+      this.websocketGateway.emitPointHistoryChanged(user, pointHistory);
     }
     return pointHistory;
   }
@@ -135,7 +135,7 @@ export class PointService {
       const oldAmount = existingPoint.amount;
       existingPoint.amount += createPointDto.amount;
       await existingPoint.save();
-      this.pointGateway.emitPointChanged(user, existingPoint);
+      this.websocketGateway.emitPointChanged(user, existingPoint);
 
       // Create point history
       await this.createPointHistory(
@@ -154,7 +154,7 @@ export class PointService {
     }
     const point = new this.pointModel(createPointDto);
     await point.save();
-    this.pointGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged(user, point);
 
     // Create point history
     await this.createPointHistory(
@@ -198,7 +198,7 @@ export class PointService {
       new: true,
     });
 
-    this.pointGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged(user, point);
 
     // Create point history if amount changed
     if (updates.amount !== undefined && updates.amount !== oldAmount) {
@@ -231,7 +231,7 @@ export class PointService {
       { new: true },
     );
 
-    this.pointGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged(user, point);
 
     // Create point history
     await this.createPointHistory(
@@ -273,7 +273,7 @@ export class PointService {
     userPoint.amount -= amount;
     await userPoint.save();
 
-    this.pointGateway.emitPointChanged(null, userPoint);
+    this.websocketGateway.emitPointChanged(null, userPoint);
 
     // Create point history
     await this.createPointHistory({
@@ -310,7 +310,7 @@ export class PointService {
     userPoint.amount += amount;
     await userPoint.save();
 
-    this.pointGateway.emitPointChanged(null, userPoint);
+    this.websocketGateway.emitPointChanged(null, userPoint);
 
     // Create point history
     await this.createPointHistory({

@@ -4,17 +4,18 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { NotificationController } from './notification.controller';
-import { NotificationGateway } from './notification.gateway';
 import { Notification, NotificationSchema } from './notification.schema';
 import { NotificationService } from './notification.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Notification.name, NotificationSchema),
 ]);
 
 @Module({
-  imports: [mongooseModule, LocationModule, UserModule],
-  providers: [NotificationService, NotificationGateway],
+  imports: [
+    WebSocketModule,mongooseModule, LocationModule, UserModule],
+  providers: [NotificationService],
   exports: [NotificationService],
   controllers: [NotificationController],
 })

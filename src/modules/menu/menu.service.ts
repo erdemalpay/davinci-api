@@ -13,6 +13,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { VisitService } from '../visit/visit.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
@@ -28,7 +29,6 @@ import {
   CreatePopularDto,
   CreateUpperCategoryDto,
 } from './menu.dto';
-import { MenuGateway } from './menu.gateway';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
@@ -44,7 +44,7 @@ export class MenuService {
     @InjectModel(Kitchen.name) private kitchenModel: Model<Kitchen>,
     @InjectModel(UpperCategory.name)
     private upperCategoryModel: Model<UpperCategory>,
-    private readonly menuGateway: MenuGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly panelControlService: PanelControlService,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
@@ -210,7 +210,7 @@ export class MenuService {
         }
       }),
     );
-    this.menuGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged(null, items);
   }
 
   async findItemsInCategoryArray(categories: number[]) {
@@ -225,7 +225,7 @@ export class MenuService {
     items.forEach(async (item, index) => {
       await this.itemModel.findByIdAndUpdate(item._id, { order: index + 1 });
     });
-    this.menuGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged(user, items);
   }
   async createCategory(user: User, createCategoryDto: CreateCategoryDto) {
     const lastCategory = await this.categoryModel
@@ -250,7 +250,7 @@ export class MenuService {
         await orderDataPage.save();
       }
     }
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
     return category;
   }
 
@@ -275,7 +275,7 @@ export class MenuService {
         }),
       );
 
-      this.menuGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged(user, items);
     }
     if (updates.isKitchenMenu) {
       const ordersPage = await this.panelControlService.getPage('orders');
@@ -302,7 +302,7 @@ export class MenuService {
       if (updates?.kitchen) {
       }
     }
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
     return category;
   }
   async updateKitchenCategory(
@@ -353,7 +353,7 @@ export class MenuService {
         : NotificationEventType.KITCHENDEACTIVATED,
       message,
     });
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
     return category;
   }
   async removeCategory(user: User, id: number) {
@@ -380,7 +380,7 @@ export class MenuService {
       );
     }
     const category = await this.categoryModel.findByIdAndRemove(id);
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
     return category;
   }
 
@@ -427,7 +427,7 @@ export class MenuService {
           matchedProduct: null,
           deleted: false,
         });
-        await this.menuGateway.emitItemChanged(user, deletedItem);
+        await this.websocketGateway.emitItemChanged(user, deletedItem);
         return deletedItem;
       }
       const item = new this.itemModel({
@@ -467,7 +467,7 @@ export class MenuService {
       }
 
       await item.save();
-      this.menuGateway.emitItemChanged(user, item);
+      this.websocketGateway.emitItemChanged(user, item);
       return item;
     } catch (error) {
       console.error('Error creating item:', error);
@@ -594,7 +594,7 @@ export class MenuService {
           status: StockHistoryStatusEnum.STOCKENTRY,
         });
       }
-      await this.menuGateway.emitItemChanged(user, newItem);
+      await this.websocketGateway.emitItemChanged(user, newItem);
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -738,7 +738,7 @@ export class MenuService {
       item,
       updatedItem,
     );
-    this.menuGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
   async syncAllIkasPrices(currency = 'TRY') {
@@ -772,7 +772,7 @@ export class MenuService {
       { _id: { $ne: id }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-    this.menuGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged(user, item);
   }
   async updateCategoriesOrder(
     user: User,
@@ -789,7 +789,7 @@ export class MenuService {
       { _id: { $ne: categoryId }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
   }
   async updateOrderCategoriesOrder(
     user: User,
@@ -808,7 +808,7 @@ export class MenuService {
       { _id: { $ne: categoryId }, orderCategoryOrder: { $gte: newOrder } },
       { $inc: { orderCategoryOrder: 1 } },
     );
-    this.menuGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged(user, category);
   }
 
   async updateMultipleItems(user: User, items: MenuItem[]) {
@@ -841,7 +841,7 @@ export class MenuService {
       );
       await this.syncAllIkasPrices('TRY');
 
-      this.menuGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged(user, items);
     } catch (error) {
       console.error('Error updating items:', error);
       throw new HttpException(
@@ -924,7 +924,7 @@ export class MenuService {
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.menuGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged(user, updatedItem);
     return updatedItem;
   }
 
@@ -945,7 +945,7 @@ export class MenuService {
       );
     }
     await item.remove();
-    this.menuGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged(user, item);
     return item;
   }
   // this is used for bulk update in menu page
@@ -959,7 +959,7 @@ export class MenuService {
       throw new HttpException('Items not found', HttpStatus.NOT_FOUND);
     }
     await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
-    this.menuGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged(user, items);
     return items;
   }
   // popular
@@ -979,20 +979,20 @@ export class MenuService {
       ...createPopularDto,
       order: lastItem ? lastItem.order + 1 : 1,
     });
-    this.menuGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
 
   async removePopular(user: User, id: number) {
     const popularItem = await this.popularModel.findOneAndDelete({ item: id });
-    this.menuGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
   async updatePopular(user: User, id: number, updates: UpdateQuery<Popular>) {
     const popularItem = await this.popularModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.menuGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged(user, popularItem);
     return popularItem;
   }
 
@@ -1023,7 +1023,7 @@ export class MenuService {
         });
       }
     });
-    this.menuGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged(user, items);
   }
   // kitchen
   findAllKitchens() {
@@ -1043,14 +1043,14 @@ export class MenuService {
       permissionsRoles: [1],
     });
     await ordersPage.save();
-    this.menuGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged(user, kitchen);
     return kitchen;
   }
   async updateKitchen(user: User, id: string, updates: UpdateQuery<Kitchen>) {
     const kitchen = await this.kitchenModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.menuGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged(user, kitchen);
     return kitchen;
   }
   async removeKitchen(user: User, id: string) {
@@ -1060,7 +1060,7 @@ export class MenuService {
       (tab) => tab.name !== kitchen.name,
     );
     await kitchen.remove();
-    this.menuGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged(user, kitchen);
     return kitchen;
   }
 
@@ -1079,7 +1079,7 @@ export class MenuService {
     const upperCategory = await this.upperCategoryModel.create(
       createUpperCategoryDto,
     );
-    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
     return upperCategory;
   }
 
@@ -1093,14 +1093,14 @@ export class MenuService {
       updates,
       { new: true },
     );
-    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
     return upperCategory;
   }
 
   async removeUpperCategory(user: User, id: number) {
     const upperCategory = await this.upperCategoryModel.findById(id);
     await upperCategory.remove();
-    this.menuGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
     return upperCategory;
   }
 
@@ -1188,7 +1188,7 @@ export class MenuService {
         }
       }
 
-      this.menuGateway.emitItemChanged();
+      this.websocketGateway.emitItemChanged();
     } catch (error) {
       console.error('Failed to update Ikas categories:', error);
       throw error;
@@ -1244,7 +1244,7 @@ export class MenuService {
       }
     }
     await Promise.all(updates);
-    this.menuGateway.emitItemChanged();
+    this.websocketGateway.emitItemChanged();
   }
 
   async updateItemsSlugs() {
@@ -1266,7 +1266,7 @@ export class MenuService {
       });
     });
     await Promise.all(updatePromises.filter(Boolean));
-    this.menuGateway.emitItemChanged();
+    this.websocketGateway.emitItemChanged();
     return items;
   }
   async setOrderCategoryOrders() {
@@ -1278,7 +1278,7 @@ export class MenuService {
       });
       i++;
     });
-    this.menuGateway.emitCategoryChanged(null, categories);
+    this.websocketGateway.emitCategoryChanged(null, categories);
     return categories;
   }
   prunePriceHistory(history: PriceHistory[]): PriceHistory[] {
@@ -1299,7 +1299,7 @@ export class MenuService {
         }
       }
     });
-    this.menuGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged(null, items);
   }
   async migrateSuggestedDiscounts(): Promise<{ modifiedCount: number }> {
     const res = await this.itemModel.updateMany({}, [

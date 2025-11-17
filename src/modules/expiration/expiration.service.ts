@@ -7,9 +7,9 @@ import {
   CreateExpirationCountDto,
   CreateExpirationListDto,
 } from './expiration.dto';
-import { ExpirationGateway } from './expiration.gateway';
 import { ExpirationCount } from './expirationCount.schema';
 import { ExpirationList } from './expirationList.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ExpirationService {
@@ -18,7 +18,7 @@ export class ExpirationService {
     private expirationListModel: Model<ExpirationList>,
     @InjectModel(ExpirationCount.name)
     private expirationCountModel: Model<ExpirationCount>,
-    private readonly expirationGateway: ExpirationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   findAllExpirationLists() {
@@ -36,7 +36,7 @@ export class ExpirationService {
     expirationList.locations = [1, 2];
     expirationList.active = true;
     await expirationList.save();
-    this.expirationGateway.emitExpirationListChanged(user, expirationList);
+    this.websocketGateway.emitExpirationListChanged(user, expirationList);
     return expirationList;
   }
 
@@ -52,7 +52,7 @@ export class ExpirationService {
         new: true,
       },
     );
-    this.expirationGateway.emitExpirationListChanged(user, expirationList);
+    this.websocketGateway.emitExpirationListChanged(user, expirationList);
     return expirationList;
   }
 
@@ -84,7 +84,7 @@ export class ExpirationService {
     expirationCount._id = usernamify(
       expirationCount.user + new Date().toISOString(),
     );
-    this.expirationGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
     return expirationCount.save();
   }
 
@@ -98,7 +98,7 @@ export class ExpirationService {
       updates,
       { new: true },
     );
-    this.expirationGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
     return expirationCount;
   }
 
@@ -106,7 +106,7 @@ export class ExpirationService {
     const expirationCount = await this.expirationCountModel.findByIdAndRemove(
       id,
     );
-    this.expirationGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
     return expirationCount;
   }
 }

@@ -14,10 +14,10 @@ import { MenuCategory, MenuCategorySchema } from './category.schema';
 import { MenuItem, MenuItemSchema } from './item.schema';
 import { Kitchen, KitchenSchema } from './kitchen.schema';
 import { MenuController } from './menu.controller';
-import { MenuGateway } from './menu.gateway';
 import { MenuService } from './menu.service';
 import { Popular, PopularSchema } from './popular.schema';
 import { UpperCategory, UpperCategorySchema } from './upperCategory.schema';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(MenuItem.name, MenuItemSchema),
@@ -29,6 +29,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     ActivityModule,
     PanelControlModule,
@@ -40,7 +41,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => OrderModule),
     forwardRef(() => IkasModule),
   ],
-  providers: [MenuService, MenuGateway],
+  providers: [MenuService],
   exports: [MenuService],
   controllers: [MenuController],
 })

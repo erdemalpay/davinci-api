@@ -9,9 +9,9 @@ import { ShiftModule } from '../shift/shift.module';
 import { CafeActivity, CafeActivitySchema } from './cafeActivity.schema';
 import { VisitController } from './visit.controller';
 import { VisitCronService } from './visit.cron.service';
-import { VisitGateway } from './visit.gateway';
 import { Visit, VisitSchema } from './visit.schema';
 import { VisitService } from './visit.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Visit.name, VisitSchema),
@@ -20,6 +20,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     UserModule,
     NotificationModule,
@@ -27,8 +28,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ShiftModule,
     ActivityModule,
   ],
-  providers: [VisitService, VisitGateway, VisitCronService],
-  exports: [VisitService, VisitGateway],
+  providers: [VisitService, VisitCronService],
+  exports: [VisitService],
   controllers: [VisitController],
 })
 export class VisitModule {}

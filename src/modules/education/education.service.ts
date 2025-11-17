@@ -3,20 +3,20 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
 import { CreateEducationDto } from './education.dto';
-import { EducationGateway } from './education.gateway';
 import { Education } from './education.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class EducationService {
   constructor(
     @InjectModel(Education.name) private educationModel: Model<Education>,
-    private readonly educationGateway: EducationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   async createEducation(user: User, createEducationDto: CreateEducationDto) {
     const createdEducation = new this.educationModel(createEducationDto);
     await createdEducation.save();
-    this.educationGateway.emitEducationChanged(user, createdEducation);
+    this.websocketGateway.emitEducationChanged(user, createdEducation);
     return createdEducation;
   }
 
@@ -52,7 +52,7 @@ export class EducationService {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
     }
 
-    this.educationGateway.emitEducationChanged(user, updatedEducation);
+    this.websocketGateway.emitEducationChanged(user, updatedEducation);
     return updatedEducation;
   }
 
@@ -68,7 +68,7 @@ export class EducationService {
       { $inc: { order: 1 } },
     );
 
-    this.educationGateway.emitEducationChanged(user, item);
+    this.websocketGateway.emitEducationChanged(user, item);
   }
 
   async removeEducation(user: User, id: number) {
@@ -76,7 +76,7 @@ export class EducationService {
     if (!removedEducation) {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
     }
-    this.educationGateway.emitEducationChanged(user, removedEducation);
+    this.websocketGateway.emitEducationChanged(user, removedEducation);
     return removedEducation;
   }
 

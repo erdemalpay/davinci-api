@@ -7,15 +7,15 @@ import { withSession } from 'src/utils/withSession';
 import { User } from '../user/user.schema';
 import { SessionOpts } from './../../utils/withSession';
 import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
-import { ActivityGateway } from './activity.gateway';
 import { Activity } from './activity.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ActivityService {
   constructor(
     @InjectModel(Activity.name)
     private activityModel: Model<Activity<keyof ActivityTypePayload>>,
-    private readonly activityGateway: ActivityGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -108,7 +108,7 @@ export class ActivityService {
       withSession({}, session),
     );
     if (!deferEmit) {
-      this.activityGateway.emitActivityChanged(activity);
+      this.websocketGateway.emitActivityChanged(activity);
     }
 
     return activity;
@@ -143,7 +143,7 @@ export class ActivityService {
         type: dif.type,
       },
     });
-    this.activityGateway.emitActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged(activity);
     return activity;
   }
 }

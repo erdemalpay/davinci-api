@@ -5,7 +5,6 @@ import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
 import { UserModule } from '../user/user.module';
 import { ShiftController } from './shift.controller';
-import { ShiftGateway } from './shift.gateway';
 import { Shift, ShiftSchema } from './shift.schema';
 import { ShiftService } from './shift.service';
 import { ShiftChangeRequestController } from './shiftChange/shiftChangeRequest.controller';
@@ -14,6 +13,7 @@ import {
   ShiftChangeRequestSchema,
 } from './shiftChange/shiftChangeRequest.schema';
 import { ShiftChangeRequestService } from './shiftChange/shiftChangeRequest.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Shift.name, ShiftSchema),
@@ -24,9 +24,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, NotificationModule, UserModule, LocationModule],
-  providers: [ShiftService, ShiftGateway, ShiftChangeRequestService],
-  exports: [ShiftService, ShiftGateway, ShiftChangeRequestService],
+  imports: [
+    WebSocketModule,mongooseModule, NotificationModule, UserModule, LocationModule],
+  providers: [ShiftService, ShiftChangeRequestService],
+  exports: [ShiftService, ShiftChangeRequestService],
   controllers: [ShiftController, ShiftChangeRequestController],
 })
 export class ShiftModule {}

@@ -26,7 +26,7 @@ import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
-import { IkasGateway } from './ikas.gateway';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 const NEORAMA_DEPO_LOCATION = 6;
 
@@ -56,7 +56,7 @@ export class IkasService {
     private readonly accountingService: AccountingService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
-    private readonly ikasGateway: IkasGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
   ) {
@@ -709,7 +709,7 @@ export class IkasService {
           .toPromise();
         if (response.data.data.saveProductStockLocations) {
           console.log('Stock updated successfully.');
-          await this.ikasGateway.emitIkasProductStockChanged();
+          await this.websocketGateway.emitIkasProductStockChanged();
           return true; // Return true if the mutation succeeds
         } else {
           console.error('Failed to update stock: Mutation returned false.');
@@ -826,7 +826,7 @@ export class IkasService {
           .toPromise();
         if (response.data.data.saveVariantPrices) {
           console.log(`ikas ${productId} price updated successfully.`);
-          await this.ikasGateway.emitIkasProductStockChanged();
+          await this.websocketGateway.emitIkasProductStockChanged();
           return true;
         } else {
           console.error('Failed to update price: Mutation returned false.');
@@ -1504,7 +1504,7 @@ export class IkasService {
           );
         }
       }
-      this.ikasGateway.emitIkasProductStockChanged();
+      this.websocketGateway.emitIkasProductStockChanged();
       console.log('Bulk stock update completed');
       return { success: true, updatedCount: stockUpdates.length };
     } catch (error) {

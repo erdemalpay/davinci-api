@@ -6,8 +6,8 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { User } from '../user/user.schema';
 import { ReservationDto } from './reservation.dto';
-import { ReservationGateway } from './reservation.gateway';
 import { Reservation } from './reservation.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 type ReservationUpdatePayload = UpdateQuery<Reservation> & {
   comingDurationInMinutes?: number;
@@ -17,7 +17,7 @@ type ReservationUpdatePayload = UpdateQuery<Reservation> & {
 export class ReservationService {
   constructor(
     @InjectModel(Reservation.name) private reservationModel: Model<Reservation>,
-    private readonly reservationGateway: ReservationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly activityService: ActivityService,
   ) {}
 
@@ -31,7 +31,7 @@ export class ReservationService {
       date,
       order: lastReservation?.order + 1 || 1,
     });
-    this.reservationGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged(user, reservation);
     this.activityService.addActivity(
       user,
       ActivityType.CREATE_RESERVATION,
@@ -49,7 +49,7 @@ export class ReservationService {
         new: true,
       },
     );
-    this.reservationGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged(user, reservation);
     this.activityService.addUpdateActivity(
       user,
       ActivityType.UPDATE_RESERVATION,
@@ -71,7 +71,7 @@ export class ReservationService {
       { $inc: { order: 1 } },
     );
 
-    this.reservationGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged(user, reservation);
   }
 
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
@@ -104,7 +104,7 @@ export class ReservationService {
       oldReservation,
       reservation,
     );
-    this.reservationGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged(user, reservation);
 
     return reservation;
   }
@@ -148,7 +148,7 @@ export class ReservationService {
         { new: true },
       );
       // Emit websocket event for each cancelled reservation
-      this.reservationGateway.emitReservationChanged(null, updatedReservation);
+      this.websocketGateway.emitReservationChanged(null, updatedReservation);
     }
 
     return expiredReservations.length;
