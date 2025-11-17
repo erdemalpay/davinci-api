@@ -8,15 +8,15 @@ import {
   CreateNotificationDto,
   NotificationQueryDto,
 } from './notification.dto';
-import { NotificationGateway } from './notification.gateway';
 import { Notification } from './notification.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<Notification>,
-    private readonly notificationGateway: NotificationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
     private readonly userService: UserService,
   ) {}
@@ -223,7 +223,7 @@ export class NotificationService {
       ...(user && { createdBy: user._id }),
       createdAt: new Date(),
     });
-    this.notificationGateway.emitNotificationChanged(
+    this.websocketGateway.emitNotificationChanged(
       notification,
       createNotificationDto?.selectedUsers ?? [],
       createNotificationDto?.selectedRoles ?? [],
@@ -261,7 +261,7 @@ export class NotificationService {
           _id: { $in: ids },
         });
 
-        this.notificationGateway.emitNotificationChanged('notificationChanged');
+        this.websocketGateway.emitNotificationChanged('notificationChanged');
         return { modifiedCount, updatedIds: ids };
       }
 
@@ -293,7 +293,7 @@ export class NotificationService {
       );
 
       const updated = await this.notificationModel.find({ _id: { $in: ids } });
-      this.notificationGateway.emitNotificationChanged('notificationChanged');
+      this.websocketGateway.emitNotificationChanged('notificationChanged');
       return { modifiedCount, updatedIds: ids };
     } catch (error) {
       throw new HttpException(
@@ -316,7 +316,7 @@ export class NotificationService {
     if (!notification) {
       throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
     }
-    this.notificationGateway.emitNotificationChanged(
+    this.websocketGateway.emitNotificationChanged(
       notification,
       notification.selectedUsers,
       notification.selectedRoles,
@@ -331,7 +331,7 @@ export class NotificationService {
       if (!notification) {
         throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
       }
-      this.notificationGateway.emitNotificationRemoved(notification);
+      this.websocketGateway.emitNotificationRemoved(notification);
       return notification;
     } catch (error) {
       throw new HttpException(

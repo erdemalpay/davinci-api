@@ -10,7 +10,7 @@ import * as cloudinary from 'cloudinary';
 import * as streamifier from 'streamifier';
 import { MenuService } from '../menu/menu.service';
 import { User } from '../user/user.schema';
-import { AssetGateway } from './asset.gateway';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 const api = cloudinary.v2;
 
@@ -18,7 +18,7 @@ const api = cloudinary.v2;
 export class AssetService {
   constructor(
     configService: ConfigService,
-    private readonly assetGateway: AssetGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
   ) {
@@ -158,7 +158,7 @@ export class AssetService {
       // Step 3: Delete the image using the public_id
       const result = await cloudinary.v2.uploader.destroy(publicId);
       console.log('Image deleted:', result);
-      this.assetGateway.emitAssetChanged(result);
+      this.websocketGateway.emitAssetChanged(result);
       return result;
     } catch (error) {
       console.error('Error deleting image:', error.message);

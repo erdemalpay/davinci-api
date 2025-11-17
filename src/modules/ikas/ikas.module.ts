@@ -9,11 +9,12 @@ import { AccountingModule } from './../accounting/accounting.module';
 import { LocationModule } from './../location/location.module';
 import { MenuModule } from './../menu/menu.module';
 import { IkasController } from './ikas.controller';
-import { IkasGateway } from './ikas.gateway';
 import { IkasService } from './ikas.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
+    WebSocketModule,
     RedisModule,
     HttpModule,
     UserModule,
@@ -24,8 +25,8 @@ import { IkasService } from './ikas.service';
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),
   ],
-  providers: [IkasService, IkasGateway],
-  exports: [IkasService, IkasGateway],
+  providers: [IkasService],
+  exports: [IkasService],
   controllers: [IkasController],
 })
 export class IkasModule {}

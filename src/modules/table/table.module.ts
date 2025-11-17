@@ -10,10 +10,10 @@ import { ReservationModule } from '../reservation/reservation.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
 import { Feedback, FeedbackSchema } from './feedback.schema';
 import { TableController } from './table.controller';
-import { TableGateway } from './table.gateway';
 import { TableSchedule } from './table.schedule';
 import { Table, TableSchema } from './table.schema';
 import { TableService } from './table.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Table.name, TableSchema),
@@ -22,6 +22,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     GameplayModule,
     ActivityModule,
@@ -31,8 +32,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => OrderModule),
     forwardRef(() => ReservationModule),
   ],
-  providers: [TableService, TableGateway, TableSchedule],
-  exports: [TableService, TableGateway, TableSchedule],
+  providers: [TableService, TableSchedule],
+  exports: [TableService, TableSchedule],
   controllers: [TableController],
 })
 export class TableModule {}

@@ -11,15 +11,15 @@ import {
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
-import { GameplayGateway } from './gameplay.gateway';
 import { Gameplay } from './gameplay.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class GameplayService {
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
     private readonly activityService: ActivityService,
-    private readonly gameplayGateway: GameplayGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   async create(user: User, createGameplayDto: GameplayDto) {
@@ -27,7 +27,7 @@ export class GameplayService {
       ...createGameplayDto,
       createdBy: user,
     });
-    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayChanged(user, gameplay);
     return gameplay;
   }
 
@@ -440,13 +440,13 @@ export class GameplayService {
       existingGameplay,
       updatedGameplay,
     );
-    this.gameplayGateway.emitGameplayChanged(user, updatedGameplay);
+    this.websocketGateway.emitGameplayChanged(user, updatedGameplay);
     return updatedGameplay;
   }
 
   async remove(user: User, id: number) {
     const gameplay = await this.gameplayModel.findByIdAndDelete(id);
-    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayChanged(user, gameplay);
     return gameplay;
   }
 
@@ -458,7 +458,7 @@ export class GameplayService {
       },
       { new: true },
     );
-    this.gameplayGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayChanged(user, gameplay);
 
     return gameplay;
   }

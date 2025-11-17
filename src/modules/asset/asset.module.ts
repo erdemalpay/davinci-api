@@ -2,13 +2,14 @@ import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MenuModule } from './../menu/menu.module';
 import { AssetController } from './asset.controller';
-import { AssetGateway } from './asset.gateway';
 import { AssetService } from './asset.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 @Module({
-  imports: [MongooseModule, forwardRef(() => MenuModule)],
-  providers: [AssetService, AssetGateway],
-  exports: [AssetService, AssetGateway],
+  imports: [
+    WebSocketModule,MongooseModule, forwardRef(() => MenuModule)],
+  providers: [AssetService],
+  exports: [AssetService],
   controllers: [AssetController],
 })
 export class AssetModule {}

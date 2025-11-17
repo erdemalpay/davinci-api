@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { PointController } from './point.controller';
-import { PointGateway } from './point.gateway';
 import { Point, PointSchema } from './point.schema';
 import { PointService } from './point.service';
 import { PointHistory, PointHistorySchema } from './pointHistory.schema';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Point.name, PointSchema),
@@ -13,9 +13,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
-  providers: [PointService, PointGateway],
+  imports: [
+    WebSocketModule,mongooseModule],
+  providers: [PointService],
   controllers: [PointController],
-  exports: [mongooseModule, PointService, PointModule, PointGateway],
+  exports: [mongooseModule, PointService, PointModule],
 })
 export class PointModule {}

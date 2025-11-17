@@ -7,7 +7,6 @@ import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { User } from '../user/user.schema';
-import { ButtonCallGateway } from './buttonCall.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
   ButtonCallQueryDto,
@@ -15,6 +14,7 @@ import {
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ButtonCallService {
@@ -22,7 +22,7 @@ export class ButtonCallService {
     @InjectModel(ButtonCall.name)
     private readonly buttonCallModel: Model<ButtonCall>,
     private readonly httpService: HttpService,
-    private readonly buttonCallGateway: ButtonCallGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -44,7 +44,7 @@ export class ButtonCallService {
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
       await existingButtonCall.save();
-      this.buttonCallGateway.emitButtonCallChanged(existingButtonCall);
+      this.websocketGateway.emitButtonCallChanged(existingButtonCall);
       return existingButtonCall;
     }
 
@@ -56,7 +56,7 @@ export class ButtonCallService {
         startHour: createButtonCallDto.hour,
         ...(user && { createdBy: user._id }),
       });
-      this.buttonCallGateway.emitButtonCallChanged(createdButtonCall);
+      this.websocketGateway.emitButtonCallChanged(createdButtonCall);
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -95,7 +95,7 @@ export class ButtonCallService {
 
     closedButtonCall.set(obj);
     await closedButtonCall.save();
-    this.buttonCallGateway.emitButtonCallChanged(closedButtonCall);
+    this.websocketGateway.emitButtonCallChanged(closedButtonCall);
 
     if (notifyCafe) {
       await this.notifyCafe(closeButtonCallDto);

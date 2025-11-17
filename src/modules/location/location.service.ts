@@ -2,20 +2,20 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { CreateStockLocationDto } from './dto/create-location.dto';
-import { LocationGateway } from './location.gateway';
 import { Location } from './location.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 @Injectable()
 export class LocationService {
   constructor(
     @InjectModel(Location.name) private locationModel: Model<Location>,
-    private readonly locationGateway: LocationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {
     this.checkDefaultLocations();
   }
 
   create(createLocationDto: CreateStockLocationDto) {
     const location = this.locationModel.create(createLocationDto);
-    this.locationGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged(location);
     return location;
   }
 
@@ -77,7 +77,7 @@ export class LocationService {
     const location = await this.locationModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.locationGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged(location);
     return location;
   }
 
@@ -87,7 +87,7 @@ export class LocationService {
       type: [2],
       active: true,
     });
-    this.locationGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged(location);
     return location;
   }
 }

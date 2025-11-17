@@ -17,15 +17,15 @@ import {
   VisitDto,
   VisitTypes,
 } from './visit.dto';
-import { VisitGateway } from './visit.gateway';
 import { Visit } from './visit.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 export class VisitService {
   constructor(
     @InjectModel(Visit.name) private visitModel: Model<Visit>,
     @InjectModel(CafeActivity.name)
     private cafeActivityModel: Model<CafeActivity>,
-    private readonly visitGateway: VisitGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly notificationService: NotificationService,
     private readonly shiftService: ShiftService,
@@ -93,7 +93,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.visitGateway.emitVisitChanged(user, visit);
+    this.websocketGateway.emitVisitChanged(user, visit);
     return visit;
   }
 
@@ -163,7 +163,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.visitGateway.emitVisitChanged(user, visit);
+    this.websocketGateway.emitVisitChanged(user, visit);
     return visit;
   }
   async remove(user: User, id: number) {
@@ -182,7 +182,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.visitGateway.emitVisitChanged(visit.user, visit);
+    this.websocketGateway.emitVisitChanged(visit.user, visit);
     return visit;
   }
 
@@ -320,7 +320,7 @@ export class VisitService {
         console.error('Failed to add activity:', error);
       }
 
-      this.visitGateway.emitVisitChanged(user, visit);
+      this.websocketGateway.emitVisitChanged(user, visit);
       return visit;
     }
     if (cafeVisitDto?.type === VisitTypes.EXIT) {
@@ -385,7 +385,7 @@ export class VisitService {
           console.error('Failed to add activity:', error);
         }
 
-        this.visitGateway.emitVisitChanged(user, lastVisit);
+        this.websocketGateway.emitVisitChanged(user, lastVisit);
         return lastVisit;
       }
       const visit = await this.visitModel.create({
@@ -435,7 +435,7 @@ export class VisitService {
         console.error('Failed to add activity:', error);
       }
 
-      this.visitGateway.emitVisitChanged(user, visit);
+      this.websocketGateway.emitVisitChanged(user, visit);
       return visit;
     }
     throw new BadRequestException();
@@ -443,7 +443,7 @@ export class VisitService {
 
   async createCafeActivity(dto: CafeActivityDto) {
     const activity = await this.cafeActivityModel.create(dto);
-    this.visitGateway.emitCafeActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged(activity);
     return activity;
   }
 
@@ -459,7 +459,7 @@ export class VisitService {
     if (!activity) {
       throw new NotFoundException(`CafeActivity with id ${id} not found`);
     }
-    this.visitGateway.emitCafeActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged(activity);
     return activity;
   }
 
@@ -468,7 +468,7 @@ export class VisitService {
     if (!activity) {
       throw new NotFoundException(`CafeActivity with id ${id} not found`);
     }
-    this.visitGateway.emitCafeActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged(activity);
     return activity;
   }
 

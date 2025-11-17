@@ -5,7 +5,7 @@ import { LocationService } from '../../location/location.service';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { UserService } from '../../user/user.service';
-import { ShiftGateway } from '../shift.gateway';
+import { AppWebSocketGateway } from '../../websocket/websocket.gateway';
 import { Shift } from '../shift.schema';
 import { ShiftService } from '../shift.service';
 import {
@@ -13,7 +13,11 @@ import {
   ShiftChangeRequestFilterDto,
   UpdateShiftChangeRequestDto,
 } from './shiftChangeRequest.dto';
-import { ApprovalStatus, ShiftChangeStatus, ShiftChangeType } from './shiftChangeRequest.enums';
+import {
+  ApprovalStatus,
+  ShiftChangeStatus,
+  ShiftChangeType,
+} from './shiftChangeRequest.enums';
 import { ShiftChangeRequest } from './shiftChangeRequest.schema';
 
 @Injectable()
@@ -27,7 +31,7 @@ export class ShiftChangeRequestService {
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
-    private readonly shiftGateway: ShiftGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   private async getUserNames(
@@ -137,7 +141,6 @@ export class ShiftChangeRequestService {
 
     // Check for shift overlaps (especially important for TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
-
       const hasOverlap = await this.checkShiftOverlap(
         createDto.targetUserId,
         createDto.requesterShift.day,
@@ -152,7 +155,6 @@ export class ShiftChangeRequestService {
           HttpStatus.CONFLICT,
         );
       }
-
     } else if (createDto.type === ShiftChangeType.SWAP) {
       // In swap, check both users for overlaps
       const requesterHasOverlap = await this.checkShiftOverlap(
@@ -199,16 +201,16 @@ export class ShiftChangeRequestService {
       createDto.targetUserId,
     ]);
     const requesterName = userNames[requesterId] ?? 'Unknown User';
-    const targetName =
-      userNames[createDto.targetUserId] ?? 'Unknown User';
+    const targetName = userNames[createDto.targetUserId] ?? 'Unknown User';
 
     const locationNames = await this.getLocationNames([
       createDto.requesterShift.location,
       createDto.targetShift?.location,
     ]);
-    const requesterLocationName = locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
+    const requesterLocationName =
+      locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
     const targetLocationName = createDto.targetShift?.location
-      ? (locationNames[createDto.targetShift.location] ?? 'Unknown Location')
+      ? locationNames[createDto.targetShift.location] ?? 'Unknown Location'
       : '';
 
     await this.notificationService.createNotification({
@@ -253,7 +255,10 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
-    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'created', request });
+    this.websocketGateway.emitShiftChangeRequestChanged({
+      action: 'created',
+      request,
+    });
 
     return request;
   }
@@ -465,7 +470,10 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
-      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
+      this.websocketGateway.emitShiftChangeRequestChanged({
+        action: 'approved',
+        request,
+      });
     } else {
       const userNames = await this.getUserNames([
         request.requesterId,
@@ -489,7 +497,10 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
-      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'manager_approved', request });
+      this.websocketGateway.emitShiftChangeRequestChanged({
+        action: 'manager_approved',
+        request,
+      });
     }
 
     return request;
@@ -607,9 +618,11 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
-      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'approved', request });
+      this.websocketGateway.emitShiftChangeRequestChanged({
+        action: 'approved',
+        request,
+      });
     } else {
-
       await request.save();
 
       const userNames = await this.getUserNames([
@@ -632,7 +645,10 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
-      this.shiftGateway.emitShiftChangeRequestChanged({ action: 'target_approved', request });
+      this.websocketGateway.emitShiftChangeRequestChanged({
+        action: 'target_approved',
+        request,
+      });
     }
 
     return request;
@@ -708,15 +724,15 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
-    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
+    this.websocketGateway.emitShiftChangeRequestChanged({
+      action: 'rejected',
+      request,
+    });
 
     return request;
   }
 
-  async rejectByTargetUser(
-    requestId: number,
-    targetUserId: string,
-  ) {
+  async rejectByTargetUser(requestId: number, targetUserId: string) {
     const request = await this.shiftChangeRequestModel.findById(requestId);
 
     if (!request) {
@@ -764,7 +780,10 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
-    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'rejected', request });
+    this.websocketGateway.emitShiftChangeRequestChanged({
+      action: 'rejected',
+      request,
+    });
 
     return request;
   }
@@ -829,7 +848,10 @@ export class ShiftChangeRequestService {
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
-    this.shiftGateway.emitShiftChangeRequestChanged({ action: 'cancelled', request });
+    this.websocketGateway.emitShiftChangeRequestChanged({
+      action: 'cancelled',
+      request,
+    });
 
     return request;
   }
@@ -872,7 +894,6 @@ export class ShiftChangeRequestService {
     location: number,
     userId: string,
   ) {
-
     const shiftDoc = await this.shiftModel
       .findOneAndUpdate(
         { day, location, 'shifts.shift': startTime },
@@ -900,7 +921,6 @@ export class ShiftChangeRequestService {
     userId: string,
     endTime?: string,
   ) {
-
     await this.shiftService.addShift(day, startTime, location, userId, endTime);
   }
 
@@ -930,7 +950,6 @@ export class ShiftChangeRequestService {
     endTime: string,
     excludeShiftId?: number,
   ): Promise<boolean> {
-
     const shifts = await this.shiftModel
       .find({
         day,
@@ -950,7 +969,6 @@ export class ShiftChangeRequestService {
       const [reqEndHour, reqEndMin] = endTime.split(':').map(Number);
       reqEndMinutes = reqEndHour * 60 + reqEndMin;
     } else {
-
       reqEndMinutes = reqStartMinutes + 8 * 60;
     }
 

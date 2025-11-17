@@ -24,9 +24,9 @@ import {
   CreatePanelSettingsDto,
   CreateTaskTrackDto,
 } from './panelControl.dto';
-import { PanelControlGateway } from './panelControl.gateway';
 import { PanelSettings } from './panelSettings.schema';
 import { TaskTrack } from './taskTrack.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class PanelControlService implements OnApplicationBootstrap {
@@ -38,7 +38,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     private disabledConditionModel: Model<DisabledCondition>,
     @InjectModel(PanelSettings.name)
     private panelSettingsModel: Model<PanelSettings>,
-    private readonly panelControlGateway: PanelControlGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
     private readonly httpAdapterHost: HttpAdapterHost,
     private readonly httpService: HttpService,
@@ -63,7 +63,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     const page = new this.pageModel({ ...createPageDto, permissionRoles: [] });
     page._id = usernamify(page.name);
     await page.save();
-    this.panelControlGateway.emitPageChanged(user, page);
+    this.websocketGateway.emitPageChanged(user, page);
     return page;
   }
 
@@ -90,7 +90,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     //     }
     //   }
     // }
-    this.panelControlGateway.emitPageChanged(user, newPage);
+    this.websocketGateway.emitPageChanged(user, newPage);
 
     return newPage;
   }
@@ -100,7 +100,7 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
   async removePage(user: User, id: string) {
     const page = await this.pageModel.findByIdAndRemove(id);
-    this.panelControlGateway.emitPageChanged(user, page);
+    this.websocketGateway.emitPageChanged(user, page);
     return page;
   }
 
@@ -121,7 +121,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       }
     }
 
-    this.panelControlGateway.emitPageChanged(user, pagesWithIds);
+    this.websocketGateway.emitPageChanged(user, pagesWithIds);
     console.log('here');
     return pagesWithIds;
   }
@@ -154,13 +154,13 @@ export class PanelControlService implements OnApplicationBootstrap {
           new: true,
         },
       );
-      this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
+      this.websocketGateway.emitPanelSettingsChanged(user, newPanelSetting);
       return newPanelSetting;
     }
     const newPanelSetting = await this.panelSettingsModel.create(
       createPanelSettingsDto,
     );
-    this.panelControlGateway.emitPanelSettingsChanged(user, newPanelSetting);
+    this.websocketGateway.emitPanelSettingsChanged(user, newPanelSetting);
     return newPanelSetting;
   }
 
@@ -268,7 +268,7 @@ export class PanelControlService implements OnApplicationBootstrap {
 
     condition._id = usernamify(condition.name);
     await condition.save();
-    this.panelControlGateway.emitDisabledConditionChanged(user, condition);
+    this.websocketGateway.emitDisabledConditionChanged(user, condition);
     return condition;
   }
 
@@ -284,7 +284,7 @@ export class PanelControlService implements OnApplicationBootstrap {
         new: true,
       },
     );
-    this.panelControlGateway.emitDisabledConditionChanged(user, newCondition);
+    this.websocketGateway.emitDisabledConditionChanged(user, newCondition);
 
     return newCondition;
   }
@@ -294,7 +294,7 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
   async removeDisabledCondition(user: User, id: string) {
     const condition = await this.disabledConditionModel.findByIdAndRemove(id);
-    this.panelControlGateway.emitDisabledConditionChanged(user, condition);
+    this.websocketGateway.emitDisabledConditionChanged(user, condition);
     return condition;
   }
   //actions
@@ -315,7 +315,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     const action = new this.actionModel(createActionDto);
     action._id = usernamify(action.name);
     await action.save();
-    this.panelControlGateway.emitActionChanged(action);
+    this.websocketGateway.emitActionChanged(action);
     return action;
   }
 
@@ -323,13 +323,13 @@ export class PanelControlService implements OnApplicationBootstrap {
     const newAction = await this.actionModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.panelControlGateway.emitActionChanged(newAction);
+    this.websocketGateway.emitActionChanged(newAction);
     return newAction;
   }
 
   async removeAction(id: string) {
     const action = await this.actionModel.findByIdAndRemove(id);
-    this.panelControlGateway.emitActionChanged(action);
+    this.websocketGateway.emitActionChanged(action);
     return action;
   }
 
@@ -347,7 +347,7 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
   async createTaskTrack(createTaskTrackDto: CreateTaskTrackDto) {
     const taskTrack = await this.taskTrackModel.create(createTaskTrackDto);
-    this.panelControlGateway.emitTaskTrackChanged(taskTrack);
+    this.websocketGateway.emitTaskTrackChanged(taskTrack);
     return taskTrack;
   }
 
@@ -359,13 +359,13 @@ export class PanelControlService implements OnApplicationBootstrap {
         new: true,
       },
     );
-    this.panelControlGateway.emitTaskTrackChanged(newTaskTrack);
+    this.websocketGateway.emitTaskTrackChanged(newTaskTrack);
     return newTaskTrack;
   }
 
   async removeTaskTrack(id: number) {
     const taskTrack = await this.taskTrackModel.findByIdAndRemove(id);
-    this.panelControlGateway.emitTaskTrackChanged(taskTrack);
+    this.websocketGateway.emitTaskTrackChanged(taskTrack);
     return taskTrack;
   }
 }

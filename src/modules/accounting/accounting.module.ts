@@ -13,7 +13,6 @@ import { CheckoutModule } from './../checkout/checkout.module';
 import { LocationModule } from './../location/location.module';
 import { RedisModule } from './../redis/redis.module';
 import { AccountingController } from './accounting.controller';
-import { AccountingGateway } from './accounting.gateway';
 import { AccountingService } from './accounting.service';
 import { Brand, BrandSchema } from './brand.schema';
 import { Count, CountSchema } from './count.schema';
@@ -34,6 +33,7 @@ import {
 import { Service, ServiceSchema } from './service.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { Vendor, VendorSchema } from './vendor.schema';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Product.name, useFactory: () => ProductSchema },
@@ -57,6 +57,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     ActivityModule,
     GameModule,
@@ -69,8 +70,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => IkasModule),
     forwardRef(() => MenuModule),
   ],
-  providers: [AccountingService, AccountingGateway],
-  exports: [AccountingService, AccountingGateway],
+  providers: [AccountingService],
+  exports: [AccountingService],
   controllers: [AccountingController],
 })
 export class AccountingModule {}

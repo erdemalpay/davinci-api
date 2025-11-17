@@ -3,9 +3,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { NotificationModule } from '../notification/notification.module';
 import { Check, CheckSchema } from './check.schema';
 import { ChecklistController } from './checklist.controller';
-import { ChecklistGateway } from './checklist.gateway';
 import { Checklist, ChecklistSchema } from './checklist.schema';
 import { ChecklistService } from './checklist.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Checklist.name, useFactory: () => ChecklistSchema },
@@ -13,14 +13,14 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, NotificationModule],
-  providers: [ChecklistService, ChecklistGateway],
+  imports: [
+    WebSocketModule,mongooseModule, NotificationModule],
+  providers: [ChecklistService],
   controllers: [ChecklistController],
   exports: [
     mongooseModule,
     ChecklistService,
     ChecklistModule,
-    ChecklistGateway,
   ], // Export mongooseModule here
 })
 export class ChecklistModule {}

@@ -2,18 +2,19 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityController } from './activity.controller';
-import { ActivityGateway } from './activity.gateway';
 import { Activity, ActivitySchema } from './activity.schema';
 import { ActivityService } from './activity.service';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Activity.name, ActivitySchema),
 ]);
 
 @Module({
-  imports: [mongooseModule],
-  providers: [ActivityService, ActivityGateway],
+  imports: [
+    WebSocketModule,mongooseModule],
+  providers: [ActivityService],
   controllers: [ActivityController],
-  exports: [ActivityService, ActivityGateway],
+  exports: [ActivityService],
 })
 export class ActivityModule {}

@@ -3,12 +3,12 @@ import { Model } from 'mongoose';
 
 import { User } from '../user/user.schema';
 import { CreateRewardDto, RewardDto } from './reward.dto';
-import { RewardGateway } from './reward.gateway';
 import { Reward } from './reward.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 export class RewardService {
   constructor(
     @InjectModel(Reward.name) private rewardModel: Model<Reward>,
-    private readonly rewardGateway: RewardGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   findAll() {
@@ -17,7 +17,7 @@ export class RewardService {
 
   async create(user: User, createRewardDto: CreateRewardDto) {
     const reward = await this.rewardModel.create(createRewardDto);
-    this.rewardGateway.emitRewardChanged(user, reward);
+    this.websocketGateway.emitRewardChanged(user, reward);
     return reward;
   }
 
@@ -25,13 +25,13 @@ export class RewardService {
     const reward = await this.rewardModel.findByIdAndUpdate(id, rewardDto, {
       new: true,
     });
-    this.rewardGateway.emitRewardChanged(user, reward);
+    this.websocketGateway.emitRewardChanged(user, reward);
     return reward;
   }
 
   async remove(user: User, id: number) {
     const reward = await this.rewardModel.findByIdAndRemove(id);
-    this.rewardGateway.emitRewardChanged(user, reward);
+    this.websocketGateway.emitRewardChanged(user, reward);
     return reward;
   }
 }

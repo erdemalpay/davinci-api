@@ -6,15 +6,15 @@ import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
 import { User } from '../user/user.schema';
 import { GameDto } from './game.dto';
-import { GameGateway } from './game.gateway';
 import { Game } from './game.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(Game.name)
     private gameModel: Model<Game>,
-    private readonly gameGateway: GameGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   getGames() {
@@ -31,13 +31,13 @@ export class GameService {
 
   async addGame(user: User, gameId: number) {
     const gameDetails = await getGameDetails(gameId);
-    this.gameGateway.emitGameChanged(user, gameDetails);
+    this.websocketGateway.emitGameChanged(user, gameDetails);
     return this.gameModel.create(gameDetails);
   }
 
   async addGameByDetails(user: User, gameDetails: GameDto) {
     const game = await this.gameModel.create(gameDetails);
-    this.gameGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged(user, game);
     return game;
   }
 
@@ -45,13 +45,13 @@ export class GameService {
     const game = await this.gameModel.findByIdAndUpdate(id, gameDetails, {
       new: true,
     });
-    this.gameGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged(user, game);
     return game;
   }
 
   async remove(user: User, id: number) {
     const game = await this.gameModel.findByIdAndDelete(id);
-    this.gameGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged(user, game);
     return game;
   }
 

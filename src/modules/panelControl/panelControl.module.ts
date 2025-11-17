@@ -12,10 +12,10 @@ import {
 } from './disabledCondition.schema';
 import { Page, PageSchema } from './page.schema';
 import { PanelControlController } from './panelControl.controller';
-import { PanelControlGateway } from './panelControl.gateway';
 import { PanelControlService } from './panelControl.service';
 import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
 import { TaskTrack, TaskTrackSchema } from './taskTrack.schema';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Page.name, useFactory: () => PageSchema },
@@ -27,18 +27,18 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
+    WebSocketModule,
     mongooseModule,
     RedisModule,
     HttpModule,
     forwardRef(() => AuthorizationModule),
   ],
-  providers: [PanelControlService, PanelControlGateway],
+  providers: [PanelControlService],
   controllers: [PanelControlController],
   exports: [
     mongooseModule,
     PanelControlService,
     PanelControlModule,
-    PanelControlGateway,
   ],
 })
 export class PanelControlModule {}

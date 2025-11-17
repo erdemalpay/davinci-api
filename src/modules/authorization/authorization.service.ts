@@ -14,13 +14,13 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CreateAuthorizationDto } from './authorization.dto';
-import { AuthorizationGateway } from './authorization.gateway';
 import { Authorization } from './authorization.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class AuthorizationService {
   constructor(
-    private readonly authorizationGateway: AuthorizationGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => PanelControlService))
     private readonly panelControlService: PanelControlService,
@@ -59,7 +59,7 @@ export class AuthorizationService {
       const authorization = await this.authorizationModel.create(
         createAuthorizationDto,
       );
-      this.authorizationGateway.emitAuthorizationChanged(authorization);
+      this.websocketGateway.emitAuthorizationChanged(authorization);
       return authorization;
     } catch (error) {
       console.error('Failed to create authorization:', error);
@@ -93,7 +93,7 @@ export class AuthorizationService {
       existingAuthorization,
       updatedAuthorization,
     );
-    this.authorizationGateway.emitAuthorizationChanged(updatedAuthorization);
+    this.websocketGateway.emitAuthorizationChanged(updatedAuthorization);
     return updatedAuthorization;
   }
 
@@ -103,7 +103,7 @@ export class AuthorizationService {
     if (!deletedAuthorization) {
       throw new Error('Authorization not found');
     }
-    this.authorizationGateway.emitAuthorizationChanged(deletedAuthorization);
+    this.websocketGateway.emitAuthorizationChanged(deletedAuthorization);
     return deletedAuthorization;
   }
 
@@ -117,6 +117,6 @@ export class AuthorizationService {
     }));
     await this.authorizationModel.create(authorizationsToCreate);
     await this.redisService.reset(RedisKeys.Authorizations);
-    this.authorizationGateway.emitAuthorizationChanged();
+    this.websocketGateway.emitAuthorizationChanged();
   }
 }

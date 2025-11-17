@@ -12,11 +12,11 @@ import { GameService } from '../game/game.service';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { CreateUserDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
-import { UserGateway } from './user.gateway';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
 
@@ -28,7 +28,7 @@ export class UserService implements OnModuleInit {
     private readonly gameService: GameService,
     private readonly gameplayService: GameplayService,
     private readonly activityService: ActivityService,
-    private readonly userGateway: UserGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
   ) {
     this.checkDefaultUser();
@@ -47,7 +47,7 @@ export class UserService implements OnModuleInit {
     }
     user.active = true;
     await user.save();
-    this.userGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged(user);
     return user;
   }
 
@@ -58,7 +58,7 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
     });
-    this.userGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged(user);
     return user;
   }
 
@@ -126,7 +126,7 @@ export class UserService implements OnModuleInit {
     if (!updateResult) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
-    this.userGateway.emitUserChanged(updateResult);
+    this.websocketGateway.emitUserChanged(updateResult);
 
     return updateResult;
   }

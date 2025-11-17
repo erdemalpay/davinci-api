@@ -33,8 +33,8 @@ import {
   TableStatus,
   TableTypes,
 } from './table.dto';
-import { TableGateway } from './table.gateway';
 import { Table } from './table.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class TableService {
@@ -47,7 +47,7 @@ export class TableService {
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
     private readonly menuService: MenuService,
-    private readonly tableGateway: TableGateway,
+    private readonly websocketGateway: AppWebSocketGateway,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
@@ -105,7 +105,7 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     } else {
-      this.tableGateway.emitTableChanged(user, createdTable);
+      this.websocketGateway.emitTableChanged(user, createdTable);
     }
     return createdTable;
   }
@@ -121,7 +121,7 @@ export class TableService {
       existingTable,
       updatedTable,
     );
-    this.tableGateway.emitTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
   async findOnlineTables() {
@@ -153,7 +153,7 @@ export class TableService {
         );
       }
 
-      this.tableGateway.emitTableChanged(user, updatedTable);
+      this.websocketGateway.emitTableChanged(user, updatedTable);
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
@@ -209,7 +209,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.tableGateway.emitTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
 
@@ -220,7 +220,7 @@ export class TableService {
       { new: true },
     );
 
-    this.tableGateway.emitSingleTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableChanged(user, updatedTable);
     return updatedTable;
   }
 
@@ -336,7 +336,7 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
-    this.tableGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableChanged(user, table);
     return table;
   }
 
@@ -359,7 +359,7 @@ export class TableService {
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.tableGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableChanged(user, table);
     return table;
   }
 
@@ -387,7 +387,7 @@ export class TableService {
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.tableGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableChanged(user, table);
 
     return table;
   }
@@ -506,7 +506,7 @@ export class TableService {
   }
   async removeTable(user: User, id: number) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.tableGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableChanged(user, table);
     return table;
   }
   async notifyUnclosedTables() {
@@ -595,7 +595,7 @@ export class TableService {
       ...(existingTable && { table: existingTable._id }),
     });
     await feedback.save();
-    this.tableGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged(feedback);
     return feedback;
   }
 
@@ -608,7 +608,7 @@ export class TableService {
     if (!updatedFeedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.tableGateway.emitFeedbackChanged(updatedFeedback);
+    this.websocketGateway.emitFeedbackChanged(updatedFeedback);
     return updatedFeedback;
   }
 
@@ -617,7 +617,7 @@ export class TableService {
     if (!feedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.tableGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged(feedback);
     return feedback;
   }
 }

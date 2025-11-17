@@ -11,6 +11,7 @@ import { AuthorizationModule } from './modules/authorization/authorization.modul
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { ConsumerModule } from './modules/consumer/consumer.module';
 import { EducationModule } from './modules/education/education.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
@@ -31,6 +32,7 @@ import { ShiftModule } from './modules/shift/shift.module';
 import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
+import { WebSocketModule } from './modules/websocket/websocket.module';
 
 export interface DBConfig {
   host: string;
@@ -47,6 +49,7 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 const modules = [
   ConfigModule.forRoot({ isGlobal: true }),
   ScheduleModule.forRoot(),
+  WebSocketModule, // Centralized WebSocket gateway
   ActivityModule,
   AuthModule,
   AssetModule,
@@ -67,6 +70,7 @@ const modules = [
   VisitModule,
   AccountingModule,
   CheckoutModule,
+  ConsumerModule,
   PanelControlModule,
   PointModule,
   OrderModule,
