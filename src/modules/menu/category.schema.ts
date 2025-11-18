@@ -40,6 +40,9 @@ export class MenuCategory extends Document {
 
   @Prop({ required: true, type: Number })
   orderCategoryOrder: number;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isLimitedTime: boolean;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);

@@ -92,6 +92,12 @@ export class MenuItem extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   deleted: boolean;
+
+  @Prop({ required: false, type: String })
+  startDate: string;
+
+  @Prop({ required: false, type: String })
+  endDate: string;
 }
 
 export const MenuItemSchema = SchemaFactory.createForClass(MenuItem);
