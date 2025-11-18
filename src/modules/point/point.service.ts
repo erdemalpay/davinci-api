@@ -48,7 +48,8 @@ export class PointService {
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
-    const { pointUser, status, before, after, sort, asc } = filter;
+    const { pointUser, pointConsumer, status, before, after, sort, asc } =
+      filter;
     const skip = (pageNum - 1) * limitNum;
     const statusArray = status ? (status as any).split(',') : [];
     const sortObject = {};
@@ -63,6 +64,7 @@ export class PointService {
       {
         $match: {
           ...(pointUser && { pointUser }),
+          ...(pointConsumer && { pointConsumer }),
           ...(status && {
             status: { $in: statusArray },
           }),
@@ -127,9 +129,10 @@ export class PointService {
   }
 
   async createPoint(user: User, createPointDto: CreatePointDto) {
-    const existingPoint = await this.pointModel.findOne({
-      user: createPointDto.user,
-    });
+    let query: any = {};
+    if (createPointDto.user) query.user = createPointDto.user;
+    if (createPointDto.consumer) query.consumer = createPointDto.consumer;
+    const existingPoint = await this.pointModel.findOne(query);
 
     if (existingPoint) {
       const oldAmount = existingPoint.amount;
@@ -141,8 +144,11 @@ export class PointService {
       await this.createPointHistory(
         {
           point: existingPoint._id,
-          pointUser: existingPoint.user,
-          createdBy: user._id,
+          ...(existingPoint.user && { pointUser: existingPoint.user }),
+          ...(existingPoint.consumer && {
+            pointConsumer: existingPoint.consumer,
+          }),
+          createdBy: user?._id,
           status: PointHistoryStatusEnum.POINTCREATE,
           currentAmount: existingPoint.amount,
           change: createPointDto.amount,
@@ -160,8 +166,9 @@ export class PointService {
     await this.createPointHistory(
       {
         point: point._id,
-        pointUser: point.user,
-        createdBy: user._id,
+        ...(point.user && { pointUser: point.user }),
+        ...(point.consumer && { pointConsumer: point.consumer }),
+        createdBy: user?._id,
         status: PointHistoryStatusEnum.POINTCREATE,
         currentAmount: point.amount,
         change: createPointDto.amount,
@@ -176,11 +183,14 @@ export class PointService {
     return this.pointModel.find();
   }
 
-  async findUserPoints(userId: string) {
-    const point = await this.pointModel.findOne({ user: userId });
+  async findUserPoints(userId: string, consumerId?: number) {
+    let query: any = {};
+    if (userId) query.user = userId;
+    if (consumerId) query.consumer = consumerId;
+    const point = await this.pointModel.findOne(query);
     if (!point) {
       throw new HttpException(
-        'No points found for this user',
+        'No points found for this user/consumer',
         HttpStatus.NOT_FOUND,
       );
     }
@@ -205,8 +215,9 @@ export class PointService {
       await this.createPointHistory(
         {
           point: point._id,
-          pointUser: point.user,
-          createdBy: user._id,
+          ...(point.user && { pointUser: point.user }),
+          ...(point.consumer && { pointConsumer: point.consumer }),
+          createdBy: user?._id,
           status: PointHistoryStatusEnum.POINTUPDATE,
           currentAmount: point.amount,
           change: point.amount - oldAmount,
@@ -237,8 +248,9 @@ export class PointService {
     await this.createPointHistory(
       {
         point: point._id,
-        pointUser: point.user,
-        createdBy: user._id,
+        ...(point.user && { pointUser: point.user }),
+        ...(point.consumer && { pointConsumer: point.consumer }),
+        createdBy: user?._id,
         status: PointHistoryStatusEnum.POINTDELETE,
         currentAmount: 0,
         change: -oldAmount,
@@ -306,7 +318,6 @@ export class PointService {
       );
     }
 
-    const oldAmount = userPoint.amount;
     userPoint.amount += amount;
     await userPoint.save();
 

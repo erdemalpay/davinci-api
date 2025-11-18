@@ -19,6 +19,9 @@ export class Consumer extends Document {
   surname: string;
 
   @Prop({ type: String, required: true, unique: true, index: true })
+  userName: string;
+
+  @Prop({ type: String, required: true, unique: true, index: true })
   email: string;
 
   @Prop({ type: String, required: false })
@@ -26,6 +29,18 @@ export class Consumer extends Document {
 
   @Prop({ type: String })
   fullName: string;
+
+  @Prop({ type: String })
+  phone: string;
+
+  @Prop({ type: String })
+  address: string;
+
+  @Prop({ type: String })
+  profileImage: string;
+
+  @Prop({ type: Date })
+  birthDate: Date;
 
   @Prop({
     type: String,

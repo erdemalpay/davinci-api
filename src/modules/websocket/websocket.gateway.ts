@@ -17,13 +17,14 @@ export class AppWebSocketGateway {
     // Disable the default EventEmitter listener limit
     this.server.setMaxListeners(0);
   }
-
   emitActionChanged(...args: any[]) {
-    this.server.emit('actionChanged', ...args);
+    const [action] = args;
+    this.server.emit('actionChanged', { action });
   }
 
   emitActivityChanged(...args: any[]) {
-    this.server.emit('activityChanged', ...args);
+    const [activity] = args;
+    this.server.emit('activityChanged', { activity });
   }
 
   emitAssetChanged(...args: any[]) {
@@ -36,7 +37,8 @@ export class AppWebSocketGateway {
   }
 
   emitBrandChanged(...args: any[]) {
-    this.server.emit('brandChanged', ...args);
+    const [user, brand] = args;
+    this.server.emit('brandChanged', { user, brand });
   }
 
   async emitBulkProductAndMenuItemChanged() {
@@ -46,15 +48,18 @@ export class AppWebSocketGateway {
   }
 
   emitButtonCallChanged(...args: any[]) {
-    this.server.emit('buttonCallChanged', ...args);
+    const [buttonCall] = args;
+    this.server.emit('buttonCallChanged', { buttonCall });
   }
 
   emitCafeActivityChanged(...args: any[]) {
-    this.server.emit('cafeActivityChanged', ...args);
+    const [cafeActivity] = args;
+    this.server.emit('cafeActivityChanged', { cafeActivity });
   }
 
   emitCashoutChanged(...args: any[]) {
-    this.server.emit('cashoutChanged', ...args);
+    const [user, cashout] = args;
+    this.server.emit('cashoutChanged', { user, cashout });
   }
 
   async emitCategoryChanged(user: any, category: any) {
@@ -65,88 +70,108 @@ export class AppWebSocketGateway {
   }
 
   emitCheckChanged(...args: any[]) {
-    this.server.emit('checkChanged', ...args);
+    const [user, check] = args;
+    this.server.emit('checkChanged', { user, check });
   }
 
   emitChecklistChanged(...args: any[]) {
-    this.server.emit('checklistChanged', ...args);
+    const [user, checklist] = args;
+    this.server.emit('checklistChanged', { user, checklist });
   }
 
   emitCheckoutControlChanged(...args: any[]) {
-    this.server.emit('checkoutControlChanged', ...args);
+    const [user, checkoutControl] = args;
+    this.server.emit('checkoutControlChanged', { user, checkoutControl });
   }
 
   emitCollectionChanged(...args: any[]) {
-    this.server.emit('collectionChanged', ...args);
+    const [user, collection] = args;
+    this.server.emit('collectionChanged', { user, collection });
   }
 
   emitConsumerChanged(...args: any[]) {
-    this.server.emit('consumerChanged', ...args);
+    const [user, consumer] = args;
+    this.server.emit('consumerChanged', { user, consumer });
   }
 
   emitCountChanged(...args: any[]) {
-    this.server.emit('countChanged', ...args);
+    const [user, count] = args;
+    this.server.emit('countChanged', { user, count });
   }
 
   emitCountListChanged(...args: any[]) {
-    this.server.emit('countListChanged', ...args);
+    const [user, countList] = args;
+    this.server.emit('countListChanged', { user, countList });
   }
 
   emitCreateMultipleOrder(...args: any[]) {
-    this.server.emit('createMultipleOrder', ...args);
+    const [user, table, location, soundRoles, selectedUsers] = args;
+    this.server.emit('createMultipleOrder', {
+      user,
+      table,
+      location,
+      soundRoles,
+      selectedUsers,
+    });
   }
 
   emitDisabledConditionChanged(...args: any[]) {
-    this.server.emit('disabledConditionChanged', ...args);
+    const [user, disabledCondition] = args;
+    this.server.emit('disabledConditionChanged', { user, disabledCondition });
   }
 
-  async emitDiscountChanged(socketUser: any, discount: any) {
+  async emitDiscountChanged(user: any, discount: any) {
     await this.redisService.reset(RedisKeys.Discounts);
-    this.server.emit('discountChanged', { socketUser, discount });
+    this.server.emit('discountChanged', { user, discount });
   }
 
   emitEducationChanged(...args: any[]) {
-    this.server.emit('educationChanged', ...args);
+    const [user, education] = args;
+    this.server.emit('educationChanged', { user, education });
   }
 
   emitExpenseChanged(...args: any[]) {
-    this.server.emit('expenseChanged', ...args);
+    const [user] = args;
+    this.server.emit('expenseChanged', { user });
   }
 
   emitExpenseTypeChanged(...args: any[]) {
-    this.server.emit('expenseTypeChanged', ...args);
+    const [user, expenseType] = args;
+    this.server.emit('expenseTypeChanged', { user, expenseType });
   }
 
   emitExpirationCountChanged(...args: any[]) {
-    this.server.emit('expirationCountChanged', ...args);
+    const [user, expirationCount] = args;
+    this.server.emit('expirationCountChanged', { user, expirationCount });
   }
 
   emitExpirationListChanged(...args: any[]) {
-    this.server.emit('expirationListChanged', ...args);
+    const [user, expirationList] = args;
+    this.server.emit('expirationListChanged', { user, expirationList });
   }
 
   emitFeedbackChanged(...args: any[]) {
-    this.server.emit('feedbackChanged', ...args);
+    const [feedback] = args;
+    this.server.emit('feedbackChanged', { feedback });
   }
 
   emitGameChanged(...args: any[]) {
-    this.server.emit('gameChanged', ...args);
+    const [user, game] = args;
+    this.server.emit('gameChanged', { user, game });
   }
 
   emitGameplayChanged(...args: any[]) {
-    this.server.emit('gameplayChanged', ...args);
+    const [user, gameplay] = args;
+    this.server.emit('gameplayChanged', { user, gameplay });
   }
 
-  emitIkasProductStockChanged(...args: any[]) {
-    this.server.emit('ikasProductStockChanged', ...args);
+  emitIkasProductStockChanged() {
+    this.server.emit('ikasProductStockChanged');
   }
 
   emitIncomeChanged(...args: any[]) {
-    this.server.emit('incomeChanged', ...args);
-  }
-
-  emitInvoiceChanged(...args: any[]) {
-    this.server.emit('invoiceChanged', ...args);
+    const [user, income] = args;
+    this.server.emit('incomeChanged', { user, income });
   }
 
   async emitItemChanged(user?: any, item?: any) {
@@ -156,71 +181,87 @@ export class AppWebSocketGateway {
   }
 
   emitKitchenChanged(...args: any[]) {
-    this.server.emit('kitchenChanged', ...args);
+    const [user, kitchen] = args;
+    this.server.emit('kitchenChanged', { user, kitchen });
   }
 
   emitLocationChanged(...args: any[]) {
-    this.server.emit('locationChanged', ...args);
+    const [location] = args;
+    this.server.emit('locationChanged', { location });
   }
 
   emitMembershipChanged(...args: any[]) {
-    this.server.emit('membershipChanged', ...args);
+    const [user, membership] = args;
+    this.server.emit('membershipChanged', { user, membership });
   }
 
   emitNotificationChanged(...args: any[]) {
-    this.server.emit('notificationChanged', ...args);
+    const [notification] = args;
+    this.server.emit('notificationChanged', { notification });
   }
 
   emitNotificationRemoved(...args: any[]) {
-    this.server.emit('notificationRemoved', ...args);
+    const [notification] = args;
+    this.server.emit('notificationRemoved', { notification });
   }
 
   emitOrderCreated(...args: any[]) {
-    this.server.emit('orderCreated', ...args);
+    const [user, order] = args;
+    this.server.emit('orderCreated', { user, order });
   }
 
-  emitOrderGroupChanged(...args: any[]) {
-    this.server.emit('orderGroupChanged', ...args);
+  emitOrderGroupChanged() {
+    this.server.emit('orderGroupChanged');
   }
 
   emitOrderNotesChanged(...args: any[]) {
-    this.server.emit('orderNotesChanged', ...args);
+    const [user, orderNotes] = args;
+    this.server.emit('orderNotesChanged', { user, orderNotes });
   }
 
   emitOrderUpdated(...args: any[]) {
-    this.server.emit('orderUpdated', ...args);
+    const [user, order] = args;
+    this.server.emit('orderUpdated', { user, order });
   }
 
   emitPageChanged(...args: any[]) {
-    this.server.emit('pageChanged', ...args);
+    const [user, page] = args;
+    this.server.emit('pageChanged', { user, page });
   }
 
   emitPanelSettingsChanged(...args: any[]) {
-    this.server.emit('panelSettingsChanged', ...args);
+    const [user, panelSettings] = args;
+    this.server.emit('panelSettingsChanged', { user, panelSettings });
   }
 
   emitPaymentChanged(...args: any[]) {
-    this.server.emit('paymentChanged', ...args);
+    const [user, payment] = args;
+    this.server.emit('paymentChanged', { user, payment });
   }
 
   emitPaymentMethodChanged(...args: any[]) {
-    this.server.emit('paymentMethodChanged', ...args);
+    const [user, paymentMethod] = args;
+    this.server.emit('paymentMethodChanged', { user, paymentMethod });
   }
 
   emitPointChanged(...args: any[]) {
-    this.server.emit('pointChanged', ...args);
+    const [user, point] = args;
+    this.server.emit('pointChanged', { user, point });
   }
 
   emitPointHistoryChanged(...args: any[]) {
-    this.server.emit('pointHistoryChanged', ...args);
+    const [user, pointHistory] = args;
+    this.server.emit('pointHistoryChanged', { user, pointHistory });
   }
 
   emitPopularChanged(...args: any[]) {
-    this.server.emit('popularChanged', ...args);
+    const [user, popular] = args;
+    this.server.emit('popularChanged', { user, popular });
   }
 
   emitProductCategoryChanged(...args: any[]) {
-    this.server.emit('productCategoryChanged', ...args);
+    const [user, productCategory] = args;
+    this.server.emit('productCategoryChanged', { user, productCategory });
   }
 
   async emitProductChanged(user?: any, product?: any) {
@@ -229,31 +270,41 @@ export class AppWebSocketGateway {
   }
 
   emitProductStockHistoryChanged(...args: any[]) {
-    this.server.emit('productStockHistoryChanged', ...args);
+    const [user, productStockHistory] = args;
+    this.server.emit('productStockHistoryChanged', {
+      user,
+      productStockHistory,
+    });
   }
 
   emitReservationChanged(...args: any[]) {
-    this.server.emit('reservationChanged', ...args);
+    const [user, reservation] = args;
+    this.server.emit('reservationChanged', { user, reservation });
   }
 
   emitRewardChanged(...args: any[]) {
-    this.server.emit('rewardChanged', ...args);
+    const [user, reward] = args;
+    this.server.emit('rewardChanged', { user, reward });
   }
 
   emitServiceChanged(...args: any[]) {
-    this.server.emit('serviceChanged', ...args);
+    const [user, service] = args;
+    this.server.emit('serviceChanged', { user, service });
   }
 
   emitShiftChangeRequestChanged(...args: any[]) {
-    this.server.emit('shiftChangeRequestChanged', ...args);
+    const [user, shiftChangeRequest] = args;
+    this.server.emit('shiftChangeRequestChanged', { user, shiftChangeRequest });
   }
 
   emitShiftChanged(...args: any[]) {
-    this.server.emit('shiftChanged', ...args);
+    const [user, shift] = args;
+    this.server.emit('shiftChanged', { user, shift });
   }
 
   emitSingleTableChanged(...args: any[]) {
-    this.server.emit('singleTableChanged', ...args);
+    const [user, table] = args;
+    this.server.emit('singleTableChanged', { user, table });
   }
 
   async emitStockChanged(user?: any, stock?: any) {
@@ -262,15 +313,18 @@ export class AppWebSocketGateway {
   }
 
   emitTableChanged(...args: any[]) {
-    this.server.emit('tableChanged', ...args);
+    const [user, table] = args;
+    this.server.emit('tableChanged', { user, table });
   }
 
   emitTaskTrackChanged(...args: any[]) {
-    this.server.emit('taskTrackChanged', ...args);
+    const [user, taskTrack] = args;
+    this.server.emit('taskTrackChanged', { user, taskTrack });
   }
 
   emitUpperCategoryChanged(...args: any[]) {
-    this.server.emit('upperCategoryChanged', ...args);
+    const [user, upperCategory] = args;
+    this.server.emit('upperCategoryChanged', { user, upperCategory });
   }
 
   async emitUserChanged(user: any) {
@@ -279,10 +333,12 @@ export class AppWebSocketGateway {
   }
 
   emitVendorChanged(...args: any[]) {
-    this.server.emit('vendorChanged', ...args);
+    const [user, vendor] = args;
+    this.server.emit('vendorChanged', { user, vendor });
   }
 
   emitVisitChanged(...args: any[]) {
-    this.server.emit('visitChanged', ...args);
+    const [user, visit] = args;
+    this.server.emit('visitChanged', { user, visit });
   }
 }

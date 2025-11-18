@@ -16,6 +16,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
 import { AssetService } from './../asset/asset.service';
@@ -61,7 +62,6 @@ import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { Vendor } from './vendor.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 const path = require('path');
 
@@ -271,7 +271,7 @@ export class AccountingService {
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.websocketGateway.emitInvoiceChanged(user, stayedProduct);
+    this.websocketGateway.emitProductChanged(user, stayedProduct);
     //update menu items
     await this.menuService.updateMenuItemProduct(
       user,

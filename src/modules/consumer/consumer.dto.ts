@@ -22,6 +22,11 @@ export class CreateConsumerDto {
 
   @ApiProperty()
   @IsNotEmpty()
+  @IsString()
+  userName: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
   @IsEmail()
   email: string;
 
@@ -30,6 +35,25 @@ export class CreateConsumerDto {
   @IsString()
   @MinLength(6)
   password?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  profileImage?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  birthDate?: Date;
 }
 
 export class UpdateConsumerDto {
@@ -45,6 +69,11 @@ export class UpdateConsumerDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
+  userName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsEmail()
   email?: string;
 
@@ -53,6 +82,25 @@ export class UpdateConsumerDto {
   @IsString()
   @MinLength(6)
   password?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  profileImage?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  birthDate?: Date;
 
   @ApiProperty({ required: false, enum: ConsumerStatus })
   @IsOptional()

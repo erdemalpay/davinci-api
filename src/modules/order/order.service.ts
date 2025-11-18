@@ -2949,8 +2949,6 @@ export class OrderService {
 
         await collection.save();
       }
-
-      console.log('Updated orders and collections with table dates.');
     } catch (error) {
       console.error('Failed to update table dates:', error);
       throw new HttpException(

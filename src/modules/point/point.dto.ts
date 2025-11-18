@@ -7,17 +7,21 @@ export enum PointHistoryStatusEnum {
 }
 
 export class CreatePointDto {
-  user: string;
+  user?: string;
+  consumer?: number;
   amount: number;
 }
 
 export class UpdatePointDto {
+  user?: string;
+  consumer?: number;
   amount?: number;
 }
 
 export class CreatePointHistoryDto {
   point: number;
-  pointUser: string;
+  pointUser?: string;
+  pointConsumer?: number;
   createdBy: string;
   collectionId?: number;
   tableId?: number;
@@ -28,6 +32,7 @@ export class CreatePointHistoryDto {
 
 export class PointHistoryFilter {
   pointUser?: string;
+  pointConsumer?: number;
   status?: string;
   before?: string;
   after?: string;
