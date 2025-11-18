@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Consumer } from '../consumer/consumer.schema';
 import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 import { Point } from './point.schema';
@@ -13,8 +14,11 @@ export class PointHistory extends Document {
   @Prop({ required: true, type: Number, ref: Point.name })
   point: number;
 
-  @Prop({ required: true, type: String, ref: User.name })
-  pointUser: string;
+  @Prop({ required: false, type: String, ref: User.name })
+  pointUser?: string;
+
+  @Prop({ required: false, type: Number, ref: Consumer.name })
+  pointConsumer?: number;
 
   @Prop({ required: true, type: String, ref: User.name })
   createdBy: string;

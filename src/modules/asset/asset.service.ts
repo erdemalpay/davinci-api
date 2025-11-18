@@ -157,7 +157,6 @@ export class AssetService {
 
       // Step 3: Delete the image using the public_id
       const result = await cloudinary.v2.uploader.destroy(publicId);
-      console.log('Image deleted:', result);
       this.websocketGateway.emitAssetChanged(result);
       return result;
     } catch (error) {

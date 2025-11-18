@@ -19,12 +19,24 @@ export class ConsumerService {
 
   async create(createConsumerDto: CreateConsumerDto): Promise<Consumer> {
     // Check if email already exists
-    const existingConsumer = await this.consumerModel.findOne({
+    const existingEmailConsumer = await this.consumerModel.findOne({
       email: createConsumerDto.email,
     });
 
-    if (existingConsumer) {
+    if (existingEmailConsumer) {
       throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check if userName already exists
+    const existingUserNameConsumer = await this.consumerModel.findOne({
+      userName: createConsumerDto.userName,
+    });
+
+    if (existingUserNameConsumer) {
+      throw new HttpException(
+        'Username already exists',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // Hash password if provided, otherwise use a default password
@@ -58,11 +70,11 @@ export class ConsumerService {
       filter.$or = [
         { name: { $regex: new RegExp(search, 'i') } },
         { surname: { $regex: new RegExp(search, 'i') } },
+        { userName: { $regex: new RegExp(search, 'i') } },
         { email: { $regex: new RegExp(search, 'i') } },
         { fullName: { $regex: new RegExp(search, 'i') } },
       ];
     }
-    console.log('Filter:', filter);
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -138,6 +150,23 @@ export class ConsumerService {
 
       if (existingConsumer) {
         throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    // Check if userName is being updated and if it already exists
+    if (
+      updateConsumerDto.userName &&
+      updateConsumerDto.userName !== consumer.userName
+    ) {
+      const existingConsumer = await this.consumerModel.findOne({
+        userName: updateConsumerDto.userName,
+      });
+
+      if (existingConsumer) {
+        throw new HttpException(
+          'Username already exists',
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
