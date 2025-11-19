@@ -51,6 +51,9 @@ export class Collection extends Document {
   @Prop({ required: false, type: String, ref: User.name })
   pointUser: string;
 
+  @Prop({ required: false, type: Number, ref: 'Consumer' })
+  pointConsumer: number;
+
   @Prop([OrderCollectionItem])
   orders: OrderCollectionItem[];
 

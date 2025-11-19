@@ -303,38 +303,44 @@ export class PointService {
   }
 
   async refundPoint(
-    userId: string,
+    userId: string | null,
     amount: number,
     collectionId: number,
     tableId?: number,
     createdBy?: string,
+    consumerId?: number,
   ) {
-    const userPoint = await this.pointModel.findOne({ user: userId });
+    let query: any = {};
+    if (userId) query.user = userId;
+    if (consumerId) query.consumer = consumerId;
 
-    if (!userPoint) {
+    const point = await this.pointModel.findOne(query);
+
+    if (!point) {
       throw new HttpException(
-        'No points found for this user',
+        'No points found for this user/consumer',
         HttpStatus.NOT_FOUND,
       );
     }
 
-    userPoint.amount += amount;
-    await userPoint.save();
+    point.amount += amount;
+    await point.save();
 
-    this.websocketGateway.emitPointChanged(null, userPoint);
+    this.websocketGateway.emitPointChanged(null, point);
 
     // Create point history
     await this.createPointHistory({
-      point: userPoint._id,
-      pointUser: userPoint.user,
+      point: point._id,
+      ...(point.user && { pointUser: point.user }),
+      ...(point.consumer && { pointConsumer: point.consumer }),
       createdBy: createdBy || userId,
       collectionId,
       tableId,
       status: PointHistoryStatusEnum.COLLECTIONCANCELLED,
-      currentAmount: userPoint.amount,
+      currentAmount: point.amount,
       change: amount,
     });
 
-    return userPoint;
+    return point;
   }
 }
