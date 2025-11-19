@@ -1201,6 +1201,29 @@ export class AccountingService {
           Number(price) + Number(kdv) * (Number(price) / 100);
         const type = ExpenseTypes.STOCKABLE;
 
+        // Update product unit price if this is the latest expense
+        const productLastExpense = await this.expenseModel
+          .find({ product: foundProduct._id })
+          .sort({ date: -1 })
+          .limit(1);
+
+        if (
+          !productLastExpense[0] ||
+          productLastExpense[0]?.date <= adjustedDate
+        ) {
+          let updatedUnitPrice: number;
+
+          updatedUnitPrice = parseFloat(
+            (Number(totalExpense) / Number(quantity)).toFixed(4),
+          );
+
+          await this.productModel.findByIdAndUpdate(
+            foundProduct._id,
+            { $set: { unitPrice: updatedUnitPrice } },
+            { new: true },
+          );
+        }
+
         const rollback: {
           expenseId?: any;
           paymentId?: any;
