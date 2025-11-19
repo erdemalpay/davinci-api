@@ -11,7 +11,7 @@ import { OldGameplayModule } from '../oldGameplay/gameplay.module';
 import { OldTableModule } from '../oldTable/table.module';
 import { OldUserModule } from '../oldUser/user.module';
 import { OldVisitModule } from '../oldVisit/visit.module';
-import { MigrationService } from './ migration.service';
+import { MigrationService } from './migration.service';
 import { DBConfig } from './../../../app.module';
 import { MigrationController } from './migration.controller';
 
