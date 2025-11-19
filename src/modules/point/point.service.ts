@@ -41,86 +41,131 @@ export class PointService {
     return this.pointHistoryModel.find().sort({ createdAt: -1 });
   }
 
-  async findAllPointHistoriesWithPagination(
-    page: number,
-    limit: number,
-    filter: PointHistoryFilter,
-  ) {
-    const pageNum = page || 1;
-    const limitNum = limit || 10;
-    const { pointUser, pointConsumer, status, before, after, sort, asc } =
-      filter;
-    const skip = (pageNum - 1) * limitNum;
-    const statusArray = status ? (status as any).split(',') : [];
-    const sortObject = {};
+ async findAllPointHistoriesWithPagination(
+  page: number,
+  limit: number,
+  filter: PointHistoryFilter,
+) {
+  const pageNum = page || 1;
+  const limitNum = limit || 10;
+  const { pointUser, pointConsumer, status, before, after, sort, asc } = filter;
+  const skip = (pageNum - 1) * limitNum;
+  const statusArray = status ? (status as any).split(',') : [];
+  const sortObject: Record<string, 1 | -1> = {};
 
-    if (sort) {
-      sortObject[sort] = asc ? Number(asc) : -1;
-    } else {
-      sortObject['createdAt'] = -1;
-    }
-
-    const pipeline: PipelineStage[] = [
-      {
-        $match: {
-          ...(pointUser && { pointUser }),
-          ...(pointConsumer && { pointConsumer }),
-          ...(status && {
-            status: { $in: statusArray },
-          }),
-          ...(after &&
-            before && {
-              createdAt: { $gte: new Date(after), $lte: new Date(before) },
-            }),
-          ...(before && !after && { createdAt: { $lte: new Date(before) } }),
-          ...(after && !before && { createdAt: { $gte: new Date(after) } }),
-        },
-      },
-      {
-        $sort: sortObject,
-      },
-      {
-        $facet: {
-          metadata: [
-            { $count: 'total' },
-            {
-              $addFields: {
-                page: pageNum,
-                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
-              },
-            },
-          ],
-          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
-        },
-      },
-      {
-        $unwind: '$metadata',
-      },
-      {
-        $project: {
-          data: 1,
-          totalNumber: '$metadata.total',
-          totalPages: '$metadata.pages',
-          page: '$metadata.page',
-          limit: limitNum,
-        },
-      },
-    ];
-
-    const results = await this.pointHistoryModel.aggregate(pipeline);
-
-    if (!results.length) {
-      return {
-        data: [],
-        totalNumber: 0,
-        totalPages: 0,
-        page: pageNum,
-        limit: limitNum,
-      };
-    }
-
-    return results[0];
+  if (sort) {
+    sortObject[sort] = asc === 1 ? 1 : -1;
+  } else {
+    sortObject['createdAt'] = -1;
   }
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        ...(pointUser && Number(pointUser) !== -1 && { pointUser }),
+        ...(Number(pointConsumer) && Number(pointConsumer) !== -1 && { pointConsumer }),
+        ...(Number(pointUser) === -1 && { pointUser: { $exists: false } }),
+        ...(Number(pointConsumer) === -1 && { pointConsumer: { $exists: false } }),
+        ...(status && { status: { $in: statusArray } }),
+        ...(after &&
+          before && {
+            createdAt: { $gte: new Date(after), $lte: new Date(before) },
+          }),
+        ...(before && !after && { createdAt: { $lte: new Date(before) } }),
+        ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'pointUser',
+        foreignField: '_id',
+        as: 'pointUser',
+        pipeline: [{ $project: { _id: 1, name: 1 } }],
+      },
+    },
+    {
+      $unwind: {
+        path: '$pointUser',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'pointConsumer',
+        foreignField: '_id',
+        as: 'pointConsumer',
+        pipeline: [{ $project: { _id: 1, fullName: 1 } }],
+      },
+    },
+    {
+      $unwind: {
+        path: '$pointConsumer',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        as: 'createdBy',
+        pipeline: [{ $project: { _id: 1, name: 1 } }],
+      },
+    },
+    {
+      $unwind: {
+        path: '$createdBy',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $sort: sortObject,
+    },
+    {
+      $facet: {
+        metadata: [
+          { $count: 'total' },
+          {
+            $addFields: {
+              page: pageNum,
+              pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+            },
+          },
+        ],
+        data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+      },
+    },
+    {
+      $unwind: '$metadata',
+    },
+    {
+      $project: {
+        data: 1,
+        totalNumber: '$metadata.total',
+        totalPages: '$metadata.pages',
+        page: '$metadata.page',
+        limit: limitNum,
+      },
+    },
+  ];
+
+  const results = await this.pointHistoryModel.aggregate(pipeline);
+
+  if (!results.length) {
+    return {
+      data: [],
+      totalNumber: 0,
+      totalPages: 0,
+      page: pageNum,
+      limit: limitNum,
+    };
+  }
+
+  return results[0];
+}
+
 
   async findUserPointHistories(userId: string) {
     return this.pointHistoryModel
@@ -144,10 +189,11 @@ export class PointService {
       await this.createPointHistory(
         {
           point: existingPoint._id,
-          ...(existingPoint.user && { pointUser: existingPoint.user }),
-          ...(existingPoint.consumer && {
-            pointConsumer: existingPoint.consumer,
-          }),
+          ...(existingPoint.consumer
+            ? { pointConsumer: existingPoint.consumer }
+            : existingPoint.user
+            ? { pointUser: existingPoint.user }
+            : {}),
           createdBy: user?._id,
           status: PointHistoryStatusEnum.POINTCREATE,
           currentAmount: existingPoint.amount,
@@ -166,8 +212,11 @@ export class PointService {
     await this.createPointHistory(
       {
         point: point._id,
-        ...(point.user && { pointUser: point.user }),
-        ...(point.consumer && { pointConsumer: point.consumer }),
+        ...(point.consumer
+          ? { pointConsumer: point.consumer }
+          : point.user
+          ? { pointUser: point.user }
+          : {}),
         createdBy: user?._id,
         status: PointHistoryStatusEnum.POINTCREATE,
         currentAmount: point.amount,
@@ -215,8 +264,11 @@ export class PointService {
       await this.createPointHistory(
         {
           point: point._id,
-          ...(point.user && { pointUser: point.user }),
-          ...(point.consumer && { pointConsumer: point.consumer }),
+          ...(point.consumer
+            ? { pointConsumer: point.consumer }
+            : point.user
+            ? { pointUser: point.user }
+            : {}),
           createdBy: user?._id,
           status: PointHistoryStatusEnum.POINTUPDATE,
           currentAmount: point.amount,
@@ -248,8 +300,11 @@ export class PointService {
     await this.createPointHistory(
       {
         point: point._id,
-        ...(point.user && { pointUser: point.user }),
-        ...(point.consumer && { pointConsumer: point.consumer }),
+        ...(point.consumer
+          ? { pointConsumer: point.consumer }
+          : point.user
+          ? { pointUser: point.user }
+          : {}),
         createdBy: user?._id,
         status: PointHistoryStatusEnum.POINTDELETE,
         currentAmount: 0,
@@ -262,44 +317,53 @@ export class PointService {
   }
 
   async consumePoint(
-    userId: string,
+    userId: string | null,
     amount: number,
     collectionId: number,
     tableId?: number,
     createdBy?: string,
+    consumerId?: number,
   ) {
-    const userPoint = await this.pointModel.findOne({ user: userId });
+    let query: any = {};
+    if (userId) query.user = userId;
+    if (consumerId) query.consumer = consumerId;
 
-    if (!userPoint) {
+    const point = await this.pointModel.findOne(query);
+
+    if (!point) {
       throw new HttpException(
-        'No points found for this user',
+        'No points found for this user/consumer',
         HttpStatus.NOT_FOUND,
       );
     }
 
-    if (userPoint.amount < amount) {
+    if (point.amount < amount) {
       throw new HttpException('Insufficient points', HttpStatus.BAD_REQUEST);
     }
 
-    const oldAmount = userPoint.amount;
-    userPoint.amount -= amount;
-    await userPoint.save();
+    const oldAmount = point.amount;
+    point.amount -= amount;
+    await point.save();
 
-    this.websocketGateway.emitPointChanged(null, userPoint);
+    this.websocketGateway.emitPointChanged(null, point);
 
     // Create point history
     await this.createPointHistory({
-      point: userPoint._id,
-      pointUser: userPoint.user,
+      point: point._id,
+      ...(point.consumer
+        ? { pointConsumer: point.consumer }
+        : point.user
+        ? { pointUser: point.user }
+        : {}),
       createdBy: createdBy || userId,
       collectionId,
       tableId,
       status: PointHistoryStatusEnum.COLLECTIONCREATED,
-      currentAmount: userPoint.amount,
+      currentAmount: point.amount,
       change: -amount,
     });
 
-    return userPoint;
+    return point;
   }
 
   async refundPoint(

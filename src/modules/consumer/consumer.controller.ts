@@ -29,6 +29,12 @@ export class ConsumerController {
   }
 
   @ApiResponse({ type: [Consumer] })
+  @Get('full-names')
+  async findAllActiveConsumers() {
+    return this.consumerService.findAllActiveConsumers();
+  }
+
+  @ApiResponse({ type: [Consumer] })
   @Get()
   async findAll(@Query() query: ConsumerQueryDto) {
     return this.consumerService.findAll(query);

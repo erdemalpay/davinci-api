@@ -39,6 +39,7 @@ export class PointController {
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('pointUser') pointUser?: string,
+    @Query('pointConsumer') pointConsumer?: number,
     @Query('status') status?: string,
     @Query('before') before?: string,
     @Query('after') after?: string,
@@ -47,6 +48,7 @@ export class PointController {
   ) {
     return this.pointService.findAllPointHistoriesWithPagination(page, limit, {
       pointUser,
+      pointConsumer,
       status,
       before,
       after,
