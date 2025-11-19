@@ -2242,7 +2242,7 @@ export class OrderService {
           throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
         }
         if (filteredUpdates.status === OrderCollectionStatus.CANCELLED) {
-          // Refund points if the collection had a pointUser
+          // Refund points if the collection had a pointUser or pointConsumer
           if (oldCollection?.pointUser) {
             await this.pointService.refundPoint(
               oldCollection.pointUser,
@@ -2250,6 +2250,15 @@ export class OrderService {
               collection._id,
               oldCollection.table,
               user._id,
+            );
+          } else if (oldCollection?.pointConsumer) {
+            await this.pointService.refundPoint(
+              null,
+              oldCollection.amount,
+              collection._id,
+              oldCollection.table,
+              user._id,
+              oldCollection.pointConsumer,
             );
           }
           activity = await this.activityService.addActivity(
