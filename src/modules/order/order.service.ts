@@ -2197,6 +2197,15 @@ export class OrderService {
         createCollectionDto.table,
         createCollectionDto.createdBy ?? user._id,
       );
+    } else if (createCollectionDto.pointConsumer) {
+      await this.pointService.consumePoint(
+        null,
+        createCollectionDto.amount,
+        collection._id,
+        createCollectionDto.table,
+        createCollectionDto.createdBy ?? user._id,
+        createCollectionDto.pointConsumer,
+      );
     }
 
     try {

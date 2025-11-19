@@ -4,9 +4,9 @@ import { hash } from 'bcrypt';
 import { Model } from 'mongoose';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
-  ConsumerQueryDto,
-  CreateConsumerDto,
-  UpdateConsumerDto,
+    ConsumerQueryDto,
+    CreateConsumerDto,
+    UpdateConsumerDto,
 } from './consumer.dto';
 import { Consumer, ConsumerStatus } from './consumer.schema';
 
@@ -56,6 +56,13 @@ export class ConsumerService {
 
     this.websocketGateway.emitConsumerChanged(consumer);
     return consumer;
+  }
+
+  async findAllActiveConsumers() {
+    return this.consumerModel
+      .find({ status: ConsumerStatus.ACTIVE })
+      .select('_id fullName')
+      .exec();
   }
 
   async findAll(query: ConsumerQueryDto) {
