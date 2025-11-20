@@ -1,11 +1,11 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
 } from '@nestjs/common';
 
 import { UpdateQuery } from 'mongoose';
@@ -23,6 +23,12 @@ export class GameController {
   @Get('/details/:id')
   async getDetails(@Param('id') id: number) {
     return this.gameService.getGameDetails(id);
+  }
+
+  @Public()
+  @Get('/minimal')
+  async getGamesMinimal() {
+    return this.gameService.getGamesMinimal();
   }
 
   @Public()

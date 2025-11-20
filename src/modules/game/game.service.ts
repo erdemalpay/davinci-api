@@ -5,9 +5,9 @@ import { mapGames } from 'src/lib/mappers';
 import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { GameDto } from './game.dto';
 import { Game } from './game.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class GameService {
@@ -19,6 +19,10 @@ export class GameService {
 
   getGames() {
     return this.gameModel.find();
+  }
+
+  getGamesMinimal() {
+    return this.gameModel.find().select('_id name');
   }
 
   getGameById(gameId: number) {
