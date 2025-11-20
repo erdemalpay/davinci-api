@@ -52,6 +52,12 @@ export class Location extends Document {
 
   @Prop({ type: [String], required: false })
   closedDays?: string[];
+
+  @Prop({ type: String, required: false })
+  phoneNumber?: string;
+
+  @Prop({ type: String, required: false })
+  googleMapsUrl?: string;
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
