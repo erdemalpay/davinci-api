@@ -178,6 +178,13 @@ export class UserService implements OnModuleInit {
     }
   }
 
+  async getUsersMinimal() {
+    return this.userModel
+      .find({ active: true })
+      .select('name _id role')
+      .populate('role');
+  }
+
   async getRoles(): Promise<Role[]> {
     return this.roleModel.find();
   }

@@ -66,6 +66,12 @@ export class UserController {
   }
 
   @ApiResponse({ type: [UserResponse] })
+  @Get('/minimal')
+  getUsersMinimal() {
+    return this.userService.getUsersMinimal();
+  }
+
+  @ApiResponse({ type: [UserResponse] })
   @Get()
   listUsers(@Query('all') all: boolean) {
     return this.userService.getAll(!all);
