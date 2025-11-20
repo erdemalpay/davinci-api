@@ -15,6 +15,20 @@ export class LocationShift {
   @Prop({ required: false, type: String })
   type: string;
 }
+
+export class DailyHours {
+  @Prop({ required: true, type: String })
+  day: string;
+
+  @Prop({ required: false, type: String })
+  openingTime?: string;
+
+  @Prop({ required: false, type: String })
+  closingTime?: string;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isClosed?: boolean;
+}
 @Schema({ _id: false })
 export class Location extends Document {
   @Prop({ type: Number })
@@ -50,8 +64,14 @@ export class Location extends Document {
   @Prop({ type: [String], required: false })
   tableNames?: string[];
 
-  @Prop({ type: [String], required: false })
-  closedDays?: string[];
+  @Prop({ type: String, required: false })
+  phoneNumber?: string;
+
+  @Prop({ type: String, required: false })
+  googleMapsUrl?: string;
+
+  @Prop([DailyHours])
+  dailyHours?: DailyHours[];
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
