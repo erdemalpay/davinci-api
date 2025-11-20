@@ -18,7 +18,7 @@ export class LocationShift {
 
 export class DailyHours {
   @Prop({ required: true, type: String })
-  day: string; // Monday, Tuesday, etc.
+  day: string;
 
   @Prop({ required: false, type: String })
   openingTime?: string;
