@@ -129,7 +129,17 @@ export class VisitService {
       });
 
       if (foundShift && foundShift.shiftEndHour) {
-        if (finishHour < foundShift.shiftEndHour) {
+
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        let isEarlyExit = false;
+
+        if (isNightShift) {
+          isEarlyExit = finishHour >= foundShift.shift || finishHour < foundShift.shiftEndHour;
+        } else {
+          isEarlyExit = finishHour < foundShift.shiftEndHour;
+        }
+
+        if (isEarlyExit) {
           const message = {
             key: 'ShiftEndEarlyNotice',
             params: {
@@ -349,7 +359,16 @@ export class VisitService {
           });
 
           if (foundShift && foundShift.shiftEndHour) {
-            if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+            const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+            let isEarlyExit = false;
+
+            if (isNightShift) {
+              isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+            } else {
+              isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+            }
+
+            if (isEarlyExit) {
               const message = {
                 key: 'ShiftEndEarlyNotice',
                 params: {
@@ -402,7 +421,16 @@ export class VisitService {
         return shift.user.includes(user._id);
       });
       if (foundShift && foundShift.shiftEndHour) {
-        if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        let isEarlyExit = false;
+
+        if (isNightShift) {
+          isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+        } else {
+          isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+        }
+
+        if (isEarlyExit) {
           const message = {
             key: 'ShiftEndEarlyNotice',
             params: {
