@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, format, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -109,9 +109,7 @@ export class VisitService {
     }
 
     const now = new Date();
-    const gmtPlus3Now = addHours(now, 3);
-    const finishHour = format(gmtPlus3Now, 'HH:mm');
-    const realTime = format(now, 'HH:mm');
+    const finishHour = format(now, 'HH:mm');
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
       { finishHour },
@@ -131,13 +129,23 @@ export class VisitService {
       });
 
       if (foundShift && foundShift.shiftEndHour) {
-        if (realTime < foundShift.shiftEndHour) {
+
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        let isEarlyExit = false;
+
+        if (isNightShift) {
+          isEarlyExit = finishHour >= foundShift.shift || finishHour < foundShift.shiftEndHour;
+        } else {
+          isEarlyExit = finishHour < foundShift.shiftEndHour;
+        }
+
+        if (isEarlyExit) {
           const message = {
             key: 'ShiftEndEarlyNotice',
             params: {
               user: user.name,
               shiftEnd: foundShift.shiftEndHour,
-              exitedAt: realTime,
+              exitedAt: finishHour,
             },
           };
 
@@ -351,7 +359,16 @@ export class VisitService {
           });
 
           if (foundShift && foundShift.shiftEndHour) {
-            if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+            const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+            let isEarlyExit = false;
+
+            if (isNightShift) {
+              isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+            } else {
+              isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+            }
+
+            if (isEarlyExit) {
               const message = {
                 key: 'ShiftEndEarlyNotice',
                 params: {
@@ -404,7 +421,16 @@ export class VisitService {
         return shift.user.includes(user._id);
       });
       if (foundShift && foundShift.shiftEndHour) {
-        if (cafeVisitDto.hour < foundShift.shiftEndHour) {
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        let isEarlyExit = false;
+
+        if (isNightShift) {
+          isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+        } else {
+          isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+        }
+
+        if (isEarlyExit) {
           const message = {
             key: 'ShiftEndEarlyNotice',
             params: {
@@ -413,7 +439,7 @@ export class VisitService {
               exitedAt: cafeVisitDto.hour,
             },
           };
-
+          //deneme
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
@@ -473,14 +499,18 @@ export class VisitService {
   }
 
   async notifyUnfinishedVisits() {
-    // Only check visits from the last 2 days to avoid spamming with old records
+    // Bildirim spamı olmaması için son 2 gündeki kapanmamış vardiyaları kontrol etmek istiyorum:
     const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
 
-    // Find open visits (visits without finishHour) from the last 2 days
+    // Bitiş saati olmayan VE notification gönderilmeyenleri topluyorum:
     const openVisits = await this.visitModel
       .find({
         finishHour: { $exists: false },
-        date: { $gte: twoDaysAgo }
+        date: { $gte: twoDaysAgo },
+        $or: [
+          { notificationSent: { $exists: false } },  // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
+          { notificationSent: false }                // yeni kayıtlar için
+        ]
       })
       .populate({
         path: 'user',
@@ -496,9 +526,9 @@ export class VisitService {
       return 0;
     }
 
-    // Send notification for each unfinished visit
+    // Bildirim gönderilmesi
     for (const visit of openVisits) {
-      const message = {
+      const managerMessage = {
         key: 'UnfinishedVisit',
         params: {
           user: visit.user.name,
@@ -513,7 +543,27 @@ export class VisitService {
         selectedRoles: [1], // RoleEnum.MANAGER
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
-        message,
+        message: managerMessage,
+      });
+
+      const employeeMessage = {
+        key: 'UnfinishedVisitEmployee',
+        params: {
+          location: visit.location.name,
+          date: visit.date,
+          startHour: visit.startHour,
+        },
+      };
+
+      await this.notificationService.createNotification({
+        type: 'WARNING',
+        selectedUsers: [visit.user._id],
+        event: NotificationEventType.UNFINISHEDVISIT,
+        message: employeeMessage,
+      });
+
+      await this.visitModel.findByIdAndUpdate(visit._id, {
+        notificationSent: true,
       });
     }
 
