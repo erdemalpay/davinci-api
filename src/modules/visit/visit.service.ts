@@ -439,7 +439,7 @@ export class VisitService {
               exitedAt: cafeVisitDto.hour,
             },
           };
-
+          //deneme
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
