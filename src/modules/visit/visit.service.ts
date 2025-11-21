@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, format, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -109,8 +109,7 @@ export class VisitService {
     }
 
     const now = new Date();
-    const gmtPlus3Now = addHours(now, 3);
-    const finishHour = format(gmtPlus3Now, 'HH:mm');
+    const finishHour = format(now, 'HH:mm');
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
       { finishHour },
