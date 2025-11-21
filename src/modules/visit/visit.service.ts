@@ -473,14 +473,18 @@ export class VisitService {
   }
 
   async notifyUnfinishedVisits() {
-    // Only check visits from the last 2 days to avoid spamming with old records
+    // Bildirim spamı olmaması için son 2 gündeki kapanmamış vardiyaları kontrol etmek istiyorum:
     const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
 
-    // Find open visits (visits without finishHour) from the last 2 days
+    // Bitiş saati olmayan VE notification gönderilmeyenleri topluyorum:
     const openVisits = await this.visitModel
       .find({
         finishHour: { $exists: false },
-        date: { $gte: twoDaysAgo }
+        date: { $gte: twoDaysAgo },
+        $or: [
+          { notificationSent: { $exists: false } },  // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
+          { notificationSent: false }                // yeni kayıtlar için
+        ]
       })
       .populate({
         path: 'user',
@@ -496,9 +500,9 @@ export class VisitService {
       return 0;
     }
 
-    // Send notification for each unfinished visit
+    // Bildirim gönderilmesi
     for (const visit of openVisits) {
-      const message = {
+      const managerMessage = {
         key: 'UnfinishedVisit',
         params: {
           user: visit.user.name,
@@ -513,7 +517,27 @@ export class VisitService {
         selectedRoles: [1], // RoleEnum.MANAGER
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
-        message,
+        message: managerMessage,
+      });
+
+      const employeeMessage = {
+        key: 'UnfinishedVisitEmployee',
+        params: {
+          location: visit.location.name,
+          date: visit.date,
+          startHour: visit.startHour,
+        },
+      };
+
+      await this.notificationService.createNotification({
+        type: 'WARNING',
+        selectedUsers: [visit.user._id],
+        event: NotificationEventType.UNFINISHEDVISIT,
+        message: employeeMessage,
+      });
+
+      await this.visitModel.findByIdAndUpdate(visit._id, {
+        notificationSent: true,
       });
     }
 

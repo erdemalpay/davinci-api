@@ -23,6 +23,9 @@ export class Visit extends Document {
 
   @Prop()
   finishHour: string;
+
+  @Prop({ type: Boolean, default: false })
+  notificationSent: boolean;
 }
 
 export const VisitSchema = SchemaFactory.createForClass(Visit);
