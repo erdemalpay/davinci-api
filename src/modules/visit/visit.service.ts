@@ -111,7 +111,6 @@ export class VisitService {
     const now = new Date();
     const gmtPlus3Now = addHours(now, 3);
     const finishHour = format(gmtPlus3Now, 'HH:mm');
-    const realTime = format(now, 'HH:mm');
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
       { finishHour },
@@ -131,13 +130,13 @@ export class VisitService {
       });
 
       if (foundShift && foundShift.shiftEndHour) {
-        if (realTime < foundShift.shiftEndHour) {
+        if (finishHour < foundShift.shiftEndHour) {
           const message = {
             key: 'ShiftEndEarlyNotice',
             params: {
               user: user.name,
               shiftEnd: foundShift.shiftEndHour,
-              exitedAt: realTime,
+              exitedAt: finishHour,
             },
           };
 
