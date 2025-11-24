@@ -139,61 +139,155 @@ export class ShiftChangeRequestService {
       }
     }
 
-    // Check for shift overlaps (especially important for TRANSFER)
+    // Check if target user has ANY shift on the transfer day (TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
-      const hasOverlap = await this.checkShiftOverlap(
-        createDto.targetUserId,
-        createDto.requesterShift.day,
-        createDto.requesterShift.startTime,
-        createDto.requesterShift.endTime,
-        createDto.requesterShift.shiftId,
+      const targetUserShiftsOnTransferDay = await this.shiftModel
+        .find({
+          day: createDto.requesterShift.day,
+          'shifts.user': createDto.targetUserId,
+        })
+        .exec();
+
+      const targetHasAnyShift = targetUserShiftsOnTransferDay?.some((shiftDoc) =>
+        shiftDoc.shifts?.some((s: any) =>
+          s.user?.includes(createDto.targetUserId),
+        ),
       );
 
-      if (hasOverlap) {
+      if (targetHasAnyShift) {
         throw new HttpException(
-          'Target user has overlapping shift on the same day. Cannot transfer shift.',
+          'Target user already has a shift on this day. Cannot transfer shift.',
           HttpStatus.CONFLICT,
         );
       }
     } else if (createDto.type === ShiftChangeType.SWAP) {
       // For SWAP: Check if both shifts are on the same day
-      // If same day (regardless of location), allow the swap (swap replaces both shifts on the same day)
+      // If same day (regardless of location), need to ensure target user doesn't have OTHER shifts on that day
       // If different days, check for overlaps (each user will have shifts on different days)
       const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
 
-      if (!sameDay) {
-        // Different days - check for overlaps
-        const requesterHasOverlap = await this.checkShiftOverlap(
-          requesterId,
-          createDto.targetShift.day,
-          createDto.targetShift.startTime,
-          createDto.targetShift.endTime,
-          createDto.requesterShift.shiftId,
+      if (sameDay) {
+        // Same day swap - check if target user has OTHER shifts on the same day (excluding their swap shift)
+        const targetUserOtherShiftsOnDay = await this.shiftModel
+          .find({
+            day: createDto.requesterShift.day,
+            'shifts.user': createDto.targetUserId,
+          })
+          .exec();
+
+        const hasOtherShifts = targetUserOtherShiftsOnDay?.some((shiftDoc) =>
+          shiftDoc.shifts?.some((s: any) => {
+            // Exclude the target shift itself (the one being swapped)
+            if (
+              shiftDoc._id.toString() ===
+                createDto.targetShift.shiftId.toString() &&
+              s.shift === createDto.targetShift.startTime
+            ) {
+              return false;
+            }
+            // Check if user is in this shift
+            return s.user?.includes(createDto.targetUserId);
+          }),
         );
 
-        const targetHasOverlap = await this.checkShiftOverlap(
-          createDto.targetUserId,
-          createDto.requesterShift.day,
-          createDto.requesterShift.startTime,
-          createDto.requesterShift.endTime,
-          createDto.targetShift.shiftId,
-        );
-
-        if (requesterHasOverlap) {
+        if (hasOtherShifts) {
           throw new HttpException(
-            'You have overlapping shift on the target day. Cannot swap shifts.',
+            'Target user already has another shift on this day. Cannot swap shifts.',
             HttpStatus.CONFLICT,
           );
         }
 
-        if (targetHasOverlap) {
+        // Also check if requester has other shifts on the same day (excluding their swap shift)
+        const requesterOtherShiftsOnDay = await this.shiftModel
+          .find({
+            day: createDto.requesterShift.day,
+            'shifts.user': requesterId,
+          })
+          .exec();
+
+        const requesterHasOtherShifts = requesterOtherShiftsOnDay?.some(
+          (shiftDoc) =>
+            shiftDoc.shifts?.some((s: any) => {
+              // Exclude the requester shift itself (the one being swapped)
+              if (
+                shiftDoc._id.toString() ===
+                  createDto.requesterShift.shiftId.toString() &&
+                s.shift === createDto.requesterShift.startTime
+              ) {
+                return false;
+              }
+              // Check if user is in this shift
+              return s.user?.includes(requesterId);
+            }),
+        );
+
+        if (requesterHasOtherShifts) {
           throw new HttpException(
-            'Target user has overlapping shift on your shift day. Cannot swap shifts.',
+            'You already have another shift on this day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+      } else {
+        // Different days - first check if target user has ANY shift on requester's day
+        const targetUserShiftsOnRequesterDay = await this.shiftModel
+          .find({
+            day: createDto.requesterShift.day,
+            'shifts.user': createDto.targetUserId,
+          })
+          .exec();
+
+        const targetHasAnyShiftOnRequesterDay =
+          targetUserShiftsOnRequesterDay?.some((shiftDoc) =>
+            shiftDoc.shifts?.some((s: any) => {
+              // Exclude the target shift itself (the one being swapped)
+              if (
+                shiftDoc._id.toString() ===
+                  createDto.targetShift.shiftId.toString() &&
+                s.shift === createDto.targetShift.startTime
+              ) {
+                return false;
+              }
+              return s.user?.includes(createDto.targetUserId);
+            }),
+          );
+
+        if (targetHasAnyShiftOnRequesterDay) {
+          throw new HttpException(
+            'Target user already has a shift on your shift day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        // Also check if requester has ANY shift on target's day
+        const requesterShiftsOnTargetDay = await this.shiftModel
+          .find({
+            day: createDto.targetShift.day,
+            'shifts.user': requesterId,
+          })
+          .exec();
+
+        const requesterHasAnyShiftOnTargetDay =
+          requesterShiftsOnTargetDay?.some((shiftDoc) =>
+            shiftDoc.shifts?.some((s: any) => {
+              // Exclude the requester shift itself (the one being swapped)
+              if (
+                shiftDoc._id.toString() ===
+                  createDto.requesterShift.shiftId.toString() &&
+                s.shift === createDto.requesterShift.startTime
+              ) {
+                return false;
+              }
+              return s.user?.includes(requesterId);
+            }),
+          );
+
+        if (requesterHasAnyShiftOnTargetDay) {
+          throw new HttpException(
+            'You already have a shift on the target day. Cannot swap shifts.',
             HttpStatus.CONFLICT,
           );
         }
       }
-      // If same day (regardless of location), allow swap without overlap check
     }
 
     const request = new this.shiftChangeRequestModel({
