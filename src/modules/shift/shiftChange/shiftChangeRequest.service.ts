@@ -156,36 +156,44 @@ export class ShiftChangeRequestService {
         );
       }
     } else if (createDto.type === ShiftChangeType.SWAP) {
-      // In swap, check both users for overlaps
-      const requesterHasOverlap = await this.checkShiftOverlap(
-        requesterId,
-        createDto.targetShift.day,
-        createDto.targetShift.startTime,
-        createDto.targetShift.endTime,
-        createDto.requesterShift.shiftId,
-      );
+      // For SWAP: Check if both shifts are on the same day
+      // If same day (regardless of location), allow the swap (swap replaces both shifts on the same day)
+      // If different days, check for overlaps (each user will have shifts on different days)
+      const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
 
-      const targetHasOverlap = await this.checkShiftOverlap(
-        createDto.targetUserId,
-        createDto.requesterShift.day,
-        createDto.requesterShift.startTime,
-        createDto.requesterShift.endTime,
-        createDto.targetShift.shiftId,
-      );
-
-      if (requesterHasOverlap) {
-        throw new HttpException(
-          'You have overlapping shift on the target day. Cannot swap shifts.',
-          HttpStatus.CONFLICT,
+      if (!sameDay) {
+        // Different days - check for overlaps
+        const requesterHasOverlap = await this.checkShiftOverlap(
+          requesterId,
+          createDto.targetShift.day,
+          createDto.targetShift.startTime,
+          createDto.targetShift.endTime,
+          createDto.requesterShift.shiftId,
         );
-      }
 
-      if (targetHasOverlap) {
-        throw new HttpException(
-          'Target user has overlapping shift on your shift day. Cannot swap shifts.',
-          HttpStatus.CONFLICT,
+        const targetHasOverlap = await this.checkShiftOverlap(
+          createDto.targetUserId,
+          createDto.requesterShift.day,
+          createDto.requesterShift.startTime,
+          createDto.requesterShift.endTime,
+          createDto.targetShift.shiftId,
         );
+
+        if (requesterHasOverlap) {
+          throw new HttpException(
+            'You have overlapping shift on the target day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        if (targetHasOverlap) {
+          throw new HttpException(
+            'Target user has overlapping shift on your shift day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
       }
+      // If same day (regardless of location), allow swap without overlap check
     }
 
     const request = new this.shiftChangeRequestModel({
