@@ -72,6 +72,34 @@ export class ShiftChangeRequestService {
     }, {});
   }
 
+  private async checkUserHasOtherShiftsOnDay(
+    userId: string,
+    day: string,
+    excludeShiftId?: number,
+    excludeStartTime?: string,
+  ): Promise<boolean> {
+    const shiftsOnDay = await this.shiftModel
+      .find({
+        day,
+        'shifts.user': userId,
+      })
+      .exec();
+
+    return shiftsOnDay?.some((shiftDoc) =>
+      shiftDoc.shifts?.some((s: any) => {
+        if (
+          excludeShiftId &&
+          excludeStartTime &&
+          shiftDoc._id.toString() === excludeShiftId.toString() &&
+          s.shift === excludeStartTime
+        ) {
+          return false;
+        }
+        return s.user?.includes(userId);
+      }),
+    );
+  }
+
   async createRequest(
     requesterId: string,
     createDto: CreateShiftChangeRequestDto,
@@ -137,17 +165,9 @@ export class ShiftChangeRequestService {
     }
 
     if (createDto.type === ShiftChangeType.TRANSFER) {
-      const targetUserShiftsOnTransferDay = await this.shiftModel
-        .find({
-          day: createDto.requesterShift.day,
-          'shifts.user': createDto.targetUserId,
-        })
-        .exec();
-
-      const targetHasAnyShift = targetUserShiftsOnTransferDay?.some((shiftDoc) =>
-        shiftDoc.shifts?.some((s: any) =>
-          s.user?.includes(createDto.targetUserId),
-        ),
+      const targetHasAnyShift = await this.checkUserHasOtherShiftsOnDay(
+        createDto.targetUserId,
+        createDto.requesterShift.day,
       );
 
       if (targetHasAnyShift) {
@@ -161,57 +181,25 @@ export class ShiftChangeRequestService {
       const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
 
       if (sameDay) {
-
-        const targetUserOtherShiftsOnDay = await this.shiftModel
-          .find({
-            day: createDto.requesterShift.day,
-            'shifts.user': createDto.targetUserId,
-          })
-          .exec();
-
-        const hasOtherShifts = targetUserOtherShiftsOnDay?.some((shiftDoc) =>
-          shiftDoc.shifts?.some((s: any) => {
-
-            if (
-              shiftDoc._id.toString() ===
-                createDto.targetShift.shiftId.toString() &&
-              s.shift === createDto.targetShift.startTime
-            ) {
-              return false;
-            }
-
-            return s.user?.includes(createDto.targetUserId);
-          }),
+        const targetHasOtherShifts = await this.checkUserHasOtherShiftsOnDay(
+          createDto.targetUserId,
+          createDto.requesterShift.day,
+          createDto.targetShift.shiftId,
+          createDto.targetShift.startTime,
         );
 
-        if (hasOtherShifts) {
+        if (targetHasOtherShifts) {
           throw new HttpException(
             'Target user already has another shift on this day. Cannot swap shifts.',
             HttpStatus.CONFLICT,
           );
         }
 
-        const requesterOtherShiftsOnDay = await this.shiftModel
-          .find({
-            day: createDto.requesterShift.day,
-            'shifts.user': requesterId,
-          })
-          .exec();
-
-        const requesterHasOtherShifts = requesterOtherShiftsOnDay?.some(
-          (shiftDoc) =>
-            shiftDoc.shifts?.some((s: any) => {
-
-              if (
-                shiftDoc._id.toString() ===
-                  createDto.requesterShift.shiftId.toString() &&
-                s.shift === createDto.requesterShift.startTime
-              ) {
-                return false;
-              }
-
-              return s.user?.includes(requesterId);
-            }),
+        const requesterHasOtherShifts = await this.checkUserHasOtherShiftsOnDay(
+          requesterId,
+          createDto.requesterShift.day,
+          createDto.requesterShift.shiftId,
+          createDto.requesterShift.startTime,
         );
 
         if (requesterHasOtherShifts) {
@@ -221,27 +209,12 @@ export class ShiftChangeRequestService {
           );
         }
       } else {
-
-        const targetUserShiftsOnRequesterDay = await this.shiftModel
-          .find({
-            day: createDto.requesterShift.day,
-            'shifts.user': createDto.targetUserId,
-          })
-          .exec();
-
         const targetHasAnyShiftOnRequesterDay =
-          targetUserShiftsOnRequesterDay?.some((shiftDoc) =>
-            shiftDoc.shifts?.some((s: any) => {
-
-              if (
-                shiftDoc._id.toString() ===
-                  createDto.targetShift.shiftId.toString() &&
-                s.shift === createDto.targetShift.startTime
-              ) {
-                return false;
-              }
-              return s.user?.includes(createDto.targetUserId);
-            }),
+          await this.checkUserHasOtherShiftsOnDay(
+            createDto.targetUserId,
+            createDto.requesterShift.day,
+            createDto.targetShift.shiftId,
+            createDto.targetShift.startTime,
           );
 
         if (targetHasAnyShiftOnRequesterDay) {
@@ -251,26 +224,12 @@ export class ShiftChangeRequestService {
           );
         }
 
-        const requesterShiftsOnTargetDay = await this.shiftModel
-          .find({
-            day: createDto.targetShift.day,
-            'shifts.user': requesterId,
-          })
-          .exec();
-
         const requesterHasAnyShiftOnTargetDay =
-          requesterShiftsOnTargetDay?.some((shiftDoc) =>
-            shiftDoc.shifts?.some((s: any) => {
-
-              if (
-                shiftDoc._id.toString() ===
-                  createDto.requesterShift.shiftId.toString() &&
-                s.shift === createDto.requesterShift.startTime
-              ) {
-                return false;
-              }
-              return s.user?.includes(requesterId);
-            }),
+          await this.checkUserHasOtherShiftsOnDay(
+            requesterId,
+            createDto.targetShift.day,
+            createDto.requesterShift.shiftId,
+            createDto.requesterShift.startTime,
           );
 
         if (requesterHasAnyShiftOnTargetDay) {
@@ -775,12 +734,10 @@ export class ShiftChangeRequestService {
 
     const userNames = await this.getUserNames([
       request.requesterId,
-      request.targetUserId,
       managerId,
     ]);
     const managerName = userNames[managerId] ?? 'Unknown User';
     const requesterName = userNames[request.requesterId] ?? 'Unknown User';
-    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
     const reasonText = updateDto.managerNote
       ? `: ${updateDto.managerNote}`
       : '';
