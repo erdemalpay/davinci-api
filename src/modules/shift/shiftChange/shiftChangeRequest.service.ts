@@ -76,7 +76,7 @@ export class ShiftChangeRequestService {
     requesterId: string,
     createDto: CreateShiftChangeRequestDto,
   ) {
-    // requester is in requesterShift validation
+
     if (createDto.requesterShift.userId !== requesterId) {
       throw new HttpException(
         'Requester must be in requester shift',
@@ -84,7 +84,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Verify requester shift exists in database
     const requesterShiftDoc = await this.shiftModel
       .findOne({
         _id: createDto.requesterShift.shiftId,
@@ -106,10 +105,8 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // For SWAP, validate target user is in target shift
-    // For TRANSFER, target user doesn't need to be in any shift
     if (createDto.type === ShiftChangeType.SWAP) {
-      // target user is in targetShift validation
+
       if (createDto.targetShift.userId !== createDto.targetUserId) {
         throw new HttpException(
           'Target user must be in target shift',
@@ -139,7 +136,6 @@ export class ShiftChangeRequestService {
       }
     }
 
-    // Check if target user has ANY shift on the transfer day (TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
       const targetUserShiftsOnTransferDay = await this.shiftModel
         .find({
@@ -161,13 +157,11 @@ export class ShiftChangeRequestService {
         );
       }
     } else if (createDto.type === ShiftChangeType.SWAP) {
-      // For SWAP: Check if both shifts are on the same day
-      // If same day (regardless of location), need to ensure target user doesn't have OTHER shifts on that day
-      // If different days, check for overlaps (each user will have shifts on different days)
+
       const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
 
       if (sameDay) {
-        // Same day swap - check if target user has OTHER shifts on the same day (excluding their swap shift)
+
         const targetUserOtherShiftsOnDay = await this.shiftModel
           .find({
             day: createDto.requesterShift.day,
@@ -177,7 +171,7 @@ export class ShiftChangeRequestService {
 
         const hasOtherShifts = targetUserOtherShiftsOnDay?.some((shiftDoc) =>
           shiftDoc.shifts?.some((s: any) => {
-            // Exclude the target shift itself (the one being swapped)
+
             if (
               shiftDoc._id.toString() ===
                 createDto.targetShift.shiftId.toString() &&
@@ -185,7 +179,7 @@ export class ShiftChangeRequestService {
             ) {
               return false;
             }
-            // Check if user is in this shift
+
             return s.user?.includes(createDto.targetUserId);
           }),
         );
@@ -197,7 +191,6 @@ export class ShiftChangeRequestService {
           );
         }
 
-        // Also check if requester has other shifts on the same day (excluding their swap shift)
         const requesterOtherShiftsOnDay = await this.shiftModel
           .find({
             day: createDto.requesterShift.day,
@@ -208,7 +201,7 @@ export class ShiftChangeRequestService {
         const requesterHasOtherShifts = requesterOtherShiftsOnDay?.some(
           (shiftDoc) =>
             shiftDoc.shifts?.some((s: any) => {
-              // Exclude the requester shift itself (the one being swapped)
+
               if (
                 shiftDoc._id.toString() ===
                   createDto.requesterShift.shiftId.toString() &&
@@ -216,7 +209,7 @@ export class ShiftChangeRequestService {
               ) {
                 return false;
               }
-              // Check if user is in this shift
+
               return s.user?.includes(requesterId);
             }),
         );
@@ -228,7 +221,7 @@ export class ShiftChangeRequestService {
           );
         }
       } else {
-        // Different days - first check if target user has ANY shift on requester's day
+
         const targetUserShiftsOnRequesterDay = await this.shiftModel
           .find({
             day: createDto.requesterShift.day,
@@ -239,7 +232,7 @@ export class ShiftChangeRequestService {
         const targetHasAnyShiftOnRequesterDay =
           targetUserShiftsOnRequesterDay?.some((shiftDoc) =>
             shiftDoc.shifts?.some((s: any) => {
-              // Exclude the target shift itself (the one being swapped)
+
               if (
                 shiftDoc._id.toString() ===
                   createDto.targetShift.shiftId.toString() &&
@@ -258,7 +251,6 @@ export class ShiftChangeRequestService {
           );
         }
 
-        // Also check if requester has ANY shift on target's day
         const requesterShiftsOnTargetDay = await this.shiftModel
           .find({
             day: createDto.targetShift.day,
@@ -269,7 +261,7 @@ export class ShiftChangeRequestService {
         const requesterHasAnyShiftOnTargetDay =
           requesterShiftsOnTargetDay?.some((shiftDoc) =>
             shiftDoc.shifts?.some((s: any) => {
-              // Exclude the requester shift itself (the one being swapped)
+
               if (
                 shiftDoc._id.toString() ===
                   createDto.requesterShift.shiftId.toString() &&
@@ -353,7 +345,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4],
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
@@ -484,7 +476,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Mark manager approval
     request.managerApprovalStatus = ApprovalStatus.APPROVED;
     request.managerApprovedAt = new Date();
     request.managerApprovedBy = managerId;
@@ -492,7 +483,6 @@ export class ShiftChangeRequestService {
       request.managerNote = updateDto.managerNote;
     }
 
-    // Check if both approvals are complete
     if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
       const userNames = await this.getUserNames([
         request.requesterId,
@@ -502,7 +492,7 @@ export class ShiftChangeRequestService {
       const requesterName = userNames[request.requesterId] ?? 'Unknown User';
       const targetName = userNames[request.targetUserId] ?? 'Unknown User';
       const managerName = userNames[managerId] ?? 'Unknown User';
-      // Both approved, perform the shift change
+
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
       } else if (request.type === ShiftChangeType.TRANSFER) {
@@ -557,7 +547,6 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
-      // Notify all managers and game managers about completed shift change
       await this.notificationService.createNotification({
         message: {
           key: `ShiftChangeCompletedForManagers_${request.type}`,
@@ -568,7 +557,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -649,7 +638,7 @@ export class ShiftChangeRequestService {
       const targetName = userNames[request.targetUserId] ?? 'Unknown User';
       const managerName =
         userNames[request.managerApprovedBy as string] ?? 'Unknown User';
-      // Both approved, perform the shift change
+
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
       } else if (request.type === ShiftChangeType.TRANSFER) {
@@ -705,7 +694,6 @@ export class ShiftChangeRequestService {
         });
       }
 
-      // Notify all managers and game managers about completed shift change
       await this.notificationService.createNotification({
         message: {
           key: `ShiftChangeCompletedForManagers_${request.type}`,
@@ -716,7 +704,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -743,7 +731,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'INFORMATION',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
@@ -774,7 +762,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Manager rejects
     request.status = ShiftChangeStatus.REJECTED;
     request.managerApprovalStatus = ApprovalStatus.REJECTED;
     request.processedByManagerId = managerId;
@@ -855,7 +842,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Target user rejects
     request.status = ShiftChangeStatus.REJECTED;
     request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
     request.processedAt = new Date();
@@ -911,7 +897,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Requester cancels
     request.status = ShiftChangeStatus.CANCELLED;
     request.processedAt = new Date();
 
@@ -946,7 +931,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
