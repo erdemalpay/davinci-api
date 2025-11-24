@@ -135,15 +135,8 @@ export class VisitService {
 
         if (isNightShift) {
           isEarlyExit = finishHour >= foundShift.shift || finishHour < foundShift.shiftEndHour;
-        } else {
-
-          if (finishHour < foundShift.shift) {
-
-            isEarlyExit = false;
-          } else {
-
-            isEarlyExit = finishHour < foundShift.shiftEndHour;
-          }
+        } else if (finishHour >= foundShift.shift) {
+          isEarlyExit = finishHour < foundShift.shiftEndHour;
         }
 
         if (isEarlyExit) {
@@ -371,15 +364,8 @@ export class VisitService {
 
             if (isNightShift) {
               isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
-            } else {
-
-              if (cafeVisitDto.hour < foundShift.shift) {
-
-                isEarlyExit = false;
-              } else {
-
-                isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
-              }
+            } else if (cafeVisitDto.hour >= foundShift.shift) {
+              isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
             }
 
             if (isEarlyExit) {
@@ -440,15 +426,8 @@ export class VisitService {
 
         if (isNightShift) {
           isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
-        } else {
-
-          if (cafeVisitDto.hour < foundShift.shift) {
-
-            isEarlyExit = false;
-          } else {
-
-            isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
-          }
+        } else if (cafeVisitDto.hour >= foundShift.shift) {
+          isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
         }
 
         if (isEarlyExit) {
