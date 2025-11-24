@@ -136,7 +136,14 @@ export class VisitService {
         if (isNightShift) {
           isEarlyExit = finishHour >= foundShift.shift || finishHour < foundShift.shiftEndHour;
         } else {
-          isEarlyExit = finishHour < foundShift.shiftEndHour;
+
+          if (finishHour < foundShift.shift) {
+
+            isEarlyExit = false;
+          } else {
+
+            isEarlyExit = finishHour < foundShift.shiftEndHour;
+          }
         }
 
         if (isEarlyExit) {
@@ -365,7 +372,14 @@ export class VisitService {
             if (isNightShift) {
               isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
             } else {
-              isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+
+              if (cafeVisitDto.hour < foundShift.shift) {
+
+                isEarlyExit = false;
+              } else {
+
+                isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+              }
             }
 
             if (isEarlyExit) {
@@ -427,7 +441,14 @@ export class VisitService {
         if (isNightShift) {
           isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
         } else {
-          isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+
+          if (cafeVisitDto.hour < foundShift.shift) {
+
+            isEarlyExit = false;
+          } else {
+
+            isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
+          }
         }
 
         if (isEarlyExit) {
@@ -439,7 +460,7 @@ export class VisitService {
               exitedAt: cafeVisitDto.hour,
             },
           };
-          //deneme
+
           await this.notificationService.createNotification({
             type: 'WARNING',
             selectedUsers: [user._id],
