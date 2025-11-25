@@ -9,6 +9,7 @@ import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { NotificationModule } from '../notification/notification.module';
 import { UserModule } from '../user/user.module';
+import { VisitModule } from '../visit/visit.module';
 import { CheckoutModule } from './../checkout/checkout.module';
 import { LocationModule } from './../location/location.module';
 import { RedisModule } from './../redis/redis.module';
@@ -66,6 +67,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     AssetModule,
     NotificationModule,
     UserModule,
+    VisitModule,
     forwardRef(() => LocationModule),
     forwardRef(() => IkasModule),
     forwardRef(() => MenuModule),

@@ -16,6 +16,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
@@ -96,6 +97,7 @@ export class AccountingService {
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
+    private readonly visitService: VisitService,
   ) {}
   //   Products
   findAllProducts() {
@@ -2014,6 +2016,25 @@ export class AccountingService {
               createStockDto.location,
             );
 
+            const visits = await this.visitService.findByDateAndLocation(
+              format(new Date(), 'yyyy-MM-dd'),
+              createStockDto.location,
+            );
+            const uniqueVisitUsers =
+              visits
+                ?.reduce(
+                  (acc: { unique: typeof visits; seenUsers: any }, visit) => {
+                    acc.seenUsers = acc.seenUsers || {};
+                    if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+                      acc.seenUsers[(visit as any).user] = true;
+                      acc.unique.push(visit);
+                    }
+                    return acc;
+                  },
+                  { unique: [], seenUsers: {} },
+                )
+                ?.unique?.map((visit) => visit.user) ?? [];
+
             const locations = await this.locationService.findAllLocations();
             const stockLocation = locations.find(
               (location) => location._id === createStockDto.location,
@@ -2029,8 +2050,7 @@ export class AccountingService {
 
             await this.notificationService.createNotification({
               type: 'SUCCESS',
-              selectedUsers: [],
-              selectedRoles: [1, 5],
+              selectedUsers: uniqueVisitUsers as any,
               selectedLocations: [createStockDto.location],
               seenBy: [],
               event: NotificationEventType.STOCKRESTORED,
