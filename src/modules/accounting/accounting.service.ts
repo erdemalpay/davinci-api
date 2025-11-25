@@ -1998,6 +1998,47 @@ export class AccountingService {
           currentAmount: oldQuantity,
         });
       }
+      if (oldQuantity === 0 && Number(createStockDto.quantity) > 0) {
+        const foundProduct = await this.productModel.findById(
+          createStockDto.product,
+        );
+        if (foundProduct) {
+          const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
+          const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
+            automatedMenuCloseExpenseTypes.includes(type),
+          );
+
+          if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
+            await this.menuService.openItemLocation(
+              foundProduct.matchedMenuItem,
+              createStockDto.location,
+            );
+
+            const locations = await this.locationService.findAllLocations();
+            const stockLocation = locations.find(
+              (location) => location._id === createStockDto.location,
+            );
+
+            const message = {
+              key: 'StockRestored',
+              params: {
+                product: foundProduct.name,
+                location: stockLocation.name,
+              },
+            };
+
+            await this.notificationService.createNotification({
+              type: 'SUCCESS',
+              selectedUsers: [],
+              selectedRoles: [1, 5],
+              selectedLocations: [createStockDto.location],
+              seenBy: [],
+              event: NotificationEventType.STOCKRESTORED,
+              message,
+            });
+          }
+        }
+      }
       // create Activity
       await this.activityService.addUpdateActivity(
         user,
@@ -2221,6 +2262,7 @@ export class AccountingService {
         (notification) =>
           notification.event === NotificationEventType.ZEROSTOCK,
       );
+
       const negativeNotificationEvent = notificationEvents.find(
         (notification) =>
           notification.event === NotificationEventType.NEGATIVESTOCK,
@@ -2238,6 +2280,17 @@ export class AccountingService {
         const foundProduct = await this.findProductById(stock.product as any);
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+        const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
+        const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
+          automatedMenuCloseExpenseTypes.includes(type),
+        );
+
+        if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
+          await this.menuService.closeItemLocation(
+            foundProduct.matchedMenuItem,
+            stock.location,
+          );
         }
         const message = {
           key: 'StockZeroReached',

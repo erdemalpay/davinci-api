@@ -91,6 +91,26 @@ export class MenuService {
       );
     }
   }
+  async openItemLocation(itemId: number, locationId: number) {
+    const item = await this.itemModel.findByIdAndUpdate(itemId, {
+      $push: { locations: locationId },
+    });
+    if (!item) {
+      throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitItemChanged(null, item);
+    return item;
+  }
+  async closeItemLocation(itemId: number, locationId: number) {
+    const item = await this.itemModel.findByIdAndUpdate(itemId, {
+      $pull: { locations: locationId },
+    });
+    if (!item) {
+      throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitItemChanged(null, item);
+    return item;
+  }
   async findActiveCategories() {
     try {
       // Attempt to retrieve active categories from Redis cache
