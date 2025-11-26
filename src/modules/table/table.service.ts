@@ -23,6 +23,7 @@ import { OrderService } from '../order/order.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
@@ -34,7 +35,6 @@ import {
   TableTypes,
 } from './table.dto';
 import { Table } from './table.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class TableService {
@@ -259,9 +259,10 @@ export class TableService {
       .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
       .populate({
         path: 'gameplays',
+        select: 'startHour game playerCount mentor date finishHour',
         populate: {
           path: 'mentor',
-          select: '-password',
+          select: 'name',
         },
       })
       .exec();
