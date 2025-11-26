@@ -72,11 +72,39 @@ export class ShiftChangeRequestService {
     }, {});
   }
 
+  private async checkUserHasOtherShiftsOnDay(
+    userId: string,
+    day: string,
+    excludeShiftId?: number,
+    excludeStartTime?: string,
+  ): Promise<boolean> {
+    const shiftsOnDay = await this.shiftModel
+      .find({
+        day,
+        'shifts.user': userId,
+      })
+      .exec();
+
+    return shiftsOnDay?.some((shiftDoc) =>
+      shiftDoc.shifts?.some((s: any) => {
+        if (
+          excludeShiftId &&
+          excludeStartTime &&
+          shiftDoc._id.toString() === excludeShiftId.toString() &&
+          s.shift === excludeStartTime
+        ) {
+          return false;
+        }
+        return s.user?.includes(userId);
+      }),
+    );
+  }
+
   async createRequest(
     requesterId: string,
     createDto: CreateShiftChangeRequestDto,
   ) {
-    // requester is in requesterShift validation
+
     if (createDto.requesterShift.userId !== requesterId) {
       throw new HttpException(
         'Requester must be in requester shift',
@@ -84,7 +112,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Verify requester shift exists in database
     const requesterShiftDoc = await this.shiftModel
       .findOne({
         _id: createDto.requesterShift.shiftId,
@@ -106,10 +133,8 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // For SWAP, validate target user is in target shift
-    // For TRANSFER, target user doesn't need to be in any shift
     if (createDto.type === ShiftChangeType.SWAP) {
-      // target user is in targetShift validation
+
       if (createDto.targetShift.userId !== createDto.targetUserId) {
         throw new HttpException(
           'Target user must be in target shift',
@@ -139,52 +164,80 @@ export class ShiftChangeRequestService {
       }
     }
 
-    // Check for shift overlaps (especially important for TRANSFER)
     if (createDto.type === ShiftChangeType.TRANSFER) {
-      const hasOverlap = await this.checkShiftOverlap(
+      const targetHasAnyShift = await this.checkUserHasOtherShiftsOnDay(
         createDto.targetUserId,
         createDto.requesterShift.day,
-        createDto.requesterShift.startTime,
-        createDto.requesterShift.endTime,
-        createDto.requesterShift.shiftId,
       );
 
-      if (hasOverlap) {
+      if (targetHasAnyShift) {
         throw new HttpException(
-          'Target user has overlapping shift on the same day. Cannot transfer shift.',
+          'Target user already has a shift on this day. Cannot transfer shift.',
           HttpStatus.CONFLICT,
         );
       }
     } else if (createDto.type === ShiftChangeType.SWAP) {
-      // In swap, check both users for overlaps
-      const requesterHasOverlap = await this.checkShiftOverlap(
-        requesterId,
-        createDto.targetShift.day,
-        createDto.targetShift.startTime,
-        createDto.targetShift.endTime,
-        createDto.requesterShift.shiftId,
-      );
 
-      const targetHasOverlap = await this.checkShiftOverlap(
-        createDto.targetUserId,
-        createDto.requesterShift.day,
-        createDto.requesterShift.startTime,
-        createDto.requesterShift.endTime,
-        createDto.targetShift.shiftId,
-      );
+      const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
 
-      if (requesterHasOverlap) {
-        throw new HttpException(
-          'You have overlapping shift on the target day. Cannot swap shifts.',
-          HttpStatus.CONFLICT,
+      if (sameDay) {
+        const targetHasOtherShifts = await this.checkUserHasOtherShiftsOnDay(
+          createDto.targetUserId,
+          createDto.requesterShift.day,
+          createDto.targetShift.shiftId,
+          createDto.targetShift.startTime,
         );
-      }
 
-      if (targetHasOverlap) {
-        throw new HttpException(
-          'Target user has overlapping shift on your shift day. Cannot swap shifts.',
-          HttpStatus.CONFLICT,
+        if (targetHasOtherShifts) {
+          throw new HttpException(
+            'Target user already has another shift on this day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        const requesterHasOtherShifts = await this.checkUserHasOtherShiftsOnDay(
+          requesterId,
+          createDto.requesterShift.day,
+          createDto.requesterShift.shiftId,
+          createDto.requesterShift.startTime,
         );
+
+        if (requesterHasOtherShifts) {
+          throw new HttpException(
+            'You already have another shift on this day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+      } else {
+        const targetHasAnyShiftOnRequesterDay =
+          await this.checkUserHasOtherShiftsOnDay(
+            createDto.targetUserId,
+            createDto.requesterShift.day,
+            createDto.targetShift.shiftId,
+            createDto.targetShift.startTime,
+          );
+
+        if (targetHasAnyShiftOnRequesterDay) {
+          throw new HttpException(
+            'Target user already has a shift on your shift day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        const requesterHasAnyShiftOnTargetDay =
+          await this.checkUserHasOtherShiftsOnDay(
+            requesterId,
+            createDto.targetShift.day,
+            createDto.requesterShift.shiftId,
+            createDto.requesterShift.startTime,
+          );
+
+        if (requesterHasAnyShiftOnTargetDay) {
+          throw new HttpException(
+            'You already have a shift on the target day. Cannot swap shifts.',
+            HttpStatus.CONFLICT,
+          );
+        }
       }
     }
 
@@ -251,7 +304,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4],
       event: NotificationEventType.SHIFTCHANGEREQUESTED,
     });
 
@@ -382,7 +435,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Mark manager approval
     request.managerApprovalStatus = ApprovalStatus.APPROVED;
     request.managerApprovedAt = new Date();
     request.managerApprovedBy = managerId;
@@ -390,7 +442,6 @@ export class ShiftChangeRequestService {
       request.managerNote = updateDto.managerNote;
     }
 
-    // Check if both approvals are complete
     if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
       const userNames = await this.getUserNames([
         request.requesterId,
@@ -400,7 +451,7 @@ export class ShiftChangeRequestService {
       const requesterName = userNames[request.requesterId] ?? 'Unknown User';
       const targetName = userNames[request.targetUserId] ?? 'Unknown User';
       const managerName = userNames[managerId] ?? 'Unknown User';
-      // Both approved, perform the shift change
+
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
       } else if (request.type === ShiftChangeType.TRANSFER) {
@@ -455,7 +506,6 @@ export class ShiftChangeRequestService {
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
-      // Notify all managers and game managers about completed shift change
       await this.notificationService.createNotification({
         message: {
           key: `ShiftChangeCompletedForManagers_${request.type}`,
@@ -466,7 +516,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -547,7 +597,7 @@ export class ShiftChangeRequestService {
       const targetName = userNames[request.targetUserId] ?? 'Unknown User';
       const managerName =
         userNames[request.managerApprovedBy as string] ?? 'Unknown User';
-      // Both approved, perform the shift change
+
       if (request.type === ShiftChangeType.SWAP) {
         await this.swapShifts(request);
       } else if (request.type === ShiftChangeType.TRANSFER) {
@@ -603,7 +653,6 @@ export class ShiftChangeRequestService {
         });
       }
 
-      // Notify all managers and game managers about completed shift change
       await this.notificationService.createNotification({
         message: {
           key: `ShiftChangeCompletedForManagers_${request.type}`,
@@ -614,7 +663,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'SUCCESS',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEAPPROVED,
       });
 
@@ -641,7 +690,7 @@ export class ShiftChangeRequestService {
           },
         },
         type: 'INFORMATION',
-        selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+        selectedRoles: [1, 3, 4],
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
 
@@ -672,7 +721,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Manager rejects
     request.status = ShiftChangeStatus.REJECTED;
     request.managerApprovalStatus = ApprovalStatus.REJECTED;
     request.processedByManagerId = managerId;
@@ -686,12 +734,10 @@ export class ShiftChangeRequestService {
 
     const userNames = await this.getUserNames([
       request.requesterId,
-      request.targetUserId,
       managerId,
     ]);
     const managerName = userNames[managerId] ?? 'Unknown User';
     const requesterName = userNames[request.requesterId] ?? 'Unknown User';
-    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
     const reasonText = updateDto.managerNote
       ? `: ${updateDto.managerNote}`
       : '';
@@ -753,7 +799,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Target user rejects
     request.status = ShiftChangeStatus.REJECTED;
     request.targetUserApprovalStatus = ApprovalStatus.REJECTED;
     request.processedAt = new Date();
@@ -809,7 +854,6 @@ export class ShiftChangeRequestService {
       );
     }
 
-    // Requester cancels
     request.status = ShiftChangeStatus.CANCELLED;
     request.processedAt = new Date();
 
@@ -844,7 +888,7 @@ export class ShiftChangeRequestService {
         },
       },
       type: 'INFORMATION',
-      selectedRoles: [1, 3, 4], // Manager (1) and GameManager (3)
+      selectedRoles: [1, 3, 4],
       event: NotificationEventType.SHIFTCHANGEREJECTED,
     });
 
@@ -941,77 +985,5 @@ export class ShiftChangeRequestService {
       targetUserId,
       requesterShift.endTime,
     );
-  }
-
-  private async checkShiftOverlap(
-    userId: string,
-    day: string,
-    startTime: string,
-    endTime: string,
-    excludeShiftId?: number,
-  ): Promise<boolean> {
-    const shifts = await this.shiftModel
-      .find({
-        day,
-        'shifts.user': userId,
-      })
-      .exec();
-
-    if (!shifts || shifts.length === 0) {
-      return false;
-    }
-
-    const [reqStartHour, reqStartMin] = startTime.split(':').map(Number);
-    const reqStartMinutes = reqStartHour * 60 + reqStartMin;
-
-    let reqEndMinutes: number;
-    if (endTime) {
-      const [reqEndHour, reqEndMin] = endTime.split(':').map(Number);
-      reqEndMinutes = reqEndHour * 60 + reqEndMin;
-    } else {
-      reqEndMinutes = reqStartMinutes + 8 * 60;
-    }
-
-    for (const shiftDoc of shifts) {
-      for (const shiftValue of shiftDoc.shifts) {
-        // Check if user is in this shift
-        if (!shiftValue.user.includes(userId)) {
-          continue;
-        }
-
-        if (
-          excludeShiftId &&
-          shiftDoc._id === excludeShiftId &&
-          shiftValue.shift === startTime
-        ) {
-          continue;
-        }
-
-        const [existingStartHour, existingStartMin] = shiftValue.shift
-          .split(':')
-          .map(Number);
-        const existingStartMinutes = existingStartHour * 60 + existingStartMin;
-
-        let existingEndMinutes: number;
-        if (shiftValue.shiftEndHour) {
-          const [existingEndHour, existingEndMin] = shiftValue.shiftEndHour
-            .split(':')
-            .map(Number);
-          existingEndMinutes = existingEndHour * 60 + existingEndMin;
-        } else {
-          existingEndMinutes = existingStartMinutes + 8 * 60;
-        }
-
-        const hasOverlap =
-          reqStartMinutes < existingEndMinutes &&
-          existingStartMinutes < reqEndMinutes;
-
-        if (hasOverlap) {
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 }
