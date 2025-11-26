@@ -16,6 +16,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
@@ -96,6 +97,7 @@ export class AccountingService {
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
+    private readonly visitService: VisitService,
   ) {}
   //   Products
   findAllProducts() {
@@ -1998,6 +2000,65 @@ export class AccountingService {
           currentAmount: oldQuantity,
         });
       }
+      if (oldQuantity === 0 && Number(createStockDto.quantity) > 0) {
+        const foundProduct = await this.productModel.findById(
+          createStockDto.product,
+        );
+        if (foundProduct) {
+          const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
+          const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
+            automatedMenuCloseExpenseTypes.includes(type),
+          );
+
+          if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
+            await this.menuService.openItemLocation(
+              foundProduct.matchedMenuItem,
+              createStockDto.location,
+            );
+
+            const visits = await this.visitService.findByDateAndLocation(
+              format(new Date(), 'yyyy-MM-dd'),
+              createStockDto.location,
+            );
+            const uniqueVisitUsers =
+              visits
+                ?.reduce(
+                  (acc: { unique: typeof visits; seenUsers: any }, visit) => {
+                    acc.seenUsers = acc.seenUsers || {};
+                    if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+                      acc.seenUsers[(visit as any).user] = true;
+                      acc.unique.push(visit);
+                    }
+                    return acc;
+                  },
+                  { unique: [], seenUsers: {} },
+                )
+                ?.unique?.map((visit) => visit.user) ?? [];
+
+            const locations = await this.locationService.findAllLocations();
+            const stockLocation = locations.find(
+              (location) => location._id === createStockDto.location,
+            );
+
+            const message = {
+              key: 'StockRestored',
+              params: {
+                product: foundProduct.name,
+                location: stockLocation.name,
+              },
+            };
+
+            await this.notificationService.createNotification({
+              type: 'SUCCESS',
+              selectedUsers: uniqueVisitUsers as any,
+              selectedLocations: [createStockDto.location],
+              seenBy: [],
+              event: NotificationEventType.STOCKRESTORED,
+              message,
+            });
+          }
+        }
+      }
       // create Activity
       await this.activityService.addUpdateActivity(
         user,
@@ -2221,6 +2282,7 @@ export class AccountingService {
         (notification) =>
           notification.event === NotificationEventType.ZEROSTOCK,
       );
+
       const negativeNotificationEvent = notificationEvents.find(
         (notification) =>
           notification.event === NotificationEventType.NEGATIVESTOCK,
@@ -2238,6 +2300,17 @@ export class AccountingService {
         const foundProduct = await this.findProductById(stock.product as any);
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+        const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
+        const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
+          automatedMenuCloseExpenseTypes.includes(type),
+        );
+
+        if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
+          await this.menuService.closeItemLocation(
+            foundProduct.matchedMenuItem,
+            stock.location,
+          );
         }
         const message = {
           key: 'StockZeroReached',
