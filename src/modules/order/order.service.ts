@@ -2764,7 +2764,7 @@ export class OrderService {
             oldOrder.save(),
           ]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, oldTable);
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',
@@ -2793,7 +2793,8 @@ export class OrderService {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
           this.websocketGateway.emitOrderCreated(user, newOrder);
-          this.websocketGateway.emitTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, newTable);
           continue;
         }
         // Destructure oldOrder to exclude the _id field
@@ -2823,7 +2824,8 @@ export class OrderService {
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, newTable);
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',
