@@ -36,5 +36,5 @@ export class Gameplay extends Document {
 }
 
 export const GameplaySchema = SchemaFactory.createForClass(Gameplay);
-
+GameplaySchema.index({ mentor: 1 });
 purifySchema(GameplaySchema);
