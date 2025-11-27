@@ -391,7 +391,7 @@ export class VisitService {
           }
         }
 
-        await lastVisit.updateOne({ finishHour: cafeVisitDto.hour, visitFinishSource: 'face_recognition' });
+        await lastVisit.updateOne({ finishHour: cafeVisitDto.hour, visitFinishSource: VisitSource.FACE_RECOGNITION });
 
         try {
           await this.activityService.addActivity(
