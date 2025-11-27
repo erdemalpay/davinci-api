@@ -121,7 +121,11 @@ export class TableService {
       existingTable,
       updatedTable,
     );
-    this.websocketGateway.emitTableChanged(user, updatedTable);
+    if (tableDto.finishHour) {
+      this.websocketGateway.emitTableChanged(user, updatedTable);
+    } else {
+      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
+    }
     return updatedTable;
   }
   async findOnlineTables() {
@@ -153,7 +157,7 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitTableChanged(user, updatedTable);
+      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
