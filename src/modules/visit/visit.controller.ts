@@ -13,7 +13,7 @@ import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateVisitDto } from './create.visit.dto';
-import { CafeActivityDto, CafeVisitDto } from './visit.dto';
+import { CafeActivityDto, CafeVisitDto, VisitSource } from './visit.dto';
 import { VisitService } from './visit.service';
 
 @Controller('/visits')
@@ -62,8 +62,13 @@ export class VisitController {
   }
 
   @Patch('/finish/:id')
-  finishVisit(@ReqUser() user: User, @Param('id') id: number) {
-    return this.visitService.finish(user, id);
+  finishVisit(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body('finishHour') finishHour: string,
+    @Body('visitFinishSource') visitFinishSource: VisitSource,
+  ) {
+    return this.visitService.finish(user, id, finishHour, visitFinishSource);
   }
 
   @Post('/cafe-activity')

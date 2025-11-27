@@ -15,6 +15,7 @@ import {
   CafeActivityDto,
   CafeVisitDto,
   VisitDto,
+  VisitSource,
   VisitTypes,
 } from './visit.dto';
 import { Visit } from './visit.schema';
@@ -51,6 +52,7 @@ export class VisitService {
     const visit = await this.visitModel.create({
       ...createVisitDto,
       user: user._id,
+      visitStartSource: createVisitDto.visitStartSource,
     });
 
     const shifts = await this.shiftService.findQueryShifts({
@@ -101,18 +103,16 @@ export class VisitService {
     return this.visitModel.create(visitDto);
   }
 
-  async finish(user: User, id: number) {
+  async finish(user: User, id: number, finishHour: string, visitFinishSource: VisitSource) {
 
     const existingVisit = await this.visitModel.findById(id);
     if (!existingVisit) {
       throw new NotFoundException(`Visit with id ${id} not found`);
     }
 
-    const now = new Date();
-    const finishHour = format(now, 'HH:mm');
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
-      { finishHour },
+      { finishHour, visitFinishSource },
       {
         new: true,
       },
@@ -287,6 +287,7 @@ export class VisitService {
         location: cafeVisitDto.location,
         date: cafeVisitDto.date,
         startHour: cafeVisitDto.hour,
+        visitStartSource: VisitSource.FACE_RECOGNITION,
       });
       const shifts = await this.shiftService.findQueryShifts({
         after: cafeVisitDto.date,
@@ -390,7 +391,7 @@ export class VisitService {
           }
         }
 
-        await lastVisit.updateOne({ finishHour: cafeVisitDto.hour });
+        await lastVisit.updateOne({ finishHour: cafeVisitDto.hour, visitFinishSource: VisitSource.FACE_RECOGNITION });
 
         try {
           await this.activityService.addActivity(
@@ -411,6 +412,8 @@ export class VisitService {
         date: cafeVisitDto.date,
         startHour: cafeVisitDto.hour,
         finishHour: cafeVisitDto.hour,
+        visitStartSource: VisitSource.FACE_RECOGNITION,
+        visitFinishSource: VisitSource.FACE_RECOGNITION,
       });
       const shifts = await this.shiftService.findQueryShifts({
         after: cafeVisitDto.date,
