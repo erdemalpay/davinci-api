@@ -1,3 +1,7 @@
+export enum VisitSource {
+  PANEL = 'panel',
+  FACE_RECOGNITION = 'face_recognition',
+}
 export class VisitDto {
   _id?: number;
   location?: number;
@@ -5,6 +9,8 @@ export class VisitDto {
   startHour?: string;
   finishHour?: string;
   user?: string;
+  visitStartSource?: VisitSource;
+  visitFinishSource?: VisitSource;
 }
 export class CafeVisitDto {
   location: number;
