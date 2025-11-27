@@ -2287,9 +2287,10 @@ export class AccountingService {
         (notification) =>
           notification.event === NotificationEventType.NEGATIVESTOCK,
       );
-      // zero stock notification
+
+      // zero or negative stock - close menu item
       if (
-        newQuantity === 0 &&
+        newQuantity <= 0 &&
         zeroNotificationEvent &&
         zeroNotificationEvent?.selectedLocations?.includes(stock.location)
       ) {
@@ -2313,7 +2314,7 @@ export class AccountingService {
           );
         }
         const message = {
-          key: 'StockZeroReached',
+          key: newQuantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
           params: {
             product: foundProduct.name,
             location: stockLocation.name,
@@ -2327,7 +2328,10 @@ export class AccountingService {
           selectedRoles: zeroNotificationEvent.selectedRoles,
           selectedLocations: zeroNotificationEvent.selectedLocations,
           seenBy: [],
-          event: NotificationEventType.ZEROSTOCK,
+          event:
+            newQuantity === 0
+              ? NotificationEventType.ZEROSTOCK
+              : NotificationEventType.NEGATIVESTOCK,
           message,
         };
         await this.notificationService.createNotification(
