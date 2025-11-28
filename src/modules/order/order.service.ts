@@ -552,7 +552,7 @@ export class OrderService {
     try {
       const orders = await this.orderModel
         .find({
-          createdAt: { $gte: start, $lte: end }, // Only orders on 'after' date
+          tableDate: { $gte: start, $lte: end }, // Only orders on 'after' date
         })
         .populate(
           'table',
