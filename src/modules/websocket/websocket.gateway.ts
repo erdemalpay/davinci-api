@@ -317,6 +317,15 @@ export class AppWebSocketGateway {
     this.server.emit('tableChanged', { user, table });
   }
 
+    emitTableCreated(...args: any[]) {
+    const [user, table] = args;
+    this.server.emit('tableCreated', { user, table });
+  }
+emitTableClosed(...args: any[]) {
+    const [table] = args;
+    this.server.emit('tableClosed', { table });
+  }
+
   emitTaskTrackChanged(...args: any[]) {
     const [user, taskTrack] = args;
     this.server.emit('taskTrackChanged', { user, taskTrack });
