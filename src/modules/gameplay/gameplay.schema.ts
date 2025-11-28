@@ -37,4 +37,14 @@ export class Gameplay extends Document {
 
 export const GameplaySchema = SchemaFactory.createForClass(Gameplay);
 GameplaySchema.index({ mentor: 1 });
+// Indexes for frequent queries
+// For queryData() - location and date queries
+GameplaySchema.index({ location: 1, date: 1 });
+// For queryData() - game and location queries
+GameplaySchema.index({ game: 1, location: 1 });
+// For queryData() - date, location, and mentor compound queries
+GameplaySchema.index({ date: 1, location: 1, mentor: 1 });
+// For queryData() - createdBy queries
+GameplaySchema.index({ createdBy: 1 });
+
 purifySchema(GameplaySchema);

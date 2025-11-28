@@ -37,4 +37,14 @@ export class Visit extends Document {
 
 export const VisitSchema = SchemaFactory.createForClass(Visit);
 
+// Indexes for frequent queries
+// For getUniqueVisits() - date range queries with user and startHour sorting
+VisitSchema.index({ date: 1, user: 1, startHour: 1 });
+// For getVisits() - user and date queries
+VisitSchema.index({ user: 1, date: 1 });
+// For location and date queries
+VisitSchema.index({ location: 1, date: 1 });
+// For date range queries
+VisitSchema.index({ date: 1 });
+
 purifySchema(VisitSchema);

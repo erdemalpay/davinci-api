@@ -42,6 +42,16 @@ export class Check extends Document {
 
 export const CheckSchema = SchemaFactory.createForClass(Check);
 
+// Indexes for frequent queries
+// For findQueryChecks() - location and createdAt sorting (default sort)
+CheckSchema.index({ location: 1, createdAt: -1 });
+// For findQueryChecks() - user queries
+CheckSchema.index({ user: 1, createdAt: -1 });
+// For findQueryChecks() - checklist queries
+CheckSchema.index({ checklist: 1, createdAt: -1 });
+// For findQueryChecks() - createdAt range queries
+CheckSchema.index({ createdAt: -1 });
+
 purifySchema(CheckSchema);
 
 // TODO: Status enum will be added
