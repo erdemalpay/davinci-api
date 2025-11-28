@@ -41,4 +41,15 @@ export class ButtonCall extends Document {
 }
 
 export const ButtonCallSchema = SchemaFactory.createForClass(ButtonCall);
+
+// Indexes for frequent queries - optimized
+// For create() and close() - finding active button calls (covers both queries)
+ButtonCallSchema.index({ tableName: 1, location: 1, date: 1, finishHour: 1, type: 1 });
+// For averageButtonCallStats() - date and location queries with finishHour
+ButtonCallSchema.index({ date: 1, location: 1, finishHour: 1 });
+// For findButtonCallsQuery() - location and createdAt sorting (also covers location-only queries)
+ButtonCallSchema.index({ location: 1, createdAt: -1 });
+// For getTodayQueuePositionsByType() - active calls with date range and type sorting
+ButtonCallSchema.index({ finishHour: 1, date: 1, location: 1, type: 1, createdAt: 1 });
+
 purifySchema(ButtonCallSchema);

@@ -151,4 +151,16 @@ OrderSchema.index(
   { unique: true, partialFilterExpression: { ikasId: { $type: 'string' } } },
 );
 
+// Indexes for frequent queries - optimized to reduce write overhead
+// For findQueryOrders() - tableDate range queries with location (most common)
+OrderSchema.index({ tableDate: 1, location: 1 });
+// For findQueryOrders() - location and createdAt sorting (default sort, also covers location-only queries)
+OrderSchema.index({ location: 1, createdAt: -1 });
+// For findQueryOrders() - status and location queries (frequently used together)
+OrderSchema.index({ location: 1, status: 1 });
+// For findQueryOrders() - createdBy queries with sorting
+OrderSchema.index({ createdBy: 1, createdAt: -1 });
+// For findQueryOrders() - isIkasPickUp queries (special case)
+OrderSchema.index({ ikasCustomer: 1, status: 1 });
+
 purifySchema(OrderSchema);

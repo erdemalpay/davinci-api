@@ -66,4 +66,20 @@ export class Expense extends Document {
 
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);
 
+// Indexes for frequent queries
+// For findAllExpenseWithPagination() - date range queries with location
+ExpenseSchema.index({ date: 1, location: 1 });
+// For findAllExpenseWithPagination() - expenseType queries
+ExpenseSchema.index({ expenseType: 1, location: 1 });
+// For findAllExpenseWithPagination() - paymentMethod queries
+ExpenseSchema.index({ paymentMethod: 1, location: 1 });
+// For findAllExpenseWithPagination() - user queries
+ExpenseSchema.index({ user: 1, date: 1 });
+// For findAllExpenseWithPagination() - product queries
+ExpenseSchema.index({ product: 1, location: 1 });
+// For findAllExpenseWithPagination() - service queries
+ExpenseSchema.index({ service: 1, location: 1 });
+// For findAllExpenseWithPagination() - type queries
+ExpenseSchema.index({ type: 1, location: 1 });
+
 purifySchema(ExpenseSchema);

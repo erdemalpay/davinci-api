@@ -28,4 +28,12 @@ export class CheckoutControl extends Document {
 export const CheckoutControlSchema =
   SchemaFactory.createForClass(CheckoutControl);
 
+// Indexes for frequent queries
+// For findQueryCheckoutControl() - date range queries with location
+CheckoutControlSchema.index({ date: 1, location: 1 });
+// For findQueryCheckoutControl() - user and date queries
+CheckoutControlSchema.index({ user: 1, date: 1 });
+// For date sorting (default sort: date: 1)
+CheckoutControlSchema.index({ date: 1 });
+
 purifySchema(CheckoutControlSchema);

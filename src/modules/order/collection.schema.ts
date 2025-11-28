@@ -72,4 +72,14 @@ export class Collection extends Document {
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
 
+// Indexes for frequent queries
+// For findPersonalCollectionNumbers() - createdAt range with status
+CollectionSchema.index({ createdAt: 1, status: 1 });
+// For createdBy queries
+CollectionSchema.index({ createdBy: 1, createdAt: -1 });
+// For tableDate queries
+CollectionSchema.index({ tableDate: 1, location: 1 });
+// For status queries
+CollectionSchema.index({ status: 1, location: 1 });
+
 purifySchema(CollectionSchema);

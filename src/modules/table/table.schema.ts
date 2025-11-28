@@ -54,5 +54,14 @@ export class Table extends Document {
 }
 
 export const TableSchema = SchemaFactory.createForClass(Table);
+// Indexes for frequent queries
+// For getByLocation() and findByDateAndLocation() - location, date, status queries (existing, kept)
 TableSchema.index({ location: 1, date: -1, status: 1 });
+// For create() - finding existing active tables (location + date + finishHour + status)
+// This is critical as it's called on every table creation
+TableSchema.index({ location: 1, date: 1, finishHour: 1, status: 1 });
+// For getYerVarmiByLocation() and notifyUnclosedTables() - active tables query
+// getYerVarmiByLocation is a public endpoint, notifyUnclosedTables runs daily
+TableSchema.index({ location: 1, date: 1, finishHour: 1 });
+
 purifySchema(TableSchema);
