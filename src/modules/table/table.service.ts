@@ -68,7 +68,6 @@ export class TableService {
         HttpStatus.BAD_REQUEST,
       );
     }
-
     const createdTable = await this.tableModel.create({
       ...tableDto,
       createdBy: user._id,
@@ -104,9 +103,10 @@ export class TableService {
       if (orders) {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
-    } else {
-      this.websocketGateway.emitTableChanged(user, createdTable);
-    }
+    } 
+    console.log(createdTable);
+      this.websocketGateway.emitTableCreated(user, createdTable);
+  
     return createdTable;
   }
 
@@ -213,7 +213,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.websocketGateway.emitTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableClosed(updatedTable);
     return updatedTable;
   }
 
