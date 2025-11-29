@@ -5,6 +5,7 @@ import { Model, PipelineStage } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   GameplayQueryDto,
   GameplayQueryGroupDto,
@@ -12,7 +13,6 @@ import {
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 import { Gameplay } from './gameplay.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class GameplayService {
@@ -27,7 +27,7 @@ export class GameplayService {
       ...createGameplayDto,
       createdBy: user,
     });
-    this.websocketGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayCreated(user, gameplay);
     return gameplay;
   }
 
@@ -516,5 +516,13 @@ export class GameplayService {
       topMentors: result.topMentors,
       topComplexGames: result.topComplexGames,
     };
+  }
+
+  async getGameplaysByDate(date: string) {
+    return this.gameplayModel
+      .find({ date })
+      .populate({ path: 'mentor', select: 'name' })
+      .populate({ path: 'game', select: 'name' })
+      .exec();
   }
 }

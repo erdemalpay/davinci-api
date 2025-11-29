@@ -338,11 +338,16 @@ export class TableService {
       tableId: id,
       gameplay,
     });
-
+    
     table.gameplays.push(gameplay);
     await table.save();
-    this.websocketGateway.emitTableChanged(user, table);
-    return table;
+// here i need to populate the gameplay mentor with _id , name fields
+const populatedGameplay = await this.gameplayService.findById(gameplay._id).populate({
+          path: 'mentor',
+          select: 'name',
+        }).exec();
+    this.websocketGateway.emitGameplayCreated(user, populatedGameplay);
+    return populatedGameplay;
   }
 
   async removeGameplay(user: User, tableId: number, gameplayId: number) {

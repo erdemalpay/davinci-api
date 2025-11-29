@@ -165,6 +165,11 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
+  emitGameplayCreated(...args: any[]) {
+    const [user, gameplay] = args;
+    this.server.emit('gameplayCreated', { user, gameplay });
+  }
+
   emitIkasProductStockChanged() {
     this.server.emit('ikasProductStockChanged');
   }
