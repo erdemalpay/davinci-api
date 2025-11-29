@@ -87,6 +87,9 @@ export class ReservationService {
       {
         callHour,
         status: updateWithoutDuration.status,
+        ...(updateWithoutDuration.reservedTable && {
+          reservedTable: updateWithoutDuration.reservedTable,
+        }),
         ...(updateWithoutDuration.status === 'Coming' && {
           approvedHour: format(gmtPlus3Now, 'HH:mm'),
           comingExpiresAt: addMinutes(gmtPlus3Now, duration),
