@@ -110,6 +110,10 @@ export class VisitService {
       throw new NotFoundException(`Visit with id ${id} not found`);
     }
 
+    if (existingVisit.user.toString() !== user._id.toString()) {
+      throw new BadRequestException('You can only finish your own visits');
+    }
+
     const visit = await this.visitModel.findByIdAndUpdate(
       id,
       { finishHour, visitFinishSource },
