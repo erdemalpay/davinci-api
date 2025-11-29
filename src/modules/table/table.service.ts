@@ -104,7 +104,6 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     } 
-    console.log(createdTable);
       this.websocketGateway.emitTableCreated(user, createdTable);
   
     return createdTable;
@@ -369,7 +368,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitGameplayDeleted(user, gameplayId);
     return table;
   }
 
