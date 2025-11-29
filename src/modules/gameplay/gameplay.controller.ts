@@ -1,11 +1,11 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Query,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Query,
 } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -77,6 +77,11 @@ export class GameplayController {
       date,
       location,
     );
+  }
+
+  @Get('/by-date')
+  getGameplaysByDate(@Query('date') date: string) {
+    return this.gameplayService.getGameplaysByDate(date);
   }
 
   @Get('/group-game-mentor-location')
