@@ -345,7 +345,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
           path: 'mentor',
           select: 'name',
         }).exec();
-    this.websocketGateway.emitGameplayCreated(user, populatedGameplay);
+    this.websocketGateway.emitGameplayCreated(user, populatedGameplay,table);
     return populatedGameplay;
   }
 
@@ -368,7 +368,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, gameplayId);
+    this.websocketGateway.emitGameplayDeleted(user, gameplayId,table);
     return table;
   }
 
