@@ -2185,7 +2185,7 @@ export class OrderService {
     });
 
     if (newOrders && newOrders?.length > 0) {
-      await this.updateOrders(user, newOrders);
+      await this.updateOrders(user, newOrders, { deferEmit: true });
     }
 
     // Consume points if pointUser is provided
