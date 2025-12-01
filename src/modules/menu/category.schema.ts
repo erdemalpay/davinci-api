@@ -43,6 +43,9 @@ export class MenuCategory extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   isLimitedTime: boolean;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  showItemProductionOnMenu: boolean;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);
