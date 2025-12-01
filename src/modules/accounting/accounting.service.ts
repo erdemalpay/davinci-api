@@ -2048,14 +2048,25 @@ export class AccountingService {
               },
             };
 
-            await this.notificationService.createNotification({
-              type: 'SUCCESS',
-              selectedUsers: uniqueVisitUsers as any,
-              selectedLocations: [createStockDto.location],
-              seenBy: [],
-              event: NotificationEventType.STOCKRESTORED,
-              message,
-            });
+            const notificationEvents =
+              await this.notificationService.findAllEventNotifications();
+            const stockRestoredEvent = notificationEvents.find(
+              (notification) =>
+                notification.event === NotificationEventType.STOCKRESTORED,
+            );
+
+            if (stockRestoredEvent) {
+              await this.notificationService.createNotification({
+                type: stockRestoredEvent.type,
+                createdBy: stockRestoredEvent.createdBy,
+                selectedUsers: stockRestoredEvent.selectedUsers,
+                selectedRoles: stockRestoredEvent.selectedRoles,
+                selectedLocations: stockRestoredEvent.selectedLocations,
+                seenBy: [],
+                event: NotificationEventType.STOCKRESTORED,
+                message,
+              });
+            }
           }
         }
       }

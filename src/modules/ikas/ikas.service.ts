@@ -10,10 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
-import {
-  NotificationEventType,
-  NotificationType,
-} from '../notification/notification.dto';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
@@ -21,12 +18,12 @@ import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 const NEORAMA_DEPO_LOCATION = 6;
 
@@ -1189,15 +1186,26 @@ export class IkasService {
                     product: foundMenuItem.name,
                   },
                 };
+                const notificationEvents =
+                  await this.notificationService.findAllEventNotifications();
 
-                await this.notificationService.createNotification({
-                  type: NotificationType.INFORMATION,
-                  selectedUsers: (uniqueVisitUsers as any) ?? [],
-                  selectedLocations: [2],
-                  seenBy: [],
-                  event: NotificationEventType.IKASTAKEAWAY,
-                  message,
-                });
+                const ikasTakeawayEvent = notificationEvents.find(
+                  (notification) =>
+                    notification.event === NotificationEventType.IKASTAKEAWAY,
+                );
+
+                if (ikasTakeawayEvent) {
+                  await this.notificationService.createNotification({
+                    type: ikasTakeawayEvent.type,
+                    createdBy: ikasTakeawayEvent.createdBy,
+                    selectedUsers: ikasTakeawayEvent.selectedUsers,
+                    selectedRoles: ikasTakeawayEvent.selectedRoles,
+                    selectedLocations: ikasTakeawayEvent.selectedLocations,
+                    seenBy: [],
+                    event: NotificationEventType.IKASTAKEAWAY,
+                    message,
+                  });
+                }
               }
             }
             const createdCollection = {

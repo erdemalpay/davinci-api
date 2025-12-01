@@ -14,10 +14,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
-import {
-  NotificationEventType,
-  NotificationType,
-} from '../notification/notification.dto';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
@@ -557,15 +554,25 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
           tableWord: unclosedTables.length === 1 ? 'table' : 'tables',
         },
       };
-      await this.notificationService.createNotification({
-        type: NotificationType.WARNING,
-        selectedUsers: [],
-        selectedRoles: [1],
-        selectedLocations: [2],
-        seenBy: [],
-        event: NotificationEventType.NIGHTOPENTABLE,
-        message,
-      });
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const nightOpenTableEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.NIGHTOPENTABLE,
+      );
+
+      if (nightOpenTableEvent) {
+        await this.notificationService.createNotification({
+          type: nightOpenTableEvent.type,
+          createdBy: nightOpenTableEvent.createdBy,
+          selectedUsers: nightOpenTableEvent.selectedUsers,
+          selectedRoles: nightOpenTableEvent.selectedRoles,
+          selectedLocations: nightOpenTableEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.NIGHTOPENTABLE,
+          message,
+        });
+      }
     } else {
       this.logger.log('No unclosed tables found');
     }

@@ -3,10 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
-import {
-  NotificationEventType,
-  NotificationType,
-} from '../notification/notification.dto';
+import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -195,13 +192,20 @@ export class ChecklistService {
           user: check.user,
         },
       };
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const unCompletedChecklistEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.UNCOMPLETEDCHECKLIST,
+      );
 
       if (unCompletedDuties?.length > 0) {
         await this.notificationService.createNotification({
-          type: NotificationType.WARNING,
-          selectedUsers: [],
-          selectedLocations: [],
-          selectedRoles: [1],
+          type: unCompletedChecklistEvent.type, // ✅ DB'den
+          createdBy: unCompletedChecklistEvent.createdBy, // ✅ DB'den
+          selectedUsers: unCompletedChecklistEvent.selectedUsers,
+          selectedLocations: unCompletedChecklistEvent.selectedLocations,
+          selectedRoles: unCompletedChecklistEvent.selectedRoles,
           seenBy: [],
           event: NotificationEventType.UNCOMPLETEDCHECKLIST,
           message,

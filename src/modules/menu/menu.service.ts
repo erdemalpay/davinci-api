@@ -362,17 +362,29 @@ export class MenuService {
         status: statusKey,
       },
     };
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
 
-    await this.notificationService.createNotification({
-      type: updates?.active ? 'INFORMATION' : 'WARNING',
-      selectedUsers: (uniqueVisitUsers as any) ?? [],
-      selectedLocations: [2],
-      seenBy: [],
-      event: updates?.active
-        ? NotificationEventType.KITCHENACTIVATED
-        : NotificationEventType.KITCHENDEACTIVATED,
-      message,
-    });
+    const eventType = updates?.active
+      ? NotificationEventType.KITCHENACTIVATED
+      : NotificationEventType.KITCHENDEACTIVATED;
+
+    const kitchenEvent = notificationEvents.find(
+      (notification) => notification.event === eventType,
+    );
+
+    if (kitchenEvent) {
+      await this.notificationService.createNotification({
+        type: kitchenEvent.type,
+        createdBy: kitchenEvent.createdBy,
+        selectedUsers: kitchenEvent.selectedUsers,
+        selectedLocations: kitchenEvent.selectedLocations,
+        selectedRoles: kitchenEvent.selectedRoles,
+        seenBy: [],
+        event: eventType,
+        message,
+      });
+    }
     this.websocketGateway.emitCategoryChanged(user, category);
     return category;
   }
