@@ -351,6 +351,11 @@ export class OrderController {
     return this.orderService.findTodayOrders(after);
   }
 
+  @Get('/collection/today')
+  findTodayCollections(@Query('after') after: string) {
+    return this.orderService.findTodayCollections(after);
+  }
+
   @Get('/personal')
   findPersonalData(
     @Query('after') after: string,

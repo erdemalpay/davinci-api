@@ -567,6 +567,32 @@ export class OrderService {
       );
     }
   }
+
+  async findTodayCollections(after: string) {
+    const start = new Date(after);
+    start.setUTCHours(0, 0, 0, 0);
+
+    const end = new Date(after);
+    end.setUTCHours(23, 59, 59, 999);
+    try {
+      const collections = await this.collectionModel
+        .find({
+          tableDate: { $gte: start, $lte: end },
+        })
+        .populate(
+          'table',
+          'date _id name isOnlineSale finishHour type startHour',
+        )
+        .exec();
+      return collections;
+    } catch (error) {
+      throw new HttpException(
+        "Failed to fetch today's collections",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findTopOrderCreators(date: string, location: number) {
     const start = new Date(date);
     start.setUTCHours(0, 0, 0, 0);
