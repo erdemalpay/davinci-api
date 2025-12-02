@@ -4,7 +4,7 @@ on:
   issue_comment:
 jobs:
   pr_agent_job:
-    if: ${{ github.event.sender.type != 'Bot' }}
+    if: false # Workflow disabled
     runs-on: ubuntu-latest
     permissions:
       issues: write
