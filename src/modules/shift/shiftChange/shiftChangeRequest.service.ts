@@ -104,7 +104,6 @@ export class ShiftChangeRequestService {
     requesterId: string,
     createDto: CreateShiftChangeRequestDto,
   ) {
-
     if (createDto.requesterShift.userId !== requesterId) {
       throw new HttpException(
         'Requester must be in requester shift',
@@ -134,7 +133,6 @@ export class ShiftChangeRequestService {
     }
 
     if (createDto.type === ShiftChangeType.SWAP) {
-
       if (createDto.targetShift.userId !== createDto.targetUserId) {
         throw new HttpException(
           'Target user must be in target shift',
@@ -177,8 +175,8 @@ export class ShiftChangeRequestService {
         );
       }
     } else if (createDto.type === ShiftChangeType.SWAP) {
-
-      const sameDay = createDto.requesterShift.day === createDto.targetShift.day;
+      const sameDay =
+        createDto.requesterShift.day === createDto.targetShift.day;
 
       if (sameDay) {
         const targetHasOtherShifts = await this.checkUserHasOtherShiftsOnDay(
@@ -249,64 +247,81 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    const userNames = await this.getUserNames([
-      requesterId,
-      createDto.targetUserId,
-    ]);
-    const requesterName = userNames[requesterId] ?? 'Unknown User';
-    const targetName = userNames[createDto.targetUserId] ?? 'Unknown User';
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const shiftChangeRequestedEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.SHIFTCHANGEREQUESTED,
+    );
 
-    const locationNames = await this.getLocationNames([
-      createDto.requesterShift.location,
-      createDto.targetShift?.location,
-    ]);
-    const requesterLocationName =
-      locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
-    const targetLocationName = createDto.targetShift?.location
-      ? locationNames[createDto.targetShift.location] ?? 'Unknown Location'
-      : '';
+    if (shiftChangeRequestedEvent) {
+      const userNames = await this.getUserNames([
+        requesterId,
+        createDto.targetUserId,
+      ]);
+      const requesterName = userNames[requesterId] ?? 'Unknown User';
+      const targetName = userNames[createDto.targetUserId] ?? 'Unknown User';
 
-    await this.notificationService.createNotification({
-      message: {
-        key: `ShiftChangeRequestForTarget_${createDto.type}`,
-        params: {
-          requesterName,
-          targetName,
-          requesterShiftDay: createDto.requesterShift.day,
-          requesterShiftStartTime: createDto.requesterShift.startTime,
-          requesterShiftEndTime: createDto.requesterShift.endTime,
-          requesterShiftLocation: requesterLocationName,
-          targetShiftDay: createDto.targetShift?.day || '',
-          targetShiftStartTime: createDto.targetShift?.startTime || '',
-          targetShiftEndTime: createDto.targetShift?.endTime || '',
-          targetShiftLocation: targetLocationName,
+      const locationNames = await this.getLocationNames([
+        createDto.requesterShift.location,
+        createDto.targetShift?.location,
+      ]);
+      const requesterLocationName =
+        locationNames[createDto.requesterShift.location] ?? 'Unknown Location';
+      const targetLocationName = createDto.targetShift?.location
+        ? locationNames[createDto.targetShift.location] ?? 'Unknown Location'
+        : '';
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeRequestForTarget_${createDto.type}`,
+          params: {
+            requesterName,
+            targetName,
+            requesterShiftDay: createDto.requesterShift.day,
+            requesterShiftStartTime: createDto.requesterShift.startTime,
+            requesterShiftEndTime: createDto.requesterShift.endTime,
+            requesterShiftLocation: requesterLocationName,
+            targetShiftDay: createDto.targetShift?.day || '',
+            targetShiftStartTime: createDto.targetShift?.startTime || '',
+            targetShiftEndTime: createDto.targetShift?.endTime || '',
+            targetShiftLocation: targetLocationName,
+          },
         },
-      },
-      type: 'INFORMATION',
-      selectedUsers: [createDto.targetUserId],
-      event: NotificationEventType.SHIFTCHANGEREQUESTED,
-    });
+        type: shiftChangeRequestedEvent.type,
+        createdBy: shiftChangeRequestedEvent.createdBy,
+        selectedUsers: [createDto.targetUserId],
+        selectedRoles: shiftChangeRequestedEvent.selectedRoles,
+        selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREQUESTED,
+      });
 
-    await this.notificationService.createNotification({
-      message: {
-        key: `ShiftChangeRequestForManagers_${createDto.type}`,
-        params: {
-          requesterName,
-          targetName,
-          requesterShiftDay: createDto.requesterShift.day,
-          requesterShiftStartTime: createDto.requesterShift.startTime,
-          requesterShiftEndTime: createDto.requesterShift.endTime,
-          requesterShiftLocation: requesterLocationName,
-          targetShiftDay: createDto.targetShift?.day || '',
-          targetShiftStartTime: createDto.targetShift?.startTime || '',
-          targetShiftEndTime: createDto.targetShift?.endTime || '',
-          targetShiftLocation: targetLocationName,
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeRequestForManagers_${createDto.type}`,
+          params: {
+            requesterName,
+            targetName,
+            requesterShiftDay: createDto.requesterShift.day,
+            requesterShiftStartTime: createDto.requesterShift.startTime,
+            requesterShiftEndTime: createDto.requesterShift.endTime,
+            requesterShiftLocation: requesterLocationName,
+            targetShiftDay: createDto.targetShift?.day || '',
+            targetShiftStartTime: createDto.targetShift?.startTime || '',
+            targetShiftEndTime: createDto.targetShift?.endTime || '',
+            targetShiftLocation: targetLocationName,
+          },
         },
-      },
-      type: 'INFORMATION',
-      selectedRoles: [1, 3, 4],
-      event: NotificationEventType.SHIFTCHANGEREQUESTED,
-    });
+        type: shiftChangeRequestedEvent.type,
+        createdBy: shiftChangeRequestedEvent.createdBy,
+        selectedUsers: shiftChangeRequestedEvent.selectedUsers,
+        selectedRoles: shiftChangeRequestedEvent.selectedRoles,
+        selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREQUESTED,
+      });
+    }
 
     this.websocketGateway.emitShiftChangeRequestChanged({
       action: 'created',
@@ -442,7 +457,15 @@ export class ShiftChangeRequestService {
       request.managerNote = updateDto.managerNote;
     }
 
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+
     if (request.targetUserApprovalStatus === ApprovalStatus.APPROVED) {
+      const shiftChangeApprovedEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.SHIFTCHANGEAPPROVED,
+      );
+
       const userNames = await this.getUserNames([
         request.requesterId,
         request.targetUserId,
@@ -464,67 +487,90 @@ export class ShiftChangeRequestService {
 
       await request.save();
 
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeApprovedRequester_${request.type}`,
-          params: {
-            targetName,
-            requesterName,
-            managerName,
+      if (shiftChangeApprovedEvent) {
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeApprovedRequester_${request.type}`,
+            params: {
+              targetName,
+              requesterName,
+              managerName,
+            },
           },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [request.requesterId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: [request.requesterId],
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
 
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeApprovedTarget_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeApprovedTarget_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
           },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [request.targetUserId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: [request.targetUserId],
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
 
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeApprovedManager_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeApprovedManager_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
           },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [managerId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: [managerId],
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
 
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeCompletedForManagers_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeCompletedForManagers_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
           },
-        },
-        type: 'SUCCESS',
-        selectedRoles: [1, 3, 4],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: shiftChangeApprovedEvent.selectedUsers,
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
+      }
 
       this.websocketGateway.emitShiftChangeRequestChanged({
         action: 'approved',
         request,
       });
     } else {
+      const shiftChangeRequestedEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.SHIFTCHANGEREQUESTED,
+      );
+
       const userNames = await this.getUserNames([
         request.requesterId,
         managerId,
@@ -534,18 +580,24 @@ export class ShiftChangeRequestService {
 
       await request.save();
 
-      await this.notificationService.createNotification({
-        message: {
-          key: 'ShiftChangeManagerApprovedPendingTarget',
-          params: {
-            requesterName,
-            managerName,
+      if (shiftChangeRequestedEvent) {
+        await this.notificationService.createNotification({
+          message: {
+            key: 'ShiftChangeManagerApprovedPendingTarget',
+            params: {
+              requesterName,
+              managerName,
+            },
           },
-        },
-        type: 'INFORMATION',
-        selectedUsers: [request.targetUserId],
-        event: NotificationEventType.SHIFTCHANGEREQUESTED,
-      });
+          type: shiftChangeRequestedEvent.type,
+          createdBy: shiftChangeRequestedEvent.createdBy,
+          selectedUsers: [request.targetUserId],
+          selectedRoles: shiftChangeRequestedEvent.selectedRoles,
+          selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEREQUESTED,
+        });
+      }
 
       this.websocketGateway.emitShiftChangeRequestChanged({
         action: 'manager_approved',
@@ -587,7 +639,15 @@ export class ShiftChangeRequestService {
     request.targetUserApprovalStatus = ApprovalStatus.APPROVED;
     request.targetUserApprovedAt = new Date();
 
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+
     if (request.managerApprovalStatus === ApprovalStatus.APPROVED) {
+      const shiftChangeApprovedEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.SHIFTCHANGEAPPROVED,
+      );
+
       const userNames = await this.getUserNames([
         request.requesterId,
         request.targetUserId,
@@ -609,63 +669,81 @@ export class ShiftChangeRequestService {
 
       await request.save();
 
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeApprovedRequester_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
-          },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [request.requesterId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
-
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeApprovedTarget_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
-          },
-        },
-        type: 'SUCCESS',
-        selectedUsers: [request.targetUserId],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
-
-      if (request.managerApprovedBy) {
+      if (shiftChangeApprovedEvent) {
         await this.notificationService.createNotification({
           message: {
-            key: `ShiftChangeApprovedManager_${request.type}`,
+            key: `ShiftChangeApprovedRequester_${request.type}`,
             params: {
               requesterName,
               targetName,
               managerName,
             },
           },
-          type: 'SUCCESS',
-          selectedUsers: [request.managerApprovedBy],
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: [request.requesterId],
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
+
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeApprovedTarget_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
+          },
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: [request.targetUserId],
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEAPPROVED,
+        });
+
+        if (request.managerApprovedBy) {
+          await this.notificationService.createNotification({
+            message: {
+              key: `ShiftChangeApprovedManager_${request.type}`,
+              params: {
+                requesterName,
+                targetName,
+                managerName,
+              },
+            },
+            type: shiftChangeApprovedEvent.type,
+            createdBy: shiftChangeApprovedEvent.createdBy,
+            selectedUsers: [request.managerApprovedBy],
+            selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+            selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+            seenBy: [],
+            event: NotificationEventType.SHIFTCHANGEAPPROVED,
+          });
+        }
+
+        await this.notificationService.createNotification({
+          message: {
+            key: `ShiftChangeCompletedForManagers_${request.type}`,
+            params: {
+              requesterName,
+              targetName,
+              managerName,
+            },
+          },
+          type: shiftChangeApprovedEvent.type,
+          createdBy: shiftChangeApprovedEvent.createdBy,
+          selectedUsers: shiftChangeApprovedEvent.selectedUsers,
+          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
+          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
       }
-
-      await this.notificationService.createNotification({
-        message: {
-          key: `ShiftChangeCompletedForManagers_${request.type}`,
-          params: {
-            requesterName,
-            targetName,
-            managerName,
-          },
-        },
-        type: 'SUCCESS',
-        selectedRoles: [1, 3, 4],
-        event: NotificationEventType.SHIFTCHANGEAPPROVED,
-      });
 
       this.websocketGateway.emitShiftChangeRequestChanged({
         action: 'approved',
@@ -674,6 +752,11 @@ export class ShiftChangeRequestService {
     } else {
       await request.save();
 
+      const shiftChangeRequestedEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.SHIFTCHANGEREQUESTED,
+      );
+
       const userNames = await this.getUserNames([
         request.requesterId,
         request.targetUserId,
@@ -681,18 +764,24 @@ export class ShiftChangeRequestService {
       const requesterName = userNames[request.requesterId] ?? 'Unknown User';
       const targetName = userNames[request.targetUserId] ?? 'Unknown User';
 
-      await this.notificationService.createNotification({
-        message: {
-          key: 'ShiftChangeTargetApprovedPendingManager',
-          params: {
-            targetName,
-            requesterName,
+      if (shiftChangeRequestedEvent) {
+        await this.notificationService.createNotification({
+          message: {
+            key: 'ShiftChangeTargetApprovedPendingManager',
+            params: {
+              targetName,
+              requesterName,
+            },
           },
-        },
-        type: 'INFORMATION',
-        selectedRoles: [1, 3, 4],
-        event: NotificationEventType.SHIFTCHANGEREQUESTED,
-      });
+          type: shiftChangeRequestedEvent.type,
+          createdBy: shiftChangeRequestedEvent.createdBy,
+          selectedUsers: shiftChangeRequestedEvent.selectedUsers,
+          selectedRoles: shiftChangeRequestedEvent.selectedRoles,
+          selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.SHIFTCHANGEREQUESTED,
+        });
+      }
 
       this.websocketGateway.emitShiftChangeRequestChanged({
         action: 'target_approved',
@@ -732,43 +821,60 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    const userNames = await this.getUserNames([
-      request.requesterId,
-      managerId,
-    ]);
-    const managerName = userNames[managerId] ?? 'Unknown User';
-    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
-    const reasonText = updateDto.managerNote
-      ? `: ${updateDto.managerNote}`
-      : '';
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const shiftChangeRejectedEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.SHIFTCHANGEREJECTED,
+    );
 
-    await this.notificationService.createNotification({
-      message: {
-        key: 'ShiftChangeRejectedByManager',
-        params: {
-          managerName,
-          requesterName,
-          reasonText,
-        },
-      },
-      type: 'WARNING',
-      selectedUsers: [request.requesterId],
-      event: NotificationEventType.SHIFTCHANGEREJECTED,
-    });
+    if (shiftChangeRejectedEvent) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        managerId,
+      ]);
+      const managerName = userNames[managerId] ?? 'Unknown User';
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+      const reasonText = updateDto.managerNote
+        ? `: ${updateDto.managerNote}`
+        : '';
 
-    await this.notificationService.createNotification({
-      message: {
-        key: 'ShiftChangeRejectedByManager',
-        params: {
-          managerName,
-          requesterName,
-          reasonText,
+      await this.notificationService.createNotification({
+        message: {
+          key: 'ShiftChangeRejectedByManager',
+          params: {
+            managerName,
+            requesterName,
+            reasonText,
+          },
         },
-      },
-      type: 'WARNING',
-      selectedUsers: [request.targetUserId],
-      event: NotificationEventType.SHIFTCHANGEREJECTED,
-    });
+        type: shiftChangeRejectedEvent.type,
+        createdBy: shiftChangeRejectedEvent.createdBy,
+        selectedUsers: [request.requesterId],
+        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
+        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREJECTED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'ShiftChangeRejectedByManager',
+          params: {
+            managerName,
+            requesterName,
+            reasonText,
+          },
+        },
+        type: shiftChangeRejectedEvent.type,
+        createdBy: shiftChangeRejectedEvent.createdBy,
+        selectedUsers: [request.targetUserId],
+        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
+        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREJECTED,
+      });
+    }
 
     this.websocketGateway.emitShiftChangeRequestChanged({
       action: 'rejected',
@@ -805,25 +911,38 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    const userNames = await this.getUserNames([
-      request.requesterId,
-      targetUserId,
-    ]);
-    const targetName = userNames[targetUserId] ?? 'Unknown User';
-    const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const shiftChangeRejectedEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.SHIFTCHANGEREJECTED,
+    );
 
-    await this.notificationService.createNotification({
-      message: {
-        key: 'ShiftChangeRejectedByTarget',
-        params: {
-          targetName,
-          requesterName,
+    if (shiftChangeRejectedEvent) {
+      const userNames = await this.getUserNames([
+        request.requesterId,
+        targetUserId,
+      ]);
+      const targetName = userNames[targetUserId] ?? 'Unknown User';
+      const requesterName = userNames[request.requesterId] ?? 'Unknown User';
+
+      await this.notificationService.createNotification({
+        message: {
+          key: 'ShiftChangeRejectedByTarget',
+          params: {
+            targetName,
+            requesterName,
+          },
         },
-      },
-      type: 'WARNING',
-      selectedUsers: [request.requesterId],
-      event: NotificationEventType.SHIFTCHANGEREJECTED,
-    });
+        type: shiftChangeRejectedEvent.type,
+        createdBy: shiftChangeRejectedEvent.createdBy,
+        selectedUsers: [request.requesterId],
+        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
+        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREJECTED,
+      });
+    }
 
     this.websocketGateway.emitShiftChangeRequestChanged({
       action: 'rejected',
@@ -859,38 +978,55 @@ export class ShiftChangeRequestService {
 
     await request.save();
 
-    const userNames = await this.getUserNames([
-      requesterId,
-      request.targetUserId,
-    ]);
-    const requesterName = userNames[requesterId] ?? 'Unknown User';
-    const targetName = userNames[request.targetUserId] ?? 'Unknown User';
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const shiftChangeRejectedEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.SHIFTCHANGEREJECTED,
+    );
 
-    await this.notificationService.createNotification({
-      message: {
-        key: `ShiftChangeCancelled_${request.type}`,
-        params: {
-          requesterName,
-          targetName,
-        },
-      },
-      type: 'INFORMATION',
-      selectedUsers: [request.targetUserId],
-      event: NotificationEventType.SHIFTCHANGEREJECTED,
-    });
+    if (shiftChangeRejectedEvent) {
+      const userNames = await this.getUserNames([
+        requesterId,
+        request.targetUserId,
+      ]);
+      const requesterName = userNames[requesterId] ?? 'Unknown User';
+      const targetName = userNames[request.targetUserId] ?? 'Unknown User';
 
-    await this.notificationService.createNotification({
-      message: {
-        key: `ShiftChangeCancelled_${request.type}`,
-        params: {
-          requesterName,
-          targetName,
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCancelled_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+          },
         },
-      },
-      type: 'INFORMATION',
-      selectedRoles: [1, 3, 4],
-      event: NotificationEventType.SHIFTCHANGEREJECTED,
-    });
+        type: shiftChangeRejectedEvent.type,
+        createdBy: shiftChangeRejectedEvent.createdBy,
+        selectedUsers: [request.targetUserId],
+        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
+        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREJECTED,
+      });
+
+      await this.notificationService.createNotification({
+        message: {
+          key: `ShiftChangeCancelled_${request.type}`,
+          params: {
+            requesterName,
+            targetName,
+          },
+        },
+        type: shiftChangeRejectedEvent.type,
+        createdBy: shiftChangeRejectedEvent.createdBy,
+        selectedUsers: shiftChangeRejectedEvent.selectedUsers,
+        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
+        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.SHIFTCHANGEREJECTED,
+      });
+    }
 
     this.websocketGateway.emitShiftChangeRequestChanged({
       action: 'cancelled',

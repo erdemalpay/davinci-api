@@ -8,6 +8,7 @@ import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ShiftService } from './../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
@@ -19,7 +20,6 @@ import {
   VisitTypes,
 } from './visit.dto';
 import { Visit } from './visit.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 export class VisitService {
   constructor(
@@ -63,8 +63,15 @@ export class VisitService {
     const foundShift = shifts[0]?.shifts?.find((shift) => {
       return shift.user.includes(user._id);
     });
-    if (foundShift) {
-      if (createVisitDto.startHour > foundShift.shift) {
+    if (foundShift && createVisitDto.startHour > foundShift.shift) {
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const lateshiftstartEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.LATESHIFTSTART,
+      );
+
+      if (lateshiftstartEvent) {
         const message = {
           key: 'ShiftLateNotice',
           params: {
@@ -75,9 +82,11 @@ export class VisitService {
         };
 
         await this.notificationService.createNotification({
-          type: 'WARNING',
-          selectedUsers: [user._id],
-          selectedRoles: [1],
+          type: lateshiftstartEvent.type,
+          createdBy: lateshiftstartEvent.createdBy,
+          selectedUsers: lateshiftstartEvent.selectedUsers,
+          selectedRoles: lateshiftstartEvent.selectedRoles,
+          selectedLocations: lateshiftstartEvent.selectedLocations,
           seenBy: [],
           event: NotificationEventType.LATESHIFTSTART,
           message,
@@ -103,8 +112,12 @@ export class VisitService {
     return this.visitModel.create(visitDto);
   }
 
-  async finish(user: User, id: number, finishHour: string, visitFinishSource: VisitSource) {
-
+  async finish(
+    user: User,
+    id: number,
+    finishHour: string,
+    visitFinishSource: VisitSource,
+  ) {
     const existingVisit = await this.visitModel.findById(id);
     if (!existingVisit) {
       throw new NotFoundException(`Visit with id ${id} not found`);
@@ -133,34 +146,46 @@ export class VisitService {
       });
 
       if (foundShift && foundShift.shiftEndHour) {
-
         const isNightShift = foundShift.shiftEndHour < foundShift.shift;
         let isEarlyExit = false;
 
         if (isNightShift) {
-          isEarlyExit = finishHour >= foundShift.shift || finishHour < foundShift.shiftEndHour;
+          isEarlyExit =
+            finishHour >= foundShift.shift ||
+            finishHour < foundShift.shiftEndHour;
         } else if (finishHour >= foundShift.shift) {
           isEarlyExit = finishHour < foundShift.shiftEndHour;
         }
 
         if (isEarlyExit) {
-          const message = {
-            key: 'ShiftEndEarlyNotice',
-            params: {
-              user: user.name,
-              shiftEnd: foundShift.shiftEndHour,
-              exitedAt: finishHour,
-            },
-          };
+          const notificationEvents =
+            await this.notificationService.findAllEventNotifications();
+          const earlyShiftEndEvent = notificationEvents.find(
+            (notification) =>
+              notification.event === NotificationEventType.EARLYSHIFTEND,
+          );
 
-          await this.notificationService.createNotification({
-            type: 'WARNING',
-            selectedUsers: [user._id],
-            selectedRoles: [1], // RoleEnum.MANAGER
-            seenBy: [],
-            event: NotificationEventType.EARLYSHIFTEND,
-            message,
-          });
+          if (earlyShiftEndEvent) {
+            const message = {
+              key: 'ShiftEndEarlyNotice',
+              params: {
+                user: user.name,
+                shiftEnd: foundShift.shiftEndHour,
+                exitedAt: finishHour,
+              },
+            };
+
+            await this.notificationService.createNotification({
+              type: earlyShiftEndEvent.type,
+              createdBy: earlyShiftEndEvent.createdBy,
+              selectedUsers: earlyShiftEndEvent.selectedUsers,
+              selectedRoles: earlyShiftEndEvent.selectedRoles,
+              selectedLocations: earlyShiftEndEvent.selectedLocations,
+              seenBy: [],
+              event: NotificationEventType.EARLYSHIFTEND,
+              message,
+            });
+          }
         }
       }
     }
@@ -301,8 +326,15 @@ export class VisitService {
       const foundShift = shifts[0]?.shifts?.find((shift) => {
         return shift.user.includes(user._id);
       });
-      if (foundShift) {
-        if (cafeVisitDto.hour > foundShift.shift) {
+      if (foundShift && cafeVisitDto.hour > foundShift.shift) {
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const lateshiftstartEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.LATESHIFTSTART,
+        );
+
+        if (lateshiftstartEvent) {
           const message = {
             key: 'ShiftLateNotice',
             params: {
@@ -313,9 +345,11 @@ export class VisitService {
           };
 
           await this.notificationService.createNotification({
-            type: 'WARNING',
-            selectedUsers: [user._id],
-            selectedRoles: [1],
+            type: lateshiftstartEvent.type,
+            createdBy: lateshiftstartEvent.createdBy,
+            selectedUsers: lateshiftstartEvent.selectedUsers,
+            selectedRoles: lateshiftstartEvent.selectedRoles,
+            selectedLocations: lateshiftstartEvent.selectedLocations,
             seenBy: [],
             event: NotificationEventType.LATESHIFTSTART,
             message,
@@ -352,7 +386,6 @@ export class VisitService {
         })
         .sort({ date: -1, startHour: -1 });
       if (lastVisit) {
-
         if (!lastVisit.finishHour) {
           const shifts = await this.shiftService.findQueryShifts({
             after: cafeVisitDto.date,
@@ -368,34 +401,50 @@ export class VisitService {
             let isEarlyExit = false;
 
             if (isNightShift) {
-              isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+              isEarlyExit =
+                cafeVisitDto.hour >= foundShift.shift ||
+                cafeVisitDto.hour < foundShift.shiftEndHour;
             } else if (cafeVisitDto.hour >= foundShift.shift) {
               isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
             }
 
             if (isEarlyExit) {
-              const message = {
-                key: 'ShiftEndEarlyNotice',
-                params: {
-                  user: user.name,
-                  shiftEnd: foundShift.shiftEndHour,
-                  exitedAt: cafeVisitDto.hour,
-                },
-              };
+              const notificationEvents =
+                await this.notificationService.findAllEventNotifications();
+              const earlyShiftEndEvent = notificationEvents.find(
+                (notification) =>
+                  notification.event === NotificationEventType.EARLYSHIFTEND,
+              );
 
-              await this.notificationService.createNotification({
-                type: 'WARNING',
-                selectedUsers: [user._id],
-                selectedRoles: [1],
-                seenBy: [],
-                event: NotificationEventType.EARLYSHIFTEND,
-                message,
-              });
+              if (earlyShiftEndEvent) {
+                const message = {
+                  key: 'ShiftEndEarlyNotice',
+                  params: {
+                    user: user.name,
+                    shiftEnd: foundShift.shiftEndHour,
+                    exitedAt: cafeVisitDto.hour,
+                  },
+                };
+
+                await this.notificationService.createNotification({
+                  type: earlyShiftEndEvent.type,
+                  createdBy: earlyShiftEndEvent.createdBy,
+                  selectedUsers: earlyShiftEndEvent.selectedUsers,
+                  selectedRoles: earlyShiftEndEvent.selectedRoles,
+                  selectedLocations: earlyShiftEndEvent.selectedLocations,
+                  seenBy: [],
+                  event: NotificationEventType.EARLYSHIFTEND,
+                  message,
+                });
+              }
             }
           }
         }
 
-        await lastVisit.updateOne({ finishHour: cafeVisitDto.hour, visitFinishSource: VisitSource.FACE_RECOGNITION });
+        await lastVisit.updateOne({
+          finishHour: cafeVisitDto.hour,
+          visitFinishSource: VisitSource.FACE_RECOGNITION,
+        });
 
         try {
           await this.activityService.addActivity(
@@ -432,29 +481,42 @@ export class VisitService {
         let isEarlyExit = false;
 
         if (isNightShift) {
-          isEarlyExit = cafeVisitDto.hour >= foundShift.shift || cafeVisitDto.hour < foundShift.shiftEndHour;
+          isEarlyExit =
+            cafeVisitDto.hour >= foundShift.shift ||
+            cafeVisitDto.hour < foundShift.shiftEndHour;
         } else if (cafeVisitDto.hour >= foundShift.shift) {
           isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
         }
 
         if (isEarlyExit) {
-          const message = {
-            key: 'ShiftEndEarlyNotice',
-            params: {
-              user: user.name,
-              shiftEnd: foundShift.shiftEndHour,
-              exitedAt: cafeVisitDto.hour,
-            },
-          };
+          const notificationEvents =
+            await this.notificationService.findAllEventNotifications();
+          const earlyShiftEndEvent = notificationEvents.find(
+            (notification) =>
+              notification.event === NotificationEventType.EARLYSHIFTEND,
+          );
 
-          await this.notificationService.createNotification({
-            type: 'WARNING',
-            selectedUsers: [user._id],
-            selectedRoles: [1],
-            seenBy: [],
-            event: NotificationEventType.EARLYSHIFTEND,
-            message,
-          });
+          if (earlyShiftEndEvent) {
+            const message = {
+              key: 'ShiftEndEarlyNotice',
+              params: {
+                user: user.name,
+                shiftEnd: foundShift.shiftEndHour,
+                exitedAt: cafeVisitDto.hour,
+              },
+            };
+
+            await this.notificationService.createNotification({
+              type: earlyShiftEndEvent.type,
+              createdBy: earlyShiftEndEvent.createdBy,
+              selectedUsers: earlyShiftEndEvent.selectedUsers,
+              selectedRoles: earlyShiftEndEvent.selectedRoles,
+              selectedLocations: earlyShiftEndEvent.selectedLocations,
+              seenBy: [],
+              event: NotificationEventType.EARLYSHIFTEND,
+              message,
+            });
+          }
         }
       }
 
@@ -515,9 +577,9 @@ export class VisitService {
         finishHour: { $exists: false },
         date: { $gte: twoDaysAgo },
         $or: [
-          { notificationSent: { $exists: false } },  // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
-          { notificationSent: false }                // yeni kayıtlar için
-        ]
+          { notificationSent: { $exists: false } }, // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
+          { notificationSent: false }, // yeni kayıtlar için
+        ],
       })
       .populate({
         path: 'user',
@@ -530,6 +592,17 @@ export class VisitService {
       .lean();
 
     if (openVisits.length === 0) {
+      return 0;
+    }
+
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const unfinishedVisitEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.UNFINISHEDVISIT,
+    );
+
+    if (!unfinishedVisitEvent) {
       return 0;
     }
 
@@ -546,8 +619,11 @@ export class VisitService {
       };
 
       await this.notificationService.createNotification({
-        type: 'WARNING',
-        selectedRoles: [1], // RoleEnum.MANAGER
+        type: unfinishedVisitEvent.type,
+        createdBy: unfinishedVisitEvent.createdBy,
+        selectedUsers: unfinishedVisitEvent.selectedUsers,
+        selectedRoles: unfinishedVisitEvent.selectedRoles,
+        selectedLocations: unfinishedVisitEvent.selectedLocations,
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
         message: managerMessage,
@@ -563,8 +639,12 @@ export class VisitService {
       };
 
       await this.notificationService.createNotification({
-        type: 'WARNING',
+        type: unfinishedVisitEvent.type,
+        createdBy: unfinishedVisitEvent.createdBy,
         selectedUsers: [visit.user._id],
+        selectedRoles: unfinishedVisitEvent.selectedRoles,
+        selectedLocations: unfinishedVisitEvent.selectedLocations,
+        seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
         message: employeeMessage,
       });

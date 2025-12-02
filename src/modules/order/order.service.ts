@@ -1231,15 +1231,25 @@ export class OrderService {
           minutes: 5,
         },
       };
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      const kitchenNotConfirmedEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.KITCHENNOTCONFIRMED,
+      );
 
-      await this.notificationService.createNotification({
-        type: 'WARNING',
-        selectedUsers: (uniqueVisitUsers as any) ?? [],
-        selectedLocations: [2],
-        seenBy: [],
-        event: NotificationEventType.KITCHENNOTCONFIRMED,
-        message,
-      });
+      if (kitchenNotConfirmedEvent) {
+        await this.notificationService.createNotification({
+          type: kitchenNotConfirmedEvent.type,
+          createdBy: kitchenNotConfirmedEvent.createdBy,
+          selectedUsers: kitchenNotConfirmedEvent.selectedUsers,
+          selectedRoles: kitchenNotConfirmedEvent.selectedRoles,
+          selectedLocations: kitchenNotConfirmedEvent.selectedLocations,
+          seenBy: [],
+          event: NotificationEventType.KITCHENNOTCONFIRMED,
+          message,
+        });
+      }
     }
   }
   async returnOrder(
