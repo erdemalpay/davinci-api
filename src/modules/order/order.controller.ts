@@ -144,6 +144,11 @@ export class OrderController {
     return this.orderService.dedupeIkasDuplicates();
   }
 
+  @Get('/remove-zero-quantity')
+  removeZeroQuantityOrders() {
+    return this.orderService.removeZeroQuantityOrders();
+  }
+
   @Post('/create_order_for_discount')
   createOrderForDiscount(
     @ReqUser() user: User,

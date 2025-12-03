@@ -3177,6 +3177,24 @@ export class OrderService {
     await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
     return orderNote;
   }
+  async removeZeroQuantityOrders() {
+    try {
+      const result = await this.orderModel.deleteMany({
+        quantity: 0,
+      });
+
+      return {
+        message: 'Successfully removed orders with 0 quantity',
+        deletedCount: result.deletedCount,
+      };
+    } catch (error) {
+      console.error('Error removing zero quantity orders:', error);
+      throw new HttpException(
+        'Failed to remove zero quantity orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async dedupeIkasDuplicates(options?: { sinceOnly?: Date; dryRun?: boolean }) {
     const sinceOnly = options?.sinceOnly;
     const dryRun = !!options?.dryRun;
