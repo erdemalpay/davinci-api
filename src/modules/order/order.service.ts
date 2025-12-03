@@ -2632,15 +2632,23 @@ export class OrderService {
           throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
         }
         // Update the old order
-        oldOrder.quantity =
+        const newQuantity =
           orderItem.totalQuantity - orderItem.selectedQuantity;
 
+        if (newQuantity < 0) {
+          throw new HttpException(
+            'Invalid quantity calculation',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
         try {
-          if (oldOrder?.quantity === 0) {
-            await this.orderModel.findByIdAndDelete(oldOrder?._id);
+          if (newQuantity === 0) {
+            await this.orderModel.findByIdAndDelete(oldOrder._id);
             this.websocketGateway.emitOrderUpdated(user, oldOrder);
           } else {
-            await oldOrder?.save();
+            oldOrder.quantity = newQuantity;
+            await oldOrder.save();
             this.websocketGateway.emitOrderUpdated(user, oldOrder);
           }
         } catch (error) {
@@ -2671,11 +2679,18 @@ export class OrderService {
       const updatedOrder = { ...order.toObject() };
       delete updatedOrder.discount;
       delete updatedOrder.discountPercentage;
+      delete updatedOrder.discountAmount;
+      delete updatedOrder.discountNote;
 
       try {
         await this.orderModel.findByIdAndUpdate(orderId, {
           $set: updatedOrder,
-          $unset: { discount: '', discountPercentage: '' },
+          $unset: {
+            discount: '',
+            discountPercentage: '',
+            discountAmount: '',
+            discountNote: '',
+          },
         });
         this.websocketGateway.emitOrderUpdated(user, updatedOrder);
       } catch (error) {
@@ -2696,6 +2711,10 @@ export class OrderService {
         ...orderDataWithoutId,
         quantity: cancelQuantity,
         paidQuantity: 0,
+        discount: undefined,
+        discountPercentage: undefined,
+        discountAmount: undefined,
+        discountNote: undefined,
       });
       try {
         await newOrder.save();
@@ -2728,13 +2747,21 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
       // Update the old order
-      order.quantity = order.quantity - cancelQuantity;
+      const newQuantity = order.quantity - cancelQuantity;
+
+      if (newQuantity < 0) {
+        throw new HttpException(
+          'Invalid quantity calculation',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       try {
-        if (order.quantity === 0) {
+        if (newQuantity === 0) {
           await this.orderModel.findByIdAndDelete(order._id);
           this.websocketGateway.emitOrderUpdated(user, order);
         } else {
+          order.quantity = newQuantity;
           await order.save();
           this.websocketGateway.emitOrderUpdated(user, order);
         }
@@ -3149,6 +3176,24 @@ export class OrderService {
     }
     await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
     return orderNote;
+  }
+  async removeZeroQuantityOrders() {
+    try {
+      const result = await this.orderModel.deleteMany({
+        quantity: 0,
+      });
+
+      return {
+        message: 'Successfully removed orders with 0 quantity',
+        deletedCount: result.deletedCount,
+      };
+    } catch (error) {
+      console.error('Error removing zero quantity orders:', error);
+      throw new HttpException(
+        'Failed to remove zero quantity orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
   async dedupeIkasDuplicates(options?: { sinceOnly?: Date; dryRun?: boolean }) {
     const sinceOnly = options?.sinceOnly;
