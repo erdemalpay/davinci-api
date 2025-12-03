@@ -3,7 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
-import { NotificationEventType } from '../notification/notification.dto';
+import {
+  NotificationEventType,
+  NotificationType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -190,6 +193,7 @@ export class ChecklistService {
           dutyWord: unCompletedDuties.length === 1 ? 'duty' : 'duties',
           checklist: check.checklist,
           user: check.user,
+          navigate: `/check-archive/${check._id}`,
         },
       };
       const notificationEvents =
@@ -201,7 +205,7 @@ export class ChecklistService {
 
       if (unCompletedDuties?.length > 0) {
         await this.notificationService.createNotification({
-          type: unCompletedChecklistEvent.type, // ✅ DB'den
+          type: unCompletedChecklistEvent?.type ?? NotificationType.INFORMATION, // ✅ DB'den
           createdBy: unCompletedChecklistEvent.createdBy, // ✅ DB'den
           selectedUsers: unCompletedChecklistEvent.selectedUsers,
           selectedLocations: unCompletedChecklistEvent.selectedLocations,

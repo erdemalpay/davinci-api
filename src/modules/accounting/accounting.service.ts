@@ -2862,6 +2862,7 @@ export class AccountingService {
             user: user?.name,
             location: countLocation?.name,
             list: countList?.name,
+            navigate: `/archive/${count._id}`,
           },
         };
 
