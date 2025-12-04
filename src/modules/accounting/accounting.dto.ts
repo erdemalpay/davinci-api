@@ -169,6 +169,8 @@ export class CreateExpenseDto {
   type: string;
   isStockIncrement?: boolean;
   isAfterCount: boolean;
+  vat?: number;
+  discount?: number;
 }
 export class CreateMultipleExpenseDto {
   date: string;
@@ -180,7 +182,8 @@ export class CreateMultipleExpenseDto {
   paymentMethod: string;
   quantity: number;
   price: number;
-  kdv: number;
+  vat?: number;
+  discount?: number;
   isStockIncrement: boolean;
   note?: string;
   isAfterCount: boolean;
