@@ -2496,18 +2496,11 @@ export class AccountingService {
 
     let searchedLocationIds = [];
     let searchedUserIds = [];
-    let searchedStatuses = [];
     if (search) {
       searchedLocationIds = await this.locationService.searchLocationIds(
         search,
       );
       searchedUserIds = await this.userService.searchUserIds(search);
-
-      // Search in status enum values
-      const allStatuses = Object.values(StockHistoryStatusEnum);
-      searchedStatuses = allStatuses.filter((statusValue) =>
-        statusValue.toLowerCase().includes(search.toLowerCase()),
-      );
     }
 
     const pipeline: PipelineStage[] = [
@@ -2550,9 +2543,6 @@ export class AccountingService {
                   { product: { $regex: regexSearch } },
                   { user: { $in: searchedUserIds } },
                   { location: { $in: searchedLocationIds } },
-                  ...(searchedStatuses.length > 0
-                    ? [{ status: { $in: searchedStatuses } }]
-                    : []),
                 ],
               }
             : {}),
