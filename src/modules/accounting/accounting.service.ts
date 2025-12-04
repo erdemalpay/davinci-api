@@ -2001,6 +2001,7 @@ export class AccountingService {
         });
       }
       if (oldQuantity === 0 && Number(createStockDto.quantity) > 0) {
+        // burada oldQuantity 0 a eşit mi olmalı yoksa mevcut hali gibi 0 a eşit mi olmalı?
         const foundProduct = await this.productModel.findById(
           createStockDto.product,
         );
@@ -2302,8 +2303,13 @@ export class AccountingService {
       // zero or negative stock - close menu item
       if (
         newQuantity <= 0 &&
-        zeroNotificationEvent &&
-        zeroNotificationEvent?.selectedLocations?.includes(stock.location)
+        ((newQuantity === 0 && zeroNotificationEvent) ||
+          (newQuantity < 0 && negativeNotificationEvent)) &&
+        (newQuantity === 0
+          ? zeroNotificationEvent?.selectedLocations?.includes(stock.location)
+          : negativeNotificationEvent?.selectedLocations?.includes(
+              stock.location,
+            ))
       ) {
         const locations = await this.locationService.findAllLocations();
         const stockLocation = locations.find(
@@ -2332,49 +2338,20 @@ export class AccountingService {
           },
         };
 
+        const selectedEvent =
+          newQuantity === 0 ? zeroNotificationEvent : negativeNotificationEvent;
+
         const notificationDto: CreateNotificationDto = {
-          type: zeroNotificationEvent.type,
-          createdBy: zeroNotificationEvent.createdBy,
-          selectedUsers: zeroNotificationEvent.selectedUsers,
-          selectedRoles: zeroNotificationEvent.selectedRoles,
-          selectedLocations: zeroNotificationEvent.selectedLocations,
+          type: selectedEvent.type,
+          createdBy: selectedEvent.createdBy,
+          selectedUsers: selectedEvent.selectedUsers,
+          selectedRoles: selectedEvent.selectedRoles,
+          selectedLocations: selectedEvent.selectedLocations,
           seenBy: [],
           event:
             newQuantity === 0
               ? NotificationEventType.ZEROSTOCK
               : NotificationEventType.NEGATIVESTOCK,
-          message,
-        };
-        await this.notificationService.createNotification(
-          notificationDto,
-          user,
-        );
-      }
-      // negative stock notification
-      if (stock.quantity >= 0 && newQuantity < 0 && negativeNotificationEvent) {
-        const locations = await this.locationService.findAllLocations();
-        const stockLocation = locations.find(
-          (location) => location._id === stock.location,
-        );
-        const foundProduct = await this.findProductById(stock.product as any);
-        if (!foundProduct) {
-          throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
-        }
-        const message = {
-          key: 'StockNegativeReached',
-          params: {
-            product: foundProduct.name,
-            location: stockLocation.name,
-          },
-        };
-        const notificationDto: CreateNotificationDto = {
-          type: negativeNotificationEvent.type,
-          createdBy: negativeNotificationEvent.createdBy,
-          selectedUsers: negativeNotificationEvent.selectedUsers,
-          selectedRoles: negativeNotificationEvent.selectedRoles,
-          selectedLocations: negativeNotificationEvent.selectedLocations,
-          seenBy: [],
-          event: NotificationEventType.NEGATIVESTOCK,
           message,
         };
         await this.notificationService.createNotification(
