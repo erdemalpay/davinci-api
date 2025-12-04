@@ -41,131 +41,134 @@ export class PointService {
     return this.pointHistoryModel.find().sort({ createdAt: -1 });
   }
 
- async findAllPointHistoriesWithPagination(
-  page: number,
-  limit: number,
-  filter: PointHistoryFilter,
-) {
-  const pageNum = page || 1;
-  const limitNum = limit || 10;
-  const { pointUser, pointConsumer, status, before, after, sort, asc } = filter;
-  const skip = (pageNum - 1) * limitNum;
-  const statusArray = status ? (status as any).split(',') : [];
-  const sortObject: Record<string, 1 | -1> = {};
+  async findAllPointHistoriesWithPagination(
+    page: number,
+    limit: number,
+    filter: PointHistoryFilter,
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const { pointUser, pointConsumer, status, before, after, sort, asc } =
+      filter;
+    const skip = (pageNum - 1) * limitNum;
+    const statusArray = status ? (status as any).split(',') : [];
+    const sortObject: Record<string, 1 | -1> = {};
 
-  if (sort) {
-    sortObject[sort] = asc === 1 ? 1 : -1;
-  } else {
-    sortObject['createdAt'] = -1;
-  }
+    if (sort) {
+      sortObject[sort] = asc === 1 ? 1 : -1;
+    } else {
+      sortObject['createdAt'] = -1;
+    }
 
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
-        ...(pointUser && Number(pointUser) !== -1 && { pointUser }),
-        ...(Number(pointConsumer) && Number(pointConsumer) !== -1 && { pointConsumer }),
-        ...(Number(pointUser) === -1 && { pointUser: { $exists: false } }),
-        ...(Number(pointConsumer) === -1 && { pointConsumer: { $exists: false } }),
-        ...(status && { status: { $in: statusArray } }),
-        ...(after &&
-          before && {
-            createdAt: { $gte: new Date(after), $lte: new Date(before) },
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          ...(pointUser && Number(pointUser) !== -1 && { pointUser }),
+          ...(Number(pointConsumer) &&
+            Number(pointConsumer) !== -1 && { pointConsumer }),
+          ...(Number(pointUser) === -1 && { pointUser: { $exists: false } }),
+          ...(Number(pointConsumer) === -1 && {
+            pointConsumer: { $exists: false },
           }),
-        ...(before && !after && { createdAt: { $lte: new Date(before) } }),
-        ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+          ...(status && { status: { $in: statusArray } }),
+          ...(after &&
+            before && {
+              createdAt: { $gte: new Date(after), $lte: new Date(before) },
+            }),
+          ...(before && !after && { createdAt: { $lte: new Date(before) } }),
+          ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+        },
       },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'pointUser',
-        foreignField: '_id',
-        as: 'pointUser',
-        pipeline: [{ $project: { _id: 1, name: 1 } }],
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'pointUser',
+          foreignField: '_id',
+          as: 'pointUser',
+          pipeline: [{ $project: { _id: 1, name: 1 } }],
+        },
       },
-    },
-    {
-      $unwind: {
-        path: '$pointUser',
-        preserveNullAndEmptyArrays: true,
+      {
+        $unwind: {
+          path: '$pointUser',
+          preserveNullAndEmptyArrays: true,
+        },
       },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'pointConsumer',
-        foreignField: '_id',
-        as: 'pointConsumer',
-        pipeline: [{ $project: { _id: 1, fullName: 1 } }],
+      {
+        $lookup: {
+          from: 'consumers',
+          localField: 'pointConsumer',
+          foreignField: '_id',
+          as: 'pointConsumer',
+          pipeline: [{ $project: { _id: 1, fullName: 1 } }],
+        },
       },
-    },
-    {
-      $unwind: {
-        path: '$pointConsumer',
-        preserveNullAndEmptyArrays: true,
+      {
+        $unwind: {
+          path: '$pointConsumer',
+          preserveNullAndEmptyArrays: true,
+        },
       },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'createdBy',
-        foreignField: '_id',
-        as: 'createdBy',
-        pipeline: [{ $project: { _id: 1, name: 1 } }],
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'createdBy',
+          foreignField: '_id',
+          as: 'createdBy',
+          pipeline: [{ $project: { _id: 1, name: 1 } }],
+        },
       },
-    },
-    {
-      $unwind: {
-        path: '$createdBy',
-        preserveNullAndEmptyArrays: true,
+      {
+        $unwind: {
+          path: '$createdBy',
+          preserveNullAndEmptyArrays: true,
+        },
       },
-    },
-    {
-      $sort: sortObject,
-    },
-    {
-      $facet: {
-        metadata: [
-          { $count: 'total' },
-          {
-            $addFields: {
-              page: pageNum,
-              pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
             },
-          },
-        ],
-        data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
       },
-    },
-    {
-      $unwind: '$metadata',
-    },
-    {
-      $project: {
-        data: 1,
-        totalNumber: '$metadata.total',
-        totalPages: '$metadata.pages',
-        page: '$metadata.page',
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    const results = await this.pointHistoryModel.aggregate(pipeline);
+
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
         limit: limitNum,
-      },
-    },
-  ];
+      };
+    }
 
-  const results = await this.pointHistoryModel.aggregate(pipeline);
-
-  if (!results.length) {
-    return {
-      data: [],
-      totalNumber: 0,
-      totalPages: 0,
-      page: pageNum,
-      limit: limitNum,
-    };
+    return results[0];
   }
-
-  return results[0];
-}
-
 
   async findUserPointHistories(userId: string) {
     return this.pointHistoryModel
