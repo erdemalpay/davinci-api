@@ -242,6 +242,7 @@ export type StockHistoryFilter = {
   asc?: number;
   vendor?: string;
   brand?: string;
+  search?: string;
 };
 
 export type InvoiceFilterType = {
