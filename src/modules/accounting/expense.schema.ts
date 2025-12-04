@@ -27,6 +27,12 @@ export class Expense extends Document {
   @Prop({ required: true, type: Number })
   quantity: number;
 
+  @Prop({ required: false, type: Number })
+  discount: number;
+
+  @Prop({ required: false, type: Number })
+  vat: number;
+
   @Prop({ required: true, type: Number })
   totalExpense: number;
 

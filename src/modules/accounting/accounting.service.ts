@@ -1153,15 +1153,16 @@ export class AccountingService {
         paymentMethod,
         quantity,
         price,
-        kdv,
+        vat,
+        discount,
         isStockIncrement,
         note,
         isAfterCount,
       } = expenseDto;
 
       try {
-        if (quantity == null || price == null || kdv == null) {
-          throw new Error('Quantity, price or kdv is missing');
+        if (quantity == null || price == null) {
+          throw new Error('Quantity or price is missing');
         }
         if (!date) {
           throw new Error('Date is missing');
@@ -1198,9 +1199,11 @@ export class AccountingService {
         const isoInput =
           parts[0].length === 4 ? normalized : parts.reverse().join('-');
         const adjustedDate = new Date(isoInput).toISOString().slice(0, 10);
-
+        const discountedPrice = discount
+          ? Number(price) - (Number(discount) * Number(price)) / 100
+          : Number(price);
         const totalExpense =
-          Number(price) + Number(kdv) * (Number(price) / 100);
+          discountedPrice + Number(vat) * (discountedPrice / 100);
         const type = ExpenseTypes.STOCKABLE;
 
         // Update product unit price if this is the latest expense
@@ -1243,6 +1246,8 @@ export class AccountingService {
           vendor: foundVendor._id,
           paymentMethod: foundPaymentMethod._id,
           quantity: Number(quantity),
+          vat: Number(vat) ?? 0,
+          discount: Number(discount) ?? 0,
           isPaid: true,
           totalExpense: Number(totalExpense),
           note,
