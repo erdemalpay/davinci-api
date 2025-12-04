@@ -2480,17 +2480,36 @@ export class AccountingService {
       asc,
       vendor,
       brand,
+      search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? (product as any).split(',') : [];
     const statusArray = status ? (status as any).split(',') : [];
     const sortObject = {};
+    const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
 
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
       sortObject['createdAt'] = -1;
     }
+
+    let searchedLocationIds = [];
+    let searchedUserIds = [];
+    let searchedStatuses = [];
+    if (search) {
+      searchedLocationIds = await this.locationService.searchLocationIds(
+        search,
+      );
+      searchedUserIds = await this.userService.searchUserIds(search);
+
+      // Search in status enum values
+      const allStatuses = Object.values(StockHistoryStatusEnum);
+      searchedStatuses = allStatuses.filter((statusValue) =>
+        statusValue.toLowerCase().includes(search.toLowerCase()),
+      );
+    }
+
     const pipeline: PipelineStage[] = [
       {
         $lookup: {
@@ -2525,6 +2544,18 @@ export class AccountingService {
             }),
           ...(before && !after && { createdAt: { $lte: new Date(before) } }),
           ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+          ...(regexSearch
+            ? {
+                $or: [
+                  { product: { $regex: regexSearch } },
+                  { user: { $in: searchedUserIds } },
+                  { location: { $in: searchedLocationIds } },
+                  ...(searchedStatuses.length > 0
+                    ? [{ status: { $in: searchedStatuses } }]
+                    : []),
+                ],
+              }
+            : {}),
         },
       },
       {

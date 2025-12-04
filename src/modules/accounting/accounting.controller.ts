@@ -569,6 +569,7 @@ export class AccountingController {
     @Query('asc') asc?: number,
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
+    @Query('search') search?: string,
   ) {
     return this.accountingService.findAllProductStockHistories(page, limit, {
       product,
@@ -581,6 +582,7 @@ export class AccountingController {
       asc,
       vendor,
       brand,
+      search,
     });
   }
 
