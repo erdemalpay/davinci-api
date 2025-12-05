@@ -1,4 +1,4 @@
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { Consumer } from '../consumer/consumer.schema';
@@ -21,9 +21,9 @@ export class PointService {
     @InjectModel(PointHistory.name)
     private pointHistoryModel: Model<PointHistory>,
     @InjectModel(Consumer.name)
-    private consumerModel: Model<Consumer>,
+    private readonly consumerModel: Model<Consumer>,
     @InjectModel(User.name)
-    private userModel: Model<User>,
+    private readonly userModel: Model<User>,
     private websocketGateway: AppWebSocketGateway,
   ) {}
 
