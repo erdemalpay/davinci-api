@@ -100,9 +100,9 @@ export class TableService {
       if (orders) {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
-    } 
-      this.websocketGateway.emitTableCreated(user, createdTable);
-  
+    }
+    this.websocketGateway.emitTableCreated(user, createdTable);
+
     return createdTable;
   }
 
@@ -119,6 +119,8 @@ export class TableService {
     );
     if (tableDto.finishHour) {
       this.websocketGateway.emitTableChanged(user, updatedTable);
+    } else if (tableDto.status === TableStatus.CANCELLED) {
+      this.websocketGateway.emitTableDeleted(user, updatedTable);
     } else {
       this.websocketGateway.emitSingleTableChanged(user, updatedTable);
     }
@@ -334,15 +336,18 @@ export class TableService {
       tableId: id,
       gameplay,
     });
-    
+
     table.gameplays.push(gameplay);
     await table.save();
-// here i need to populate the gameplay mentor with _id , name fields
-const populatedGameplay = await this.gameplayService.findById(gameplay._id).populate({
-          path: 'mentor',
-          select: 'name',
-        }).exec();
-    this.websocketGateway.emitGameplayCreated(user, populatedGameplay,table);
+    // here i need to populate the gameplay mentor with _id , name fields
+    const populatedGameplay = await this.gameplayService
+      .findById(gameplay._id)
+      .populate({
+        path: 'mentor',
+        select: 'name',
+      })
+      .exec();
+    this.websocketGateway.emitGameplayCreated(user, populatedGameplay, table);
     return populatedGameplay;
   }
 
@@ -365,7 +370,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, gameplayId,table);
+    this.websocketGateway.emitGameplayDeleted(user, gameplayId, table);
     return table;
   }
 
@@ -393,7 +398,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableDeleted(user, table);
 
     return table;
   }
@@ -512,7 +517,7 @@ const populatedGameplay = await this.gameplayService.findById(gameplay._id).popu
   }
   async removeTable(user: User, id: number) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableChanged(user, table);
+    this.websocketGateway.emitTableDeleted(user, table);
     return table;
   }
   async notifyUnclosedTables() {

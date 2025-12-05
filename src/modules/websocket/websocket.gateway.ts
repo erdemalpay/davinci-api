@@ -166,8 +166,8 @@ export class AppWebSocketGateway {
   }
 
   emitGameplayCreated(...args: any[]) {
-    const [user, gameplay,table] = args;
-    this.server.emit('gameplayCreated', { user, gameplay,table });
+    const [user, gameplay, table] = args;
+    this.server.emit('gameplayCreated', { user, gameplay, table });
   }
 
   emitGameplayUpdated(...args: any[]) {
@@ -176,8 +176,8 @@ export class AppWebSocketGateway {
   }
 
   emitGameplayDeleted(...args: any[]) {
-    const [user, gameplay,table] = args;
-    this.server.emit('gameplayDeleted', { user, gameplay,table });
+    const [user, gameplay, table] = args;
+    this.server.emit('gameplayDeleted', { user, gameplay, table });
   }
 
   emitIkasProductStockChanged() {
@@ -331,12 +331,16 @@ export class AppWebSocketGateway {
     const [user, table] = args;
     this.server.emit('tableChanged', { user, table });
   }
+  emitTableDeleted(...args: any[]) {
+    const [user, table] = args;
+    this.server.emit('tableDeleted', { user, table });
+  }
 
-    emitTableCreated(...args: any[]) {
+  emitTableCreated(...args: any[]) {
     const [user, table] = args;
     this.server.emit('tableCreated', { user, table });
   }
-emitTableClosed(...args: any[]) {
+  emitTableClosed(...args: any[]) {
     const [table] = args;
     this.server.emit('tableClosed', { table });
   }
