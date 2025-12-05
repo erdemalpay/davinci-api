@@ -45,6 +45,7 @@ export class PointController {
     @Query('after') after?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number | '1' | '0' | '-1',
+    @Query('search') search?: string,
   ) {
     return this.pointService.findAllPointHistoriesWithPagination(page, limit, {
       pointUser,
@@ -54,6 +55,7 @@ export class PointController {
       after,
       sort,
       asc: typeof asc === 'string' ? Number(asc) : asc,
+      search,
     });
   }
 

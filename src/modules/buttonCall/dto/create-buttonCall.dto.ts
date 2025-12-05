@@ -39,4 +39,5 @@ export class ButtonCallQueryDto {
   type?: string;
   sort?: string;
   asc?: number | '1' | '0' | '-1';
+  search?: string;
 }

@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
 import { Check, CheckSchema } from './check.schema';
 import { ChecklistController } from './checklist.controller';
@@ -14,7 +15,11 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
-    WebSocketModule,mongooseModule, NotificationModule],
+    WebSocketModule,
+    mongooseModule,
+    NotificationModule,
+    forwardRef(() => LocationModule),
+  ],
   providers: [ChecklistService],
   controllers: [ChecklistController],
   exports: [

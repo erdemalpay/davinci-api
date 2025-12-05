@@ -179,4 +179,5 @@ export class ActivityQueryDto {
   asc?: number;
   after?: string;
   before?: string;
+  search?: string;
 }

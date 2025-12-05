@@ -75,12 +75,21 @@ export class CheckoutService {
       before,
       sort,
       asc,
+      search,
     } = query;
 
     const filter: Record<string, any> = {};
 
-    if (user && `${user}`.trim() !== '') {
-      filter.user = user;
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      filter.$or = [
+        { user: { $regex: searchRegex } },
+        { description: { $regex: searchRegex } },
+      ];
+    } else {
+      if (user && `${user}`.trim() !== '') {
+        filter.user = user;
+      }
     }
 
     if (date && dateRanges[date]) {

@@ -39,6 +39,7 @@ export class GameplayController {
     @Query('mentor') mentor?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
+    @Query('search') search?: string,
   ) {
     return this.gameplayService.queryData({
       location,
@@ -50,6 +51,7 @@ export class GameplayController {
       mentor,
       sort,
       asc,
+      search,
     });
   }
 
