@@ -66,6 +66,7 @@ export class ChecklistController {
     @Query('before') before?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number | '1' | '0' | '-1',
+    @Query('search') search?: string,
   ) {
     return this.checklistService.findQueryChecks({
       page,
@@ -78,6 +79,7 @@ export class ChecklistController {
       before,
       sort,
       asc: typeof asc === 'string' ? Number(asc) : asc,
+      search,
     });
   }
 

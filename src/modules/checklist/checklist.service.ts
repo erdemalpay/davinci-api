@@ -1,8 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { usernamify } from 'src/utils/usernamify';
+import { LocationService } from '../location/location.service';
 import {
   NotificationEventType,
   NotificationType,
@@ -26,6 +27,8 @@ export class ChecklistService {
     @InjectModel(Check.name) private checkModel: Model<Check>,
     private websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => LocationService))
+    private readonly locationService: LocationService,
   ) {}
 
   async createChecklist(user: User, createChecklistDto: CreateChecklistDto) {
@@ -58,14 +61,27 @@ export class ChecklistService {
       before,
       sort,
       asc,
+      search,
     } = query;
     const filter: FilterQuery<Check> = {};
-    if (createdBy) filter.user = createdBy;
-    if (checklist) filter.checklist = checklist;
-    if (location !== undefined && location !== null && `${location}` !== '') {
-      const locNum =
-        typeof location === 'string' ? Number(location) : (location as number);
-      if (!Number.isNaN(locNum)) filter.location = locNum;
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const searchedLocationIds = await this.locationService.searchLocationIds(
+        search,
+      );
+      filter.$or = [
+        { user: { $regex: searchRegex } },
+        { checklist: { $regex: searchRegex } },
+        { location: { $in: searchedLocationIds } },
+      ];
+    } else {
+      if (createdBy) filter.user = createdBy;
+      if (checklist) filter.checklist = checklist;
+      if (location !== undefined && location !== null && `${location}` !== '') {
+        const locNum =
+          typeof location === 'string' ? Number(location) : (location as number);
+        if (!Number.isNaN(locNum)) filter.location = locNum;
+      }
     }
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();

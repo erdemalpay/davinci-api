@@ -1,11 +1,12 @@
 import { HttpService } from '@nestjs/axios';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
+import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
@@ -23,6 +24,8 @@ export class ButtonCallService {
     private readonly buttonCallModel: Model<ButtonCall>,
     private readonly httpService: HttpService,
     private readonly websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => LocationService))
+    private readonly locationService: LocationService,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -219,10 +222,24 @@ export class ButtonCallService {
       type,
       sort,
       asc,
+      search,
     } = query;
 
     const filter: Record<string, any> = {};
-    if (location !== undefined && location !== null && `${location}` !== '') {
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const searchedLocationIds = await this.locationService.searchLocationIds(
+        search,
+      );
+      filter.$or = [
+        { tableName: { $regex: searchRegex } },
+        { type: { $regex: searchRegex } },
+        { cancelledBy: { $regex: searchRegex } },
+        { location: { $in: searchedLocationIds } },
+      ];
+    } else {
+      if (location !== undefined && location !== null && `${location}` !== '') {
       const locNum =
         typeof location === 'string' ? Number(location) : (location as number);
       if (!Number.isNaN(locNum)) filter.location = locNum;
@@ -261,6 +278,7 @@ export class ButtonCallService {
         filter.finishHour = { $exists: true };
 
       if (concreteTypes.length) filter.type = { $in: concreteTypes };
+    }
     }
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();

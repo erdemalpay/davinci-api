@@ -1,6 +1,7 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
+import { Consumer } from '../consumer/consumer.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
@@ -19,6 +20,10 @@ export class PointService {
     private pointModel: Model<Point>,
     @InjectModel(PointHistory.name)
     private pointHistoryModel: Model<PointHistory>,
+    @InjectModel(Consumer.name)
+    private consumerModel: Model<Consumer>,
+    @InjectModel(User.name)
+    private userModel: Model<User>,
     private websocketGateway: AppWebSocketGateway,
   ) {}
 
@@ -48,7 +53,7 @@ export class PointService {
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
-    const { pointUser, pointConsumer, status, before, after, sort, asc } =
+    const { pointUser, pointConsumer, status, before, after, sort, asc, search } =
       filter;
     const skip = (pageNum - 1) * limitNum;
     const statusArray = status ? (status as any).split(',') : [];
@@ -60,24 +65,42 @@ export class PointService {
       sortObject['createdAt'] = -1;
     }
 
+    const matchStage: Record<string, any> = {
+      ...(after &&
+        before && {
+          createdAt: { $gte: new Date(after), $lte: new Date(before) },
+        }),
+      ...(before && !after && { createdAt: { $lte: new Date(before) } }),
+      ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+    };
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const searchedConsumerIds = await this.consumerModel
+        .find({ fullName: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
+      const searchedUserIds = await this.userModel
+        .find({ name: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
+      matchStage.$or = [
+        { pointUser: { $regex: searchRegex } },
+        { status: { $regex: searchRegex } },
+        { pointConsumer: { $in: searchedConsumerIds } },
+        { createdBy: { $in: searchedUserIds } },
+      ];
+    } else {
+      if (pointUser && Number(pointUser) !== -1) matchStage.pointUser = pointUser;
+      if (Number(pointConsumer) && Number(pointConsumer) !== -1) matchStage.pointConsumer = pointConsumer;
+      if (Number(pointUser) === -1) matchStage.pointUser = { $exists: false };
+      if (Number(pointConsumer) === -1) matchStage.pointConsumer = { $exists: false };
+      if (status) matchStage.status = { $in: statusArray };
+    }
+
     const pipeline: PipelineStage[] = [
       {
-        $match: {
-          ...(pointUser && Number(pointUser) !== -1 && { pointUser }),
-          ...(Number(pointConsumer) &&
-            Number(pointConsumer) !== -1 && { pointConsumer }),
-          ...(Number(pointUser) === -1 && { pointUser: { $exists: false } }),
-          ...(Number(pointConsumer) === -1 && {
-            pointConsumer: { $exists: false },
-          }),
-          ...(status && { status: { $in: statusArray } }),
-          ...(after &&
-            before && {
-              createdAt: { $gte: new Date(after), $lte: new Date(before) },
-            }),
-          ...(before && !after && { createdAt: { $lte: new Date(before) } }),
-          ...(after && !before && { createdAt: { $gte: new Date(after) } }),
-        },
+        $match: matchStage,
       },
       {
         $lookup: {

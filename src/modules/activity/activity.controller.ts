@@ -15,6 +15,7 @@ export class ActivityController {
     @Query('before') before?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number,
+    @Query('search') search?: string,
   ) {
     return this.activityService.getActivities({
       page,
@@ -26,6 +27,7 @@ export class ActivityController {
       type,
       sort,
       asc,
+      search,
     });
   }
 }

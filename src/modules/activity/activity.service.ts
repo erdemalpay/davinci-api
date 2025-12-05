@@ -34,10 +34,18 @@ export class ActivityService {
       before,
       sort,
       asc,
+      search,
     } = query;
     const filter: Record<string, any> = {};
-    if (user) filter.user = user;
-    if (type) filter.type = type;
+    if (search) {
+      filter.$or = [
+        { user: { $regex: new RegExp(search, 'i') } },
+        { type: { $regex: new RegExp(search, 'i') } },
+      ];
+    } else {
+      if (user) filter.user = user;
+      if (type) filter.type = type;
+    }
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);

@@ -4,6 +4,7 @@ import { addDays, format } from 'date-fns';
 import { Model, PipelineStage } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { Game } from '../game/game.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
@@ -18,6 +19,8 @@ import { Gameplay } from './gameplay.schema';
 export class GameplayService {
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
+    @InjectModel(Game.name) private gameModel: Model<Game>,
+    @InjectModel(User.name) private userModel: Model<User>,
     private readonly activityService: ActivityService,
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
@@ -81,6 +84,7 @@ export class GameplayService {
       sort,
       asc,
       groupBy,
+      search,
     } = query;
 
     const filter: Record<string, any> = {};
@@ -90,8 +94,24 @@ export class GameplayService {
       filter.location = Number.isNaN(locNum) ? location : locNum;
     }
 
-    if (game) filter.game = game;
-    if (mentor) filter.mentor = mentor;
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const searchedGameIds = await this.gameModel
+        .find({ name: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
+      const searchedMentorIds = await this.userModel
+        .find({ name: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
+      filter.$or = [
+        { mentor: { $in: searchedMentorIds } },
+        { game: { $in: searchedGameIds } },
+      ];
+    } else {
+      if (game) filter.game = game;
+      if (mentor) filter.mentor = mentor;
+    }
     if (startDate || endDate) {
       const range: Record<string, any> = {};
       if (startDate) {

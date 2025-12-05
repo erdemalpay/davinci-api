@@ -46,6 +46,7 @@ export class ButtonCallController {
     @Query('type') type?: string,
     @Query('sort') sort?: string,
     @Query('asc') asc?: number | '1' | '0' | '-1',
+    @Query('search') search?: string,
   ) {
     return this.buttonCallService.findButtonCallsQuery({
       page,
@@ -59,6 +60,7 @@ export class ButtonCallController {
       type,
       sort,
       asc,
+      search,
     });
   }
 

@@ -12,6 +12,7 @@ export class GameplayQueryDto {
   groupBy?: FieldGrouping[];
   sort?: string;
   asc?: number;
+  search?: string;
 }
 export class GameplayQueryGroupDto {
   location: string;
