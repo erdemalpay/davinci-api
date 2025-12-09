@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
+import { RedisModule } from '../redis/redis.module';
 import { UserModule } from '../user/user.module';
 import { ShiftController } from './shift.controller';
 import { Shift, ShiftSchema } from './shift.schema';
@@ -25,7 +26,13 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 
 @Module({
   imports: [
-    WebSocketModule,mongooseModule, NotificationModule, UserModule, LocationModule],
+    WebSocketModule,
+    RedisModule,
+    mongooseModule,
+    NotificationModule,
+    UserModule,
+    LocationModule,
+  ],
   providers: [ShiftService, ShiftChangeRequestService],
   exports: [ShiftService, ShiftChangeRequestService],
   controllers: [ShiftController, ShiftChangeRequestController],

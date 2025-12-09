@@ -13,6 +13,7 @@ import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisService } from '../redis/redis.service';
+import { RedisKeys } from '../redis/redis.dto';
 import { User } from '../user/user.schema';
 import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
@@ -51,7 +52,20 @@ export class PanelControlService implements OnApplicationBootstrap {
   //pages
   async findAllPages() {
     try {
-      const pages = await this.pageModel.find();
+      const redisPages = await this.redisService.get(RedisKeys.Pages);
+      if (redisPages) {
+        return redisPages;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve pages from Redis:', error);
+    }
+
+    try {
+      const pages = await this.pageModel.find().exec();
+
+      if (pages.length > 0) {
+        await this.redisService.set(RedisKeys.Pages, pages);
+      }
       return pages;
     } catch (error) {
       console.error('Failed to retrieve pages from database:', error);

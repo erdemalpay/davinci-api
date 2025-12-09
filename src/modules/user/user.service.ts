@@ -179,10 +179,35 @@ export class UserService implements OnModuleInit {
   }
 
   async getUsersMinimal() {
-    return this.userModel
-      .find({ active: true })
-      .select('name _id role')
-      .populate('role');
+    try {
+      const redisMinimalUsers = await this.redisService.get(
+        RedisKeys.MinimalUsers,
+      );
+      if (redisMinimalUsers) {
+        return redisMinimalUsers;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve minimal users from Redis:', error);
+    }
+
+    try {
+      const minimalUsers = await this.userModel
+        .find({ active: true })
+        .select('name _id role')
+        .populate('role')
+        .exec();
+
+      if (minimalUsers.length > 0) {
+        await this.redisService.set(RedisKeys.MinimalUsers, minimalUsers);
+      }
+      return minimalUsers;
+    } catch (error) {
+      console.error('Failed to retrieve minimal users from database:', error);
+      throw new HttpException(
+        'Could not retrieve minimal users',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   async getRoles(): Promise<Role[]> {

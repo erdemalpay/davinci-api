@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { RedisModule } from '../redis/redis.module';
 import { MembershipController } from './membership.controller';
 import { Membership, MembershipSchema } from './membership.schema';
 import { MembershipService } from './membership.service';
@@ -11,8 +12,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [
-    WebSocketModule,mongooseModule],
+  imports: [WebSocketModule, RedisModule, mongooseModule],
   providers: [MembershipService],
   exports: [MembershipService],
   controllers: [MembershipController],

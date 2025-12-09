@@ -1058,8 +1058,30 @@ export class MenuService {
     this.websocketGateway.emitItemChanged(user, items);
   }
   // kitchen
-  findAllKitchens() {
-    return this.kitchenModel.find();
+  async findAllKitchens() {
+    try {
+      const redisKitchens = await this.redisService.get(RedisKeys.Kitchens);
+      if (redisKitchens) {
+        return redisKitchens;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve kitchens from Redis:', error);
+    }
+
+    try {
+      const kitchens = await this.kitchenModel.find().exec();
+
+      if (kitchens.length > 0) {
+        await this.redisService.set(RedisKeys.Kitchens, kitchens);
+      }
+      return kitchens;
+    } catch (error) {
+      console.error('Failed to retrieve kitchens from database:', error);
+      throw new HttpException(
+        'Could not retrieve kitchens',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   async createKitchen(user: User, createKitchenDto: CreateKitchenDto) {
