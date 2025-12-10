@@ -17,6 +17,8 @@ import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
@@ -24,8 +26,6 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
-import { RedisService } from '../redis/redis.service';
-import { RedisKeys } from '../redis/redis.dto';
 import { Feedback } from './feedback.schema';
 import {
   CreateFeedbackDto,
@@ -277,17 +277,21 @@ export class TableService {
         .populate({
           path: 'gameplays',
           select: 'startHour game playerCount mentor date finishHour',
-          populate: {
-            path: 'mentor',
-            select: 'name',
-          },
         })
         .exec();
 
       if (tables.length > 0) {
         try {
           const [year, month, day] = date.split('-').map(Number);
-          const nextDayMidnight = new Date(year, month - 1, day + 1, 0, 30, 0, 0); // Next day 00:30:00 local time
+          const nextDayMidnight = new Date(
+            year,
+            month - 1,
+            day + 1,
+            0,
+            30,
+            0,
+            0,
+          ); // Next day 00:30:00 local time
 
           const now = new Date();
           const ttl = Math.max(
@@ -378,16 +382,8 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
-    // here i need to populate the gameplay mentor with _id , name fields
-    const populatedGameplay = await this.gameplayService
-      .findById(gameplay._id)
-      .populate({
-        path: 'mentor',
-        select: 'name',
-      })
-      .exec();
-    this.websocketGateway.emitGameplayCreated(user, populatedGameplay, table);
-    return populatedGameplay;
+    this.websocketGateway.emitGameplayCreated(user, gameplay, table);
+    return gameplay;
   }
 
   async removeGameplay(user: User, tableId: number, gameplayId: number) {
