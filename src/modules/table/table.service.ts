@@ -252,7 +252,7 @@ export class TableService {
       location: location,
     });
   }
-  //deneme
+
   async getByLocation(location: number, date: string): Promise<Table[]> {
     if (!date || !location) {
       throw new HttpException(
