@@ -27,6 +27,57 @@ export class SeedService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
+  async clearTestData(locationId: number = 2, date?: string) {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      // Eğer date verilmemişse, bugünü kullan
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const targetDate = date || today;
+
+      const query: any = { location: locationId, date: targetDate };
+
+      // Önce table ID'lerini al
+      const tables = await this.tableModel.find(query).select('_id').session(session);
+      const tableIdList = tables.map(t => t._id);
+
+      // Sadece bu masalara ait orders sil
+      const deletedOrders = await this.orderModel.deleteMany({
+        location: locationId,
+        table: { $in: tableIdList }
+      }).session(session);
+
+      // Sadece bu masalara ait gameplays sil
+      const deletedGameplays = await this.gameplayModel.deleteMany({
+        location: locationId,
+        date: targetDate
+      }).session(session);
+
+      // En son tables sil
+      const deletedTables = await this.tableModel.deleteMany(query).session(session);
+
+      await session.commitTransaction();
+
+      this.logger.log(
+        `Cleared ${deletedTables.deletedCount} tables, ${deletedOrders.deletedCount} orders, ${deletedGameplays.deletedCount} gameplays`,
+      );
+
+      return {
+        success: true,
+        deletedTables: deletedTables.deletedCount,
+        deletedOrders: deletedOrders.deletedCount,
+        deletedGameplays: deletedGameplays.deletedCount,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error(`Clear failed: ${error.message}`);
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
   async seedTestData(locationId: number = 2) {
     const session = await this.connection.startSession();
     session.startTransaction();
@@ -113,13 +164,11 @@ export class SeedService {
         }
       }
 
-      // Kapalı masalar (son 7 gün)
+      // Kapalı masalar (bugün)
       for (let i = 0; i < closedTableCount; i++) {
         const tableName =
           tableNames[this.randomInt(0, tableNames.length - 1)];
-        const daysAgo = this.randomInt(0, 7);
-        const tableDate = subDays(today, daysAgo);
-        const date = format(tableDate, 'yyyy-MM-dd');
+        const date = format(today, 'yyyy-MM-dd');
         const startHour = this.randomTime(10, 22);
         const duration = this.randomInt(1, 4);
         const finishHour = format(

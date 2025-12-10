@@ -1,4 +1,4 @@
-import { Controller, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SeedService } from './seed.service';
 
@@ -11,5 +11,14 @@ export class SeedController {
   async seedTestData(@Query('location') location?: number) {
     const locationId = location ? Number(location) : 2;
     return this.seedService.seedTestData(locationId);
+  }
+
+  @Delete('test-data')
+  async clearTestData(
+    @Query('location') location?: number,
+    @Query('date') date?: string,
+  ) {
+    const locationId = location ? Number(location) : 2;
+    return this.seedService.clearTestData(locationId, date);
   }
 }
