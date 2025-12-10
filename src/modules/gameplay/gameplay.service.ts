@@ -460,13 +460,13 @@ export class GameplayService {
       existingGameplay,
       updatedGameplay,
     );
-    this.websocketGateway.emitGameplayChanged(user, updatedGameplay);
+    this.websocketGateway.emitGameplayUpdated(user, updatedGameplay);
     return updatedGameplay;
   }
 
   async remove(user: User, id: number) {
     const gameplay = await this.gameplayModel.findByIdAndDelete(id);
-    this.websocketGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayDeleted(user, gameplay);
     return gameplay;
   }
 
