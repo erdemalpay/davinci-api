@@ -285,7 +285,26 @@ export class TableService {
         .exec();
 
       if (tables.length > 0) {
-        await this.redisService.set(cacheKey, tables);
+        try {
+          const [year, month, day] = date.split('-').map(Number);
+          const nextDayMidnight = new Date(
+            year,
+            month - 1,
+            day + 1,
+            0,
+            30,
+            0,
+            0,
+          );
+          const now = new Date();
+          const ttl = Math.max(
+            Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
+            60,
+          );
+          await this.redisService.set(cacheKey, tables, ttl);
+        } catch (error) {
+          console.error('Failed to cache tables in Redis:', error);
+        }
       }
       return tables;
     } catch (error) {
