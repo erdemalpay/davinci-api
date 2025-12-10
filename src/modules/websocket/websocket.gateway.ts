@@ -155,8 +155,9 @@ export class AppWebSocketGateway {
     this.server.emit('feedbackChanged', { feedback });
   }
 
-  emitGameChanged(...args: any[]) {
+  async emitGameChanged(...args: any[]) {
     const [user, game] = args;
+    await this.redisService.reset(RedisKeys.GamesMinimal);
     this.server.emit('gameChanged', { user, game });
   }
 
@@ -195,18 +196,22 @@ export class AppWebSocketGateway {
     this.server.emit('itemChanged', { user, item });
   }
 
-  emitKitchenChanged(...args: any[]) {
+  async emitKitchenChanged(...args: any[]) {
     const [user, kitchen] = args;
+    await this.redisService.reset(RedisKeys.Kitchens);
     this.server.emit('kitchenChanged', { user, kitchen });
   }
 
-  emitLocationChanged(...args: any[]) {
+  async emitLocationChanged(...args: any[]) {
     const [location] = args;
+    await this.redisService.reset(RedisKeys.Locations);
+    await this.redisService.reset(RedisKeys.AllLocations);
     this.server.emit('locationChanged', { location });
   }
 
-  emitMembershipChanged(...args: any[]) {
+  async emitMembershipChanged(...args: any[]) {
     const [user, membership] = args;
+    await this.redisService.reset(RedisKeys.Memberships);
     this.server.emit('membershipChanged', { user, membership });
   }
 
@@ -239,8 +244,9 @@ export class AppWebSocketGateway {
     this.server.emit('orderUpdated', { user, order });
   }
 
-  emitPageChanged(...args: any[]) {
+  async emitPageChanged(...args: any[]) {
     const [user, page] = args;
+    await this.redisService.reset(RedisKeys.Pages);
     this.server.emit('pageChanged', { user, page });
   }
 
@@ -312,8 +318,9 @@ export class AppWebSocketGateway {
     this.server.emit('shiftChangeRequestChanged', { user, shiftChangeRequest });
   }
 
-  emitShiftChanged(...args: any[]) {
+  async emitShiftChanged(...args: any[]) {
     const [user, shift] = args;
+    await this.redisService.reset(RedisKeys.Shifts);
     this.server.emit('shiftChanged', { user, shift });
   }
 
@@ -357,6 +364,7 @@ export class AppWebSocketGateway {
 
   async emitUserChanged(user: any) {
     await this.redisService.reset(RedisKeys.Users);
+    await this.redisService.reset(RedisKeys.MinimalUsers);
     this.server.emit('userChanged', { user });
   }
 

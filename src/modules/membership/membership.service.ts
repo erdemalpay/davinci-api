@@ -1,6 +1,8 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CreateMembershipDto, MembershipDto } from './membership.dto';
 import { Membership } from './membership.schema';
@@ -10,10 +12,35 @@ export class MembershipService {
   constructor(
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly redisService: RedisService,
   ) {}
 
-  findAll() {
-    return this.membershipModel.find();
+  async findAll() {
+    try {
+      const redisMemberships = await this.redisService.get(
+        RedisKeys.Memberships,
+      );
+      if (redisMemberships) {
+        return redisMemberships;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve memberships from Redis:', error);
+    }
+
+    try {
+      const memberships = await this.membershipModel.find().exec();
+
+      if (memberships.length > 0) {
+        await this.redisService.set(RedisKeys.Memberships, memberships);
+      }
+      return memberships;
+    } catch (error) {
+      console.error('Failed to retrieve memberships from database:', error);
+      throw new HttpException(
+        'Could not retrieve memberships',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   async create(user: User, createMembershipDto: CreateMembershipDto) {

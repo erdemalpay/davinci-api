@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { RedisModule } from '../redis/redis.module';
 import { LocationController } from './location.controller';
 import { Location, LocationSchema } from './location.schema';
 import { LocationService } from './location.service';
@@ -11,8 +12,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [
-    WebSocketModule,mongooseModule],
+  imports: [WebSocketModule, RedisModule, mongooseModule],
   controllers: [LocationController],
   providers: [LocationService],
   exports: [LocationService],

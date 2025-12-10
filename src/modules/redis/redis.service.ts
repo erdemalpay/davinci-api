@@ -35,8 +35,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Method to set data in Redis
-  async set(key: string, value: any): Promise<string> {
-    return await this.client.set(key, JSON.stringify(value));
+  async set(key: string, value: any, ttl?: number): Promise<string> {
+    if (ttl) {
+      return this.client.set(key, JSON.stringify(value), 'EX', ttl);
+    }
+    return this.client.set(key, JSON.stringify(value));
   }
 
   // Method to get data from Redis

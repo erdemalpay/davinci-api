@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
@@ -11,6 +13,7 @@ export class ShiftService {
   constructor(
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   async createShift(user: User, createShiftDto: CreateShiftDto) {
@@ -25,7 +28,7 @@ export class ShiftService {
       new: true,
     });
     if (!updatedShift) {
-      throw new Error('Shift not found');
+      throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitShiftChanged(user, updatedShift);
     return updatedShift;
@@ -34,7 +37,7 @@ export class ShiftService {
   async removeShift(user: User, id: number) {
     const removedShift = await this.shiftModel.findByIdAndRemove(id);
     if (!removedShift) {
-      throw new Error('Shift not found');
+      throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitShiftChanged(user, removedShift);
     return removedShift;
@@ -42,6 +45,18 @@ export class ShiftService {
 
   async findQueryShifts(query: ShiftQueryDto) {
     const { after, before, location } = query;
+
+    const redisKey = `${RedisKeys.Shifts}:${after}:${before}:${location}`;
+
+    try {
+      const redisShifts = await this.redisService.get(redisKey);
+      if (redisShifts) {
+        return redisShifts;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve shifts from Redis:', error);
+    }
+
     const startDate = new Date(after);
     const endDate = new Date(before);
     const daysInRange: string[] = [];
@@ -69,7 +84,10 @@ export class ShiftService {
     try {
       shiftsData = await this.shiftModel.find(filterQuery).exec();
     } catch (error) {
-      throw new Error('Failed to fetch shifts');
+      throw new HttpException(
+        'Failed to fetch shifts',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
     const shiftsMap = new Map<string, any[]>();
     for (const shift of shiftsData) {
@@ -84,6 +102,20 @@ export class ShiftService {
       }
       return [{ day, shifts: [] }];
     });
+
+    try {
+      const [year, month, day] = before.split('-').map(Number);
+      const nextDayMidnight = new Date(year, month - 1, day + 1, 0, 30, 0, 0); // Next day 00:30:00 local time
+
+      const now = new Date();
+      const ttl = Math.max(
+        Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
+        60,
+      );
+      await this.redisService.set(redisKey, result, ttl);
+    } catch (error) {
+      console.error('Failed to cache shifts in Redis:', error);
+    }
 
     return result;
   }
@@ -169,7 +201,10 @@ export class ShiftService {
       }
     } catch (error) {
       console.error('Error in copyShift:', error);
-      throw error;
+      throw new HttpException(
+        'Failed to copy shift',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
