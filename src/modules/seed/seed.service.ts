@@ -96,9 +96,17 @@ export class SeedService {
 
       // 2. Users, menu items ve games al
       const users = await this.userModel.find({ location: locationId }).exec();
-      const menuItems = await this.menuItemModel
+      const allMenuItems = await this.menuItemModel
         .find({ locations: locationId, shownInMenu: true })
+        .populate('category')
         .exec();
+
+      // Sadece yiyecek-içecek kategorilerinden ürünleri filtrele (bar, mutfak)
+      const menuItems = allMenuItems.filter((item: any) => {
+        const kitchen = item.category?.kitchen;
+        return kitchen === 'bar' || kitchen === 'mutfak';
+      });
+
       const games = await this.gameModel.find({ locations: locationId }).exec();
 
       if (users.length === 0) {
@@ -127,11 +135,16 @@ export class SeedService {
       const openTableCount = this.randomInt(24, 27);
       const closedTableCount = targetTableCount - openTableCount;
 
-      // Açık masalar (sadece bugün)
+      // Açık masalar (sadece bugün, en az 1 saat önce açılmış)
       for (let i = 0; i < openTableCount; i++) {
         const tableName = tableNames[i % tableNames.length];
         const date = format(today, 'yyyy-MM-dd');
-        const startHour = this.randomTime(10, 22);
+
+        // Şu andan en az 1 saat, en fazla 10 saat önce başlamış masalar
+        const hoursAgo = this.randomInt(1, 10);
+        const startTime = subDays(new Date(), 0);
+        const tableStartTime = addHours(startTime, -hoursAgo);
+        const startHour = format(tableStartTime, 'HH:mm');
 
         const table = await this.createTable(
           locationId,
@@ -164,12 +177,17 @@ export class SeedService {
         }
       }
 
-      // Kapalı masalar (bugün)
+      // Kapalı masalar (bugün, gün içinde açılıp kapanmış)
       for (let i = 0; i < closedTableCount; i++) {
         const tableName =
           tableNames[this.randomInt(0, tableNames.length - 1)];
         const date = format(today, 'yyyy-MM-dd');
-        const startHour = this.randomTime(10, 22);
+
+        // 10:00 - 20:00 arası rastgele başlangıç saati
+        const startHourNum = this.randomInt(10, 20);
+        const startMinuteNum = this.randomInt(0, 59);
+        const startHour = `${startHourNum.toString().padStart(2, '0')}:${startMinuteNum.toString().padStart(2, '0')}`;
+
         const duration = this.randomInt(1, 4);
         const finishHour = format(
           addHours(
@@ -291,9 +309,9 @@ export class SeedService {
         }
       }
 
-      const createdAt = new Date(`${table.date}T${table.startHour}`);
+      const tableStartTime = new Date(`${table.date}T${table.startHour}:00`);
       const randomMinutes = this.randomInt(5, 30);
-      const orderCreatedAt = addMinutes(createdAt, randomMinutes * i);
+      const orderCreatedAt = addMinutes(tableStartTime, randomMinutes * i);
 
       const order = await this.orderModel.create({
         location: table.location,
@@ -336,7 +354,7 @@ export class SeedService {
       const randomMentor = users[this.randomInt(0, users.length - 1)];
       const randomCreator = users[this.randomInt(0, users.length - 1)];
 
-      const baseTime = new Date(`${table.date}T${table.startHour}`);
+      const baseTime = new Date(`${table.date}T${table.startHour}:00`);
       const gameStartTime = addMinutes(baseTime, i * 30);
       const gameStartHour = format(gameStartTime, 'HH:mm');
 
