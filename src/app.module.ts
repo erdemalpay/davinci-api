@@ -33,6 +33,7 @@ import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
+import { SeedModule } from './modules/seed/seed.module';
 
 export interface DBConfig {
   host: string;
@@ -79,6 +80,7 @@ const modules = [
   NotificationModule,
   ShiftModule,
   ExpirationModule,
+  SeedModule,
 ];
 
 if (config.get('migrationEnabled')) {
