@@ -287,15 +287,8 @@ export class TableService {
       if (tables.length > 0) {
         try {
           const [year, month, day] = date.split('-').map(Number);
-          const nextDayMidnight = new Date(
-            year,
-            month - 1,
-            day + 1,
-            0,
-            30,
-            0,
-            0,
-          );
+          const nextDayMidnight = new Date(year, month - 1, day + 1, 0, 30, 0, 0); // Next day 00:30:00 local time
+
           const now = new Date();
           const ttl = Math.max(
             Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
