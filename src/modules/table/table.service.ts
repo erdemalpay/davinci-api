@@ -24,6 +24,8 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
 import { PanelControlService } from './../panelControl/panelControl.service';
+import { RedisService } from '../redis/redis.service';
+import { RedisKeys } from '../redis/redis.dto';
 import { Feedback } from './feedback.schema';
 import {
   CreateFeedbackDto,
@@ -49,6 +51,7 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -257,17 +260,41 @@ export class TableService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.tableModel
-      .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
-      .populate({
-        path: 'gameplays',
-        select: 'startHour game playerCount mentor date finishHour',
-        populate: {
-          path: 'mentor',
-          select: 'name',
-        },
-      })
-      .exec();
+
+    const cacheKey = `${RedisKeys.Tables}:${location}:${date}`;
+    try {
+      const redisTables = await this.redisService.get(cacheKey);
+      if (redisTables) {
+        return redisTables;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve tables from Redis:', error);
+    }
+
+    try {
+      const tables = await this.tableModel
+        .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
+        .populate({
+          path: 'gameplays',
+          select: 'startHour game playerCount mentor date finishHour',
+          populate: {
+            path: 'mentor',
+            select: 'name',
+          },
+        })
+        .exec();
+
+      if (tables.length > 0) {
+        await this.redisService.set(cacheKey, tables);
+      }
+      return tables;
+    } catch (error) {
+      console.error('Failed to retrieve tables from database:', error);
+      throw new HttpException(
+        'Could not retrieve tables',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
   async getYerVarmiByLocation(location: number, date: string) {
     try {

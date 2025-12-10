@@ -17,4 +17,5 @@ export enum RedisKeys {
   AllLocations = 'all-locations',
   Memberships = 'memberships',
   GamesMinimal = 'games-minimal',
+  Tables = 'tables',
 }
