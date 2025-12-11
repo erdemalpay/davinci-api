@@ -7,6 +7,7 @@ import { Location, LocationSchema } from '../location/location.schema';
 import { User, UserSchema } from '../user/user.schema';
 import { Game, GameSchema } from '../game/game.schema';
 import { MenuItem, MenuItemSchema } from '../menu/item.schema';
+import { Visit, VisitSchema } from '../visit/visit.schema';
 import { RedisService } from '../redis/redis.service';
 import { SeedController } from './seed.controller';
 import { SeedService } from './seed.service';
@@ -21,6 +22,7 @@ import { SeedService } from './seed.service';
       { name: User.name, schema: UserSchema },
       { name: Game.name, schema: GameSchema },
       { name: MenuItem.name, schema: MenuItemSchema },
+      { name: Visit.name, schema: VisitSchema },
     ]),
   ],
   controllers: [SeedController],

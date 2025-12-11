@@ -13,6 +13,8 @@ import { MenuItem } from '../menu/item.schema';
 import { OrderStatus } from '../order/order.dto';
 import { RedisService } from '../redis/redis.service';
 import { RedisKeys } from '../redis/redis.dto';
+import { Visit } from '../visit/visit.schema';
+import { VisitSource } from '../visit/visit.dto';
 
 @Injectable()
 export class SeedService {
@@ -26,6 +28,7 @@ export class SeedService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Game.name) private gameModel: Model<Game>,
     @InjectModel(MenuItem.name) private menuItemModel: Model<MenuItem>,
+    @InjectModel(Visit.name) private visitModel: Model<Visit>,
     @InjectConnection() private readonly connection: Connection,
     private readonly redisService: RedisService,
   ) {}
@@ -57,6 +60,12 @@ export class SeedService {
         date: targetDate
       }).session(session);
 
+      // Visits sil
+      const deletedVisits = await this.visitModel.deleteMany({
+        location: locationId,
+        date: targetDate
+      }).session(session);
+
       // En son tables sil
       const deletedTables = await this.tableModel.deleteMany(query).session(session);
 
@@ -72,7 +81,7 @@ export class SeedService {
       }
 
       this.logger.log(
-        `Cleared ${deletedTables.deletedCount} tables, ${deletedOrders.deletedCount} orders, ${deletedGameplays.deletedCount} gameplays`,
+        `Cleared ${deletedTables.deletedCount} tables, ${deletedOrders.deletedCount} orders, ${deletedGameplays.deletedCount} gameplays, ${deletedVisits.deletedCount} visits`,
       );
 
       return {
@@ -80,6 +89,7 @@ export class SeedService {
         deletedTables: deletedTables.deletedCount,
         deletedOrders: deletedOrders.deletedCount,
         deletedGameplays: deletedGameplays.deletedCount,
+        deletedVisits: deletedVisits.deletedCount,
       };
     } catch (error) {
       await session.abortTransaction();
@@ -108,6 +118,7 @@ export class SeedService {
 
       // 2. Users, menu items ve games al
       const users = await this.userModel.find({ location: locationId }).exec();
+      const activeUsers = await this.userModel.find({ location: locationId, active: true }).exec();
       const allMenuItems = await this.menuItemModel
         .find({ locations: locationId, shownInMenu: true })
         .populate('category')
@@ -124,6 +135,9 @@ export class SeedService {
       if (users.length === 0) {
         throw new Error(`No users found for location ${locationId}`);
       }
+      if (activeUsers.length === 0) {
+        throw new Error(`No active users found for location ${locationId}`);
+      }
       if (menuItems.length === 0) {
         throw new Error(`No menu items found for location ${locationId}`);
       }
@@ -139,9 +153,35 @@ export class SeedService {
       const createdTables = [];
       const createdOrders = [];
       const createdGameplays = [];
+      const createdVisits = [];
 
       const targetTableCount = this.randomInt(60, 70);
       const today = date ? new Date(date) : new Date();
+      const targetDate = format(today, 'yyyy-MM-dd');
+
+      // 4. Aktif çalışanlar oluştur (6-7 kişi, sadece active olan kullanıcılardan)
+      const visitCount = Math.min(this.randomInt(6, 7), activeUsers.length);
+
+      // Rastgele aktif kullanıcıları seç (tekrar olmadan)
+      const shuffledActiveUsers = [...activeUsers].sort(() => Math.random() - 0.5);
+      const selectedUsers = shuffledActiveUsers.slice(0, visitCount);
+
+      for (const user of selectedUsers) {
+        const startHour = this.randomInt(8, 12); // 08:00 - 12:00 arası giriş yapmış
+        const startMinute = this.randomInt(0, 59);
+        const formattedStartHour = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+
+        const visit = await this.visitModel.create({
+          user: user._id,
+          location: locationId,
+          date: targetDate,
+          startHour: formattedStartHour,
+          visitStartSource: VisitSource.PANEL,
+          notificationSent: false,
+        });
+
+        createdVisits.push(visit);
+      }
 
       // 24-27 açık masa, geri kalan kapalı
       const openTableCount = this.randomInt(24, 27);
@@ -244,7 +284,6 @@ export class SeedService {
       await session.commitTransaction();
 
       // Redis cache'i temizle
-      const targetDate = format(today, 'yyyy-MM-dd');
       const cacheKey = `${RedisKeys.Tables}:${locationId}:${targetDate}`;
       try {
         await this.redisService.reset(cacheKey);
@@ -254,7 +293,7 @@ export class SeedService {
       }
 
       this.logger.log(
-        `Successfully seeded ${createdTables.length} tables, ${createdOrders.length} orders, ${createdGameplays.length} gameplays`,
+        `Successfully seeded ${createdTables.length} tables, ${createdOrders.length} orders, ${createdGameplays.length} gameplays, ${createdVisits.length} visits`,
       );
 
       return {
@@ -262,6 +301,7 @@ export class SeedService {
         createdTables: createdTables.length,
         createdOrders: createdOrders.length,
         createdGameplays: createdGameplays.length,
+        createdVisits: createdVisits.length,
       };
     } catch (error) {
       await session.abortTransaction();
