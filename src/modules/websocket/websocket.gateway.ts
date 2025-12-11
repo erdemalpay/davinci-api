@@ -155,8 +155,9 @@ export class AppWebSocketGateway {
     this.server.emit('feedbackChanged', { feedback });
   }
 
-  emitGameChanged(...args: any[]) {
+  async emitGameChanged(...args: any[]) {
     const [user, game] = args;
+    await this.redisService.reset(RedisKeys.GamesMinimal);
     this.server.emit('gameChanged', { user, game });
   }
 
@@ -165,8 +166,12 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
-  emitGameplayCreated(...args: any[]) {
+  async emitGameplayCreated(...args: any[]) {
     const [user, gameplay, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('gameplayCreated', { user, gameplay, table });
   }
 
@@ -175,8 +180,12 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayUpdated', { user, gameplay });
   }
 
-  emitGameplayDeleted(...args: any[]) {
+  async emitGameplayDeleted(...args: any[]) {
     const [user, gameplay, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('gameplayDeleted', { user, gameplay, table });
   }
 
@@ -195,18 +204,22 @@ export class AppWebSocketGateway {
     this.server.emit('itemChanged', { user, item });
   }
 
-  emitKitchenChanged(...args: any[]) {
+  async emitKitchenChanged(...args: any[]) {
     const [user, kitchen] = args;
+    await this.redisService.reset(RedisKeys.Kitchens);
     this.server.emit('kitchenChanged', { user, kitchen });
   }
 
-  emitLocationChanged(...args: any[]) {
+  async emitLocationChanged(...args: any[]) {
     const [location] = args;
+    await this.redisService.reset(RedisKeys.Locations);
+    await this.redisService.reset(RedisKeys.AllLocations);
     this.server.emit('locationChanged', { location });
   }
 
-  emitMembershipChanged(...args: any[]) {
+  async emitMembershipChanged(...args: any[]) {
     const [user, membership] = args;
+    await this.redisService.reset(RedisKeys.Memberships);
     this.server.emit('membershipChanged', { user, membership });
   }
 
@@ -239,8 +252,9 @@ export class AppWebSocketGateway {
     this.server.emit('orderUpdated', { user, order });
   }
 
-  emitPageChanged(...args: any[]) {
+  async emitPageChanged(...args: any[]) {
     const [user, page] = args;
+    await this.redisService.reset(RedisKeys.Pages);
     this.server.emit('pageChanged', { user, page });
   }
 
@@ -312,13 +326,18 @@ export class AppWebSocketGateway {
     this.server.emit('shiftChangeRequestChanged', { user, shiftChangeRequest });
   }
 
-  emitShiftChanged(...args: any[]) {
+  async emitShiftChanged(...args: any[]) {
     const [user, shift] = args;
+    await this.redisService.reset(RedisKeys.Shifts);
     this.server.emit('shiftChanged', { user, shift });
   }
 
-  emitSingleTableChanged(...args: any[]) {
+  async emitSingleTableChanged(...args: any[]) {
     const [user, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('singleTableChanged', { user, table });
   }
 
@@ -327,21 +346,37 @@ export class AppWebSocketGateway {
     this.server.emit('stockChanged', { user, stock });
   }
 
-  emitTableChanged(...args: any[]) {
+  async emitTableChanged(...args: any[]) {
     const [user, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('tableChanged', { user, table });
   }
-  emitTableDeleted(...args: any[]) {
+  async emitTableDeleted(...args: any[]) {
     const [user, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('tableDeleted', { user, table });
   }
 
-  emitTableCreated(...args: any[]) {
+  async emitTableCreated(...args: any[]) {
     const [user, table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('tableCreated', { user, table });
   }
-  emitTableClosed(...args: any[]) {
+  async emitTableClosed(...args: any[]) {
     const [table] = args;
+    if (table?.location && table?.date) {
+      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
+      await this.redisService.reset(cacheKey);
+    }
     this.server.emit('tableClosed', { table });
   }
 
@@ -357,6 +392,7 @@ export class AppWebSocketGateway {
 
   async emitUserChanged(user: any) {
     await this.redisService.reset(RedisKeys.Users);
+    await this.redisService.reset(RedisKeys.MinimalUsers);
     this.server.emit('userChanged', { user });
   }
 

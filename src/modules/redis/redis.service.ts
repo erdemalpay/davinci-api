@@ -35,8 +35,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Method to set data in Redis
-  async set(key: string, value: any): Promise<string> {
-    return await this.client.set(key, JSON.stringify(value));
+  async set(key: string, value: any, ttl?: number): Promise<string> {
+    if (ttl) {
+      return this.client.set(key, JSON.stringify(value), 'EX', ttl);
+    }
+    return this.client.set(key, JSON.stringify(value));
   }
 
   // Method to get data from Redis
@@ -47,6 +50,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   // Method to delete a single key or multiple keys
   async reset(...keys: string[]): Promise<number> {
+    return await this.client.del(...keys);
+  }
+
+  // Method to delete keys by pattern
+  async resetByPattern(pattern: string): Promise<number> {
+    const keys = await this.client.keys(pattern);
+    if (keys.length === 0) {
+      return 0;
+    }
     return await this.client.del(...keys);
   }
 

@@ -14,5 +14,4 @@ export class TableSchedule {
     this.logger.log('🔄 [Cron] Checking for unclosed tables…');
     await this.tableService.notifyUnclosedTables();
   }
-
 }

@@ -17,6 +17,8 @@ import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
 import { ReservationService } from '../reservation/reservation.service';
 import { User } from '../user/user.schema';
@@ -49,6 +51,7 @@ export class TableService {
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -257,17 +260,57 @@ export class TableService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.tableModel
-      .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
-      .populate({
-        path: 'gameplays',
-        select: 'startHour game playerCount mentor date finishHour',
-        populate: {
-          path: 'mentor',
-          select: 'name',
-        },
-      })
-      .exec();
+
+    const cacheKey = `${RedisKeys.Tables}:${location}:${date}`;
+    try {
+      const redisTables = await this.redisService.get(cacheKey);
+      if (redisTables) {
+        return redisTables;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve tables from Redis:', error);
+    }
+
+    try {
+      const tables = await this.tableModel
+        .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
+        .populate({
+          path: 'gameplays',
+          select: 'startHour game playerCount mentor date finishHour',
+        })
+        .exec();
+
+      if (tables.length > 0) {
+        try {
+          const [year, month, day] = date.split('-').map(Number);
+          const nextDayMidnight = new Date(
+            year,
+            month - 1,
+            day + 1,
+            0,
+            30,
+            0,
+            0,
+          ); // Next day 00:30:00 local time
+
+          const now = new Date();
+          const ttl = Math.max(
+            Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
+            60,
+          );
+          await this.redisService.set(cacheKey, tables, ttl);
+        } catch (error) {
+          console.error('Failed to cache tables in Redis:', error);
+        }
+      }
+      return tables;
+    } catch (error) {
+      console.error('Failed to retrieve tables from database:', error);
+      throw new HttpException(
+        'Could not retrieve tables',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
   async getYerVarmiByLocation(location: number, date: string) {
     try {
@@ -339,16 +382,8 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
-    // here i need to populate the gameplay mentor with _id , name fields
-    const populatedGameplay = await this.gameplayService
-      .findById(gameplay._id)
-      .populate({
-        path: 'mentor',
-        select: 'name',
-      })
-      .exec();
-    this.websocketGateway.emitGameplayCreated(user, populatedGameplay, table);
-    return populatedGameplay;
+    this.websocketGateway.emitGameplayCreated(user, gameplay, table);
+    return gameplay;
   }
 
   async removeGameplay(user: User, tableId: number, gameplayId: number) {

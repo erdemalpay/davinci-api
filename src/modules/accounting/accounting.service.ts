@@ -100,8 +100,32 @@ export class AccountingService {
     private readonly visitService: VisitService,
   ) {}
   //   Products
-  findAllProducts() {
-    return this.productModel.find();
+  async findAllProducts() {
+    try {
+      const redisProducts = await this.redisService.get(
+        RedisKeys.AccountingProducts,
+      );
+      if (redisProducts) {
+        return redisProducts;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve all products from Redis:', error);
+    }
+
+    try {
+      const products = await this.productModel.find().exec();
+
+      if (products.length > 0) {
+        await this.redisService.set(RedisKeys.AccountingProducts, products);
+      }
+      return products;
+    } catch (error) {
+      console.error('Failed to retrieve all products from database:', error);
+      throw new HttpException(
+        'Could not retrieve products',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
   async findDeletedProducts() {
     return this.productModel.find({ deleted: true });
