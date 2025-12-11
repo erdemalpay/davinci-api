@@ -2177,13 +2177,32 @@ export class OrderService {
         {
           $match: {
             ...filterQuery,
-            discountAmount: { $exists: true, $ne: null, $gt: 0 },
+            $or: [
+              { discountAmount: { $exists: true, $ne: null, $gt: 0 } },
+              { discountPercentage: { $exists: true, $ne: null, $gt: 0 } },
+            ],
+          },
+        },
+        {
+          $addFields: {
+            calculatedDiscount: {
+              $cond: {
+                if: { $gt: ['$discountAmount', 0] },
+                then: { $multiply: ['$discountAmount', '$quantity'] },
+                else: {
+                  $multiply: [
+                    { $multiply: ['$unitPrice', '$quantity'] },
+                    { $divide: ['$discountPercentage', 100] },
+                  ],
+                },
+              },
+            },
           },
         },
         {
           $group: {
             _id: null,
-            totalDiscounts: { $sum: '$discountAmount' },
+            totalDiscounts: { $sum: '$calculatedDiscount' },
           },
         },
       ]);
