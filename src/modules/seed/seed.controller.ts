@@ -8,9 +8,12 @@ export class SeedController {
   constructor(private readonly seedService: SeedService) {}
 
   @Post('test-data')
-  async seedTestData(@Query('location') location?: number) {
+  async seedTestData(
+    @Query('location') location?: number,
+    @Query('date') date?: string,
+  ) {
     const locationId = location ? Number(location) : 2;
-    return this.seedService.seedTestData(locationId);
+    return this.seedService.seedTestData(locationId, date);
   }
 
   @Delete('test-data')

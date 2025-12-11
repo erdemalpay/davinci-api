@@ -11,6 +11,8 @@ import { User } from '../user/user.schema';
 import { Game } from '../game/game.schema';
 import { MenuItem } from '../menu/item.schema';
 import { OrderStatus } from '../order/order.dto';
+import { RedisService } from '../redis/redis.service';
+import { RedisKeys } from '../redis/redis.dto';
 
 @Injectable()
 export class SeedService {
@@ -25,6 +27,7 @@ export class SeedService {
     @InjectModel(Game.name) private gameModel: Model<Game>,
     @InjectModel(MenuItem.name) private menuItemModel: Model<MenuItem>,
     @InjectConnection() private readonly connection: Connection,
+    private readonly redisService: RedisService,
   ) {}
 
   async clearTestData(locationId: number = 2, date?: string) {
@@ -59,6 +62,15 @@ export class SeedService {
 
       await session.commitTransaction();
 
+      // Redis cache'i temizle
+      const cacheKey = `${RedisKeys.Tables}:${locationId}:${targetDate}`;
+      try {
+        await this.redisService.reset(cacheKey);
+        this.logger.log(`Cleared Redis cache: ${cacheKey}`);
+      } catch (error) {
+        this.logger.error(`Failed to clear Redis cache: ${error.message}`);
+      }
+
       this.logger.log(
         `Cleared ${deletedTables.deletedCount} tables, ${deletedOrders.deletedCount} orders, ${deletedGameplays.deletedCount} gameplays`,
       );
@@ -78,7 +90,7 @@ export class SeedService {
     }
   }
 
-  async seedTestData(locationId: number = 2) {
+  async seedTestData(locationId: number = 2, date?: string) {
     const session = await this.connection.startSession();
     session.startTransaction();
 
@@ -129,7 +141,7 @@ export class SeedService {
       const createdGameplays = [];
 
       const targetTableCount = this.randomInt(60, 70);
-      const today = new Date();
+      const today = date ? new Date(date) : new Date();
 
       // 24-27 açık masa, geri kalan kapalı
       const openTableCount = this.randomInt(24, 27);
@@ -230,6 +242,16 @@ export class SeedService {
 
       // Transaction'ı commit et
       await session.commitTransaction();
+
+      // Redis cache'i temizle
+      const targetDate = format(today, 'yyyy-MM-dd');
+      const cacheKey = `${RedisKeys.Tables}:${locationId}:${targetDate}`;
+      try {
+        await this.redisService.reset(cacheKey);
+        this.logger.log(`Cleared Redis cache: ${cacheKey}`);
+      } catch (error) {
+        this.logger.error(`Failed to clear Redis cache: ${error.message}`);
+      }
 
       this.logger.log(
         `Successfully seeded ${createdTables.length} tables, ${createdOrders.length} orders, ${createdGameplays.length} gameplays`,

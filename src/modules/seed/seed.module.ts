@@ -7,6 +7,7 @@ import { Location, LocationSchema } from '../location/location.schema';
 import { User, UserSchema } from '../user/user.schema';
 import { Game, GameSchema } from '../game/game.schema';
 import { MenuItem, MenuItemSchema } from '../menu/item.schema';
+import { RedisService } from '../redis/redis.service';
 import { SeedController } from './seed.controller';
 import { SeedService } from './seed.service';
 
@@ -23,7 +24,7 @@ import { SeedService } from './seed.service';
     ]),
   ],
   controllers: [SeedController],
-  providers: [SeedService],
+  providers: [SeedService, RedisService],
   exports: [SeedService],
 })
 export class SeedModule {}
