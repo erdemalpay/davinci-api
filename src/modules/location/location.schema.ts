@@ -58,6 +58,9 @@ export class Location extends Document {
   @Prop({ required: false, type: Boolean })
   isShelfInfoRequired: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  seenInOrdersSummaryPage: boolean;
+
   @Prop([LocationShift])
   shifts: LocationShift[];
 

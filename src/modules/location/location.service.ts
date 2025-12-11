@@ -34,7 +34,7 @@ export class LocationService {
 
     try {
       const locations = await this.locationModel
-        .find({ type: { $in: [1] } })
+        .find({ seenInOrdersSummaryPage: true })
         .exec();
 
       if (locations.length > 0) {
