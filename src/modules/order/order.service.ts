@@ -2147,6 +2147,57 @@ export class OrderService {
     }
   }
 
+  async findSummaryDiscountTotal(query: SummaryCollectionQueryDto) {
+    const filterQuery = {};
+    const { after, before, location } = query;
+    if (!after && !before) {
+      throw new HttpException(
+        'Failed to fetch summary discounts',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (after) {
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $gte: new Date(after),
+      };
+    }
+    if (before) {
+      filterQuery['createdAt'] = {
+        ...filterQuery['createdAt'],
+        $lte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
+      };
+    }
+    if (location && Number(location) !== 0) {
+      filterQuery['location'] = Number(location);
+    }
+
+    try {
+      const discountTotal = await this.orderModel.aggregate([
+        {
+          $match: {
+            ...filterQuery,
+            discountAmount: { $exists: true, $ne: null, $gt: 0 },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalDiscounts: { $sum: '$discountAmount' },
+          },
+        },
+      ]);
+      return discountTotal.length > 0
+        ? { totalDiscounts: discountTotal[0].totalDiscounts }
+        : { totalDiscounts: 0 };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch summary discounts',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findGivenTableCollection(tableId: number) {
     try {
       const tableCollection = await this.collectionModel

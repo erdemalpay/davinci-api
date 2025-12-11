@@ -444,6 +444,19 @@ export class OrderController {
     });
   }
 
+  @Get('/discount/summary/query')
+  findSummaryDiscountTotal(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+    @Query('location') location?: number,
+  ) {
+    return this.orderService.findSummaryDiscountTotal({
+      after,
+      before,
+      location,
+    });
+  }
+
   @Post('/collection/table')
   createCollection(
     @ReqUser() user: User,
