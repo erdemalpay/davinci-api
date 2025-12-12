@@ -264,7 +264,7 @@ export class TableService {
     try {
       const redisTables = await this.redisService.get(RedisKeys.Tables);
       if (redisTables) {
-        return redisTables;
+        return redisTables?.filter((table: Table) => Number(table.location) === Number(location) && table.date === date);
       }
     } catch (error) {
       console.error('Failed to retrieve tables from Redis:', error);
@@ -272,7 +272,7 @@ export class TableService {
 
     try {
       const tables = await this.tableModel
-        .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
+        .find({ date, status: { $ne: TableStatus.CANCELLED } })
         .populate({
           path: 'gameplays',
           select: 'startHour game playerCount mentor date finishHour',
@@ -302,7 +302,7 @@ export class TableService {
           console.error('Failed to cache tables in Redis:', error);
         }
       }
-      return tables;
+      return tables?.filter((table: Table) => Number(table.location) === Number(location) && table.date === date);
     } catch (error) {
       console.error('Failed to retrieve tables from database:', error);
       throw new HttpException(
