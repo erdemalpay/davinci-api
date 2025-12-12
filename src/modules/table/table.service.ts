@@ -261,9 +261,8 @@ export class TableService {
       );
     }
 
-    const cacheKey = `${RedisKeys.Tables}:${location}:${date}`;
     try {
-      const redisTables = await this.redisService.get(cacheKey);
+      const redisTables = await this.redisService.get(RedisKeys.Tables);
       if (redisTables) {
         return redisTables;
       }
@@ -298,7 +297,7 @@ export class TableService {
             Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
             60,
           );
-          await this.redisService.set(cacheKey, tables, ttl);
+          await this.redisService.set(RedisKeys.Tables, tables, ttl);
         } catch (error) {
           console.error('Failed to cache tables in Redis:', error);
         }
