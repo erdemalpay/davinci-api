@@ -101,6 +101,29 @@ export class OrderController {
     );
   }
 
+  @Get('/category_summary/compare')
+  categorySummaryCompare(
+    @Query('primaryAfter') primaryAfter: string,
+    @Query('primaryBefore') primaryBefore: string,
+    @Query('secondaryAfter') secondaryAfter: string,
+    @Query('secondaryBefore') secondaryBefore: string,
+    @Query('granularity') granularity: 'daily' | 'monthly',
+    @Query('location') location?: number,
+    @Query('upperCategory') upperCategory?: number,
+    @Query('category') category?: number,
+  ) {
+    return this.orderService.categorySummaryCompare({
+      primaryAfter,
+      primaryBefore,
+      secondaryAfter,
+      secondaryBefore,
+      granularity,
+      location,
+      upperCategory,
+      category,
+    });
+  }
+
   @Get('/top-order-creators')
   findTopOrderCreators(
     @Query('date') date: string,

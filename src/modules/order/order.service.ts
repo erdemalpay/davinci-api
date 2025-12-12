@@ -3461,4 +3461,347 @@ export class OrderService {
       await session.endSession();
     }
   }
+
+  // Helper: Türkçe gün labeli
+  private getDayLabel(dayIndex: number): string {
+    const dayLabels = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    return dayLabels[dayIndex];
+  }
+
+  // Helper: Türkçe ay labeli
+  private getMonthLabel(monthIndex: number): string {
+    const monthLabels = [
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
+    ];
+    return monthLabels[monthIndex];
+  }
+
+  // Helper: Period label oluşturma
+  private formatPeriodLabel(
+    start: string,
+    end: string,
+    granularity: 'daily' | 'monthly',
+  ): string {
+    const startDate = parseISO(start);
+    const endDate = parseISO(end);
+
+    if (granularity === 'daily') {
+      const startFormatted = format(startDate, 'dd MMM');
+      const endFormatted = format(endDate, 'dd MMM');
+      return `${startFormatted} - ${endFormatted}`;
+    } else {
+      const startFormatted = format(startDate, 'dd MMM yyyy');
+      const endFormatted = format(endDate, 'dd MMM yyyy');
+      return `${startFormatted} - ${endFormatted}`;
+    }
+  }
+
+  // Helper: Günlük data array oluşturma
+  private createDailyDataArray(
+    startDate: Date,
+    endDate: Date,
+    aggregatedData: Map<string, number>,
+  ) {
+    const result = [];
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      const dateStr = format(current, 'yyyy-MM-dd');
+      const dayIndex = current.getDay();
+
+      result.push({
+        date: dateStr,
+        label: this.getDayLabel(dayIndex),
+        total: aggregatedData.get(dateStr) || 0,
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return result;
+  }
+
+  // Helper: Aylık data array oluşturma
+  private createMonthlyDataArray(
+    startDate: Date,
+    endDate: Date,
+    aggregatedData: Map<string, number>,
+  ) {
+    const result = [];
+    const current = new Date(startDate);
+    current.setDate(1); // Ayın ilk günü
+
+    while (current <= endDate) {
+      const monthStr = format(current, 'yyyy-MM');
+      const monthIndex = current.getMonth();
+
+      result.push({
+        month: monthStr,
+        label: this.getMonthLabel(monthIndex),
+        total: aggregatedData.get(monthStr) || 0,
+      });
+
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    return result;
+  }
+
+  // Ana method
+  async categorySummaryCompare(params: {
+    primaryAfter: string;
+    primaryBefore: string;
+    secondaryAfter: string;
+    secondaryBefore: string;
+    granularity: 'daily' | 'monthly';
+    location?: number;
+    upperCategory?: number;
+    category?: number;
+  }) {
+    const {
+      primaryAfter,
+      primaryBefore,
+      secondaryAfter,
+      secondaryBefore,
+      granularity,
+      location,
+      upperCategory,
+      category,
+    } = params;
+
+    // Validation
+    if (!primaryAfter || !primaryBefore || !secondaryAfter || !secondaryBefore) {
+      throw new HttpException(
+        'Missing required date parameters',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      // Kategori filtreleme
+      let categoryFilter = {};
+
+      if (category) {
+        // Alt kategori öncelikli
+        categoryFilter = { item: category };
+      } else if (upperCategory) {
+        // Üst kategori - alt kategorileri bul
+        const foundUpperCategory = await this.menuService.findSingleUpperCategory(
+          Number(upperCategory),
+        );
+        const categoryIds = foundUpperCategory?.categoryGroup?.map(
+          (cg) => cg?.category,
+        );
+        if (categoryIds && categoryIds.length > 0) {
+          // itemDetails lookup gerekiyor
+          categoryFilter = {
+            'itemDetails.category': { $in: categoryIds },
+          };
+        }
+      }
+
+      // Primary period data
+      const primaryData = await this.aggregateOrderData(
+        primaryAfter,
+        primaryBefore,
+        granularity,
+        location,
+        categoryFilter,
+      );
+
+      // Secondary period data
+      const secondaryData = await this.aggregateOrderData(
+        secondaryAfter,
+        secondaryBefore,
+        granularity,
+        location,
+        categoryFilter,
+      );
+
+      // Data'yı period formatına çevir
+      const primaryPeriod = this.formatPeriodData(
+        primaryAfter,
+        primaryBefore,
+        granularity,
+        primaryData,
+      );
+
+      const secondaryPeriod = this.formatPeriodData(
+        secondaryAfter,
+        secondaryBefore,
+        granularity,
+        secondaryData,
+      );
+
+      // Karşılaştırma metrikleri
+      const primaryTotal = primaryPeriod.totalRevenue;
+      const secondaryTotal = secondaryPeriod.totalRevenue;
+      const absoluteChange = primaryTotal - secondaryTotal;
+      const percentageChange =
+        secondaryTotal !== 0 ? (absoluteChange / secondaryTotal) * 100 : 0;
+
+      return {
+        primaryPeriod,
+        secondaryPeriod,
+        comparisonMetrics: {
+          percentageChange,
+          absoluteChange,
+        },
+      };
+    } catch (err) {
+      throw new HttpException(
+        `Failed to fetch category summary comparison: ${err?.message || err}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // Aggregate order data
+  private async aggregateOrderData(
+    startDate: string,
+    endDate: string,
+    granularity: 'daily' | 'monthly',
+    location?: number,
+    categoryFilter?: any,
+  ): Promise<Map<string, number>> {
+    const matchStage: any = {
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000),
+      },
+      status: { $nin: ['cancelled', 'returned', 'wasted'] },
+    };
+
+    if (location && Number(location) !== 0) {
+      matchStage.location = Number(location);
+    }
+
+    // Kategori filtresi için itemDetails lookup gerekebilir
+    const needsLookup = categoryFilter && categoryFilter['itemDetails.category'];
+
+    const pipeline: PipelineStage[] = [];
+
+    // Lookup ekle (eğer upperCategory varsa)
+    if (needsLookup) {
+      pipeline.push({
+        $lookup: {
+          from: 'menuitems',
+          localField: 'item',
+          foreignField: '_id',
+          as: 'itemDetails',
+        },
+      });
+      pipeline.push({
+        $unwind: {
+          path: '$itemDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+    }
+
+    // Match stage
+    const fullMatchStage = { ...matchStage, ...categoryFilter };
+    pipeline.push({ $match: fullMatchStage });
+
+    // Gelir hesaplama
+    pipeline.push({
+      $addFields: {
+        revenue: {
+          $subtract: [
+            { $multiply: ['$paidQuantity', '$unitPrice'] },
+            {
+              $add: [
+                { $ifNull: ['$discountAmount', 0] },
+                {
+                  $divide: [
+                    {
+                      $multiply: [
+                        { $multiply: ['$unitPrice', '$paidQuantity'] },
+                        { $ifNull: ['$discountPercentage', 0] },
+                      ],
+                    },
+                    100,
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    // Granularity'ye göre gruplama
+    if (granularity === 'daily') {
+      pipeline.push({
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+          },
+          total: { $sum: '$revenue' },
+        },
+      });
+    } else {
+      // monthly
+      pipeline.push({
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m', date: '$createdAt' },
+          },
+          total: { $sum: '$revenue' },
+        },
+      });
+    }
+
+    pipeline.push({ $sort: { _id: 1 } });
+
+    const results = await this.orderModel.aggregate(pipeline);
+
+    // Map'e çevir
+    const dataMap = new Map<string, number>();
+    results.forEach((item) => {
+      dataMap.set(item._id, item.total);
+    });
+
+    return dataMap;
+  }
+
+  // Period data formatla
+  private formatPeriodData(
+    startDateStr: string,
+    endDateStr: string,
+    granularity: 'daily' | 'monthly',
+    aggregatedData: Map<string, number>,
+  ) {
+    const startDate = parseISO(startDateStr);
+    const endDate = parseISO(endDateStr);
+
+    let data: any[];
+    if (granularity === 'daily') {
+      data = this.createDailyDataArray(startDate, endDate, aggregatedData);
+    } else {
+      data = this.createMonthlyDataArray(startDate, endDate, aggregatedData);
+    }
+
+    const totalRevenue = data.reduce((sum, item) => sum + item.total, 0);
+
+    return {
+      granularity,
+      label: this.formatPeriodLabel(startDateStr, endDateStr, granularity),
+      startDate: startDateStr,
+      endDate: endDateStr,
+      data,
+      totalRevenue,
+    };
+  }
 }
