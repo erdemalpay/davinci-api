@@ -161,8 +161,9 @@ export class AppWebSocketGateway {
     this.server.emit('gameChanged', { user, game });
   }
 
-  emitGameplayChanged(...args: any[]) {
+  async emitGameplayChanged(...args: any[]) {
     const [user, gameplay] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
@@ -175,8 +176,9 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayCreated', { user, gameplay, table });
   }
 
-  emitGameplayUpdated(...args: any[]) {
+  async emitGameplayUpdated(...args: any[]) {
     const [user, gameplay] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayUpdated', { user, gameplay });
   }
 
@@ -214,6 +216,7 @@ export class AppWebSocketGateway {
     const [location] = args;
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('locationChanged', { location });
   }
 
@@ -233,8 +236,9 @@ export class AppWebSocketGateway {
     this.server.emit('notificationRemoved', { notification });
   }
 
-  emitOrderCreated(...args: any[]) {
+  async emitOrderCreated(...args: any[]) {
     const [user, order] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('orderCreated', { user, order });
   }
 
@@ -247,8 +251,9 @@ export class AppWebSocketGateway {
     this.server.emit('orderNotesChanged', { user, orderNotes });
   }
 
-  emitOrderUpdated(...args: any[]) {
+  async emitOrderUpdated(...args: any[]) {
     const [user, order] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('orderUpdated', { user, order });
   }
 
