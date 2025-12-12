@@ -14,6 +14,12 @@ export class LocationController {
     return this.locationService.findStoreLocations();
   }
 
+  @Get('/orders-summary')
+  @Public()
+  findOrdersSummaryLocations() {
+    return this.locationService.findOrdersSummaryLocations();
+  }
+
   @Post()
   createStockLocation(@Body() createStockLocation: CreateStockLocationDto) {
     return this.locationService.createStockLocation(createStockLocation);

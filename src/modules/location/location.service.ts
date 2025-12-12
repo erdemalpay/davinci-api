@@ -34,7 +34,7 @@ export class LocationService {
 
     try {
       const locations = await this.locationModel
-        .find({ seenInOrdersSummaryPage: true })
+        .find({ type: { $in: [1] } })
         .exec();
 
       if (locations.length > 0) {
@@ -45,6 +45,21 @@ export class LocationService {
       console.error('Failed to retrieve store locations from database:', error);
       throw new HttpException(
         'Could not retrieve store locations',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async findOrdersSummaryLocations() {
+    try {
+      const locations = await this.locationModel
+        .find({ seenInOrdersSummaryPage: true })
+        .exec();
+      return locations;
+    } catch (error) {
+      console.error('Failed to retrieve orders summary locations from database:', error);
+      throw new HttpException(
+        'Could not retrieve orders summary locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
