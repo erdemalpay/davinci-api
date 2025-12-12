@@ -3462,52 +3462,7 @@ export class OrderService {
     }
   }
 
-  // Helper: Türkçe gün labeli
-  private getDayLabel(dayIndex: number): string {
-    const dayLabels = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-    return dayLabels[dayIndex];
-  }
-
-  // Helper: Türkçe ay labeli
-  private getMonthLabel(monthIndex: number): string {
-    const monthLabels = [
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
-    ];
-    return monthLabels[monthIndex];
-  }
-
-  // Helper: Period label oluşturma
-  private formatPeriodLabel(
-    start: string,
-    end: string,
-    granularity: 'daily' | 'monthly',
-  ): string {
-    const startDate = parseISO(start);
-    const endDate = parseISO(end);
-
-    if (granularity === 'daily') {
-      const startFormatted = format(startDate, 'dd MMM');
-      const endFormatted = format(endDate, 'dd MMM');
-      return `${startFormatted} - ${endFormatted}`;
-    } else {
-      const startFormatted = format(startDate, 'dd MMM yyyy');
-      const endFormatted = format(endDate, 'dd MMM yyyy');
-      return `${startFormatted} - ${endFormatted}`;
-    }
-  }
-
-  // Helper: Günlük data array oluşturma
+  // Helper: Günlük data array oluşturma (label'sız - frontend oluşturacak)
   private createDailyDataArray(
     startDate: Date,
     endDate: Date,
@@ -3518,11 +3473,9 @@ export class OrderService {
 
     while (current <= endDate) {
       const dateStr = format(current, 'yyyy-MM-dd');
-      const dayIndex = current.getDay();
 
       result.push({
         date: dateStr,
-        label: this.getDayLabel(dayIndex),
         total: aggregatedData.get(dateStr) || 0,
       });
 
@@ -3532,7 +3485,7 @@ export class OrderService {
     return result;
   }
 
-  // Helper: Aylık data array oluşturma
+  // Helper: Aylık data array oluşturma (label'sız - frontend oluşturacak)
   private createMonthlyDataArray(
     startDate: Date,
     endDate: Date,
@@ -3544,11 +3497,9 @@ export class OrderService {
 
     while (current <= endDate) {
       const monthStr = format(current, 'yyyy-MM');
-      const monthIndex = current.getMonth();
 
       result.push({
         month: monthStr,
-        label: this.getMonthLabel(monthIndex),
         total: aggregatedData.get(monthStr) || 0,
       });
 
@@ -3776,7 +3727,7 @@ export class OrderService {
     return dataMap;
   }
 
-  // Period data formatla
+  // Period data formatla (label'sız - frontend oluşturacak)
   private formatPeriodData(
     startDateStr: string,
     endDateStr: string,
@@ -3797,7 +3748,6 @@ export class OrderService {
 
     return {
       granularity,
-      label: this.formatPeriodLabel(startDateStr, endDateStr, granularity),
       startDate: startDateStr,
       endDate: endDateStr,
       data,
