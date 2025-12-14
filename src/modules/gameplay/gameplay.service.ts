@@ -545,4 +545,43 @@ export class GameplayService {
       .populate({ path: 'game', select: 'name' })
       .exec();
   }
+
+  async getGameplayCountsByDate(mentorId: string) {
+    const currentYear = new Date().getFullYear();
+    const startDate = `${currentYear}-01-01`;
+    const endDate = `${currentYear}-12-31`;
+
+    const aggregationPipeline: PipelineStage[] = [
+      {
+        $match: {
+          mentor: mentorId,
+          date: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$date',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          day: '$_id',
+          value: '$count',
+        },
+      },
+      {
+        $sort: { day: 1 },
+      },
+    ];
+
+    const results = await this.gameplayModel
+      .aggregate(aggregationPipeline)
+      .exec();
+    return results;
+  }
 }
