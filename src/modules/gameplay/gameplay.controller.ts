@@ -1,11 +1,11 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Query,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Query,
 } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -128,6 +128,11 @@ export class GameplayController {
     @Query('before') before?: string,
   ) {
     return this.gameplayService.getAfterGivenDateMentoredCounts(after, before);
+  }
+
+  @Get('/counts-by-date')
+  getGameplayCountsByDate(@Query('mentorId') mentorId: string) {
+    return this.gameplayService.getGameplayCountsByDate(mentorId);
   }
 
   @Get(':id')
