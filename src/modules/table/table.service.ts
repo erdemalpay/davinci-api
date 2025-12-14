@@ -264,7 +264,12 @@ export class TableService {
     try {
       const redisTables = await this.redisService.get(RedisKeys.Tables);
       if (redisTables) {
-        return redisTables?.filter((table: Table) => Number(table.location) === Number(location) && table.date === date);
+        const cachedTablesMap = redisTables as Record<string, Table[]>;
+        if (cachedTablesMap[date]) {
+          return cachedTablesMap[date]?.filter(
+            (table: Table) => Number(table.location) === Number(location),
+          );
+        }
       }
     } catch (error) {
       console.error('Failed to retrieve tables from Redis:', error);
@@ -281,6 +286,16 @@ export class TableService {
 
       if (tables.length > 0) {
         try {
+          // Get existing cached data
+          const existingCache =
+            ((await this.redisService.get(RedisKeys.Tables)) as Record<
+              string,
+              Table[]
+            >) || {};
+
+          // Update cache with new date's data
+          existingCache[date] = tables;
+
           const [year, month, day] = date.split('-').map(Number);
           const nextDayMidnight = new Date(
             year,
@@ -297,12 +312,15 @@ export class TableService {
             Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
             60,
           );
-          await this.redisService.set(RedisKeys.Tables, tables, ttl);
+          await this.redisService.set(RedisKeys.Tables, existingCache, ttl);
         } catch (error) {
           console.error('Failed to cache tables in Redis:', error);
         }
       }
-      return tables?.filter((table: Table) => Number(table.location) === Number(location) && table.date === date);
+      return tables?.filter(
+        (table: Table) =>
+          Number(table.location) === Number(location) && table.date === date,
+      );
     } catch (error) {
       console.error('Failed to retrieve tables from database:', error);
       throw new HttpException(
