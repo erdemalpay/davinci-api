@@ -46,17 +46,6 @@ export class ShiftService {
   async findQueryShifts(query: ShiftQueryDto) {
     const { after, before, location } = query;
 
-    const redisKey = `${RedisKeys.Shifts}:${after}:${before}:${location}`;
-
-    try {
-      const redisShifts = await this.redisService.get(redisKey);
-      if (redisShifts) {
-        return redisShifts;
-      }
-    } catch (error) {
-      console.error('Failed to retrieve shifts from Redis:', error);
-    }
-
     const startDate = new Date(after);
     const endDate = new Date(before);
     const daysInRange: string[] = [];
@@ -102,20 +91,6 @@ export class ShiftService {
       }
       return [{ day, shifts: [] }];
     });
-
-    try {
-      const [year, month, day] = before.split('-').map(Number);
-      const nextDayMidnight = new Date(year, month - 1, day + 1, 0, 30, 0, 0); // Next day 00:30:00 local time
-
-      const now = new Date();
-      const ttl = Math.max(
-        Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
-        60,
-      );
-      await this.redisService.set(redisKey, result, ttl);
-    } catch (error) {
-      console.error('Failed to cache shifts in Redis:', error);
-    }
 
     return result;
   }
