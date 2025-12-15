@@ -327,9 +327,8 @@ export class AppWebSocketGateway {
     this.server.emit('shiftChangeRequestChanged', { user, shiftChangeRequest });
   }
 
-  async emitShiftChanged(...args: any[]) {
+  emitShiftChanged(...args: any[]) {
     const [user, shift] = args;
-    await this.redisService.reset(RedisKeys.Shifts);
     this.server.emit('shiftChanged', { user, shift });
   }
 

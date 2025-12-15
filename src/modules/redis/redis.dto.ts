@@ -11,7 +11,6 @@ export enum RedisKeys {
   MinimalUsers = 'minimal-users',
   Authorizations = 'authorizations',
   PopularDiscounts = 'popular-discounts',
-  Shifts = 'shifts',
   Kitchens = 'kitchens',
   Locations = 'locations',
   AllLocations = 'all-locations',
