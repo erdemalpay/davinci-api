@@ -1,4 +1,5 @@
 import { HttpModule } from '@nestjs/axios';
+import { BullModule } from '@nestjs/bull';
 import { forwardRef, Module } from '@nestjs/common';
 import { UserModule } from 'src/modules/user/user.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -10,10 +11,14 @@ import { LocationModule } from './../location/location.module';
 import { MenuModule } from './../menu/menu.module';
 import { IkasController } from './ikas.controller';
 import { IkasService } from './ikas.service';
+import { IkasOrderProcessor } from './ikas-order.processor';
 import { WebSocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
+    BullModule.registerQueue({
+      name: 'ikas-orders',
+    }),
     WebSocketModule,
     RedisModule,
     HttpModule,
@@ -25,7 +30,7 @@ import { WebSocketModule } from '../websocket/websocket.module';
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),
   ],
-  providers: [IkasService],
+  providers: [IkasService, IkasOrderProcessor],
   exports: [IkasService],
   controllers: [IkasController],
 })

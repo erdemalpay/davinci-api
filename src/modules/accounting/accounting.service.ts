@@ -2451,11 +2451,8 @@ export class AccountingService {
         stock,
         newStock,
       );
-      this.updateIkasStock(
-        consumptStockDto.product,
-        stock.location,
-        stock.quantity - consumptStockDto.quantity,
-      );
+      // Note: Ikas stock updates are now handled asynchronously via queue processor
+      // or bulk update operations to improve performance
       return stock;
     } else {
       const newStock = await this.createStock(user, {

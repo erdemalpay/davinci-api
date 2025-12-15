@@ -7,23 +7,21 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { format } from 'date-fns';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
-import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
-import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
-import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
+import { IkasOrderJobData } from './ikas-order.processor';
 
 const NEORAMA_DEPO_LOCATION = 6;
 
@@ -45,6 +43,7 @@ export class IkasService {
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly httpService: HttpService,
+    @InjectQueue('ikas-orders') private readonly ikasOrderQueue: Queue<IkasOrderJobData>,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
@@ -1039,215 +1038,34 @@ export class IkasService {
         }
       }
 
-      console.log('Received data:', data);
+      console.log('Webhook received - Order:', data?.data?.orderNumber, 'Items:', data?.data?.orderLineItems?.length);
 
-      const orderLineItems = data?.data?.orderLineItems ?? [];
-      const constantUser = await this.userService.findByIdWithoutPopulate('dv');
+      // Add job to queue and return immediately with 200 OK
+      const job = await this.ikasOrderQueue.add('create-order', data, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      });
 
-      if (!constantUser) {
-        throw new HttpException(
-          'Constant user not found',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      console.log(`Job ${job.id} queued for order ${data?.data?.orderNumber}`);
 
-      if (orderLineItems.length === 0) {
-        console.log('No order line items to process');
-        return;
-      }
-      if (data?.data?.status !== 'CREATED') {
-        console.log(`Skipping item as status is not 'CREATED'`);
-        return;
-      }
-      for (const orderLineItem of orderLineItems) {
-        try {
-          const { quantity, stockLocationId, id, finalPrice } = orderLineItem;
-          const { productId } = orderLineItem.variant;
-
-          if (!productId || !stockLocationId || !quantity) {
-            throw new HttpException(
-              'Invalid order line item data',
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          const foundMenuItem = await this.menuService.findByIkasId(productId);
-          if (!foundMenuItem?.matchedProduct) {
-            console.log(`Menu item not found for productId: ${productId}`);
-            continue;
-          }
-
-          const foundLocation = await this.locationService.findByIkasId(
-            stockLocationId,
-          );
-          if (!foundLocation) {
-            console.log(
-              `Location not found for stockLocationId: ${stockLocationId}`,
-            );
-            continue;
-          }
-
-          const foundPaymentMethod =
-            await this.accountingService.findPaymentMethodByIkasId(
-              data?.data?.salesChannelId,
-            );
-          const foundIkasOrder = await this.orderService.findByIkasId(id);
-          if (foundIkasOrder) {
-            console.log(
-              `Order already exists for ikas order id: ${id}, skipping to next item.`,
-            );
-            continue;
-          }
-          const ikasOrderNumber = data?.data?.orderNumber;
-          let createOrderObject: CreateOrderDto = {
-            item: foundMenuItem._id,
-            quantity: quantity,
-            note: '',
-            discount: undefined,
-            discountNote: '',
-            isOnlinePrice: false,
-            location: 4,
-            unitPrice: finalPrice,
-            paidQuantity: quantity,
-            deliveredAt: new Date(),
-            deliveredBy: constantUser?._id,
-            preparedAt: new Date(),
-            preparedBy: constantUser?._id,
-            status: OrderStatus.AUTOSERVED,
-            stockLocation: foundLocation._id,
-            createdAt: new Date(),
-            tableDate: new Date(),
-            createdBy: constantUser?._id,
-            stockNote: StockHistoryStatusEnum.IKASORDERCREATE,
-            ikasId: id,
-            ...(foundPaymentMethod && {
-              paymentMethod: foundPaymentMethod._id,
-            }),
-            ...(ikasOrderNumber && {
-              ikasOrderNumber: ikasOrderNumber,
-            }),
-          };
-          if (data?.data?.stockLocationId) {
-            const foundLocation = await this.locationService.findByIkasId(
-              data?.data?.stockLocationId,
-            );
-            if (foundLocation) {
-              createOrderObject = {
-                ...createOrderObject,
-                ikasCustomer: {
-                  id: data?.data?.customer?.id,
-                  firstName: data?.data?.customer?.firstName,
-                  lastName: data?.data?.customer?.lastName,
-                  email: data?.data?.customer?.email,
-                  phone: data?.data?.customer?.phone,
-                  location: foundLocation._id,
-                },
-              };
-            }
-          }
-          try {
-            const order = await this.orderService.createOrder(
-              constantUser,
-              createOrderObject,
-            );
-            console.log('Order created:', order);
-            if (data?.data?.stockLocationId) {
-              const foundLocation = await this.locationService.findByIkasId(
-                data?.data?.stockLocationId,
-              );
-              if (foundLocation) {
-                const visits = await this.visitService.findByDateAndLocation(
-                  format(order.createdAt, 'yyyy-MM-dd'),
-                  2,
-                );
-                const uniqueVisitUsers =
-                  visits
-                    ?.reduce(
-                      (
-                        acc: { unique: typeof visits; seenUsers: SeenUsers },
-                        visit,
-                      ) => {
-                        acc.seenUsers = acc.seenUsers || {};
-                        if (
-                          visit?.user &&
-                          !acc.seenUsers[(visit as any).user]
-                        ) {
-                          acc.seenUsers[(visit as any).user] = true;
-                          acc.unique.push(visit);
-                        }
-                        return acc;
-                      },
-                      { unique: [], seenUsers: {} },
-                    )
-                    ?.unique?.map((visit) => visit.user) ?? [];
-                const message = {
-                  key: 'IkasPickupOrderArrived',
-                  params: {
-                    product: foundMenuItem.name,
-                  },
-                };
-                const notificationEvents =
-                  await this.notificationService.findAllEventNotifications();
-
-                const ikasTakeawayEvent = notificationEvents.find(
-                  (notification) =>
-                    notification.event === NotificationEventType.IKASTAKEAWAY,
-                );
-
-                if (ikasTakeawayEvent) {
-                  await this.notificationService.createNotification({
-                    type: ikasTakeawayEvent.type,
-                    createdBy: ikasTakeawayEvent.createdBy,
-                    selectedUsers: ikasTakeawayEvent.selectedUsers,
-                    selectedRoles: ikasTakeawayEvent.selectedRoles,
-                    selectedLocations: ikasTakeawayEvent.selectedLocations,
-                    seenBy: [],
-                    event: NotificationEventType.IKASTAKEAWAY,
-                    message,
-                  });
-                }
-              }
-            }
-            const createdCollection = {
-              location: 4,
-              paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
-              amount: finalPrice * quantity,
-              status: OrderCollectionStatus.PAID,
-              orders: [
-                {
-                  order: order._id,
-                  paidQuantity: quantity,
-                },
-              ],
-              createdBy: constantUser._id,
-              tableDate: new Date(),
-              ikasId: id, //this is ikas order id
-              ...(ikasOrderNumber && {
-                ikasOrderNumber: ikasOrderNumber,
-              }),
-            };
-
-            try {
-              const collection = await this.orderService.createCollection(
-                constantUser,
-                createdCollection,
-              );
-              console.log('Collection created:', collection);
-            } catch (collectionError) {
-              console.error(
-                'Error creating collection:',
-                collectionError.message,
-              );
-            }
-          } catch (orderError) {
-            console.error('Error creating order:', orderError.message);
-          }
-        } catch (itemError) {
-          console.error('Error processing order line item:', itemError.message);
-        }
-      }
+      return {
+        success: true,
+        message: 'Order webhook received and queued for processing',
+        jobId: job.id,
+        orderNumber: data?.data?.orderNumber,
+        itemCount: data?.data?.orderLineItems?.length || 0,
+      };
     } catch (error) {
       console.error('Error in orderCreateWebHook:', error.message);
+      throw new HttpException(
+        'Failed to queue order for processing',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
