@@ -40,6 +40,9 @@ export class Location extends Document {
   @Prop({ required: true, default: true })
   active: boolean;
 
+  @Prop({ required: false, type: Boolean, default: true })
+  isVisibleInBaseQuantity: boolean;
+
   @Prop({ required: false, index: true })
   activityNote: string;
 

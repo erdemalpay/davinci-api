@@ -261,11 +261,15 @@ export class TableService {
       );
     }
 
-    const cacheKey = `${RedisKeys.Tables}:${location}:${date}`;
     try {
-      const redisTables = await this.redisService.get(cacheKey);
+      const redisTables = await this.redisService.get(RedisKeys.Tables);
       if (redisTables) {
-        return redisTables;
+        const cachedTablesMap = redisTables as Record<string, Table[]>;
+        if (cachedTablesMap[date]) {
+          return cachedTablesMap[date]?.filter(
+            (table: Table) => Number(table.location) === Number(location),
+          );
+        }
       }
     } catch (error) {
       console.error('Failed to retrieve tables from Redis:', error);
@@ -273,7 +277,7 @@ export class TableService {
 
     try {
       const tables = await this.tableModel
-        .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
+        .find({ date, status: { $ne: TableStatus.CANCELLED } })
         .populate({
           path: 'gameplays',
           select: 'startHour game playerCount mentor date finishHour',
@@ -282,6 +286,16 @@ export class TableService {
 
       if (tables.length > 0) {
         try {
+          // Get existing cached data
+          const existingCache =
+            ((await this.redisService.get(RedisKeys.Tables)) as Record<
+              string,
+              Table[]
+            >) || {};
+
+          // Update cache with new date's data
+          existingCache[date] = tables;
+
           const [year, month, day] = date.split('-').map(Number);
           const nextDayMidnight = new Date(
             year,
@@ -298,12 +312,15 @@ export class TableService {
             Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
             60,
           );
-          await this.redisService.set(cacheKey, tables, ttl);
+          await this.redisService.set(RedisKeys.Tables, existingCache, ttl);
         } catch (error) {
           console.error('Failed to cache tables in Redis:', error);
         }
       }
-      return tables;
+      return tables?.filter(
+        (table: Table) =>
+          Number(table.location) === Number(location) && table.date === date,
+      );
     } catch (error) {
       console.error('Failed to retrieve tables from database:', error);
       throw new HttpException(

@@ -161,31 +161,29 @@ export class AppWebSocketGateway {
     this.server.emit('gameChanged', { user, game });
   }
 
-  emitGameplayChanged(...args: any[]) {
+  async emitGameplayChanged(...args: any[]) {
     const [user, gameplay] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
   async emitGameplayCreated(...args: any[]) {
     const [user, gameplay, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('gameplayCreated', { user, gameplay, table });
   }
 
-  emitGameplayUpdated(...args: any[]) {
+  async emitGameplayUpdated(...args: any[]) {
     const [user, gameplay] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayUpdated', { user, gameplay });
   }
 
   async emitGameplayDeleted(...args: any[]) {
     const [user, gameplay, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('gameplayDeleted', { user, gameplay, table });
   }
 
@@ -214,6 +212,7 @@ export class AppWebSocketGateway {
     const [location] = args;
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('locationChanged', { location });
   }
 
@@ -233,8 +232,9 @@ export class AppWebSocketGateway {
     this.server.emit('notificationRemoved', { notification });
   }
 
-  emitOrderCreated(...args: any[]) {
+  async emitOrderCreated(...args: any[]) {
     const [user, order] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('orderCreated', { user, order });
   }
 
@@ -247,8 +247,9 @@ export class AppWebSocketGateway {
     this.server.emit('orderNotesChanged', { user, orderNotes });
   }
 
-  emitOrderUpdated(...args: any[]) {
+  async emitOrderUpdated(...args: any[]) {
     const [user, order] = args;
+    await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('orderUpdated', { user, order });
   }
 
@@ -334,10 +335,8 @@ export class AppWebSocketGateway {
 
   async emitSingleTableChanged(...args: any[]) {
     const [user, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('singleTableChanged', { user, table });
   }
 
@@ -348,35 +347,27 @@ export class AppWebSocketGateway {
 
   async emitTableChanged(...args: any[]) {
     const [user, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('tableChanged', { user, table });
   }
   async emitTableDeleted(...args: any[]) {
     const [user, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('tableDeleted', { user, table });
   }
 
   async emitTableCreated(...args: any[]) {
     const [user, table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('tableCreated', { user, table });
   }
   async emitTableClosed(...args: any[]) {
     const [table] = args;
-    if (table?.location && table?.date) {
-      const cacheKey = `${RedisKeys.Tables}:${table.location}:${table.date}`;
-      await this.redisService.reset(cacheKey);
-    }
+    await this.redisService.reset(RedisKeys.Tables);
+
     this.server.emit('tableClosed', { table });
   }
 
