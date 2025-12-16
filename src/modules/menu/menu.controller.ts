@@ -5,7 +5,7 @@ import {
   Get,
   Param,
   Patch,
-  Post,
+  Post
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
@@ -19,7 +19,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { MenuService } from './menu.service';
 import { UpperCategory } from './upperCategory.schema';
@@ -46,6 +46,11 @@ export class MenuController {
   @Post('/items/update-ikas-id')
   updateIkasItemsIkasIdFields(@Body() sendItems: Array<MenuItem>) {
     return this.menuService.updateIkasItemsIkasIdFields(sendItems);
+  }
+
+  @Post('/items/update-ikas-variant-ids')
+  updateIkasVariantIds() {
+    return this.menuService.updateIkasVariantIds();
   }
 
   @Get('/items/remove-deleted-products')
