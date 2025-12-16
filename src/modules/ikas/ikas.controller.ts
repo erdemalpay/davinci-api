@@ -101,8 +101,14 @@ export class IkasController {
 
   @Public()
   @Post('/order-create-webhook')
-  createOrderWebhook(@Body() data?: any) {
-    return this.ikasService.orderCreateWebHook(data);
+  async createOrderWebhook(@Body() data?: any) {
+    try {
+      return await this.ikasService.orderCreateWebHook(data);
+    } catch (error) {
+      console.error('Error in order-create-webhook controller:', error);
+      // Return a response to prevent unhandled rejection
+      return { success: false, error: error?.message || 'Unknown error' };
+    }
   }
 
   @Public()
