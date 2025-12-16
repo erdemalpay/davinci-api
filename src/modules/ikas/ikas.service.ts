@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
@@ -1236,18 +1236,33 @@ export class IkasService {
             } catch (collectionError) {
               console.error(
                 'Error creating collection:',
-                collectionError.message,
+                collectionError?.message || collectionError,
               );
+              console.error('Collection error stack:', collectionError?.stack);
+              // Don't throw here, continue with next item
+              // but log the error for debugging
             }
           } catch (orderError) {
-            console.error('Error creating order:', orderError.message);
+            console.error('Error creating order:', orderError?.message || orderError);
+            console.error('Order error stack:', orderError?.stack);
+            // Don't throw here, continue with next item
+            // but log the error for debugging
           }
         } catch (itemError) {
-          console.error('Error processing order line item:', itemError.message);
+          console.error('Error processing order line item:', itemError?.message || itemError);
+          console.error('Item error stack:', itemError?.stack);
+          // Continue with next item instead of crashing
         }
       }
     } catch (error) {
-      console.error('Error in orderCreateWebHook:', error.message);
+      console.error('Error in orderCreateWebHook:', error);
+      console.error('Error stack:', error?.stack);
+      // Re-throw the error to ensure it's properly handled
+      // but wrap it to prevent unhandled rejection
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

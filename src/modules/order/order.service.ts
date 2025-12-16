@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
@@ -49,7 +49,7 @@ import {
   OrderQueryDto,
   OrderStatus,
   OrderType,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1152,7 +1152,11 @@ export class OrderService {
         tableDate: order?.tableDate ?? order.createdAt,
       });
       await orderGroupModel.save();
-      this.websocketGateway.emitOrderGroupChanged();
+      try {
+        this.websocketGateway.emitOrderGroupChanged();
+      } catch (error) {
+        console.error('Error emitting order group changed:', error);
+      }
       const orderWithItem = await order.populate('item kitchen');
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
@@ -1168,20 +1172,32 @@ export class OrderService {
           });
         }
       }
-      this.activityService.addActivity(
-        users.find((user) => user._id === order.createdBy),
-        ActivityType.CREATE_ORDER,
-        order,
-      );
-      if (order.discount) {
-        this.activityService.addActivity(
-          user,
-          ActivityType.ORDER_DISCOUNT,
+      try {
+        await this.activityService.addActivity(
+          users.find((user) => user._id === order.createdBy),
+          ActivityType.CREATE_ORDER,
           order,
         );
+      } catch (error) {
+        console.error('Error adding create order activity:', error);
+      }
+      if (order.discount) {
+        try {
+          await this.activityService.addActivity(
+            user,
+            ActivityType.ORDER_DISCOUNT,
+            order,
+          );
+        } catch (error) {
+          console.error('Error adding order discount activity:', error);
+        }
       }
       if (order?.table) {
-        this.websocketGateway.emitOrderCreated(user, order);
+        try {
+          this.websocketGateway.emitOrderCreated(user, order);
+        } catch (error) {
+          console.error('Error emitting order created:', error);
+        }
       }
     } catch (error) {
       throw new HttpException(
@@ -2246,12 +2262,20 @@ export class OrderService {
 
     try {
       await collection.save();
-      this.websocketGateway.emitCollectionChanged(user, collection);
-      this.activityService.addActivity(
-        user,
-        ActivityType.TAKE_PAYMENT,
-        collection,
-      );
+      try {
+        this.websocketGateway.emitCollectionChanged(user, collection);
+      } catch (error) {
+        console.error('Error emitting collection changed:', error);
+      }
+      try {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.TAKE_PAYMENT,
+          collection,
+        );
+      } catch (error) {
+        console.error('Error adding take payment activity:', error);
+      }
     } catch (error) {
       throw new HttpException(
         'Failed to create collection',
