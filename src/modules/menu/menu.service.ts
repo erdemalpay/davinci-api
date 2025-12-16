@@ -442,29 +442,64 @@ export class MenuService {
 
   /**
    * Updates ikasVariantId for all menu items that have ikasId
-   * Fetches the first variant ID from Ikas API for each product
+   * Fetches all products once from Ikas API, then finds variants for each item
+   * Skips items that already have ikasVariantId
    * @returns Object with success count, failed count, and details
    */
   async updateIkasVariantIds() {
+    // Get only items that have ikasId but don't have ikasVariantId yet
     const items = await this.itemModel.find({
       ikasId: { $nin: [null, ''] },
+      $or: [
+        { ikasVariantId: { $exists: false } },
+        { ikasVariantId: null },
+        { ikasVariantId: '' },
+      ],
       deleted: { $ne: true },
     });
 
     const results = {
       total: items.length,
+      skipped: 0,
       success: 0,
       failed: 0,
       details: [] as Array<{
         itemId: number;
         itemName: string;
         ikasId: string;
-        status: 'success' | 'failed';
+        status: 'success' | 'failed' | 'skipped';
         variantId?: string;
         error?: string;
       }>,
     };
 
+    if (items.length === 0) {
+      return {
+        ...results,
+        message: 'No items to update. All items already have ikasVariantId.',
+      };
+    }
+
+    // Fetch all products once from Ikas API
+    let allProducts: any[] = [];
+    try {
+      allProducts = await this.IkasService.getAllProducts();
+    } catch (error) {
+      // If getAllProducts fails, mark all items as failed
+      for (const item of items) {
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId || '',
+          status: 'failed',
+          error: `Failed to fetch products from Ikas: ${error?.message || 'Unknown error'}`,
+        });
+        results.failed++;
+      }
+      return results;
+    }
+
+    // Process each item
     for (const item of items) {
       try {
         if (!item.ikasId) {
@@ -479,8 +514,21 @@ export class MenuService {
           continue;
         }
 
-        // Get product from Ikas API
-        const product = await this.IkasService.getProductById(item.ikasId);
+        // Skip if already has ikasVariantId (shouldn't happen due to query, but double-check)
+        if (item.ikasVariantId) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId,
+            status: 'skipped',
+            variantId: item.ikasVariantId,
+          });
+          results.skipped++;
+          continue;
+        }
+
+        // Find product in the fetched list
+        const product = allProducts.find((p) => p?.id === item.ikasId);
 
         if (!product || !product.variants || product.variants.length === 0) {
           results.details.push({
