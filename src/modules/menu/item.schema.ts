@@ -85,6 +85,9 @@ export class MenuItem extends Document {
   ikasId: string;
 
   @Prop({ required: false, type: String })
+  ikasVariantId: string;
+
+  @Prop({ required: false, type: String })
   sku: string;
 
   @Prop({ required: false, type: String })

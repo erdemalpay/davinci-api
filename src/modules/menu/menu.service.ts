@@ -27,7 +27,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -438,6 +438,94 @@ export class MenuService {
       deleted: { $ne: true },
     });
     return items;
+  }
+
+  /**
+   * Updates ikasVariantId for all menu items that have ikasId
+   * Fetches the first variant ID from Ikas API for each product
+   * @returns Object with success count, failed count, and details
+   */
+  async updateIkasVariantIds() {
+    const items = await this.itemModel.find({
+      ikasId: { $nin: [null, ''] },
+      deleted: { $ne: true },
+    });
+
+    const results = {
+      total: items.length,
+      success: 0,
+      failed: 0,
+      details: [] as Array<{
+        itemId: number;
+        itemName: string;
+        ikasId: string;
+        status: 'success' | 'failed';
+        variantId?: string;
+        error?: string;
+      }>,
+    };
+
+    for (const item of items) {
+      try {
+        if (!item.ikasId) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId || '',
+            status: 'failed',
+            error: 'No ikasId found',
+          });
+          results.failed++;
+          continue;
+        }
+
+        // Get product from Ikas API
+        const product = await this.IkasService.getProductById(item.ikasId);
+
+        if (!product || !product.variants || product.variants.length === 0) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId,
+            status: 'failed',
+            error: 'Product not found or has no variants',
+          });
+          results.failed++;
+          continue;
+        }
+
+        const variantId = product.variants[0].id;
+
+        // Update the item with variant ID
+        await this.itemModel.findByIdAndUpdate(item._id, {
+          ikasVariantId: variantId,
+        });
+
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId,
+          status: 'success',
+          variantId: variantId,
+        });
+        results.success++;
+      } catch (error) {
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId || '',
+          status: 'failed',
+          error: error?.message || 'Unknown error',
+        });
+        results.failed++;
+        console.error(
+          `Error updating variant ID for item ${item._id} (${item.name}):`,
+          error,
+        );
+      }
+    }
+
+    return results;
   }
   async findByMatchedProduct(id: string) {
     const item = await this.itemModel.findOne({
