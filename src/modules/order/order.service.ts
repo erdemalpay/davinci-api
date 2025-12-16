@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
@@ -49,7 +49,7 @@ import {
   OrderQueryDto,
   OrderStatus,
   OrderType,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -995,7 +995,14 @@ export class OrderService {
       try {
         await createdOrder.save();
         createdOrders.push(createdOrder._id);
-        const orderWithItem = await createdOrder.populate('item kitchen');
+        const orderWithItem = await createdOrder.populate([
+          { path: 'item' },
+          { path: 'kitchen' },
+          {
+            path: 'table',
+            select: 'date _id name isOnlineSale finishHour type startHour',
+          },
+        ]);
         if (
           (orderWithItem?.kitchen as any)?.soundRoles &&
           createdOrder.status !== OrderStatus.AUTOSERVED &&
@@ -1152,12 +1159,16 @@ export class OrderService {
         tableDate: order?.tableDate ?? order.createdAt,
       });
       await orderGroupModel.save();
-      try {
-        this.websocketGateway.emitOrderGroupChanged();
-      } catch (error) {
-        console.error('Error emitting order group changed:', error);
-      }
-      const orderWithItem = await order.populate('item kitchen');
+      this.websocketGateway.emitOrderGroupChanged();
+      const orderWithItem = await order.populate([
+        { path: 'item' },
+        { path: 'kitchen' },
+        {
+          path: 'table',
+          select: 'date _id name isOnlineSale finishHour type startHour',
+        },
+      ]);
+
       for (const ingredient of (orderWithItem.item as any).itemProduction) {
         const isStockDecrementRequired = ingredient?.isDecrementStock;
         if (isStockDecrementRequired) {
@@ -2237,7 +2248,7 @@ export class OrderService {
     });
 
     if (newOrders && newOrders?.length > 0) {
-      await this.updateOrders(user, newOrders, { deferEmit: true });
+      await this.updateOrders(user, newOrders, { deferEmit: false });
     }
 
     // Consume points if pointUser is provided
@@ -2341,7 +2352,9 @@ export class OrderService {
       });
       if (toEmit) {
         this.websocketGateway.emitCollectionChanged(user, toEmit);
-        this.websocketGateway.emitOrderUpdated(user, newOrders[0]);
+        for (const o of newOrders || []) {
+          this.websocketGateway.emitOrderUpdated(user, o);
+        }
         if (activity) {
           this.websocketGateway.emitActivityChanged(activity);
         }
@@ -2509,7 +2522,7 @@ export class OrderService {
       try {
         if (oldOrder?.quantity === 0) {
           await this.orderModel.findByIdAndDelete(oldOrder?._id);
-          this.websocketGateway.emitOrderUpdated(user, oldOrder);
+          this.websocketGateway.emitOrderUpdated(user, oldOrder); //Todo order delete message should be send
         } else {
           await oldOrder?.save();
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
@@ -2669,7 +2682,7 @@ export class OrderService {
         try {
           if (newQuantity === 0) {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
-            this.websocketGateway.emitOrderUpdated(user, oldOrder);
+            this.websocketGateway.emitOrderUpdated(user, oldOrder); //todo :order delete message should be send
           } else {
             oldOrder.quantity = newQuantity;
             await oldOrder.save();
@@ -2783,7 +2796,7 @@ export class OrderService {
       try {
         if (newQuantity === 0) {
           await this.orderModel.findByIdAndDelete(order._id);
-          this.websocketGateway.emitOrderUpdated(user, order);
+          this.websocketGateway.emitOrderUpdated(user, order); //todo:order delete message should be send
         } else {
           order.quantity = newQuantity;
           await order.save();
@@ -2958,7 +2971,9 @@ export class OrderService {
     try {
       await Promise.all([newTable.save()]);
       await this.tableService.removeTable(user, oldTableId);
-      this.websocketGateway.emitOrderUpdated(user, orders[0]);
+      for (const order of orders) {
+        this.websocketGateway.emitOrderUpdated(user, order);
+      }
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -3003,7 +3018,9 @@ export class OrderService {
     try {
       await Promise.all([newTable.save()]);
       await this.tableService.removeTable(user, oldTableId);
-      this.websocketGateway.emitOrderUpdated(user, orders[0]);
+      for (const order of orders) {
+        this.websocketGateway.emitOrderUpdated(user, order);
+      }
     } catch (error) {
       console.log(error);
       throw new HttpException(
