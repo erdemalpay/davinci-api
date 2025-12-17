@@ -1,6 +1,6 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer,
+  WebSocketServer
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { RedisKeys } from '../redis/redis.dto';
@@ -301,9 +301,9 @@ export class AppWebSocketGateway {
     this.server.emit('singleTableChanged', { table });
   }
 
-  async emitStockChanged(stock?: any) {
+  async emitStockChanged() {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockChanged', { stock });
+    this.server.emit('stockChanged');
   }
 
   async emitTableChanged(...args: any[]) {

@@ -9,7 +9,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType,
+  NotificationEventType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -48,7 +48,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct,
+  UpdateMultipleProduct
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -288,7 +288,7 @@ export class AccountingService {
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.websocketGateway.emitStockChanged(stayedProduct);
+    this.websocketGateway.emitStockChanged();
     // update invoices
     await this.expenseModel.updateMany(
       { product: removedProduct },
@@ -1296,7 +1296,7 @@ export class AccountingService {
               { new: true },
             );
 
-            this.websocketGateway.emitStockChanged(newStock);
+            this.websocketGateway.emitStockChanged();
 
             if (rollback.stockDelta !== 0) {
               const stockHist = await this.productStockHistoryModel.create({
@@ -1326,7 +1326,7 @@ export class AccountingService {
               quantity: rollback.stockDelta,
             });
             await stockDoc.save();
-            this.websocketGateway.emitStockChanged(stockDoc);
+            this.websocketGateway.emitStockChanged();
 
             await this.activityService.addActivity(
               user,
@@ -2003,7 +2003,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
-      this.websocketGateway.emitStockChanged(newStock);
+      this.websocketGateway.emitStockChanged();
       // create stock history with currentAmount
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -2102,7 +2102,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
-      this.websocketGateway.emitStockChanged(stock);
+      this.websocketGateway.emitStockChanged();
       // create Activity
       await this.activityService.addActivity(
         user,
@@ -2233,7 +2233,7 @@ export class AccountingService {
       quantity: -quantity,
       status: StockHistoryStatusEnum.STOCKTRANSFER,
     });
-    this.websocketGateway.emitStockChanged(stock);
+    this.websocketGateway.emitStockChanged();
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {
@@ -2263,7 +2263,7 @@ export class AccountingService {
         deletedStock,
       );
       // Remove the stock item
-      this.websocketGateway.emitStockChanged(deletedStock);
+      this.websocketGateway.emitStockChanged();
       return deletedStock;
     } catch (error) {
       throw new HttpException(
@@ -2285,7 +2285,7 @@ export class AccountingService {
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
-    this.websocketGateway.emitStockChanged(productStocks);
+    this.websocketGateway.emitStockChanged();
   }
 
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
@@ -2427,7 +2427,7 @@ export class AccountingService {
               : stock.quantity,
         });
       }
-      this.websocketGateway.emitStockChanged(newStock);
+      this.websocketGateway.emitStockChanged();
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
@@ -3401,7 +3401,7 @@ export class AccountingService {
         }
       }
       await Promise.all(createStockTasks);
-      this.websocketGateway.emitStockChanged(null);
+      this.websocketGateway.emitStockChanged();
       console.log('All missing stocks created.');
     } catch (error) {
       console.error('Failed to create stocks:', error);
