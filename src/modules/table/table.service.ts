@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -31,7 +31,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes,
+  TableTypes
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -158,7 +158,7 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
+      this.websocketGateway.emitSingleTableChanged(user, { orders: updatedTable.orders, _id: updatedTable._id, date: updatedTable.date, location: updatedTable.location });
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
