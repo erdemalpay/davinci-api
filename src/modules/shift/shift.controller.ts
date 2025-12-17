@@ -28,6 +28,12 @@ export class ShiftController {
   findUserShifts(@Query() query: ShiftUserQueryDto) {
     return this.shiftService.findUserShifts(query);
   }
+
+  @Get('/users-future-shifts/:after')
+  findUsersFutureShifts(@Param('after') after: string) {
+    return this.shiftService.findUsersFutureShifts(after);
+  }
+
   @Post()
   createShift(@ReqUser() user: User, @Body() createShiftDto: CreateShiftDto) {
     return this.shiftService.createShift(user, createShiftDto);

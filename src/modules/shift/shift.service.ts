@@ -1,7 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
-import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
@@ -293,5 +292,20 @@ export class ShiftService {
     }
     this.websocketGateway.emitShiftChanged();
     return updated;
+  }
+
+  async findUsersFutureShifts(after: string) {
+    const filterQuery: any = {
+      day: { $gte: after },
+    };
+
+    try {
+      return await this.shiftModel.find(filterQuery).sort({ day: 1 }).exec();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch future shifts',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
