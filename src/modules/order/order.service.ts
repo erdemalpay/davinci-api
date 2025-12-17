@@ -1228,7 +1228,7 @@ export class OrderService {
       } catch (error) {
         // Clean up by deleting the order if updating the table fails
         await this.orderModel.findByIdAndDelete(order._id);
-        this.websocketGateway.emitOrderUpdated(order);
+        this.websocketGateway.emitOrderDeleted(order);
         throw new HttpException(
           'Failed to update table orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2508,7 +2508,7 @@ export class OrderService {
       } catch (error) {
         // Clean up by deleting the order if updating the table fails
         await this.orderModel.findByIdAndDelete(newOrder._id);
-        this.websocketGateway.emitOrderUpdated(newOrder);
+        this.websocketGateway.emitOrderDeleted(newOrder);
         throw new HttpException(
           'Failed to update table orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2523,7 +2523,7 @@ export class OrderService {
       try {
         if (oldOrder?.quantity === 0) {
           await this.orderModel.findByIdAndDelete(oldOrder?._id);
-          this.websocketGateway.emitOrderUpdated(oldOrder); //Todo order delete message should be send
+          this.websocketGateway.emitOrderDeleted(oldOrder);
         } else {
           await oldOrder?.save();
           this.websocketGateway.emitOrderUpdated(oldOrder);
@@ -2660,7 +2660,7 @@ export class OrderService {
         } catch (error) {
           // Clean up by deleting the order if updating the table fails
           await this.orderModel.findByIdAndDelete(newOrder._id);
-          this.websocketGateway.emitOrderUpdated(newOrder);
+          this.websocketGateway.emitOrderDeleted(newOrder);
           throw new HttpException(
             'Failed to update table orders',
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2683,7 +2683,7 @@ export class OrderService {
         try {
           if (newQuantity === 0) {
             await this.orderModel.findByIdAndDelete(oldOrder._id);
-            this.websocketGateway.emitOrderUpdated(oldOrder); //todo :order delete message should be send
+            this.websocketGateway.emitOrderDeleted(oldOrder);
           } else {
             oldOrder.quantity = newQuantity;
             await oldOrder.save();
@@ -2775,7 +2775,7 @@ export class OrderService {
       } catch (error) {
         // Clean up by deleting the order if updating the table fails
         await this.orderModel.findByIdAndDelete(newOrder._id);
-        this.websocketGateway.emitOrderUpdated(newOrder);
+        this.websocketGateway.emitOrderDeleted(newOrder);
         throw new HttpException(
           'Failed to update table orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2797,7 +2797,7 @@ export class OrderService {
       try {
         if (newQuantity === 0) {
           await this.orderModel.findByIdAndDelete(order._id);
-          this.websocketGateway.emitOrderUpdated(order); //todo:order delete message should be send
+          this.websocketGateway.emitOrderDeleted(order);
         } else {
           order.quantity = newQuantity;
           await order.save();
