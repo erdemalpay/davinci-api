@@ -10,6 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
+import { pick } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -158,7 +159,7 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitSingleTableChanged(user, { orders: updatedTable.orders, _id: updatedTable._id, date: updatedTable.date, location: updatedTable.location });
+      this.websocketGateway.emitSingleTableChanged(user, pick(updatedTable, ['orders', '_id', 'date', 'location']));
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
