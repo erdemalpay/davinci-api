@@ -1698,7 +1698,7 @@ export class OrderService {
         }
       }
       await this.websocketGateway.emitOrderUpdated(user, order);
-      await this.websocketGateway.emitCollectionChanged(user, collection);
+      await this.websocketGateway.emitCollectionChanged(collection);
       return { message: 'Order cancelled successfully' };
     } catch (error) {
       console.error('Error cancelling ikas order:', error);
@@ -2274,7 +2274,7 @@ export class OrderService {
     try {
       await collection.save();
       try {
-        this.websocketGateway.emitCollectionChanged(user, collection);
+        this.websocketGateway.emitCollectionChanged(collection);
       } catch (error) {
         console.error('Error emitting collection changed:', error);
       }
@@ -2351,10 +2351,8 @@ export class OrderService {
         toEmit = collection;
       });
       if (toEmit) {
-        this.websocketGateway.emitCollectionChanged(user, toEmit);
-        for (const o of newOrders || []) {
-          this.websocketGateway.emitOrderUpdated(user, o);
-        }
+        this.websocketGateway.emitCollectionChanged(toEmit);
+        this.websocketGateway.emitTodayOrderChanged();
         if (activity) {
           this.websocketGateway.emitActivityChanged();
         }
@@ -2373,7 +2371,7 @@ export class OrderService {
   async removeCollection(user: User, id: number) {
     const collection = await this.collectionModel.findByIdAndRemove(id);
 
-    this.websocketGateway.emitCollectionChanged(user, collection);
+    this.websocketGateway.emitCollectionChanged(collection);
     return collection;
   }
   // discount
@@ -3131,7 +3129,7 @@ export class OrderService {
         { $set: { location: 4 } },
       );
       await this.websocketGateway.emitOrderUpdated(null, null);
-      await this.websocketGateway.emitCollectionChanged(null, null);
+      await this.websocketGateway.emitCollectionChanged(null);
       return {
         matchedOrders: result.matchedCount,
         modifiedOrders: result.modifiedCount,

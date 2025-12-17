@@ -75,8 +75,7 @@ export class AppWebSocketGateway {
     this.server.emit('checkoutControlChanged');
   }
 
-  emitCollectionChanged(...args: any[]) {
-    const [collection] = args;
+  emitCollectionChanged(collection: any) {
     this.server.emit('collectionChanged', { collection });
   }
 
