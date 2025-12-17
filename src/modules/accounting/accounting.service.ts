@@ -9,7 +9,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType,
+  NotificationEventType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -48,7 +48,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct,
+  UpdateMultipleProduct
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -209,7 +209,7 @@ export class AccountingService {
           baseQuantities: initialBaseQuantities,
           deleted: false,
         });
-        await this.websocketGateway.emitProductChanged(user, deletedProduct);
+        await this.websocketGateway.emitProductChanged();
         return deletedProduct;
       }
 
@@ -256,7 +256,7 @@ export class AccountingService {
         );
       }
 
-      await this.websocketGateway.emitProductChanged(user, product);
+      await this.websocketGateway.emitProductChanged();
       return product;
     } catch (error) {
       throw new HttpException(
@@ -291,13 +291,13 @@ export class AccountingService {
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.websocketGateway.emitStockChanged(user, stayedProduct);
+    this.websocketGateway.emitStockChanged();
     // update invoices
     await this.expenseModel.updateMany(
       { product: removedProduct },
       { $set: { product: stayedProduct } },
     );
-    this.websocketGateway.emitProductChanged(user, stayedProduct);
+    this.websocketGateway.emitProductChanged();
     //update menu items
     await this.menuService.updateMenuItemProduct(
       user,
@@ -346,7 +346,7 @@ export class AccountingService {
     await this.productModel.findByIdAndUpdate(removedProduct, {
       deleted: true,
     });
-    await this.websocketGateway.emitProductChanged(user, product);
+    await this.websocketGateway.emitProductChanged();
     return product;
   }
 
@@ -396,7 +396,7 @@ export class AccountingService {
       product,
       updatedProduct,
     );
-    await this.websocketGateway.emitProductChanged(user, updatedProduct);
+    await this.websocketGateway.emitProductChanged();
 
     return updatedProduct;
   }
@@ -425,7 +425,7 @@ export class AccountingService {
         new: true,
       },
     );
-    await this.websocketGateway.emitProductChanged(user, updatedProduct);
+    await this.websocketGateway.emitProductChanged();
     return updatedProduct;
   }
 
@@ -441,7 +441,7 @@ export class AccountingService {
     }
     product.deleted = true;
     await product.save();
-    await this.websocketGateway.emitProductChanged(user, product);
+    await this.websocketGateway.emitProductChanged();
     return product;
   }
 
@@ -1303,7 +1303,7 @@ export class AccountingService {
               { new: true },
             );
 
-            this.websocketGateway.emitStockChanged(user, newStock);
+            this.websocketGateway.emitStockChanged();
 
             if (rollback.stockDelta !== 0) {
               const stockHist = await this.productStockHistoryModel.create({
@@ -1336,7 +1336,7 @@ export class AccountingService {
               quantity: rollback.stockDelta,
             });
             await stockDoc.save();
-            this.websocketGateway.emitStockChanged(user, stockDoc);
+            this.websocketGateway.emitStockChanged();
 
             await this.activityService.addActivity(
               user,
@@ -1382,7 +1382,7 @@ export class AccountingService {
         }
 
         this.websocketGateway.emitExpenseChanged(user, expense);
-        this.websocketGateway.emitProductChanged(user);
+        this.websocketGateway.emitProductChanged();
         this.activityService.addActivity(
           user,
           ActivityType.CREATE_EXPENSE as any,
@@ -1435,7 +1435,7 @@ export class AccountingService {
 
     if (anySuccess) {
       this.websocketGateway.emitExpenseChanged(user);
-      this.websocketGateway.emitProductChanged(user);
+      this.websocketGateway.emitProductChanged();
       await this.ikasService.bulkUpdateAllProductStocks();
     }
     return errorDatas;
@@ -1473,7 +1473,7 @@ export class AccountingService {
             { new: true },
           );
           if (!isMultipleCreate) {
-            await this.websocketGateway.emitProductChanged(user, product);
+            await this.websocketGateway.emitProductChanged();
           }
         }
       }
@@ -1782,7 +1782,7 @@ export class AccountingService {
       }
 
       await product.save();
-      await this.websocketGateway.emitProductChanged(user, product);
+      await this.websocketGateway.emitProductChanged();
     }
     // updating the  service unit price if the expense is non-stockable
     if (expense.type === ExpenseTypes.NONSTOCKABLE) {
@@ -2017,7 +2017,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
-      this.websocketGateway.emitStockChanged(user, newStock);
+      this.websocketGateway.emitStockChanged();
       // create stock history with currentAmount
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -2116,7 +2116,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
-      this.websocketGateway.emitStockChanged(user, stock);
+      this.websocketGateway.emitStockChanged();
       // create Activity
       await this.activityService.addActivity(
         user,
@@ -2247,7 +2247,7 @@ export class AccountingService {
       quantity: -quantity,
       status: StockHistoryStatusEnum.STOCKTRANSFER,
     });
-    this.websocketGateway.emitStockChanged(user, stock);
+    this.websocketGateway.emitStockChanged();
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {
@@ -2277,7 +2277,7 @@ export class AccountingService {
         deletedStock,
       );
       // Remove the stock item
-      this.websocketGateway.emitStockChanged(user, deletedStock);
+      this.websocketGateway.emitStockChanged();
       return deletedStock;
     } catch (error) {
       throw new HttpException(
@@ -2302,7 +2302,7 @@ export class AccountingService {
     for (const stock of productStocks) {
       await this.stockModel.findByIdAndRemove(stock.id);
     }
-    this.websocketGateway.emitStockChanged(user, productStocks);
+    this.websocketGateway.emitStockChanged();
   }
 
   async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
@@ -2444,7 +2444,7 @@ export class AccountingService {
               : stock.quantity,
         });
       }
-      this.websocketGateway.emitStockChanged(user, newStock);
+      this.websocketGateway.emitStockChanged();
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
@@ -2982,7 +2982,7 @@ export class AccountingService {
 
     // Wait for all update operations to finish concurrently
     const updatedProducts = await Promise.all(updatePromises);
-    await this.websocketGateway.emitProductChanged(user);
+    await this.websocketGateway.emitProductChanged();
     // Remove any null results (if a product wasn't updated)
     return updatedProducts.filter((product) => product);
   }
@@ -3432,7 +3432,7 @@ export class AccountingService {
         }
       }
       await Promise.all(createStockTasks);
-      this.websocketGateway.emitStockChanged(user, '');
+      this.websocketGateway.emitStockChanged();
       console.log('All missing stocks created.');
     } catch (error) {
       console.error('Failed to create stocks:', error);

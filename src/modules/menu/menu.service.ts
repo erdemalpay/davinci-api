@@ -98,7 +98,7 @@ export class MenuService {
     if (!item) {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitItemChanged(null, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   async closeItemLocation(itemId: number, locationId: number) {
@@ -108,7 +108,7 @@ export class MenuService {
     if (!item) {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitItemChanged(null, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   async findActiveCategories() {
@@ -230,7 +230,7 @@ export class MenuService {
         }
       }),
     );
-    this.websocketGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged();
   }
 
   async findItemsInCategoryArray(categories: number[]) {
@@ -245,7 +245,7 @@ export class MenuService {
     items.forEach(async (item, index) => {
       await this.itemModel.findByIdAndUpdate(item._id, { order: index + 1 });
     });
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
   }
   async createCategory(user: User, createCategoryDto: CreateCategoryDto) {
     const lastCategory = await this.categoryModel
@@ -295,7 +295,7 @@ export class MenuService {
         }),
       );
 
-      this.websocketGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged();
     }
     if (updates.isKitchenMenu) {
       const ordersPage = await this.panelControlService.getPage('orders');
@@ -595,7 +595,7 @@ export class MenuService {
           matchedProduct: null,
           deleted: false,
         });
-        await this.websocketGateway.emitItemChanged(user, deletedItem);
+        await this.websocketGateway.emitItemChanged();
         return deletedItem;
       }
       const item = new this.itemModel({
@@ -635,7 +635,7 @@ export class MenuService {
       }
 
       await item.save();
-      this.websocketGateway.emitItemChanged(user, item);
+      this.websocketGateway.emitItemChanged();
       return item;
     } catch (error) {
       console.error('Error creating item:', error);
@@ -762,7 +762,7 @@ export class MenuService {
           status: StockHistoryStatusEnum.STOCKENTRY,
         });
       }
-      await this.websocketGateway.emitItemChanged(user, newItem);
+      await this.websocketGateway.emitItemChanged();
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -906,7 +906,7 @@ export class MenuService {
       item,
       updatedItem,
     );
-    this.websocketGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
   async syncAllIkasPrices(currency = 'TRY') {
@@ -940,7 +940,7 @@ export class MenuService {
       { _id: { $ne: id }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-    this.websocketGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged();
   }
   async updateCategoriesOrder(
     user: User,
@@ -1009,7 +1009,7 @@ export class MenuService {
       );
       await this.syncAllIkasPrices('TRY');
 
-      this.websocketGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged();
     } catch (error) {
       console.error('Error updating items:', error);
       throw new HttpException(
@@ -1092,7 +1092,7 @@ export class MenuService {
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
 
@@ -1113,7 +1113,7 @@ export class MenuService {
       );
     }
     await item.remove();
-    this.websocketGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   // this is used for bulk update in menu page
@@ -1127,7 +1127,7 @@ export class MenuService {
       throw new HttpException('Items not found', HttpStatus.NOT_FOUND);
     }
     await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
     return items;
   }
   // popular
@@ -1191,7 +1191,7 @@ export class MenuService {
         });
       }
     });
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
   }
   // kitchen
   async findAllKitchens() {
@@ -1489,7 +1489,7 @@ export class MenuService {
         }
       }
     });
-    this.websocketGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged();
   }
   async migrateSuggestedDiscounts(): Promise<{ modifiedCount: number }> {
     const res = await this.itemModel.updateMany({}, [

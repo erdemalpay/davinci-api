@@ -196,10 +196,10 @@ export class AppWebSocketGateway {
     this.server.emit('incomeChanged', { user, income });
   }
 
-  async emitItemChanged(user?: any, item?: any) {
+  async emitItemChanged() {
     await this.redisService.reset(RedisKeys.MenuItems);
     await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.server.emit('itemChanged', { user, item });
+    this.server.emit('itemChanged', { });
   }
 
   async emitKitchenChanged(...args: any[]) {
@@ -243,8 +243,8 @@ export class AppWebSocketGateway {
   }
 
   emitOrderNotesChanged(...args: any[]) {
-    const [user, orderNotes] = args;
-    this.server.emit('orderNotesChanged', { user, orderNotes });
+    const [orderNotes] = args;
+    this.server.emit('orderNotesChanged', { orderNotes });
   }
 
   async emitOrderUpdated(...args: any[]) {
@@ -294,9 +294,9 @@ export class AppWebSocketGateway {
     this.server.emit('productCategoryChanged', { user, productCategory });
   }
 
-  async emitProductChanged(user?: any, product?: any) {
+  async emitProductChanged() {
     await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.server.emit('productChanged', { user, product });
+    this.server.emit('productChanged', {});
   }
 
   emitProductStockHistoryChanged(...args: any[]) {
@@ -339,9 +339,9 @@ export class AppWebSocketGateway {
     this.server.emit('singleTableChanged', { table });
   }
 
-  async emitStockChanged(user?: any, stock?: any) {
+  async emitStockChanged() {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockChanged', { user, stock });
+    this.server.emit('stockChanged', {});
   }
 
   async emitTableChanged(...args: any[]) {

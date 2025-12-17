@@ -3193,7 +3193,7 @@ export class OrderService {
   }
   async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
     const orderNote = await new this.orderNotesModel(createOrderNoteDto);
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged(orderNote);
     return orderNote.save();
   }
   async updateOrderNote(
@@ -3208,7 +3208,7 @@ export class OrderService {
     if (!orderNote) {
       throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
     }
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged(orderNote);
     return orderNote;
   }
   async removeOrderNote(id: number) {
@@ -3216,7 +3216,7 @@ export class OrderService {
     if (!orderNote) {
       throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
     }
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged(orderNote);
     return orderNote;
   }
   async removeZeroQuantityOrders() {
