@@ -2865,7 +2865,7 @@ export class OrderService {
             oldOrder.save(),
           ]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(pick(oldTable, ['orders', '_id', 'date', 'location']));
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',
@@ -2894,8 +2894,8 @@ export class OrderService {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
           this.websocketGateway.emitOrderCreated(user, newOrder);
-          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
-          this.websocketGateway.emitSingleTableChanged(user, pick(newTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(pick(oldTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(pick(newTable, ['orders', '_id', 'date', 'location']));
           continue;
         }
         // Destructure oldOrder to exclude the _id field
@@ -2925,8 +2925,8 @@ export class OrderService {
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
-          this.websocketGateway.emitSingleTableChanged(user, pick(newTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(pick(oldTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(pick(newTable, ['orders', '_id', 'date', 'location']));
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',

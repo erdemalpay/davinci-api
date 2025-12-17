@@ -126,7 +126,7 @@ export class TableService {
     } else if (tableDto.status === TableStatus.CANCELLED) {
       this.websocketGateway.emitTableDeleted(user, updatedTable);
     } else {
-      this.websocketGateway.emitSingleTableChanged(user, pickWith(updatedTable, ['_id', 'date', 'location'], tableDto));
+      this.websocketGateway.emitSingleTableChanged(pickWith(updatedTable, ['_id', 'date', 'location'], tableDto));
     }
     return updatedTable;
   }
@@ -159,7 +159,7 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitSingleTableChanged(user, pick(updatedTable, ['orders', '_id', 'date', 'location']));
+      this.websocketGateway.emitSingleTableChanged(pick(updatedTable, ['orders', '_id', 'date', 'location']));
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
