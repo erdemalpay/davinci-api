@@ -1,4 +1,10 @@
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -9,7 +15,6 @@ import {
   NotificationType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
-import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { Check } from './check.schema';
 import {
@@ -31,13 +36,13 @@ export class ChecklistService {
     private readonly locationService: LocationService,
   ) {}
 
-  async createChecklist(user: User, createChecklistDto: CreateChecklistDto) {
+  async createChecklist(createChecklistDto: CreateChecklistDto) {
     const checklist = new this.checklistModel(createChecklistDto);
     checklist._id = usernamify(checklist.name);
     checklist.locations = [1, 2];
     checklist.active = true;
     await checklist.save();
-    this.websocketGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged();
     return checklist;
   }
 
@@ -79,7 +84,9 @@ export class ChecklistService {
       if (checklist) filter.checklist = checklist;
       if (location !== undefined && location !== null && `${location}` !== '') {
         const locNum =
-          typeof location === 'string' ? Number(location) : (location as number);
+          typeof location === 'string'
+            ? Number(location)
+            : (location as number);
         if (!Number.isNaN(locNum)) filter.location = locNum;
       }
     }
@@ -136,15 +143,11 @@ export class ChecklistService {
     };
   }
 
-  async updateChecklist(
-    user: User,
-    id: string,
-    updates: UpdateQuery<Checklist>,
-  ) {
+  async updateChecklist(id: string, updates: UpdateQuery<Checklist>) {
     const checklist = await this.checklistModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged();
     return checklist;
   }
   async setChecklistsOrder() {
@@ -158,7 +161,7 @@ export class ChecklistService {
     }
   }
 
-  async removeChecklist(user: User, id: string) {
+  async removeChecklist(id: string) {
     const checks = await this.checkModel.find({ checklist: id });
     if (checks.length > 0) {
       throw new HttpException(
@@ -167,7 +170,7 @@ export class ChecklistService {
       );
     }
     const checklist = await this.checklistModel.findByIdAndRemove(id);
-    this.websocketGateway.emitChecklistChanged(user, checklist);
+    this.websocketGateway.emitChecklistChanged();
     return checklist;
   }
 
@@ -175,7 +178,7 @@ export class ChecklistService {
     return this.checkModel.find().sort({ isCompleted: 1, completedAt: -1 });
   }
 
-  async createCheck(user: User, createCheckDto: CreateCheckDto) {
+  async createCheck(createCheckDto: CreateCheckDto) {
     const checks = await this.checkModel.find({
       isCompleted: false,
       user: createCheckDto.user,
@@ -190,11 +193,11 @@ export class ChecklistService {
     }
     const check = new this.checkModel(createCheckDto);
     check._id = usernamify(check.user + new Date().toISOString());
-    this.websocketGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged();
     return check.save();
   }
 
-  async updateCheck(user: User, id: string, updates: UpdateQuery<Check>) {
+  async updateCheck(id: string, updates: UpdateQuery<Check>) {
     const check = await this.checkModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -232,13 +235,13 @@ export class ChecklistService {
         });
       }
     }
-    this.websocketGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged();
     return check;
   }
 
-  async removeCheck(user: User, id: string) {
+  async removeCheck(id: string) {
     const check = await this.checkModel.findByIdAndRemove(id);
-    this.websocketGateway.emitCheckChanged(user, check);
+    this.websocketGateway.emitCheckChanged();
     return check;
   }
 }

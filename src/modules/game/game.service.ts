@@ -6,7 +6,6 @@ import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
-import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { GameDto } from './game.dto';
 import { Game } from './game.schema';
@@ -63,29 +62,29 @@ export class GameService {
     return getGameDetails(gameId);
   }
 
-  async addGame(user: User, gameId: number) {
+  async addGame(gameId: number) {
     const gameDetails = await getGameDetails(gameId);
-    this.websocketGateway.emitGameChanged(user, gameDetails);
+    this.websocketGateway.emitGameChanged();
     return this.gameModel.create(gameDetails);
   }
 
-  async addGameByDetails(user: User, gameDetails: GameDto) {
+  async addGameByDetails(gameDetails: GameDto) {
     const game = await this.gameModel.create(gameDetails);
-    this.websocketGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged();
     return game;
   }
 
-  async update(user: User, id: number, gameDetails: UpdateQuery<Game>) {
+  async update(id: number, gameDetails: UpdateQuery<Game>) {
     const game = await this.gameModel.findByIdAndUpdate(id, gameDetails, {
       new: true,
     });
-    this.websocketGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged();
     return game;
   }
 
-  async remove(user: User, id: number) {
+  async remove(id: number) {
     const game = await this.gameModel.findByIdAndDelete(id);
-    this.websocketGateway.emitGameChanged(user, game);
+    this.websocketGateway.emitGameChanged();
     return game;
   }
 

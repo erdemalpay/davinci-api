@@ -2,9 +2,9 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateEducationDto } from './education.dto';
 import { Education } from './education.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class EducationService {
@@ -13,10 +13,10 @@ export class EducationService {
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
-  async createEducation(user: User, createEducationDto: CreateEducationDto) {
+  async createEducation(createEducationDto: CreateEducationDto) {
     const createdEducation = new this.educationModel(createEducationDto);
     await createdEducation.save();
-    this.websocketGateway.emitEducationChanged(user, createdEducation);
+    this.websocketGateway.emitEducationChanged();
     return createdEducation;
   }
 
@@ -52,11 +52,11 @@ export class EducationService {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
     }
 
-    this.websocketGateway.emitEducationChanged(user, updatedEducation);
+    this.websocketGateway.emitEducationChanged();
     return updatedEducation;
   }
 
-  async updateEducationOrder(user: User, id: number, newOrder: number) {
+  async updateEducationOrder(id: number, newOrder: number) {
     const item = await this.educationModel.findById(id);
     if (!item) {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
@@ -68,15 +68,15 @@ export class EducationService {
       { $inc: { order: 1 } },
     );
 
-    this.websocketGateway.emitEducationChanged(user, item);
+    this.websocketGateway.emitEducationChanged();
   }
 
-  async removeEducation(user: User, id: number) {
+  async removeEducation(id: number) {
     const removedEducation = await this.educationModel.findByIdAndRemove(id);
     if (!removedEducation) {
       throw new HttpException('Education not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitEducationChanged(user, removedEducation);
+    this.websocketGateway.emitEducationChanged();
     return removedEducation;
   }
 

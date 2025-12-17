@@ -9,8 +9,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { ReqUser } from '../user/user.decorator';
-import { User } from '../user/user.schema';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
 import { ShiftService } from './shift.service';
@@ -29,27 +27,22 @@ export class ShiftController {
     return this.shiftService.findUserShifts(query);
   }
   @Post()
-  createShift(@ReqUser() user: User, @Body() createShiftDto: CreateShiftDto) {
-    return this.shiftService.createShift(user, createShiftDto);
+  createShift(@Body() createShiftDto: CreateShiftDto) {
+    return this.shiftService.createShift(createShiftDto);
   }
 
   @Patch('/:id')
-  updateShift(
-    @ReqUser() user: User,
-    @Param('id') id: number,
-    @Body() updates: UpdateQuery<Shift>,
-  ) {
-    return this.shiftService.updateShift(user, id, updates);
+  updateShift(@Param('id') id: number, @Body() updates: UpdateQuery<Shift>) {
+    return this.shiftService.updateShift(id, updates);
   }
 
   @Delete('/:id')
-  removeShift(@ReqUser() user: User, @Param('id') id: number) {
-    return this.shiftService.removeShift(user, id);
+  removeShift(@Param('id') id: number) {
+    return this.shiftService.removeShift(id);
   }
 
   @Post('/copy')
   copyShift(
-    @ReqUser() user: User,
     @Body()
     payload: {
       copiedDay: string;
@@ -59,7 +52,6 @@ export class ShiftController {
     },
   ) {
     return this.shiftService.copyShift(
-      user,
       payload.copiedDay,
       payload.selectedDay,
       payload.location,
@@ -69,7 +61,6 @@ export class ShiftController {
 
   @Post('/copy-interval')
   copyShiftInterval(
-    @ReqUser() user: User,
     @Body()
     payload: {
       startCopiedDay: string;
@@ -80,7 +71,6 @@ export class ShiftController {
     },
   ) {
     return this.shiftService.copyShiftInterval(
-      user,
       payload.startCopiedDay,
       payload.endCopiedDay,
       payload.selectedDay,

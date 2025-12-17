@@ -2356,7 +2356,7 @@ export class OrderService {
           this.websocketGateway.emitOrderUpdated(user, o);
         }
         if (activity) {
-          this.websocketGateway.emitActivityChanged(activity);
+          this.websocketGateway.emitActivityChanged();
         }
       }
       return toEmit;
@@ -2414,7 +2414,7 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-    this.websocketGateway.emitDiscountChanged(user, discount);
+    this.websocketGateway.emitDiscountChanged();
     return discount;
   }
   async updateDiscount(user: User, id: number, updates: UpdateQuery<Discount>) {
@@ -2443,7 +2443,7 @@ export class OrderService {
       },
     );
 
-    this.websocketGateway.emitDiscountChanged(user, discount);
+    this.websocketGateway.emitDiscountChanged();
     return discount;
   }
 
@@ -2456,7 +2456,7 @@ export class OrderService {
       );
     }
     const discount = await this.discountModel.findByIdAndRemove(id);
-    this.websocketGateway.emitDiscountChanged(user, discount);
+    this.websocketGateway.emitDiscountChanged();
     return discount;
   }
   async createOrderForDivide(
@@ -3202,7 +3202,7 @@ export class OrderService {
   }
   async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
     const orderNote = await new this.orderNotesModel(createOrderNoteDto);
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged();
     return orderNote.save();
   }
   async updateOrderNote(
@@ -3217,7 +3217,7 @@ export class OrderService {
     if (!orderNote) {
       throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
     }
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged();
     return orderNote;
   }
   async removeOrderNote(id: number) {
@@ -3225,7 +3225,7 @@ export class OrderService {
     if (!orderNote) {
       throw new HttpException('Order note not found', HttpStatus.NOT_FOUND);
     }
-    await this.websocketGateway.emitOrderNotesChanged(null, orderNote);
+    await this.websocketGateway.emitOrderNotesChanged();
     return orderNote;
   }
   async removeZeroQuantityOrders() {
