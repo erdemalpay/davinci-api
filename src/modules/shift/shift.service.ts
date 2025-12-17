@@ -290,4 +290,12 @@ export class ShiftService {
     this.websocketGateway.emitShiftChanged();
     return updated;
   }
+
+  async findUsersFutureShifts(after: string) {
+    const filterQuery: any = {
+      day: { $gte: after },
+    };
+
+    return this.shiftModel.find(filterQuery).sort({ day: 1 }).exec();
+  }
 }
