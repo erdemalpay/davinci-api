@@ -299,13 +299,6 @@ export class ShiftService {
       day: { $gte: after },
     };
 
-    try {
-      return await this.shiftModel.find(filterQuery).sort({ day: 1 }).exec();
-    } catch (error) {
-      throw new HttpException(
-        'Failed to fetch future shifts',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    return this.shiftModel.find(filterQuery).sort({ day: 1 }).exec();
   }
 }
