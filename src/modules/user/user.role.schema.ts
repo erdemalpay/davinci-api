@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { RolePermissionEnum } from './user.enums';
@@ -17,7 +17,7 @@ export class Role extends Document {
   @Prop({
     required: true,
     type: [{ type: String, enum: RolePermissionEnum }],
-    default: [RolePermissionEnum.CHECKIN],
+    default: [RolePermissionEnum.OPERATION],
   })
   permissions: RolePermissionEnum[];
 }

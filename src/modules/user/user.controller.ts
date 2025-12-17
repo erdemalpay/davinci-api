@@ -10,7 +10,12 @@ import {
 import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from './user.decorator';
-import { CreateUserDto, UserResponse } from './user.dto';
+import {
+  CreateRoleDto,
+  CreateUserDto,
+  UpdateRoleDto,
+  UserResponse,
+} from './user.dto';
 import { UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
@@ -63,6 +68,18 @@ export class UserController {
   @Get('/roles')
   listRoles() {
     return this.userService.getRoles();
+  }
+
+  @ApiResponse({ type: Role })
+  @Post('/roles')
+  createRole(@Body() createRoleDto: CreateRoleDto) {
+    return this.userService.createRole(createRoleDto);
+  }
+
+  @ApiResponse({ type: Role })
+  @Patch('/roles/:id')
+  updateRole(@Param('id') id: number, @Body() updateRoleDto: UpdateRoleDto) {
+    return this.userService.updateRole(id, updateRoleDto);
   }
 
   @ApiResponse({ type: [UserResponse] })
