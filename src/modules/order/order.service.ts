@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,8 +15,9 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
+import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
@@ -49,7 +50,7 @@ import {
   OrderQueryDto,
   OrderStatus,
   OrderType,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -2864,7 +2865,7 @@ export class OrderService {
             oldOrder.save(),
           ]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitSingleTableChanged(user, oldTable);
+          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',
@@ -2893,8 +2894,8 @@ export class OrderService {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
           this.websocketGateway.emitOrderCreated(user, newOrder);
-          this.websocketGateway.emitSingleTableChanged(user, oldTable);
-          this.websocketGateway.emitSingleTableChanged(user, newTable);
+          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(user, pick(newTable, ['orders', '_id', 'date', 'location']));
           continue;
         }
         // Destructure oldOrder to exclude the _id field
@@ -2924,8 +2925,8 @@ export class OrderService {
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated(user, oldOrder);
-          this.websocketGateway.emitSingleTableChanged(user, oldTable);
-          this.websocketGateway.emitSingleTableChanged(user, newTable);
+          this.websocketGateway.emitSingleTableChanged(user, pick(oldTable, ['orders', '_id', 'date', 'location']));
+          this.websocketGateway.emitSingleTableChanged(user, pick(newTable, ['orders', '_id', 'date', 'location']));
         } catch (error) {
           throw new HttpException(
             'Failed to transfer order',

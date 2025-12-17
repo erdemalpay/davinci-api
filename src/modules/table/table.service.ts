@@ -10,7 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
-import { pick } from 'src/utils/tsUtils';
+import { pick, pickWith } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -126,7 +126,7 @@ export class TableService {
     } else if (tableDto.status === TableStatus.CANCELLED) {
       this.websocketGateway.emitTableDeleted(user, updatedTable);
     } else {
-      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
+      this.websocketGateway.emitSingleTableChanged(user, pickWith(updatedTable, ['_id', 'date', 'location'], tableDto));
     }
     return updatedTable;
   }
