@@ -323,11 +323,7 @@ export class ShiftChangeRequestService {
       });
     }
 
-    this.websocketGateway.emitShiftChangeRequestChanged({
-      action: 'created',
-      request,
-    });
-
+    this.websocketGateway.emitShiftChangeRequestChanged();
     return request;
   }
 
@@ -561,10 +557,7 @@ export class ShiftChangeRequestService {
         });
       }
 
-      this.websocketGateway.emitShiftChangeRequestChanged({
-        action: 'approved',
-        request,
-      });
+      this.websocketGateway.emitShiftChangeRequestChanged();
     } else {
       const shiftChangeRequestedEvent = notificationEvents.find(
         (notification) =>
@@ -599,10 +592,7 @@ export class ShiftChangeRequestService {
         });
       }
 
-      this.websocketGateway.emitShiftChangeRequestChanged({
-        action: 'manager_approved',
-        request,
-      });
+      this.websocketGateway.emitShiftChangeRequestChanged();
     }
 
     return request;
@@ -745,10 +735,7 @@ export class ShiftChangeRequestService {
         });
       }
 
-      this.websocketGateway.emitShiftChangeRequestChanged({
-        action: 'approved',
-        request,
-      });
+      this.websocketGateway.emitShiftChangeRequestChanged();
     } else {
       await request.save();
 
@@ -783,10 +770,7 @@ export class ShiftChangeRequestService {
         });
       }
 
-      this.websocketGateway.emitShiftChangeRequestChanged({
-        action: 'target_approved',
-        request,
-      });
+      this.websocketGateway.emitShiftChangeRequestChanged();
     }
 
     return request;
@@ -876,11 +860,7 @@ export class ShiftChangeRequestService {
       });
     }
 
-    this.websocketGateway.emitShiftChangeRequestChanged({
-      action: 'rejected',
-      request,
-    });
-
+    this.websocketGateway.emitShiftChangeRequestChanged();
     return request;
   }
 
@@ -944,10 +924,7 @@ export class ShiftChangeRequestService {
       });
     }
 
-    this.websocketGateway.emitShiftChangeRequestChanged({
-      action: 'rejected',
-      request,
-    });
+    this.websocketGateway.emitShiftChangeRequestChanged();
 
     return request;
   }
@@ -1028,11 +1005,7 @@ export class ShiftChangeRequestService {
       });
     }
 
-    this.websocketGateway.emitShiftChangeRequestChanged({
-      action: 'cancelled',
-      request,
-    });
-
+    this.websocketGateway.emitShiftChangeRequestChanged();
     return request;
   }
 

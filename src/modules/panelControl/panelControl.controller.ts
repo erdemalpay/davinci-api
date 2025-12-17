@@ -8,8 +8,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { ReqUser } from '../user/user.decorator';
-import { User } from '../user/user.schema';
 import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
@@ -38,30 +36,23 @@ export class PanelControlController {
   }
 
   @Post('/pages')
-  createPage(@ReqUser() user: User, @Body() createPageDto: CreatePageDto) {
-    return this.panelControlService.createPage(user, createPageDto);
+  createPage(@Body() createPageDto: CreatePageDto) {
+    return this.panelControlService.createPage(createPageDto);
   }
 
   @Post('/pages/multiple')
-  createMultiplePages(
-    @ReqUser() user: User,
-    @Body() createPageDto: CreatePageDto[],
-  ) {
-    return this.panelControlService.createMultiplePages(user, createPageDto);
+  createMultiplePages(@Body() createPageDto: CreatePageDto[]) {
+    return this.panelControlService.createMultiplePages(createPageDto);
   }
 
   @Patch('/pages/:id')
-  updatePage(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Page>,
-  ) {
-    return this.panelControlService.updatePage(user, id, updates);
+  updatePage(@Param('id') id: string, @Body() updates: UpdateQuery<Page>) {
+    return this.panelControlService.updatePage(id, updates);
   }
 
   @Delete('/pages/:id')
-  deletePage(@ReqUser() user: User, @Param('id') id: string) {
-    return this.panelControlService.removePage(user, id);
+  deletePage(@Param('id') id: string) {
+    return this.panelControlService.removePage(id);
   }
   //panel settings
   @Get('/panel-settings')
@@ -70,14 +61,8 @@ export class PanelControlController {
   }
 
   @Post('/panel-settings')
-  createPanelSettings(
-    @ReqUser() user: User,
-    @Body() createPanelSettingsDto: CreatePanelSettingsDto,
-  ) {
-    return this.panelControlService.createPanelSetting(
-      user,
-      createPanelSettingsDto,
-    );
+  createPanelSettings(@Body() createPanelSettingsDto: CreatePanelSettingsDto) {
+    return this.panelControlService.createPanelSetting(createPanelSettingsDto);
   }
   @Post('/whatsapp')
   sendWhatsAppMessage(
@@ -98,22 +83,19 @@ export class PanelControlController {
   }
   @Post('/disabled-conditions')
   createDisabledCondition(
-    @ReqUser() user: User,
     @Body() createDisabledConditionDto: CreateDisabledConditionDto,
   ) {
     return this.panelControlService.createDisabledCondition(
-      user,
       createDisabledConditionDto,
     );
   }
 
   @Patch('/disabled-conditions/:id')
   updateDisabledCondition(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<DisabledCondition>,
   ) {
-    return this.panelControlService.updateDisabledCondition(user, id, updates);
+    return this.panelControlService.updateDisabledCondition(id, updates);
   }
 
   @Get('/disabled-conditions/:id')
@@ -122,8 +104,8 @@ export class PanelControlController {
   }
 
   @Delete('/disabled-conditions/:id')
-  deleteDisabledCondition(@ReqUser() user: User, @Param('id') id: string) {
-    return this.panelControlService.removeDisabledCondition(user, id);
+  deleteDisabledCondition(@Param('id') id: string) {
+    return this.panelControlService.removeDisabledCondition(id);
   }
 
   //actions

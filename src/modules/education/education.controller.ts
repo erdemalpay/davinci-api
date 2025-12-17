@@ -24,20 +24,16 @@ export class EducationController {
   }
 
   @Post()
-  createEducation(
-    @ReqUser() user: User,
-    @Body() createEducationDto: CreateEducationDto,
-  ) {
-    return this.educationService.createEducation(user, createEducationDto);
+  createEducation(@Body() createEducationDto: CreateEducationDto) {
+    return this.educationService.createEducation(createEducationDto);
   }
 
   @Patch('/order/:id')
   updateEducationOrder(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body('newOrder') newOrder: number,
   ) {
-    return this.educationService.updateEducationOrder(user, id, newOrder);
+    return this.educationService.updateEducationOrder(id, newOrder);
   }
 
   @Patch('/:id')
@@ -50,7 +46,7 @@ export class EducationController {
   }
 
   @Delete('/:id')
-  removeEducation(@ReqUser() user: User, @Param('id') id: number) {
-    return this.educationService.removeEducation(user, id);
+  removeEducation(@Param('id') id: number) {
+    return this.educationService.removeEducation(id);
   }
 }

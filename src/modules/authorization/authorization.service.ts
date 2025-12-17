@@ -13,9 +13,9 @@ import { PanelControlService } from '../panelControl/panelControl.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateAuthorizationDto } from './authorization.dto';
 import { Authorization } from './authorization.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class AuthorizationService {
@@ -59,7 +59,7 @@ export class AuthorizationService {
       const authorization = await this.authorizationModel.create(
         createAuthorizationDto,
       );
-      this.websocketGateway.emitAuthorizationChanged(authorization);
+      this.websocketGateway.emitAuthorizationChanged();
       return authorization;
     } catch (error) {
       console.error('Failed to create authorization:', error);
@@ -93,7 +93,7 @@ export class AuthorizationService {
       existingAuthorization,
       updatedAuthorization,
     );
-    this.websocketGateway.emitAuthorizationChanged(updatedAuthorization);
+    this.websocketGateway.emitAuthorizationChanged();
     return updatedAuthorization;
   }
 
@@ -103,7 +103,7 @@ export class AuthorizationService {
     if (!deletedAuthorization) {
       throw new Error('Authorization not found');
     }
-    this.websocketGateway.emitAuthorizationChanged(deletedAuthorization);
+    this.websocketGateway.emitAuthorizationChanged();
     return deletedAuthorization;
   }
 

@@ -15,7 +15,7 @@ import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
-import { CreateUserDto } from './user.dto';
+import { CreateRoleDto, CreateUserDto, UpdateRoleDto } from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
@@ -47,7 +47,7 @@ export class UserService implements OnModuleInit {
     }
     user.active = true;
     await user.save();
-    this.websocketGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged();
     return user;
   }
 
@@ -58,7 +58,7 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
     });
-    this.websocketGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged();
     return user;
   }
 
@@ -126,7 +126,7 @@ export class UserService implements OnModuleInit {
     if (!updateResult) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitUserChanged(updateResult);
+    this.websocketGateway.emitUserChanged();
 
     return updateResult;
   }
@@ -212,6 +212,22 @@ export class UserService implements OnModuleInit {
 
   async getRoles(): Promise<Role[]> {
     return this.roleModel.find();
+  }
+
+  async createRole(createRoleDto: CreateRoleDto): Promise<Role> {
+    const role = new this.roleModel(createRoleDto);
+    await role.save();
+    return role;
+  }
+
+  async updateRole(id: number, updateRoleDto: UpdateRoleDto): Promise<Role> {
+    const role = await this.roleModel.findByIdAndUpdate(id, updateRoleDto, {
+      new: true,
+    });
+    if (!role) {
+      throw new HttpException('Role not found', HttpStatus.NOT_FOUND);
+    }
+    return role;
   }
   async setKnownGames(reqUser: User) {
     const users = await this.getAll(false);

@@ -1,5 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
@@ -8,6 +14,7 @@ import { dateRanges } from 'src/utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
   ButtonCallQueryDto,
@@ -15,7 +22,6 @@ import {
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ButtonCallService {
@@ -47,7 +53,7 @@ export class ButtonCallService {
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
       await existingButtonCall.save();
-      this.websocketGateway.emitButtonCallChanged(existingButtonCall);
+      this.websocketGateway.emitButtonCallChanged();
       return existingButtonCall;
     }
 
@@ -59,7 +65,7 @@ export class ButtonCallService {
         startHour: createButtonCallDto.hour,
         ...(user && { createdBy: user._id }),
       });
-      this.websocketGateway.emitButtonCallChanged(createdButtonCall);
+      this.websocketGateway.emitButtonCallChanged();
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -84,13 +90,14 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    const obj: { duration: string; finishHour: string; cancelledBy?: string } = {
-      duration: convertToHMS(
-        convertToSeconds(closeButtonCallDto.hour) -
-          convertToSeconds(closedButtonCall.startHour),
-      ),
-      finishHour: closeButtonCallDto.hour,
-    };
+    const obj: { duration: string; finishHour: string; cancelledBy?: string } =
+      {
+        duration: convertToHMS(
+          convertToSeconds(closeButtonCallDto.hour) -
+            convertToSeconds(closedButtonCall.startHour),
+        ),
+        finishHour: closeButtonCallDto.hour,
+      };
 
     if (user) {
       obj.cancelledBy = user._id;
@@ -98,7 +105,7 @@ export class ButtonCallService {
 
     closedButtonCall.set(obj);
     await closedButtonCall.save();
-    this.websocketGateway.emitButtonCallChanged(closedButtonCall);
+    this.websocketGateway.emitButtonCallChanged();
 
     if (notifyCafe) {
       await this.notifyCafe(closeButtonCallDto);
@@ -146,7 +153,6 @@ export class ButtonCallService {
       );
     } catch (error) {
       console.error('Error notifying cafe:', error.message);
-
     }
   }
   async averageButtonCallStats(date: string, location: number) {
@@ -240,45 +246,47 @@ export class ButtonCallService {
       ];
     } else {
       if (location !== undefined && location !== null && `${location}` !== '') {
-      const locNum =
-        typeof location === 'string' ? Number(location) : (location as number);
-      if (!Number.isNaN(locNum)) filter.location = locNum;
-    }
-    if (tableName && `${tableName}`.trim() !== '') {
-      filter.tableName = { $regex: new RegExp(`${tableName}`, 'i') };
-    }
-    if (cancelledBy !== undefined && cancelledBy !== null) {
-      const arr = Array.isArray(cancelledBy)
-        ? cancelledBy
-        : `${cancelledBy}`.includes(',')
-        ? `${cancelledBy}`
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [`${cancelledBy}`];
-      if (arr.length) filter.cancelledBy = { $in: arr };
-    }
-    if (type !== undefined && type !== null) {
-      const types = Array.isArray(type)
-        ? type
-        : `${type}`.includes(',')
-        ? `${type}`
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [`${type}`];
-      const wantActive = types.includes('active');
-      const wantFinished = types.includes('finished');
-      const concreteTypes = types.filter(
-        (t) => t !== 'active' && t !== 'finished',
-      );
+        const locNum =
+          typeof location === 'string'
+            ? Number(location)
+            : (location as number);
+        if (!Number.isNaN(locNum)) filter.location = locNum;
+      }
+      if (tableName && `${tableName}`.trim() !== '') {
+        filter.tableName = { $regex: new RegExp(`${tableName}`, 'i') };
+      }
+      if (cancelledBy !== undefined && cancelledBy !== null) {
+        const arr = Array.isArray(cancelledBy)
+          ? cancelledBy
+          : `${cancelledBy}`.includes(',')
+          ? `${cancelledBy}`
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [`${cancelledBy}`];
+        if (arr.length) filter.cancelledBy = { $in: arr };
+      }
+      if (type !== undefined && type !== null) {
+        const types = Array.isArray(type)
+          ? type
+          : `${type}`.includes(',')
+          ? `${type}`
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [`${type}`];
+        const wantActive = types.includes('active');
+        const wantFinished = types.includes('finished');
+        const concreteTypes = types.filter(
+          (t) => t !== 'active' && t !== 'finished',
+        );
 
-      if (wantActive && !wantFinished) filter.finishHour = { $exists: false };
-      else if (wantFinished && !wantActive)
-        filter.finishHour = { $exists: true };
+        if (wantActive && !wantFinished) filter.finishHour = { $exists: false };
+        else if (wantFinished && !wantActive)
+          filter.finishHour = { $exists: true };
 
-      if (concreteTypes.length) filter.type = { $in: concreteTypes };
-    }
+        if (concreteTypes.length) filter.type = { $in: concreteTypes };
+      }
     }
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();

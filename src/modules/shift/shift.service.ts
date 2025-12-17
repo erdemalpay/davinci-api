@@ -1,12 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
-import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
-import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
 import { Shift } from './shift.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ShiftService {
@@ -16,30 +14,30 @@ export class ShiftService {
     private readonly redisService: RedisService,
   ) {}
 
-  async createShift(user: User, createShiftDto: CreateShiftDto) {
+  async createShift(createShiftDto: CreateShiftDto) {
     const createdShift = new this.shiftModel(createShiftDto);
     await createdShift.save();
-    this.websocketGateway.emitShiftChanged(user, createdShift);
+    this.websocketGateway.emitShiftChanged();
     return createdShift;
   }
 
-  async updateShift(user: User, id: number, updates: UpdateQuery<Shift>) {
+  async updateShift(id: number, updates: UpdateQuery<Shift>) {
     const updatedShift = await this.shiftModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
     if (!updatedShift) {
       throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitShiftChanged(user, updatedShift);
+    this.websocketGateway.emitShiftChanged();
     return updatedShift;
   }
 
-  async removeShift(user: User, id: number) {
+  async removeShift(id: number) {
     const removedShift = await this.shiftModel.findByIdAndRemove(id);
     if (!removedShift) {
       throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitShiftChanged(user, removedShift);
+    this.websocketGateway.emitShiftChanged();
     return removedShift;
   }
 
@@ -121,7 +119,6 @@ export class ShiftService {
   }
 
   async copyShift(
-    user: User,
     copiedDay: string,
     selectedDay: string,
     location: number,
@@ -162,7 +159,7 @@ export class ShiftService {
         });
         targetShift.shifts = merged;
         await targetShift.save();
-        this.websocketGateway.emitShiftChanged(user, targetShift);
+        this.websocketGateway.emitShiftChanged();
         return targetShift;
       } else {
         const { _id, ...shiftData } = sourceShift.toObject();
@@ -171,7 +168,7 @@ export class ShiftService {
         shiftData.shifts = filteredShifts;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
-        this.websocketGateway.emitShiftChanged(user, newShift);
+        this.websocketGateway.emitShiftChanged();
         return newShift;
       }
     } catch (error) {
@@ -184,7 +181,6 @@ export class ShiftService {
   }
 
   async copyShiftInterval(
-    user: User,
     startCopiedDay: string,
     endCopiedDay: string,
     selectedDay: string,
@@ -243,7 +239,7 @@ export class ShiftService {
         });
         targetShift.shifts = merged;
         await targetShift.save();
-        this.websocketGateway.emitShiftChanged(user, targetShift);
+        this.websocketGateway.emitShiftChanged();
         results.push(targetShift);
       } else {
         const { _id, ...shiftData } = sourceShift.toObject();
@@ -252,7 +248,7 @@ export class ShiftService {
         shiftData.shifts = filteredShifts;
         const newShift = new this.shiftModel(shiftData);
         await newShift.save();
-        this.websocketGateway.emitShiftChanged(user, newShift);
+        this.websocketGateway.emitShiftChanged();
         results.push(newShift);
       }
       offset++;

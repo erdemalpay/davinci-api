@@ -12,9 +12,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
-import { RedisService } from '../redis/redis.service';
 import { RedisKeys } from '../redis/redis.dto';
-import { User } from '../user/user.schema';
+import { RedisService } from '../redis/redis.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
@@ -27,7 +27,6 @@ import {
 } from './panelControl.dto';
 import { PanelSettings } from './panelSettings.schema';
 import { TaskTrack } from './taskTrack.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class PanelControlService implements OnApplicationBootstrap {
@@ -73,15 +72,15 @@ export class PanelControlService implements OnApplicationBootstrap {
     }
   }
 
-  async createPage(user: User, createPageDto: CreatePageDto) {
+  async createPage(createPageDto: CreatePageDto) {
     const page = new this.pageModel({ ...createPageDto, permissionRoles: [] });
     page._id = usernamify(page.name);
     await page.save();
-    this.websocketGateway.emitPageChanged(user, page);
+    this.websocketGateway.emitPageChanged();
     return page;
   }
 
-  async updatePage(user: User, id: string, updates: UpdateQuery<Page>) {
+  async updatePage(id: string, updates: UpdateQuery<Page>) {
     // const oldPage = await this.pageModel.findById(id);
     const newPage = await this.pageModel.findByIdAndUpdate(id, updates, {
       new: true,
@@ -104,7 +103,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     //     }
     //   }
     // }
-    this.websocketGateway.emitPageChanged(user, newPage);
+    this.websocketGateway.emitPageChanged();
 
     return newPage;
   }
@@ -112,13 +111,13 @@ export class PanelControlService implements OnApplicationBootstrap {
     const page = await this.pageModel.findById(id);
     return page;
   }
-  async removePage(user: User, id: string) {
+  async removePage(id: string) {
     const page = await this.pageModel.findByIdAndRemove(id);
-    this.websocketGateway.emitPageChanged(user, page);
+    this.websocketGateway.emitPageChanged();
     return page;
   }
 
-  async createMultiplePages(user: User, createPageDto: CreatePageDto[]) {
+  async createMultiplePages(createPageDto: CreatePageDto[]) {
     console.log('createMultiplePages', createPageDto);
     const pagesWithIds = createPageDto.map((page) => ({
       ...page,
@@ -135,7 +134,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       }
     }
 
-    this.websocketGateway.emitPageChanged(user, pagesWithIds);
+    this.websocketGateway.emitPageChanged();
     console.log('here');
     return pagesWithIds;
   }
@@ -155,10 +154,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     return day === 0 || day === 6;
   }
 
-  async createPanelSetting(
-    user: User,
-    createPanelSettingsDto: CreatePanelSettingsDto,
-  ) {
+  async createPanelSetting(createPanelSettingsDto: CreatePanelSettingsDto) {
     const panelSetting = await this.findPanelSettings();
     if (panelSetting) {
       const newPanelSetting = await this.panelSettingsModel.findByIdAndUpdate(
@@ -168,13 +164,13 @@ export class PanelControlService implements OnApplicationBootstrap {
           new: true,
         },
       );
-      this.websocketGateway.emitPanelSettingsChanged(user, newPanelSetting);
+      this.websocketGateway.emitPanelSettingsChanged();
       return newPanelSetting;
     }
     const newPanelSetting = await this.panelSettingsModel.create(
       createPanelSettingsDto,
     );
-    this.websocketGateway.emitPanelSettingsChanged(user, newPanelSetting);
+    this.websocketGateway.emitPanelSettingsChanged();
     return newPanelSetting;
   }
 
@@ -267,10 +263,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     }
   }
 
-  async createDisabledCondition(
-    user: User,
-    createDto: CreateDisabledConditionDto,
-  ) {
+  async createDisabledCondition(createDto: CreateDisabledConditionDto) {
     const condition = new this.disabledConditionModel({
       ...createDto,
       actions:
@@ -282,12 +275,11 @@ export class PanelControlService implements OnApplicationBootstrap {
 
     condition._id = usernamify(condition.name);
     await condition.save();
-    this.websocketGateway.emitDisabledConditionChanged(user, condition);
+    this.websocketGateway.emitDisabledConditionChanged();
     return condition;
   }
 
   async updateDisabledCondition(
-    user: User,
     id: string,
     updates: UpdateQuery<DisabledCondition>,
   ) {
@@ -298,7 +290,7 @@ export class PanelControlService implements OnApplicationBootstrap {
         new: true,
       },
     );
-    this.websocketGateway.emitDisabledConditionChanged(user, newCondition);
+    this.websocketGateway.emitDisabledConditionChanged();
 
     return newCondition;
   }
@@ -306,9 +298,9 @@ export class PanelControlService implements OnApplicationBootstrap {
     const condition = await this.disabledConditionModel.findById(id);
     return condition;
   }
-  async removeDisabledCondition(user: User, id: string) {
+  async removeDisabledCondition(id: string) {
     const condition = await this.disabledConditionModel.findByIdAndRemove(id);
-    this.websocketGateway.emitDisabledConditionChanged(user, condition);
+    this.websocketGateway.emitDisabledConditionChanged();
     return condition;
   }
   //actions
@@ -329,7 +321,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     const action = new this.actionModel(createActionDto);
     action._id = usernamify(action.name);
     await action.save();
-    this.websocketGateway.emitActionChanged(action);
+    this.websocketGateway.emitActionChanged();
     return action;
   }
 
@@ -337,13 +329,13 @@ export class PanelControlService implements OnApplicationBootstrap {
     const newAction = await this.actionModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitActionChanged(newAction);
+    this.websocketGateway.emitActionChanged();
     return newAction;
   }
 
   async removeAction(id: string) {
     const action = await this.actionModel.findByIdAndRemove(id);
-    this.websocketGateway.emitActionChanged(action);
+    this.websocketGateway.emitActionChanged();
     return action;
   }
 
@@ -361,7 +353,7 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
   async createTaskTrack(createTaskTrackDto: CreateTaskTrackDto) {
     const taskTrack = await this.taskTrackModel.create(createTaskTrackDto);
-    this.websocketGateway.emitTaskTrackChanged(taskTrack);
+    this.websocketGateway.emitTaskTrackChanged();
     return taskTrack;
   }
 
@@ -373,13 +365,13 @@ export class PanelControlService implements OnApplicationBootstrap {
         new: true,
       },
     );
-    this.websocketGateway.emitTaskTrackChanged(newTaskTrack);
+    this.websocketGateway.emitTaskTrackChanged();
     return newTaskTrack;
   }
 
   async removeTaskTrack(id: number) {
     const taskTrack = await this.taskTrackModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTaskTrackChanged(taskTrack);
+    this.websocketGateway.emitTaskTrackChanged();
     return taskTrack;
   }
 }
