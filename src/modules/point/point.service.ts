@@ -37,7 +37,7 @@ export class PointService {
     });
     await pointHistory.save();
     if (user) {
-      this.websocketGateway.emitPointHistoryChanged(user, pointHistory);
+      this.websocketGateway.emitPointHistoryChanged();
     }
     return pointHistory;
   }
@@ -53,8 +53,16 @@ export class PointService {
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
-    const { pointUser, pointConsumer, status, before, after, sort, asc, search } =
-      filter;
+    const {
+      pointUser,
+      pointConsumer,
+      status,
+      before,
+      after,
+      sort,
+      asc,
+      search,
+    } = filter;
     const skip = (pageNum - 1) * limitNum;
     const statusArray = status ? (status as any).split(',') : [];
     const sortObject: Record<string, 1 | -1> = {};
@@ -91,10 +99,13 @@ export class PointService {
         { createdBy: { $in: searchedUserIds } },
       ];
     } else {
-      if (pointUser && Number(pointUser) !== -1) matchStage.pointUser = pointUser;
-      if (Number(pointConsumer) && Number(pointConsumer) !== -1) matchStage.pointConsumer = pointConsumer;
+      if (pointUser && Number(pointUser) !== -1)
+        matchStage.pointUser = pointUser;
+      if (Number(pointConsumer) && Number(pointConsumer) !== -1)
+        matchStage.pointConsumer = pointConsumer;
       if (Number(pointUser) === -1) matchStage.pointUser = { $exists: false };
-      if (Number(pointConsumer) === -1) matchStage.pointConsumer = { $exists: false };
+      if (Number(pointConsumer) === -1)
+        matchStage.pointConsumer = { $exists: false };
       if (status) matchStage.status = { $in: statusArray };
     }
 
@@ -209,7 +220,7 @@ export class PointService {
       const oldAmount = existingPoint.amount;
       existingPoint.amount += createPointDto.amount;
       await existingPoint.save();
-      this.websocketGateway.emitPointChanged(user, existingPoint);
+      this.websocketGateway.emitPointChanged();
 
       // Create point history
       await this.createPointHistory(
@@ -232,7 +243,7 @@ export class PointService {
     }
     const point = new this.pointModel(createPointDto);
     await point.save();
-    this.websocketGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged();
 
     // Create point history
     await this.createPointHistory(
@@ -283,7 +294,7 @@ export class PointService {
       new: true,
     });
 
-    this.websocketGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged();
 
     // Create point history if amount changed
     if (updates.amount !== undefined && updates.amount !== oldAmount) {
@@ -320,7 +331,7 @@ export class PointService {
       { new: true },
     );
 
-    this.websocketGateway.emitPointChanged(user, point);
+    this.websocketGateway.emitPointChanged();
 
     // Create point history
     await this.createPointHistory(
@@ -371,7 +382,7 @@ export class PointService {
     point.amount -= amount;
     await point.save();
 
-    this.websocketGateway.emitPointChanged(null, point);
+    this.websocketGateway.emitPointChanged();
 
     // Create point history
     await this.createPointHistory({
@@ -416,7 +427,7 @@ export class PointService {
     point.amount += amount;
     await point.save();
 
-    this.websocketGateway.emitPointChanged(null, point);
+    this.websocketGateway.emitPointChanged();
 
     // Create point history
     await this.createPointHistory({

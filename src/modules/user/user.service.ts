@@ -47,7 +47,7 @@ export class UserService implements OnModuleInit {
     }
     user.active = true;
     await user.save();
-    this.websocketGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged();
     return user;
   }
 
@@ -58,7 +58,7 @@ export class UserService implements OnModuleInit {
     const user = await this.userModel.findByIdAndUpdate(id, updateQuery, {
       new: true,
     });
-    this.websocketGateway.emitUserChanged(user);
+    this.websocketGateway.emitUserChanged();
     return user;
   }
 
@@ -126,7 +126,7 @@ export class UserService implements OnModuleInit {
     if (!updateResult) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitUserChanged(updateResult);
+    this.websocketGateway.emitUserChanged();
 
     return updateResult;
   }

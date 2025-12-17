@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -32,7 +32,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes
+  TableTypes,
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -126,7 +126,9 @@ export class TableService {
     } else if (tableDto.status === TableStatus.CANCELLED) {
       this.websocketGateway.emitTableDeleted(user, updatedTable);
     } else {
-      this.websocketGateway.emitSingleTableChanged(pickWith(updatedTable, ['_id', 'date', 'location'], tableDto));
+      this.websocketGateway.emitSingleTableChanged(
+        pickWith(updatedTable, ['_id', 'date', 'location'], tableDto),
+      );
     }
     return updatedTable;
   }
@@ -159,7 +161,9 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitSingleTableChanged(pick(updatedTable, ['orders', '_id', 'date', 'location']));
+      this.websocketGateway.emitSingleTableChanged(
+        pick(updatedTable, ['orders', '_id', 'date', 'location']),
+      );
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
@@ -669,7 +673,7 @@ export class TableService {
       ...(existingTable && { table: existingTable._id }),
     });
     await feedback.save();
-    this.websocketGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged();
     return feedback;
   }
 
@@ -682,7 +686,7 @@ export class TableService {
     if (!updatedFeedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitFeedbackChanged(updatedFeedback);
+    this.websocketGateway.emitFeedbackChanged();
     return updatedFeedback;
   }
 
@@ -691,7 +695,7 @@ export class TableService {
     if (!feedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged();
     return feedback;
   }
 }

@@ -5,10 +5,10 @@ import { Document, Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { withSession } from 'src/utils/withSession';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { SessionOpts } from './../../utils/withSession';
 import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
 import { Activity } from './activity.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ActivityService {
@@ -116,7 +116,7 @@ export class ActivityService {
       withSession({}, session),
     );
     if (!deferEmit) {
-      this.websocketGateway.emitActivityChanged(activity);
+      this.websocketGateway.emitActivityChanged();
     }
 
     return activity;
@@ -151,7 +151,7 @@ export class ActivityService {
         type: dif.type,
       },
     });
-    this.websocketGateway.emitActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged();
     return activity;
   }
 }

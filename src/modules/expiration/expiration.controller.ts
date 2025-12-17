@@ -8,8 +8,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { ReqUser } from '../user/user.decorator';
-import { User } from '../user/user.schema';
 import {
   CreateExpirationCountDto,
   CreateExpirationListDto,
@@ -29,22 +27,17 @@ export class ExpirationController {
 
   @Post('/lists')
   createExpirationList(
-    @ReqUser() user: User,
     @Body() createExpirationListDto: CreateExpirationListDto,
   ) {
-    return this.expirationService.createExpirationList(
-      user,
-      createExpirationListDto,
-    );
+    return this.expirationService.createExpirationList(createExpirationListDto);
   }
 
   @Patch('/lists/:id')
   updateExpirationList(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<ExpirationList>,
   ) {
-    return this.expirationService.updateExpirationList(user, id, updates);
+    return this.expirationService.updateExpirationList(id, updates);
   }
 
   @Get('/counts')
@@ -54,26 +47,23 @@ export class ExpirationController {
 
   @Post('/counts')
   createExpirationCount(
-    @ReqUser() user: User,
     @Body() createExpirationCountDto: CreateExpirationCountDto,
   ) {
     return this.expirationService.createExpirationCount(
-      user,
       createExpirationCountDto,
     );
   }
 
   @Patch('/counts/:id')
   updateExpirationCount(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<ExpirationCount>,
   ) {
-    return this.expirationService.updateExpirationCount(user, id, updates);
+    return this.expirationService.updateExpirationCount(id, updates);
   }
 
   @Delete('/counts/:id')
-  removeExpirationCount(@ReqUser() user: User, @Param('id') id: string) {
-    return this.expirationService.removeExpirationCount(user, id);
+  removeExpirationCount(@Param('id') id: string) {
+    this.expirationService.removeExpirationCount(id);
   }
 }
