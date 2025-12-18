@@ -4,12 +4,12 @@ import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateNotificationDto,
-  NotificationQueryDto,
+  NotificationQueryDto
 } from './notification.dto';
 import { Notification } from './notification.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class NotificationService {
@@ -224,10 +224,7 @@ export class NotificationService {
       createdAt: new Date(),
     });
     this.websocketGateway.emitNotificationChanged(
-      notification,
-      createNotificationDto?.selectedUsers ?? [],
-      createNotificationDto?.selectedRoles ?? [],
-      createNotificationDto?.selectedLocations ?? [],
+      [notification],
     );
     return notification;
   }
@@ -261,7 +258,7 @@ export class NotificationService {
           _id: { $in: ids },
         });
 
-        this.websocketGateway.emitNotificationChanged('notificationChanged');
+        this.websocketGateway.emitNotificationChanged(updated);
         return { modifiedCount, updatedIds: ids };
       }
 
@@ -293,7 +290,7 @@ export class NotificationService {
       );
 
       const updated = await this.notificationModel.find({ _id: { $in: ids } });
-      this.websocketGateway.emitNotificationChanged('notificationChanged');
+      this.websocketGateway.emitNotificationChanged(updated);
       return { modifiedCount, updatedIds: ids };
     } catch (error) {
       throw new HttpException(
@@ -317,10 +314,7 @@ export class NotificationService {
       throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitNotificationChanged(
-      notification,
-      notification.selectedUsers,
-      notification.selectedRoles,
-      notification.selectedLocations,
+      [notification],
     );
     return notification;
   }

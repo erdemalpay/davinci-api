@@ -396,7 +396,7 @@ export class TableService {
         );
       }
     }
-    const gameplay = await this.gameplayService.create(user, gameplayDto);
+    const gameplay = await this.gameplayService.create(user, gameplayDto, id);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
       tableId: id,
       gameplay,
@@ -415,7 +415,7 @@ export class TableService {
       throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
-    await this.gameplayService.remove(user, gameplayId);
+    await this.gameplayService.remove(user, gameplayId, tableId);
 
     this.activityService.addActivity(
       user,
@@ -423,11 +423,13 @@ export class TableService {
       gameplay,
     );
 
+    const deletedGameplay = await this.gameplayService.findById(gameplayId);
+
     table.gameplays = table.gameplays.filter(
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, gameplayId, table);
+    this.websocketGateway.emitGameplayDeleted(user, deletedGameplay, table);
     return table;
   }
 
@@ -451,7 +453,7 @@ export class TableService {
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
-        this.gameplayService.remove(user, gameplay._id),
+        this.gameplayService.remove(user, gameplay._id, table._id),
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
