@@ -9,7 +9,7 @@ import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   GameplayQueryDto,
-  GameplayQueryGroupDto,
+  GameplayQueryGroupDto
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
@@ -25,12 +25,12 @@ export class GameplayService {
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
-  async create(user: User, createGameplayDto: GameplayDto) {
+  async create(user: User, createGameplayDto: GameplayDto, tableId: number) {
     const gameplay = await this.gameplayModel.create({
       ...createGameplayDto,
       createdBy: user,
     });
-    this.websocketGateway.emitGameplayCreated(user, gameplay);
+    this.websocketGateway.emitGameplayCreated(user, gameplay, tableId);
     return gameplay;
   }
 
@@ -464,9 +464,9 @@ export class GameplayService {
     return updatedGameplay;
   }
 
-  async remove(user: User, id: number) {
+  async remove(user: User, id: number, tableId: number) {
     const gameplay = await this.gameplayModel.findByIdAndDelete(id);
-    this.websocketGateway.emitGameplayDeleted(user, gameplay);
+    this.websocketGateway.emitGameplayDeleted(user, gameplay, tableId);
     return gameplay;
   }
 
