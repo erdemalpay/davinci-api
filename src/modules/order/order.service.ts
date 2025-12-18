@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -48,9 +48,7 @@ import {
   CreateOrderNotesDto,
   OrderCollectionStatus,
   OrderQueryDto,
-  OrderStatus,
-  OrderType,
-  SummaryCollectionQueryDto,
+  OrderStatus, SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1550,7 +1548,7 @@ export class OrderService {
       return this.orderModel
         .findByIdAndUpdate(id, { $unset: { division: '' } }, { new: true })
         .then((order) => {
-          this.websocketGateway.emitOrderUpdated(order);
+          this.websocketGateway.emitOrderUpdated([order]);
           return order;
         });
     } else {
@@ -1559,7 +1557,7 @@ export class OrderService {
           new: true,
         })
         .then((order) => {
-          this.websocketGateway.emitOrderUpdated(order);
+          this.websocketGateway.emitOrderUpdated([order]);
           return order;
         });
     }
@@ -1572,7 +1570,7 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
-      this.websocketGateway.emitOrderUpdated(order);
+      this.websocketGateway.emitOrderUpdated([order]);
       return order;
     } catch (error) {
       throw new HttpException(
@@ -1697,7 +1695,7 @@ export class OrderService {
           }
         }
       }
-      await this.websocketGateway.emitOrderUpdated(order);
+      await this.websocketGateway.emitOrderUpdated([order]);
       await this.websocketGateway.emitCollectionChanged(collection);
       return { message: 'Order cancelled successfully' };
     } catch (error) {
@@ -1722,8 +1720,8 @@ export class OrderService {
           });
         }),
       );
-      const order = await this.orderModel.findOne({ _id: ids[0] });
-      this.websocketGateway.emitOrderUpdated(order);
+      const orders = await this.orderModel.find({ _id: {$in: ids} });
+      this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
       console.error('Error updating orders:', error);
       throw new HttpException(
@@ -1734,7 +1732,7 @@ export class OrderService {
   }
   async updateOrders(
     user: User,
-    orders: OrderType[],
+    orders: Order[],
     opts?: { session?: ClientSession; deferEmit?: boolean },
   ): Promise<void> {
     if (!orders?.length) return;
@@ -1771,9 +1769,7 @@ export class OrderService {
 
       await this.orderModel.bulkWrite(ops, withSession({}, session));
       if (!deferEmit) {
-        for (const o of orders) {
-          this.websocketGateway.emitOrderUpdated(o);
-        }
+        this.websocketGateway.emitOrderUpdated(orders);
       }
     } catch (err) {
       console.error('Error updating orders:', err);
@@ -2353,9 +2349,7 @@ export class OrderService {
       });
       if (toEmit) {
         this.websocketGateway.emitCollectionChanged(toEmit);
-        for (const order of newOrders || []) {
-          this.websocketGateway.emitOrderUpdated(user, order);
-        }
+        this.websocketGateway.emitOrderUpdated(newOrders);
         if (activity) {
           this.websocketGateway.emitActivityChanged();
         }
@@ -2526,7 +2520,7 @@ export class OrderService {
           this.websocketGateway.emitOrderDeleted(oldOrder);
         } else {
           await oldOrder?.save();
-          this.websocketGateway.emitOrderUpdated(oldOrder);
+          this.websocketGateway.emitOrderUpdated([oldOrder]);
         }
       } catch (error) {
         throw new HttpException(
@@ -2597,7 +2591,7 @@ export class OrderService {
             ActivityType.ORDER_DISCOUNT,
             updatedOrder,
           );
-          this.websocketGateway.emitOrderUpdated(updatedOrder);
+          this.websocketGateway.emitOrderUpdated([updatedOrder]);
         } catch (error) {
           throw new HttpException(
             'Failed to update order',
@@ -2687,7 +2681,7 @@ export class OrderService {
           } else {
             oldOrder.quantity = newQuantity;
             await oldOrder.save();
-            this.websocketGateway.emitOrderUpdated(oldOrder);
+            this.websocketGateway.emitOrderUpdated([oldOrder]);
           }
         } catch (error) {
           throw new HttpException(
@@ -2714,7 +2708,7 @@ export class OrderService {
       throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
     }
     if (order.quantity === cancelQuantity) {
-      const updatedOrder = { ...order.toObject() };
+      const updatedOrder = { ...order.toObject() } as Order;
       delete updatedOrder.discount;
       delete updatedOrder.discountPercentage;
       delete updatedOrder.discountAmount;
@@ -2730,7 +2724,7 @@ export class OrderService {
             discountNote: '',
           },
         });
-        this.websocketGateway.emitOrderUpdated(updatedOrder);
+        this.websocketGateway.emitOrderUpdated([updatedOrder]);
       } catch (error) {
         throw new HttpException(
           'Failed to update order',
@@ -2801,7 +2795,7 @@ export class OrderService {
         } else {
           order.quantity = newQuantity;
           await order.save();
-          this.websocketGateway.emitOrderUpdated(order);
+          this.websocketGateway.emitOrderUpdated([order]);
         }
       } catch (error) {
         throw new HttpException(
@@ -2864,7 +2858,7 @@ export class OrderService {
             newTable.save(),
             oldOrder.save(),
           ]);
-          this.websocketGateway.emitOrderUpdated(oldOrder);
+          this.websocketGateway.emitOrderUpdated([oldOrder]);
           this.websocketGateway.emitSingleTableChanged(
             pick(oldTable, ['orders', '_id', 'date', 'location']),
           );
@@ -2894,7 +2888,7 @@ export class OrderService {
           }
           newTable.orders.push(newOrder._id);
           await Promise.all([newTable.save(), oldOrder.save()]);
-          this.websocketGateway.emitOrderUpdated(oldOrder);
+          this.websocketGateway.emitOrderUpdated([oldOrder]);
           this.websocketGateway.emitOrderCreated(user, newOrder);
           this.websocketGateway.emitSingleTableChanged(
             pick(oldTable, ['orders', '_id', 'date', 'location']),
@@ -2930,7 +2924,7 @@ export class OrderService {
         oldOrder.table = transferredTableId;
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
-          this.websocketGateway.emitOrderUpdated(oldOrder);
+          this.websocketGateway.emitOrderUpdated([oldOrder]);
           this.websocketGateway.emitSingleTableChanged(
             pick(oldTable, ['orders', '_id', 'date', 'location']),
           );
@@ -2981,9 +2975,9 @@ export class OrderService {
 
     try {
       await Promise.all([newTable.save()]);
-      await this.tableService.removeTable(user, oldTableId);
+      await this.tableService.removeTable(oldTableId);
       for (const order of orders) {
-        this.websocketGateway.emitOrderUpdated(order);
+        this.websocketGateway.emitOrderUpdated(orders);
       }
     } catch (error) {
       console.log(error);
@@ -3028,10 +3022,8 @@ export class OrderService {
 
     try {
       await Promise.all([newTable.save()]);
-      await this.tableService.removeTable(user, oldTableId);
-      for (const order of orders) {
-        this.websocketGateway.emitOrderUpdated(order);
-      }
+      await this.tableService.removeTable(oldTableId);
+      this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -3131,7 +3123,7 @@ export class OrderService {
         },
         { $set: { location: 4 } },
       );
-      await this.websocketGateway.emitOrderUpdated(null);
+      await this.websocketGateway.emitOrderUpdated([]);
       await this.websocketGateway.emitCollectionChanged(null);
       return {
         matchedOrders: result.matchedCount,
@@ -3155,7 +3147,7 @@ export class OrderService {
         { table: { $in: tableIds } },
         { $set: { location: 4 } },
       );
-      await this.websocketGateway.emitOrderUpdated(null);
+      await this.websocketGateway.emitOrderUpdated([]);
       return {
         matchedOrders: result.matchedCount,
         modifiedOrders: result.modifiedCount,
