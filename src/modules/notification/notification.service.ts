@@ -42,12 +42,12 @@ export class NotificationService {
 
     if (type) filter.type = type;
     if (event) {
-      const eventArray = event
+      const eventElements = event
         .split(',');
 
-      filter.event = eventArray.length > 1
-        ? { $in: eventArray }
-        : eventArray[0];
+      filter.event = eventElements.length > 1
+        ? { $in: eventElements }
+        : eventElements[0];
     }
 
     const rangeFilter: Record<string, any> = {};
