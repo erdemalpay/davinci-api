@@ -1,10 +1,12 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer,
+  WebSocketServer
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
+import { Order } from '../order/order.schema';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { Table } from '../table/table.schema';
 
 @WSGateway({ path: '/socket.io' })
 export class AppWebSocketGateway {
@@ -222,10 +224,9 @@ export class AppWebSocketGateway {
     this.server.emit('orderNotesChanged');
   }
 
-  async emitOrderUpdated(...args: any[]) {
-    const [order] = args;
+  async emitOrderUpdated(orders: Order[]) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderUpdated', { order });
+    this.server.emit('orderUpdated', { orders });
   }
 
   async emitOrderDeleted(order: any) {
@@ -311,25 +312,21 @@ export class AppWebSocketGateway {
     this.server.emit('stockChanged');
   }
 
-  async emitTableChanged(...args: any[]) {
-    const [table] = args;
+  async emitTableChanged(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableChanged', { table });
   }
-  async emitTableDeleted(...args: any[]) {
-    const [table] = args;
+  async emitTableDeleted(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableDeleted', { table });
   }
 
-  async emitTableCreated(...args: any[]) {
-    const [table] = args;
+  async emitTableCreated(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
 
     this.server.emit('tableCreated', { table });
   }
-  async emitTableClosed(...args: any[]) {
-    const [table] = args;
+  async emitTableClosed(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableClosed', { table });
   }
