@@ -297,7 +297,8 @@ export class AppWebSocketGateway {
     this.server.emit('shiftChangeRequestChanged');
   }
 
-  emitShiftChanged() {
+  async emitShiftChanged() {
+    await this.redisService.reset(RedisKeys.Shifts);
     this.server.emit('shiftChanged');
   }
 

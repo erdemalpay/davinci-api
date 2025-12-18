@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
@@ -54,28 +55,106 @@ export class ShiftService {
     ) {
       daysInRange.push(d.toISOString().split('T')[0]);
     }
-    const filterQuery: any = {};
-    if (after) {
-      filterQuery['day'] = { $gte: after };
-    }
-    if (before) {
-      filterQuery['day'] = {
-        ...filterQuery['day'],
-        $lte: before,
-      };
-    }
-    if (location) {
-      filterQuery['location'] = location;
-    }
-    let shiftsData;
+
+    let shiftsData: any[] = [];
+    const daysNeedingFetch: string[] = [];
+
+    // Redis cache kontrolü
     try {
-      shiftsData = await this.shiftModel.find(filterQuery).exec();
+      const cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
+      if (cachedShiftsMap) {
+        const shiftsMap = cachedShiftsMap as Record<string, any[]>;
+
+        for (const day of daysInRange) {
+          if (shiftsMap[day]) {
+            // Cache'te var, ekle
+            shiftsData.push(...shiftsMap[day]);
+          } else {
+            // Cache'te yok, DB'den alınacak
+            daysNeedingFetch.push(day);
+          }
+        }
+      } else {
+        // Cache yok, tüm günleri DB'den al
+        daysNeedingFetch.push(...daysInRange);
+      }
     } catch (error) {
-      throw new HttpException(
-        'Failed to fetch shifts',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Failed to retrieve shifts from Redis:', error);
+      // Redis hatası, tüm günleri DB'den al
+      daysNeedingFetch.push(...daysInRange);
     }
+
+    // DB'den eksik günleri al
+    if (daysNeedingFetch.length > 0) {
+      try {
+        const filterQuery: any = {
+          day: { $in: daysNeedingFetch },
+        };
+
+        const dbShifts = await this.shiftModel.find(filterQuery).exec();
+        shiftsData.push(...dbShifts);
+
+        // Cache'i güncelle
+        if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
+          try {
+            const existingCache =
+              ((await this.redisService.get(RedisKeys.Shifts)) as Record<
+                string,
+                any[]
+              >) || {};
+
+            // DB'den gelen shift'leri günlere göre grupla ve cache'e ekle
+            for (const shift of dbShifts) {
+              if (!existingCache[shift.day]) {
+                existingCache[shift.day] = [];
+              }
+              existingCache[shift.day].push(shift);
+            }
+
+            // Veri olmayan günler için boş array ekle
+            for (const day of daysNeedingFetch) {
+              if (!existingCache[day]) {
+                existingCache[day] = [];
+              }
+            }
+
+            // TTL hesapla (en son fetched günün bir sonraki gün 00:30'una kadar)
+            const lastDay = daysNeedingFetch[daysNeedingFetch.length - 1];
+            const [year, month, day] = lastDay.split('-').map(Number);
+            const nextDayMidnight = new Date(
+              year,
+              month - 1,
+              day + 1,
+              0,
+              30,
+              0,
+              0,
+            );
+            const now = new Date();
+            const ttl = Math.max(
+              Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
+              60,
+            );
+
+            await this.redisService.set(RedisKeys.Shifts, existingCache, ttl);
+          } catch (error) {
+            console.error('Failed to cache shifts in Redis:', error);
+          }
+        }
+      } catch (error) {
+        throw new HttpException(
+          'Failed to fetch shifts',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    }
+
+    // Location filtresi uygula
+    if (location) {
+      shiftsData = shiftsData.filter((shift) => shift.location === location);
+    }
+
+    // Sonucu organize et
     const shiftsMap = new Map<string, any[]>();
     for (const shift of shiftsData) {
       const existing = shiftsMap.get(shift.day) || [];
