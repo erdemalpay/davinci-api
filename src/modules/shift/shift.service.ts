@@ -58,17 +58,16 @@ export class ShiftService {
 
     let shiftsData: any[] = [];
     const daysNeedingFetch: string[] = [];
+    let cachedShiftsMap: Record<string, any[]> | null = null;
 
     // Redis cache kontrolü
     try {
-      const cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
+      cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
       if (cachedShiftsMap) {
-        const shiftsMap = cachedShiftsMap as Record<string, any[]>;
-
         for (const day of daysInRange) {
-          if (shiftsMap[day]) {
+          if (cachedShiftsMap[day]) {
             // Cache'te var, ekle
-            shiftsData.push(...shiftsMap[day]);
+            shiftsData.push(...cachedShiftsMap[day]);
           } else {
             // Cache'te yok, DB'den alınacak
             daysNeedingFetch.push(day);
@@ -97,11 +96,8 @@ export class ShiftService {
         // Cache'i güncelle
         if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
           try {
-            const existingCache =
-              ((await this.redisService.get(RedisKeys.Shifts)) as Record<
-                string,
-                any[]
-              >) || {};
+            // İlk okunan cache'i kullan, tekrar okuma
+            const existingCache = cachedShiftsMap || {};
 
             // DB'den gelen shift'leri günlere göre grupla ve cache'e ekle
             for (const shift of dbShifts) {
