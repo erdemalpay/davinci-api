@@ -41,7 +41,14 @@ export class NotificationService {
     const filter: FilterQuery<Notification> = {};
 
     if (type) filter.type = type;
-    if (event) filter.event = event;
+    if (event) {
+      const eventArray = event
+        .split(',');
+
+      filter.event = eventArray.length > 1
+        ? { $in: eventArray }
+        : eventArray[0];
+    }
 
     const rangeFilter: Record<string, any> = {};
     if (after) {
