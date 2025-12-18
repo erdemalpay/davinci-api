@@ -1,11 +1,9 @@
 import {
   Body,
-  Controller,
-  Delete,
-  Get,
+  Controller, Get,
   Param,
   Patch,
-  Query,
+  Query
 } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -147,10 +145,5 @@ export class GameplayController {
     @Body() updateGameplayDto: PartialGameplayDto,
   ) {
     return this.gameplayService.update(user, +id, updateGameplayDto);
-  }
-
-  @Delete(':id')
-  remove(@ReqUser() user: User, @Param('id') id: string) {
-    return this.gameplayService.remove(user, +id);
   }
 }

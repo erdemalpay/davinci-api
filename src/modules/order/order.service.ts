@@ -1204,7 +1204,7 @@ export class OrderService {
       }
       if (order?.table) {
         try {
-          this.websocketGateway.emitOrderCreated(user, order);
+          this.websocketGateway.emitOrderCreated(order);
         } catch (error) {
           console.error('Error emitting order created:', error);
         }
@@ -1406,7 +1406,7 @@ export class OrderService {
         },
       );
       //emit the return order create
-      this.websocketGateway.emitOrderCreated(user, returnOrder);
+      this.websocketGateway.emitOrderCreated(returnOrder);
       return returnOrder;
     } catch (error) {
       console.error('Error in returnOrder:', error);
@@ -2484,7 +2484,7 @@ export class OrderService {
       });
       try {
         await newOrder.save();
-        this.websocketGateway.emitOrderCreated(user, newOrder);
+        this.websocketGateway.emitOrderCreated(newOrder);
       } catch (error) {
         throw new HttpException(
           'Failed to create order',
@@ -2636,7 +2636,7 @@ export class OrderService {
             ActivityType.ORDER_DISCOUNT,
             newOrder,
           );
-          this.websocketGateway.emitOrderCreated(user, newOrder);
+          this.websocketGateway.emitOrderCreated(newOrder);
         } catch (error) {
           throw new HttpException(
             'Failed to create order',
@@ -2750,7 +2750,7 @@ export class OrderService {
       });
       try {
         await newOrder.save();
-        this.websocketGateway.emitOrderCreated(user, newOrder);
+        this.websocketGateway.emitOrderCreated(newOrder);
       } catch (error) {
         throw new HttpException(
           'Failed to create order',
@@ -2889,7 +2889,7 @@ export class OrderService {
           newTable.orders.push(newOrder._id);
           await Promise.all([newTable.save(), oldOrder.save()]);
           this.websocketGateway.emitOrderUpdated([oldOrder]);
-          this.websocketGateway.emitOrderCreated(user, newOrder);
+          this.websocketGateway.emitOrderCreated(newOrder);
           this.websocketGateway.emitSingleTableChanged(
             pick(oldTable, ['orders', '_id', 'date', 'location']),
           );
