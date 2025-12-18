@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
@@ -9,6 +9,8 @@ import { Shift } from './shift.schema';
 
 @Injectable()
 export class ShiftService {
+  private readonly logger = new Logger(ShiftService.name);
+
   constructor(
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -44,6 +46,9 @@ export class ShiftService {
 
   async findQueryShifts(query: ShiftQueryDto) {
     const { after, before, location } = query;
+    const requestStartedAt = Date.now();
+    let responseSource: 'cache' | 'database' = 'cache';
+    let requestFailed = false;
 
     const startDate = new Date(after);
     const endDate = new Date(before);
@@ -59,115 +64,134 @@ export class ShiftService {
     let shiftsData: any[] = [];
     const daysNeedingFetch: string[] = [];
     let cachedShiftsMap: Record<string, any[]> | null = null;
-
-    // Redis cache kontrolü
     try {
-      cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
-      if (cachedShiftsMap) {
-        for (const day of daysInRange) {
-          if (cachedShiftsMap[day]) {
-            // Cache'te var, ekle
-            shiftsData.push(...cachedShiftsMap[day]);
-          } else {
-            // Cache'te yok, DB'den alınacak
-            daysNeedingFetch.push(day);
-          }
-        }
-      } else {
-        // Cache yok, tüm günleri DB'den al
-        daysNeedingFetch.push(...daysInRange);
-      }
-    } catch (error) {
-      console.error('Failed to retrieve shifts from Redis:', error);
-      // Redis hatası, tüm günleri DB'den al
-      daysNeedingFetch.push(...daysInRange);
-    }
-
-    // DB'den eksik günleri al
-    if (daysNeedingFetch.length > 0) {
+      // Redis cache kontrolü
       try {
-        const filterQuery: any = {
-          day: { $in: daysNeedingFetch },
-        };
-
-        const dbShifts = await this.shiftModel.find(filterQuery).exec();
-        shiftsData.push(...dbShifts);
-
-        // Cache'i güncelle
-        if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
-          try {
-            // İlk okunan cache'i kullan, tekrar okuma
-            const existingCache = cachedShiftsMap || {};
-
-            // DB'den gelen shift'leri günlere göre grupla ve cache'e ekle
-            for (const shift of dbShifts) {
-              if (!existingCache[shift.day]) {
-                existingCache[shift.day] = [];
-              }
-              existingCache[shift.day].push(shift);
+        cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
+        if (cachedShiftsMap) {
+          for (const day of daysInRange) {
+            if (cachedShiftsMap[day]) {
+              // Cache'te var, ekle
+              shiftsData.push(...cachedShiftsMap[day]);
+            } else {
+              // Cache'te yok, DB'den alınacak
+              daysNeedingFetch.push(day);
             }
-
-            // Veri olmayan günler için boş array ekle
-            for (const day of daysNeedingFetch) {
-              if (!existingCache[day]) {
-                existingCache[day] = [];
-              }
-            }
-
-            // TTL hesapla (en son fetched günün bir sonraki gün 00:30'una kadar)
-            const lastDay = daysNeedingFetch[daysNeedingFetch.length - 1];
-            const [year, month, day] = lastDay.split('-').map(Number);
-            const nextDayMidnight = new Date(
-              year,
-              month - 1,
-              day + 1,
-              0,
-              30,
-              0,
-              0,
-            );
-            const now = new Date();
-            const ttl = Math.max(
-              Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
-              60,
-            );
-
-            await this.redisService.set(RedisKeys.Shifts, existingCache, ttl);
-          } catch (error) {
-            console.error('Failed to cache shifts in Redis:', error);
           }
+        } else {
+          // Cache yok, tüm günleri DB'den al
+          daysNeedingFetch.push(...daysInRange);
         }
       } catch (error) {
-        throw new HttpException(
-          'Failed to fetch shifts',
-          HttpStatus.INTERNAL_SERVER_ERROR,
+        console.error('Failed to retrieve shifts from Redis:', error);
+        // Redis hatası, tüm günleri DB'den al
+        daysNeedingFetch.push(...daysInRange);
+      }
+
+      // DB'den eksik günleri al
+      if (daysNeedingFetch.length > 0) {
+        responseSource = 'database';
+        try {
+          const filterQuery: any = {
+            day: { $in: daysNeedingFetch },
+          };
+
+          const dbShifts = await this.shiftModel.find(filterQuery).exec();
+          shiftsData.push(...dbShifts);
+
+          // Cache'i güncelle
+          if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
+            try {
+              // İlk okunan cache'i kullan, tekrar okuma
+              const existingCache = cachedShiftsMap || {};
+
+              // DB'den gelen shift'leri günlere göre grupla ve cache'e ekle
+              for (const shift of dbShifts) {
+                if (!existingCache[shift.day]) {
+                  existingCache[shift.day] = [];
+                }
+                existingCache[shift.day].push(shift);
+              }
+
+              // Veri olmayan günler için boş array ekle
+              for (const day of daysNeedingFetch) {
+                if (!existingCache[day]) {
+                  existingCache[day] = [];
+                }
+              }
+
+              // TTL hesapla (en son fetched günün bir sonraki gün 00:30'una kadar)
+              const lastDay = daysNeedingFetch[daysNeedingFetch.length - 1];
+              const [year, month, day] = lastDay.split('-').map(Number);
+              const nextDayMidnight = new Date(
+                year,
+                month - 1,
+                day + 1,
+                0,
+                30,
+                0,
+                0,
+              );
+              const now = new Date();
+              const ttl = Math.max(
+                Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
+                60,
+              );
+
+              await this.redisService.set(RedisKeys.Shifts, existingCache, ttl);
+            } catch (error) {
+              console.error('Failed to cache shifts in Redis:', error);
+            }
+          }
+        } catch (error) {
+          throw new HttpException(
+            'Failed to fetch shifts',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+
+      // Location filtresi uygula
+      if (location) {
+        shiftsData = shiftsData.filter(
+          (shift) => Number(shift.location) === Number(location),
         );
       }
-    }
 
-    // Location filtresi uygula
-    if (location) {
-      shiftsData = shiftsData.filter(
-        (shift) => Number(shift.location) === Number(location),
-      );
-    }
-
-    // Sonucu organize et
-    const shiftsMap = new Map<string, any[]>();
-    for (const shift of shiftsData) {
-      const existing = shiftsMap.get(shift.day) || [];
-      existing.push(shift);
-      shiftsMap.set(shift.day, existing);
-    }
-    const result = daysInRange.flatMap((day) => {
-      const dayShifts = shiftsMap.get(day);
-      if (dayShifts && dayShifts.length > 0) {
-        return dayShifts;
+      // Sonucu organize et
+      const shiftsMap = new Map<string, any[]>();
+      for (const shift of shiftsData) {
+        const existing = shiftsMap.get(shift.day) || [];
+        existing.push(shift);
+        shiftsMap.set(shift.day, existing);
       }
-      return [{ day, shifts: [] }];
-    });
+      const result = daysInRange.flatMap((day) => {
+        const dayShifts = shiftsMap.get(day);
+        if (dayShifts && dayShifts.length > 0) {
+          return dayShifts;
+        }
+        return [{ day, shifts: [] }];
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      requestFailed = true;
+      throw error;
+    } finally {
+      const duration = Date.now() - requestStartedAt;
+      const logSuffix = `source=${responseSource}, location=${
+        location ?? 'all'
+      }, range=${after} -> ${before}, cacheMissDays=${daysNeedingFetch.length}`;
+      const logMessage = `findQueryShifts ${
+        requestFailed ? 'failed' : 'completed'
+      } in ${duration}ms (${logSuffix})`;
+
+      if (requestFailed) {
+        this.logger.error(logMessage);
+      } else {
+        this.logger.log(logMessage);
+      }
+    }
   }
 
   async findUserShifts(query: ShiftUserQueryDto) {
