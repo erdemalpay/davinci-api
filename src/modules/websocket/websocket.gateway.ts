@@ -3,6 +3,7 @@ import {
   WebSocketServer
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
+import { extractRefId } from 'src/utils/tsUtils';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Notification } from '../notification/notification.schema';
 import { Collection } from '../order/collection.schema';
@@ -209,7 +210,12 @@ export class AppWebSocketGateway {
 
   async emitOrderCreated(order: Order) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderCreated', { order });
+    const normalizedOrder = {
+      ...order.toObject(),
+      item: extractRefId(order.item),
+      kitchen: extractRefId(order.kitchen),
+    }
+    this.server.emit('orderCreated', { order: normalizedOrder });
   }
 
   emitOrderGroupChanged() {
