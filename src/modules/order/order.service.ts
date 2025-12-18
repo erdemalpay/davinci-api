@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -48,7 +48,8 @@ import {
   CreateOrderNotesDto,
   OrderCollectionStatus,
   OrderQueryDto,
-  OrderStatus, SummaryCollectionQueryDto
+  OrderStatus,
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1720,7 +1721,7 @@ export class OrderService {
           });
         }),
       );
-      const orders = await this.orderModel.find({ _id: {$in: ids} });
+      const orders = await this.orderModel.find({ _id: { $in: ids } });
       this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
       console.error('Error updating orders:', error);
@@ -2585,6 +2586,7 @@ export class OrderService {
               }),
               discountNote: discountNote ?? '',
             },
+            { new: true },
           );
           await this.activityService.addActivity(
             user,
@@ -2715,15 +2717,19 @@ export class OrderService {
       delete updatedOrder.discountNote;
 
       try {
-        await this.orderModel.findByIdAndUpdate(orderId, {
-          $set: updatedOrder,
-          $unset: {
-            discount: '',
-            discountPercentage: '',
-            discountAmount: '',
-            discountNote: '',
+        await this.orderModel.findByIdAndUpdate(
+          orderId,
+          {
+            $set: updatedOrder,
+            $unset: {
+              discount: '',
+              discountPercentage: '',
+              discountAmount: '',
+              discountNote: '',
+            },
           },
-        });
+          { new: true },
+        );
         this.websocketGateway.emitOrderUpdated([updatedOrder]);
       } catch (error) {
         throw new HttpException(
