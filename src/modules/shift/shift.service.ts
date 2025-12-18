@@ -151,7 +151,9 @@ export class ShiftService {
 
     // Location filtresi uygula
     if (location) {
-      shiftsData = shiftsData.filter((shift) => shift.location === location);
+      shiftsData = shiftsData.filter(
+        (shift) => Number(shift.location) === Number(location),
+      );
     }
 
     // Sonucu organize et
