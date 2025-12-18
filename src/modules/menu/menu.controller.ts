@@ -48,6 +48,11 @@ export class MenuController {
     return this.menuService.updateIkasItemsIkasIdFields(sendItems);
   }
 
+  @Post('/items/update-ikas-variant-ids')
+  updateIkasVariantIds() {
+    return this.menuService.updateIkasVariantIds();
+  }
+
   @Get('/items/remove-deleted-products')
   removeDeletedProducts() {
     return this.menuService.removeDeletedProductsFromMenuItem();
@@ -80,11 +85,8 @@ export class MenuController {
   }
 
   @Post('/categories')
-  createCategory(
-    @ReqUser() user: User,
-    @Body() createCategoryDto: CreateCategoryDto,
-  ) {
-    return this.menuService.createCategory(user, createCategoryDto);
+  createCategory(@Body() createCategoryDto: CreateCategoryDto) {
+    return this.menuService.createCategory(createCategoryDto);
   }
 
   @Post('/items')
@@ -189,50 +191,42 @@ export class MenuController {
 
   @Patch('/categories/:id')
   updateCategory(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<MenuCategory>,
   ) {
-    return this.menuService.updateCategory(user, id, updates);
+    return this.menuService.updateCategory(id, updates);
   }
   @Patch('/categories_order/:id')
   updateCategoriesOrder(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body()
     payload: {
       newOrder: number;
     },
   ) {
-    return this.menuService.updateCategoriesOrder(user, id, payload.newOrder);
+    return this.menuService.updateCategoriesOrder(id, payload.newOrder);
   }
 
   @Patch('/order_categories_order/:id')
   updateOrderCategoriesOrder(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body()
     payload: {
       newOrder: number;
     },
   ) {
-    return this.menuService.updateOrderCategoriesOrder(
-      user,
-      id,
-      payload.newOrder,
-    );
+    return this.menuService.updateOrderCategoriesOrder(id, payload.newOrder);
   }
 
   @Patch('/items_order/:id')
   updateItemsOrder(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body()
     payload: {
       newOrder: number;
     },
   ) {
-    return this.menuService.updateItemsOrder(user, id, payload.newOrder);
+    return this.menuService.updateItemsOrder(id, payload.newOrder);
   }
 
   @Patch('/items/:id')
@@ -245,8 +239,8 @@ export class MenuController {
   }
 
   @Delete('/categories/:id')
-  deleteCategory(@ReqUser() user: User, @Param('id') id: number) {
-    return this.menuService.removeCategory(user, id);
+  deleteCategory(@ReqUser() @Param('id') id: number) {
+    return this.menuService.removeCategory(id);
   }
 
   @Delete('/items/:id')
@@ -261,25 +255,21 @@ export class MenuController {
   }
 
   @Post('/popular')
-  createPopular(
-    @ReqUser() user: User,
-    @Body() createPopularDto: CreatePopularDto,
-  ) {
-    return this.menuService.createPopular(user, createPopularDto);
+  createPopular(@Body() createPopularDto: CreatePopularDto) {
+    return this.menuService.createPopular(createPopularDto);
   }
 
   @Patch('/popular/:id')
   updatePopular(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<MenuItem>,
   ) {
-    return this.menuService.updatePopular(user, id, updates);
+    return this.menuService.updatePopular(id, updates);
   }
 
   @Delete('/popular/:id')
-  deletePopular(@ReqUser() user: User, @Param('id') id: number) {
-    return this.menuService.removePopular(user, id);
+  deletePopular(@Param('id') id: number) {
+    return this.menuService.removePopular(id);
   }
   // kitchen
   @Get('/kitchens')
@@ -288,25 +278,21 @@ export class MenuController {
   }
 
   @Post('/kitchens')
-  createKitchen(
-    @ReqUser() user: User,
-    @Body() createKitchenDto: CreateKitchenDto,
-  ) {
-    return this.menuService.createKitchen(user, createKitchenDto);
+  createKitchen(@Body() createKitchenDto: CreateKitchenDto) {
+    return this.menuService.createKitchen(createKitchenDto);
   }
 
   @Patch('/kitchens/:id')
   updateKitchen(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Kitchen>,
   ) {
-    return this.menuService.updateKitchen(user, id, updates);
+    return this.menuService.updateKitchen(id, updates);
   }
 
   @Delete('/kitchens/:id')
-  deleteKitchen(@ReqUser() user: User, @Param('id') id: string) {
-    return this.menuService.removeKitchen(user, id);
+  deleteKitchen(@Param('id') id: string) {
+    return this.menuService.removeKitchen(id);
   }
 
   //upper category
@@ -316,24 +302,20 @@ export class MenuController {
   }
 
   @Post('/upper_categories')
-  createUpperCategory(
-    @ReqUser() user: User,
-    @Body() createUpperCategoryDto: CreateUpperCategoryDto,
-  ) {
-    return this.menuService.createUpperCategory(user, createUpperCategoryDto);
+  createUpperCategory(@Body() createUpperCategoryDto: CreateUpperCategoryDto) {
+    return this.menuService.createUpperCategory(createUpperCategoryDto);
   }
 
   @Patch('/upper_categories/:id')
   updateUpperCategory(
-    @ReqUser() user: User,
     @Param('id') id: number,
     @Body() updates: UpdateQuery<UpperCategory>,
   ) {
-    return this.menuService.updateUpperCategory(user, id, updates);
+    return this.menuService.updateUpperCategory(id, updates);
   }
 
   @Delete('/upper_categories/:id')
-  deleteUpperCategory(@ReqUser() user: User, @Param('id') id: number) {
-    return this.menuService.removeUpperCategory(user, id);
+  deleteUpperCategory(@ReqUser() @Param('id') id: number) {
+    return this.menuService.removeUpperCategory(id);
   }
 }

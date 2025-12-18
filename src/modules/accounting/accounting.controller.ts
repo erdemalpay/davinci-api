@@ -89,10 +89,9 @@ export class AccountingController {
 
   @Patch('/base-quantities')
   updateMultipleBaseQuantities(
-    @ReqUser() user: User,
     @Body() updates: { _id: string; baseQuantities: any[] }[],
   ) {
-    return this.accountingService.updateMultipleBaseQuantities(user, updates);
+    return this.accountingService.updateMultipleBaseQuantities(updates);
   }
   @Post('/products/update-multiple')
   updateMultipleProduct(
@@ -329,16 +328,15 @@ export class AccountingController {
 
   @Patch('/payments/:id')
   updatePayment(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Payment>,
   ) {
-    return this.accountingService.updatePayment(user, id, updates);
+    return this.accountingService.updatePayment(id, updates);
   }
 
   @Delete('/payments/:id')
-  deletePayment(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removePayment(user, id);
+  deletePayment(@Param('id') id: string) {
+    return this.accountingService.removePayment(id);
   }
   @Post('/expenses/create-multiple')
   createMultipleExpense(
@@ -613,25 +611,21 @@ export class AccountingController {
   }
 
   @Post('/count-list')
-  createCountList(
-    @ReqUser() user: User,
-    @Body() createCountListDto: CreateCountListDto,
-  ) {
-    return this.accountingService.createCountList(user, createCountListDto);
+  createCountList(@Body() createCountListDto: CreateCountListDto) {
+    return this.accountingService.createCountList(createCountListDto);
   }
 
   @Patch('/count-list/:id')
   updateCountList(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<CountList>,
   ) {
-    return this.accountingService.updateCountList(user, id, updates);
+    return this.accountingService.updateCountList(id, updates);
   }
 
   @Delete('/count-list/:id')
-  deleteCountList(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeCountList(user, id);
+  deleteCountList(@Param('id') id: string) {
+    return this.accountingService.removeCountList(id);
   }
 
   // count
@@ -670,8 +664,8 @@ export class AccountingController {
   }
 
   @Post('/counts')
-  createCount(@ReqUser() user: User, @Body() createCountDto: CreateCountDto) {
-    return this.accountingService.createCount(user, createCountDto);
+  createCount(@Body() createCountDto: CreateCountDto) {
+    return this.accountingService.createCount(createCountDto);
   }
   @Patch('/stock_equalize')
   updateStockForStockCount(
@@ -715,8 +709,8 @@ export class AccountingController {
   }
 
   @Delete('/counts/:id')
-  deleteCount(@ReqUser() user: User, @Param('id') id: string) {
-    return this.accountingService.removeCount(user, id);
+  deleteCount(@Param('id') id: string) {
+    return this.accountingService.removeCount(id);
   }
 
   @Get('/match-products')

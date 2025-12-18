@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
@@ -247,6 +247,57 @@ export class IkasService {
     }
 
     return allProducts;
+  }
+
+  /**
+   * Get a single product by ID from Ikas API
+   * Only fetches minimal required fields (id and variants.id)
+   * Uses listProduct query with id filter for better performance
+   * @param productId - The Ikas product ID
+   * @returns Product object with id and variants array containing id, or null if not found
+   */
+  async getProductById(productId: string) {
+    const token = await this.getToken();
+    const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
+
+    const query = {
+      query: `
+        {
+          listProduct(id: { eq: "${productId}" }) {
+            data {
+              id
+              variants {
+                id
+              }
+            }
+          }
+        }
+      `,
+    };
+
+    try {
+      const response = await this.httpService
+        .post(apiUrl, query, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .toPromise();
+
+      const products = response.data.data.listProduct?.data;
+      // Return the first product if found, or null if not found
+      return products && products.length > 0 ? products[0] : null;
+    } catch (error) {
+      console.error(
+        'Error fetching product by ID:',
+        JSON.stringify(error.response?.data || error.message),
+      );
+      throw new HttpException(
+        `Unable to fetch product ${productId} from Ikas.`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async getAllOrders() {
@@ -657,11 +708,29 @@ export class IkasService {
     }
     const token = await this.getToken();
     const apiUrl = 'https://api.myikas.com/api/v1/admin/graphql';
-    const allProducts = await this.getAllProducts();
 
-    const foundProduct = allProducts.find(
-      (product) => product?.id === productId,
-    );
+    let variantId = '';
+
+    // get menu item by ikas id
+    const menuItem = await this.menuService.findByIkasId(productId);
+    if (menuItem) {
+      variantId = menuItem.ikasVariantId;
+    }
+    if (!variantId) {
+      // Get only the specific product instead of all products
+    const foundProduct = await this.getProductById(productId);
+      if (foundProduct) {
+        variantId = foundProduct.variants[0].id;
+      }
+    }
+
+    if (variantId) {
+      throw new HttpException(
+        `Product with ID ${productId} not found or has no variants`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    
     const foundStockLocation = await this.locationService.findLocationById(
       stockLocationId,
     );
@@ -671,12 +740,7 @@ export class IkasService {
       );
       return;
     }
-    if (!foundProduct) {
-      throw new HttpException(
-        `Product with ID ${productId} not found`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    
     const updateProductStockMutation = async (): Promise<boolean> => {
       const data = {
         query: `
@@ -687,7 +751,7 @@ export class IkasService {
                 productId: "${productId}",
                 stockCount: ${stockCount},
                 stockLocationId: "${foundStockLocation.ikasId}",
-                variantId: "${foundProduct?.variants[0].id}"
+                variantId: "${variantId}"
               }
             ]
           })
@@ -1236,18 +1300,33 @@ export class IkasService {
             } catch (collectionError) {
               console.error(
                 'Error creating collection:',
-                collectionError.message,
+                collectionError?.message || collectionError,
               );
+              console.error('Collection error stack:', collectionError?.stack);
+              // Don't throw here, continue with next item
+              // but log the error for debugging
             }
           } catch (orderError) {
-            console.error('Error creating order:', orderError.message);
+            console.error('Error creating order:', orderError?.message || orderError);
+            console.error('Order error stack:', orderError?.stack);
+            // Don't throw here, continue with next item
+            // but log the error for debugging
           }
         } catch (itemError) {
-          console.error('Error processing order line item:', itemError.message);
+          console.error('Error processing order line item:', itemError?.message || itemError);
+          console.error('Item error stack:', itemError?.stack);
+          // Continue with next item instead of crashing
         }
       }
     } catch (error) {
-      console.error('Error in orderCreateWebHook:', error.message);
+      console.error('Error in orderCreateWebHook:', error);
+      console.error('Error stack:', error?.stack);
+      // Re-throw the error to ensure it's properly handled
+      // but wrap it to prevent unhandled rejection
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

@@ -3,10 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
-import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateMembershipDto, MembershipDto } from './membership.dto';
 import { Membership } from './membership.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 export class MembershipService {
   constructor(
@@ -43,13 +42,13 @@ export class MembershipService {
     }
   }
 
-  async create(user: User, createMembershipDto: CreateMembershipDto) {
+  async create(createMembershipDto: CreateMembershipDto) {
     const membership = await this.membershipModel.create(createMembershipDto);
-    this.websocketGateway.emitMembershipChanged(user, membership);
+    this.websocketGateway.emitMembershipChanged();
     return membership;
   }
 
-  async update(user: User, id: number, membershipDto: MembershipDto) {
+  async update(id: number, membershipDto: MembershipDto) {
     const membership = await this.membershipModel.findByIdAndUpdate(
       id,
       membershipDto,
@@ -57,13 +56,13 @@ export class MembershipService {
         new: true,
       },
     );
-    this.websocketGateway.emitMembershipChanged(user, membership);
+    this.websocketGateway.emitMembershipChanged();
     return membership;
   }
 
-  async remove(user: User, id: number) {
+  async remove(id: number) {
     const membership = await this.membershipModel.findByIdAndRemove(id);
-    this.websocketGateway.emitMembershipChanged(user, membership);
+    this.websocketGateway.emitMembershipChanged();
     return membership;
   }
 }

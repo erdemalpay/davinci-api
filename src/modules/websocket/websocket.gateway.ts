@@ -17,28 +17,25 @@ export class AppWebSocketGateway {
     // Disable the default EventEmitter listener limit
     this.server.setMaxListeners(0);
   }
-  emitActionChanged(...args: any[]) {
-    const [action] = args;
-    this.server.emit('actionChanged', { action });
+  emitActionChanged() {
+    this.server.emit('actionChanged');
   }
 
-  emitActivityChanged(...args: any[]) {
-    const [activity] = args;
-    this.server.emit('activityChanged', { activity });
+  emitActivityChanged() {
+    this.server.emit('activityChanged');
   }
 
-  emitAssetChanged(...args: any[]) {
-    this.server.emit('assetChanged', ...args);
+  emitAssetChanged() {
+    this.server.emit('assetChanged');
   }
 
-  async emitAuthorizationChanged(authorization?: any) {
+  async emitAuthorizationChanged() {
     await this.redisService.reset(RedisKeys.Authorizations);
-    this.server.emit('authorizationChanged', { authorization });
+    this.server.emit('authorizationChanged');
   }
 
-  emitBrandChanged(...args: any[]) {
-    const [user, brand] = args;
-    this.server.emit('brandChanged', { user, brand });
+  emitBrandChanged() {
+    this.server.emit('brandChanged');
   }
 
   async emitBulkProductAndMenuItemChanged() {
@@ -47,61 +44,51 @@ export class AppWebSocketGateway {
     this.server.emit('bulkProductAndMenuItemChanged');
   }
 
-  emitButtonCallChanged(...args: any[]) {
-    const [buttonCall] = args;
-    this.server.emit('buttonCallChanged', { buttonCall });
+  emitButtonCallChanged() {
+    this.server.emit('buttonCallChanged');
   }
 
-  emitCafeActivityChanged(...args: any[]) {
-    const [cafeActivity] = args;
-    this.server.emit('cafeActivityChanged', { cafeActivity });
+  emitCafeActivityChanged() {
+    this.server.emit('cafeActivityChanged');
   }
 
-  emitCashoutChanged(...args: any[]) {
-    const [user, cashout] = args;
-    this.server.emit('cashoutChanged', { user, cashout });
+  emitCashoutChanged() {
+    this.server.emit('cashoutChanged');
   }
 
-  async emitCategoryChanged(user: any, category: any) {
+  async emitCategoryChanged() {
     await this.redisService.reset(RedisKeys.MenuItems);
     await this.redisService.reset(RedisKeys.MenuCategories);
     await this.redisService.reset(RedisKeys.ActiveMenuCategories);
-    this.server.emit('categoryChanged', { user, category });
+    this.server.emit('categoryChanged');
   }
 
-  emitCheckChanged(...args: any[]) {
-    const [user, check] = args;
-    this.server.emit('checkChanged', { user, check });
+  emitCheckChanged() {
+    this.server.emit('checkChanged');
   }
 
-  emitChecklistChanged(...args: any[]) {
-    const [user, checklist] = args;
-    this.server.emit('checklistChanged', { user, checklist });
+  emitChecklistChanged() {
+    this.server.emit('checklistChanged');
   }
 
-  emitCheckoutControlChanged(...args: any[]) {
-    const [user, checkoutControl] = args;
-    this.server.emit('checkoutControlChanged', { user, checkoutControl });
+  emitCheckoutControlChanged() {
+    this.server.emit('checkoutControlChanged');
   }
 
-  emitCollectionChanged(...args: any[]) {
-    const [user, collection] = args;
-    this.server.emit('collectionChanged', { user, collection });
+  emitCollectionChanged(collection: any) {
+    this.server.emit('collectionChanged', { collection });
   }
 
-  emitConsumerChanged(...args: any[]) {
-    const [user, consumer] = args;
-    this.server.emit('consumerChanged', { user, consumer });
+  emitConsumerChanged() {
+    this.server.emit('consumerChanged');
   }
 
-  emitCountChanged(...args: any[]) {
-    const [user, count] = args;
-    this.server.emit('countChanged', { user, count });
+  emitCountChanged() {
+    this.server.emit('countChanged');
   }
 
-  emitCountListChanged(...args: any[]) {
-    const [user, countList] = args;
-    this.server.emit('countListChanged', { user, countList });
+  emitCountListChanged() {
+    this.server.emit('countListChanged');
   }
 
   emitCreateMultipleOrder(...args: any[]) {
@@ -115,50 +102,42 @@ export class AppWebSocketGateway {
     });
   }
 
-  emitDisabledConditionChanged(...args: any[]) {
-    const [user, disabledCondition] = args;
-    this.server.emit('disabledConditionChanged', { user, disabledCondition });
+  emitDisabledConditionChanged() {
+    this.server.emit('disabledConditionChanged');
   }
 
-  async emitDiscountChanged(user: any, discount: any) {
+  async emitDiscountChanged() {
     await this.redisService.reset(RedisKeys.Discounts);
-    this.server.emit('discountChanged', { user, discount });
+    this.server.emit('discountChanged');
   }
 
-  emitEducationChanged(...args: any[]) {
-    const [user, education] = args;
-    this.server.emit('educationChanged', { user, education });
+  emitEducationChanged() {
+    this.server.emit('educationChanged');
   }
 
-  emitExpenseChanged(...args: any[]) {
-    const [user] = args;
-    this.server.emit('expenseChanged', { user });
+  emitExpenseChanged() {
+    this.server.emit('expenseChanged');
   }
 
-  emitExpenseTypeChanged(...args: any[]) {
-    const [user, expenseType] = args;
-    this.server.emit('expenseTypeChanged', { user, expenseType });
+  emitExpenseTypeChanged() {
+    this.server.emit('expenseTypeChanged');
   }
 
-  emitExpirationCountChanged(...args: any[]) {
-    const [user, expirationCount] = args;
-    this.server.emit('expirationCountChanged', { user, expirationCount });
+  emitExpirationCountChanged() {
+    this.server.emit('expirationCountChanged');
   }
 
-  emitExpirationListChanged(...args: any[]) {
-    const [user, expirationList] = args;
-    this.server.emit('expirationListChanged', { user, expirationList });
+  emitExpirationListChanged() {
+    this.server.emit('expirationListChanged');
   }
 
-  emitFeedbackChanged(...args: any[]) {
-    const [feedback] = args;
-    this.server.emit('feedbackChanged', { feedback });
+  emitFeedbackChanged() {
+    this.server.emit('feedbackChanged');
   }
 
-  async emitGameChanged(...args: any[]) {
-    const [user, game] = args;
+  async emitGameChanged() {
     await this.redisService.reset(RedisKeys.GamesMinimal);
-    this.server.emit('gameChanged', { user, game });
+    this.server.emit('gameChanged');
   }
 
   async emitGameplayChanged(...args: any[]) {
@@ -191,40 +170,37 @@ export class AppWebSocketGateway {
     this.server.emit('ikasProductStockChanged');
   }
 
-  emitIncomeChanged(...args: any[]) {
-    const [user, income] = args;
-    this.server.emit('incomeChanged', { user, income });
+  emitIncomeChanged() {
+    this.server.emit('incomeChanged');
   }
 
-  async emitItemChanged(user?: any, item?: any) {
+  async emitItemChanged() {
     await this.redisService.reset(RedisKeys.MenuItems);
     await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.server.emit('itemChanged', { user, item });
+    this.server.emit('itemChanged');
   }
 
-  async emitKitchenChanged(...args: any[]) {
-    const [user, kitchen] = args;
+  async emitKitchenChanged() {
     await this.redisService.reset(RedisKeys.Kitchens);
-    this.server.emit('kitchenChanged', { user, kitchen });
+    this.server.emit('kitchenChanged');
   }
 
-  async emitLocationChanged(...args: any[]) {
-    const [location] = args;
+  async emitLocationChanged() {
+    await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('locationChanged', { location });
+    this.server.emit('locationChanged');
   }
 
-  async emitMembershipChanged(...args: any[]) {
-    const [user, membership] = args;
+  async emitMembershipChanged() {
     await this.redisService.reset(RedisKeys.Memberships);
-    this.server.emit('membershipChanged', { user, membership });
+    this.server.emit('membershipChanged');
   }
 
   emitNotificationChanged(...args: any[]) {
-    const [notification] = args;
-    this.server.emit('notificationChanged', { notification });
+    const [user, notification] = args;
+    this.server.emit('notificationChanged', { user, notification });
   }
 
   emitNotificationRemoved(...args: any[]) {
@@ -242,158 +218,141 @@ export class AppWebSocketGateway {
     this.server.emit('orderGroupChanged');
   }
 
-  emitOrderNotesChanged(...args: any[]) {
-    const [user, orderNotes] = args;
-    this.server.emit('orderNotesChanged', { user, orderNotes });
+  emitOrderNotesChanged() {
+    this.server.emit('orderNotesChanged');
   }
 
   async emitOrderUpdated(...args: any[]) {
-    const [user, order] = args;
+    const [order] = args;
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderUpdated', { user, order });
+    this.server.emit('orderUpdated', { order });
   }
 
-  async emitPageChanged(...args: any[]) {
-    const [user, page] = args;
+  async emitOrderDeleted(order: any) {
+    await this.redisService.reset(RedisKeys.Tables);
+    this.server.emit('orderDeleted', { order });
+  }
+
+  async emitTodayOrderChanged() {
+    await this.redisService.reset(RedisKeys.Tables);
+    this.server.emit('todayOrderChanged');
+  }
+
+  async emitPageChanged() {
     await this.redisService.reset(RedisKeys.Pages);
-    this.server.emit('pageChanged', { user, page });
+    this.server.emit('pageChanged');
   }
 
-  emitPanelSettingsChanged(...args: any[]) {
-    const [user, panelSettings] = args;
-    this.server.emit('panelSettingsChanged', { user, panelSettings });
+  emitPanelSettingsChanged() {
+    this.server.emit('panelSettingsChanged');
   }
 
-  emitPaymentChanged(...args: any[]) {
-    const [user, payment] = args;
-    this.server.emit('paymentChanged', { user, payment });
+  emitPaymentChanged() {
+    this.server.emit('paymentChanged');
   }
 
-  emitPaymentMethodChanged(...args: any[]) {
-    const [user, paymentMethod] = args;
-    this.server.emit('paymentMethodChanged', { user, paymentMethod });
+  emitPaymentMethodChanged() {
+    this.server.emit('paymentMethodChanged');
   }
 
-  emitPointChanged(...args: any[]) {
-    const [user, point] = args;
-    this.server.emit('pointChanged', { user, point });
+  emitPointChanged() {
+    this.server.emit('pointChanged');
   }
 
-  emitPointHistoryChanged(...args: any[]) {
-    const [user, pointHistory] = args;
-    this.server.emit('pointHistoryChanged', { user, pointHistory });
+  emitPointHistoryChanged() {
+    this.server.emit('pointHistoryChanged');
   }
 
-  emitPopularChanged(...args: any[]) {
-    const [user, popular] = args;
-    this.server.emit('popularChanged', { user, popular });
+  emitPopularChanged() {
+    this.server.emit('popularChanged');
   }
 
-  emitProductCategoryChanged(...args: any[]) {
-    const [user, productCategory] = args;
-    this.server.emit('productCategoryChanged', { user, productCategory });
+  emitProductCategoryChanged() {
+    this.server.emit('productCategoryChanged');
   }
 
-  async emitProductChanged(user?: any, product?: any) {
+  async emitProductChanged() {
     await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.server.emit('productChanged', { user, product });
+    this.server.emit('productChanged');
   }
 
-  emitProductStockHistoryChanged(...args: any[]) {
-    const [user, productStockHistory] = args;
-    this.server.emit('productStockHistoryChanged', {
-      user,
-      productStockHistory,
-    });
+  emitProductStockHistoryChanged() {
+    this.server.emit('productStockHistoryChanged');
   }
 
-  emitReservationChanged(...args: any[]) {
-    const [user, reservation] = args;
-    this.server.emit('reservationChanged', { user, reservation });
+  emitReservationChanged() {
+    this.server.emit('reservationChanged');
   }
 
-  emitRewardChanged(...args: any[]) {
-    const [user, reward] = args;
-    this.server.emit('rewardChanged', { user, reward });
+  emitRewardChanged() {
+    this.server.emit('rewardChanged');
   }
 
-  emitServiceChanged(...args: any[]) {
-    const [user, service] = args;
-    this.server.emit('serviceChanged', { user, service });
+  emitServiceChanged() {
+    this.server.emit('serviceChanged');
   }
 
-  emitShiftChangeRequestChanged(...args: any[]) {
-    const [user, shiftChangeRequest] = args;
-    this.server.emit('shiftChangeRequestChanged', { user, shiftChangeRequest });
+  emitShiftChangeRequestChanged() {
+    this.server.emit('shiftChangeRequestChanged');
   }
 
-  async emitShiftChanged(...args: any[]) {
-    const [user, shift] = args;
-    await this.redisService.reset(RedisKeys.Shifts);
-    this.server.emit('shiftChanged', { user, shift });
+  emitShiftChanged() {
+    this.server.emit('shiftChanged');
   }
 
   async emitSingleTableChanged(...args: any[]) {
-    const [user, table] = args;
+    const [table] = args;
     await this.redisService.reset(RedisKeys.Tables);
-
-    this.server.emit('singleTableChanged', { user, table });
+    this.server.emit('singleTableChanged', { table });
   }
 
-  async emitStockChanged(user?: any, stock?: any) {
+  async emitStockChanged() {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockChanged', { user, stock });
+    this.server.emit('stockChanged');
   }
 
   async emitTableChanged(...args: any[]) {
-    const [user, table] = args;
+    const [table] = args;
     await this.redisService.reset(RedisKeys.Tables);
-
-    this.server.emit('tableChanged', { user, table });
+    this.server.emit('tableChanged', { table });
   }
   async emitTableDeleted(...args: any[]) {
-    const [user, table] = args;
+    const [table] = args;
     await this.redisService.reset(RedisKeys.Tables);
-
-    this.server.emit('tableDeleted', { user, table });
+    this.server.emit('tableDeleted', { table });
   }
 
   async emitTableCreated(...args: any[]) {
-    const [user, table] = args;
+    const [table] = args;
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('tableCreated', { user, table });
+    this.server.emit('tableCreated', { table });
   }
   async emitTableClosed(...args: any[]) {
     const [table] = args;
     await this.redisService.reset(RedisKeys.Tables);
-
     this.server.emit('tableClosed', { table });
   }
 
-  emitTaskTrackChanged(...args: any[]) {
-    const [user, taskTrack] = args;
-    this.server.emit('taskTrackChanged', { user, taskTrack });
+  emitTaskTrackChanged() {
+    this.server.emit('taskTrackChanged');
   }
 
-  emitUpperCategoryChanged(...args: any[]) {
-    const [user, upperCategory] = args;
-    this.server.emit('upperCategoryChanged', { user, upperCategory });
+  emitUpperCategoryChanged() {
+    this.server.emit('upperCategoryChanged');
   }
 
-  async emitUserChanged(user: any) {
+  async emitUserChanged() {
     await this.redisService.reset(RedisKeys.Users);
     await this.redisService.reset(RedisKeys.MinimalUsers);
-    this.server.emit('userChanged', { user });
+    this.server.emit('userChanged');
   }
 
-  emitVendorChanged(...args: any[]) {
-    const [user, vendor] = args;
-    this.server.emit('vendorChanged', { user, vendor });
+  emitVendorChanged() {
+    this.server.emit('vendorChanged');
   }
 
-  emitVisitChanged(...args: any[]) {
-    const [user, visit] = args;
-    this.server.emit('visitChanged', { user, visit });
+  emitVisitChanged() {
+    this.server.emit('visitChanged');
   }
 }

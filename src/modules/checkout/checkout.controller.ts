@@ -76,17 +76,13 @@ export class CheckoutController {
   }
 
   @Patch('/income/:id')
-  updateIncome(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Income>,
-  ) {
-    return this.checkoutService.updateIncome(user, id, updates);
+  updateIncome(@Param('id') id: string, @Body() updates: UpdateQuery<Income>) {
+    return this.checkoutService.updateIncome(id, updates);
   }
 
   @Delete('/income/:id')
-  deleteIncome(@ReqUser() user: User, @Param('id') id: string) {
-    return this.checkoutService.removeIncome(user, id);
+  deleteIncome(@Param('id') id: string) {
+    return this.checkoutService.removeIncome(id);
   }
   // Cashout
   @Get('/cashout')
@@ -116,16 +112,15 @@ export class CheckoutController {
 
   @Patch('/cashout/:id')
   updateCashout(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Cashout>,
   ) {
-    return this.checkoutService.updateCashout(user, id, updates);
+    return this.checkoutService.updateCashout(id, updates);
   }
 
   @Delete('/cashout/:id')
-  deleteCashout(@ReqUser() user: User, @Param('id') id: string) {
-    return this.checkoutService.removeCashout(user, id);
+  deleteCashout(@Param('id') id: string) {
+    return this.checkoutService.removeCashout(id);
   }
 
   // CheckoutControl
@@ -159,15 +154,14 @@ export class CheckoutController {
 
   @Patch('/checkout-control/:id')
   updateCheckoutControl(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<CheckoutControl>,
   ) {
-    return this.checkoutService.updateCheckoutControl(user, id, updates);
+    return this.checkoutService.updateCheckoutControl(id, updates);
   }
 
   @Delete('/checkout-control/:id')
-  deleteCheckoutControl(@ReqUser() user: User, @Param('id') id: string) {
-    return this.checkoutService.removeCheckoutControl(user, id);
+  deleteCheckoutControl(@Param('id') id: string) {
+    return this.checkoutService.removeCheckoutControl(id);
   }
 }

@@ -9,8 +9,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { ReqUser } from '../user/user.decorator';
-import { User } from '../user/user.schema';
 import { Check } from './check.schema';
 import { CreateCheckDto, CreateChecklistDto } from './checklist.dto';
 import { Checklist } from './checklist.schema';
@@ -25,11 +23,8 @@ export class ChecklistController {
   }
 
   @Post()
-  createChecklist(
-    @ReqUser() user: User,
-    @Body() createChecklistDto: CreateChecklistDto,
-  ) {
-    return this.checklistService.createChecklist(user, createChecklistDto);
+  createChecklist(@Body() createChecklistDto: CreateChecklistDto) {
+    return this.checklistService.createChecklist(createChecklistDto);
   }
 
   @Post('/set-checklists-order')
@@ -39,15 +34,14 @@ export class ChecklistController {
 
   @Patch(':id')
   updateChecklist(
-    @ReqUser() user: User,
     @Param('id') id: string,
     @Body() updates: UpdateQuery<Checklist>,
   ) {
-    return this.checklistService.updateChecklist(user, id, updates);
+    return this.checklistService.updateChecklist(id, updates);
   }
   @Delete(':id')
-  removeChecklist(@ReqUser() user: User, @Param('id') id: string) {
-    return this.checklistService.removeChecklist(user, id);
+  removeChecklist(@Param('id') id: string) {
+    return this.checklistService.removeChecklist(id);
   }
 
   @Get('/check')
@@ -84,21 +78,17 @@ export class ChecklistController {
   }
 
   @Post('/check')
-  createCheck(@ReqUser() user: User, @Body() createCheckDto: CreateCheckDto) {
-    return this.checklistService.createCheck(user, createCheckDto);
+  createCheck(@Body() createCheckDto: CreateCheckDto) {
+    return this.checklistService.createCheck(createCheckDto);
   }
 
   @Patch('/check/:id')
-  updateCheck(
-    @ReqUser() user: User,
-    @Param('id') id: string,
-    @Body() updates: UpdateQuery<Check>,
-  ) {
-    return this.checklistService.updateCheck(user, id, updates);
+  updateCheck(@Param('id') id: string, @Body() updates: UpdateQuery<Check>) {
+    return this.checklistService.updateCheck(id, updates);
   }
 
   @Delete('/check/:id')
-  removeCheck(@ReqUser() user: User, @Param('id') id: string) {
-    return this.checklistService.removeCheck(user, id);
+  removeCheck(@Param('id') id: string) {
+    return this.checklistService.removeCheck(id);
   }
 }

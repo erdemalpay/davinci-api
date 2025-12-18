@@ -3,9 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateStockLocationDto } from './dto/create-location.dto';
 import { Location } from './location.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 @Injectable()
 export class LocationService {
   constructor(
@@ -18,7 +18,7 @@ export class LocationService {
 
   create(createLocationDto: CreateStockLocationDto) {
     const location = this.locationModel.create(createLocationDto);
-    this.websocketGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 
@@ -128,7 +128,7 @@ export class LocationService {
     const location = await this.locationModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 
@@ -138,7 +138,7 @@ export class LocationService {
       type: [2],
       active: true,
     });
-    this.websocketGateway.emitLocationChanged(location);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 }
