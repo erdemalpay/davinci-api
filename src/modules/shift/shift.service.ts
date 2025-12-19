@@ -122,7 +122,6 @@ export class ShiftService {
         (shift) => Number(shift.location) === Number(location),
       );
     }
-
     const shiftsMap = new Map<string, any[]>();
     for (const shift of shiftsData) {
       const existing = shiftsMap.get(shift.day) || [];
