@@ -56,9 +56,9 @@ export class ShiftService {
       daysInRange.push(d.toISOString().split('T')[0]);
     }
 
-    let shiftsData: any[] = [];
+    let shiftsData: Shift[] = [];
     const daysNeedingFetch: string[] = [];
-    let cachedShiftsMap: Record<string, any[]> | null = null;
+    let cachedShiftsMap: Record<string, Shift[]> | null = null;
 
     try {
       cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
