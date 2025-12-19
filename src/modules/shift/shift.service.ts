@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
@@ -9,8 +9,6 @@ import { Shift } from './shift.schema';
 
 @Injectable()
 export class ShiftService {
-  private readonly logger = new Logger(ShiftService.name);
-
   constructor(
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -61,7 +59,6 @@ export class ShiftService {
     let shiftsData: any[] = [];
     const daysNeedingFetch: string[] = [];
     let cachedShiftsMap: Record<string, any[]> | null = null;
-    let source = '';
 
     try {
       cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
@@ -85,7 +82,6 @@ export class ShiftService {
 
     // DB'den eksik günleri al
     if (daysNeedingFetch.length > 0) {
-      source = 'database';
       try {
         const filterQuery: any = {
           day: { $in: daysNeedingFetch },
@@ -126,11 +122,7 @@ export class ShiftService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-    } else {
-      source = 'cache';
     }
-
-    this.logger.log(`[findQueryShifts] source: ${source}`);
 
     // Location filtresi uygula
     if (location) {
