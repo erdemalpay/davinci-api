@@ -10,7 +10,7 @@
     "build": "nest build && npm run copy-assets",
     "copy-assets": "copyfiles -u 1 src/assets/**/* dist/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start --watch",
+    "start": "nest start",
     "start:dev": "NODE_ENV=development nest start --watch",
     "start:development": "NODE_ENV=development nest start",
     "start:debug": "nest start --debug --watch",
