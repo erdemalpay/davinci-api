@@ -116,7 +116,6 @@ export class ShiftService {
         );
       }
     }
-
     if (location) {
       shiftsData = shiftsData.filter(
         (shift) => Number(shift.location) === Number(location),
