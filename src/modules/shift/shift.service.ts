@@ -71,16 +71,13 @@ export class ShiftService {
           }
         }
       } else {
-        // Cache yok, tüm günleri DB'den al
         daysNeedingFetch.push(...daysInRange);
       }
     } catch (error) {
       console.error('Failed to retrieve shifts from Redis:', error);
-      // Redis hatası, tüm günleri DB'den al
       daysNeedingFetch.push(...daysInRange);
     }
 
-    // DB'den eksik günleri al
     if (daysNeedingFetch.length > 0) {
       try {
         const filterQuery: any = {
@@ -90,13 +87,10 @@ export class ShiftService {
         const dbShifts = await this.shiftModel.find(filterQuery).exec();
         shiftsData.push(...dbShifts);
 
-        // Cache'i güncelle
         if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
           try {
-            // İlk okunan cache'i kullan, tekrar okuma
             const existingCache = cachedShiftsMap || {};
 
-            // DB'den gelen shift'leri günlere göre grupla ve cache'e ekle
             for (const shift of dbShifts) {
               if (!existingCache[shift.day]) {
                 existingCache[shift.day] = [];
@@ -104,7 +98,6 @@ export class ShiftService {
               existingCache[shift.day].push(shift);
             }
 
-            // Veri olmayan günler için boş array ekle
             for (const day of daysNeedingFetch) {
               if (!existingCache[day]) {
                 existingCache[day] = [];
@@ -124,14 +117,12 @@ export class ShiftService {
       }
     }
 
-    // Location filtresi uygula
     if (location) {
       shiftsData = shiftsData.filter(
         (shift) => Number(shift.location) === Number(location),
       );
     }
 
-    // Sonucu organize et
     const shiftsMap = new Map<string, any[]>();
     for (const shift of shiftsData) {
       const existing = shiftsMap.get(shift.day) || [];
