@@ -36,6 +36,9 @@ export class MenuItem extends Document {
   @Prop({ type: String })
   imageUrl: string;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isAutoServed: boolean;
+
   @Prop({ required: true, type: Number })
   order: number;
 

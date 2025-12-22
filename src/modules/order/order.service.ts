@@ -1615,6 +1615,7 @@ export class OrderService {
             },
           ],
         });
+        this.websocketGateway.emitCollectionChanged(newCollection);
         await this.orderModel.findByIdAndUpdate(
           order._id,
           {
