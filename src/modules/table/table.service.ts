@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -32,7 +32,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes,
+  TableTypes
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -105,7 +105,7 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     }
-    this.websocketGateway.emitTableCreated(user, createdTable);
+    this.websocketGateway.emitTableCreated(createdTable);
 
     return createdTable;
   }
@@ -122,9 +122,9 @@ export class TableService {
       updatedTable,
     );
     if (tableDto.finishHour) {
-      this.websocketGateway.emitTableChanged(user, updatedTable);
+      this.websocketGateway.emitTableChanged(updatedTable);
     } else if (tableDto.status === TableStatus.CANCELLED) {
-      this.websocketGateway.emitTableDeleted(user, updatedTable);
+      this.websocketGateway.emitTableDeleted(updatedTable);
     } else {
       this.websocketGateway.emitSingleTableChanged(
         pickWith(updatedTable, ['_id', 'date', 'location'], tableDto),
@@ -230,7 +230,7 @@ export class TableService {
       { new: true },
     );
 
-    this.websocketGateway.emitTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableChanged(updatedTable);
     return updatedTable;
   }
 
@@ -396,7 +396,7 @@ export class TableService {
         );
       }
     }
-    const gameplay = await this.gameplayService.create(user, gameplayDto);
+    const gameplay = await this.gameplayService.create(user, gameplayDto, id);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
       tableId: id,
       gameplay,
@@ -415,7 +415,7 @@ export class TableService {
       throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
-    await this.gameplayService.remove(user, gameplayId);
+    await this.gameplayService.remove(user, gameplayId, tableId);
 
     this.activityService.addActivity(
       user,
@@ -423,11 +423,13 @@ export class TableService {
       gameplay,
     );
 
+    const deletedGameplay = await this.gameplayService.findById(gameplayId);
+
     table.gameplays = table.gameplays.filter(
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, gameplayId, table);
+    this.websocketGateway.emitGameplayDeleted(user, deletedGameplay, table);
     return table;
   }
 
@@ -451,11 +453,11 @@ export class TableService {
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
-        this.gameplayService.remove(user, gameplay._id),
+        this.gameplayService.remove(user, gameplay._id, table._id),
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(user, table);
+    this.websocketGateway.emitTableDeleted(table);
 
     return table;
   }
@@ -572,9 +574,9 @@ export class TableService {
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }
-  async removeTable(user: User, id: number) {
+  async removeTable(id: number) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(user, table);
+    this.websocketGateway.emitTableDeleted(table);
     return table;
   }
   async notifyUnclosedTables() {

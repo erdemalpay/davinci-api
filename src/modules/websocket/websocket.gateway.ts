@@ -1,10 +1,17 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer,
+  WebSocketServer
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
+import { extractRefId } from 'src/utils/tsUtils';
+import { Gameplay } from '../gameplay/gameplay.schema';
+import { Notification } from '../notification/notification.schema';
+import { Collection } from '../order/collection.schema';
+import { Order } from '../order/order.schema';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { Table } from '../table/table.schema';
+import { User } from '../user/user.schema';
 
 @WSGateway({ path: '/socket.io' })
 export class AppWebSocketGateway {
@@ -75,7 +82,7 @@ export class AppWebSocketGateway {
     this.server.emit('checkoutControlChanged');
   }
 
-  emitCollectionChanged(collection: any) {
+  emitCollectionChanged(collection: Collection) {
     this.server.emit('collectionChanged', { collection });
   }
 
@@ -91,12 +98,11 @@ export class AppWebSocketGateway {
     this.server.emit('countListChanged');
   }
 
-  emitCreateMultipleOrder(...args: any[]) {
-    const [user, table, location, soundRoles, selectedUsers] = args;
+  emitCreateMultipleOrder(user: User, table: Table, locationId: number, soundRoles: number[], selectedUsers: string[]) {
     this.server.emit('createMultipleOrder', {
       user,
       table,
-      location,
+      locationId,
       soundRoles,
       selectedUsers,
     });
@@ -140,30 +146,26 @@ export class AppWebSocketGateway {
     this.server.emit('gameChanged');
   }
 
-  async emitGameplayChanged(...args: any[]) {
-    const [user, gameplay] = args;
+  async emitGameplayChanged(user: User, gameplay: Gameplay) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
-  async emitGameplayCreated(...args: any[]) {
-    const [user, gameplay, table] = args;
+  async emitGameplayCreated(user: User, gameplay: Gameplay, tableId: Table["id"]) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayCreated', { user, gameplay, table });
+    this.server.emit('gameplayCreated', { user, gameplay, tableId });
   }
 
-  async emitGameplayUpdated(...args: any[]) {
-    const [user, gameplay] = args;
+  async emitGameplayUpdated(user: User, gameplay: Gameplay) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('gameplayUpdated', { user, gameplay });
   }
 
-  async emitGameplayDeleted(...args: any[]) {
-    const [user, gameplay, table] = args;
+  async emitGameplayDeleted(user: User, gameplay: Gameplay, tableId: Table["id"]) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayDeleted', { user, gameplay, table });
+    this.server.emit('gameplayDeleted', { user, gameplay, tableId });
   }
 
   emitIkasProductStockChanged() {
@@ -198,20 +200,22 @@ export class AppWebSocketGateway {
     this.server.emit('membershipChanged');
   }
 
-  emitNotificationChanged(...args: any[]) {
-    const [user, notification] = args;
-    this.server.emit('notificationChanged', { user, notification });
+  emitNotificationChanged(notifications: Notification[]) {
+    this.server.emit('notificationChanged', { notifications });
   }
 
-  emitNotificationRemoved(...args: any[]) {
-    const [notification] = args;
+  emitNotificationRemoved(notification: Notification) {
     this.server.emit('notificationRemoved', { notification });
   }
 
-  async emitOrderCreated(...args: any[]) {
-    const [user, order] = args;
+  async emitOrderCreated(order: Order) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderCreated', { user, order });
+    const normalizedOrder = {
+      ...order.toObject(),
+      item: extractRefId(order.item),
+      kitchen: extractRefId(order.kitchen),
+    }
+    this.server.emit('orderCreated', { order: normalizedOrder });
   }
 
   emitOrderGroupChanged() {
@@ -222,13 +226,12 @@ export class AppWebSocketGateway {
     this.server.emit('orderNotesChanged');
   }
 
-  async emitOrderUpdated(...args: any[]) {
-    const [order] = args;
+  async emitOrderUpdated(orders: Order[]) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderUpdated', { order });
+    this.server.emit('orderUpdated', { orders });
   }
 
-  async emitOrderDeleted(order: any) {
+  async emitOrderDeleted(order: Order) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('orderDeleted', { order });
   }
@@ -300,8 +303,7 @@ export class AppWebSocketGateway {
     this.server.emit('shiftChanged');
   }
 
-  async emitSingleTableChanged(...args: any[]) {
-    const [table] = args;
+  async emitSingleTableChanged(table: Partial<Table>) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('singleTableChanged', { table });
   }
@@ -311,25 +313,21 @@ export class AppWebSocketGateway {
     this.server.emit('stockChanged');
   }
 
-  async emitTableChanged(...args: any[]) {
-    const [table] = args;
+  async emitTableChanged(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableChanged', { table });
   }
-  async emitTableDeleted(...args: any[]) {
-    const [table] = args;
+  async emitTableDeleted(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableDeleted', { table });
   }
 
-  async emitTableCreated(...args: any[]) {
-    const [table] = args;
+  async emitTableCreated(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
 
     this.server.emit('tableCreated', { table });
   }
-  async emitTableClosed(...args: any[]) {
-    const [table] = args;
+  async emitTableClosed(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableClosed', { table });
   }

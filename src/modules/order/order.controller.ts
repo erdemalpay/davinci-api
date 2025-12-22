@@ -6,7 +6,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Query
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Table } from '../table/table.schema';
@@ -18,8 +18,7 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
-  CreateOrderNotesDto,
-  OrderType,
+  CreateOrderNotesDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -330,7 +329,7 @@ export class OrderController {
     @ReqUser() user: User,
     @Body()
     payload: {
-      orders: OrderType[];
+      orders: Order[];
     },
   ) {
     return this.orderService.updateOrders(user, payload.orders);
