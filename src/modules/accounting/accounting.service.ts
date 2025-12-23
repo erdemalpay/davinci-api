@@ -2015,77 +2015,104 @@ export class AccountingService {
           currentAmount: oldQuantity,
         });
       }
-      if (oldQuantity === 0 && Number(createStockDto.quantity) > 0) {
-        // burada oldQuantity 0 a eşit mi olmalı yoksa mevcut hali gibi 0 a eşit mi olmalı?
+      if (oldQuantity <= 0 && Number(createStockDto.quantity) > 0) {
         const foundProduct = await this.productModel.findById(
           createStockDto.product,
         );
-        if (foundProduct) {
-          const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
-          const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
-            automatedMenuCloseExpenseTypes.includes(type),
+        if (foundProduct && foundProduct.matchedMenuItem) {
+          const menuItem = await this.menuService.findItemById(
+            foundProduct.matchedMenuItem,
           );
-
-          if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
-            await this.menuService.openItemLocation(
-              foundProduct.matchedMenuItem,
-              createStockDto.location,
+          if (menuItem) {
+            const category = await this.menuService.findCategoryById(
+              menuItem.category as number,
             );
+            if (category?.disableWhenOutOfStock) {
+              await this.menuService.openItemLocation(
+                foundProduct.matchedMenuItem,
+                createStockDto.location,
+              );
+              /*
+              const visits = await this.visitService.findByDateAndLocation(
+                format(new Date(), 'yyyy-MM-dd'),
+                createStockDto.location,
+              );
+              const uniqueVisitUsers =
+                visits
+                  ?.reduce(
+                    (acc: { unique: typeof visits; seenUsers: any }, visit) => {
+                      acc.seenUsers = acc.seenUsers || {};
+                      if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+                        acc.seenUsers[(visit as any).user] = true;
+                        acc.unique.push(visit);
+                      }
+                      return acc;
+                    },
+                    { unique: [], seenUsers: {} },
+                  )
+                  ?.unique?.map((visit) => visit.user) ?? [];
+              */
+              //su anda kullanilmadigindan db sorgusu atmamasi, icin su ust kismi yoruma aldim
+              const locations = await this.locationService.findAllLocations();
+              const stockLocation = locations.find(
+                (location) => location._id === createStockDto.location,
+              );
 
-            const visits = await this.visitService.findByDateAndLocation(
-              format(new Date(), 'yyyy-MM-dd'),
-              createStockDto.location,
-            );
-            const uniqueVisitUsers =
-              visits
-                ?.reduce(
-                  (acc: { unique: typeof visits; seenUsers: any }, visit) => {
-                    acc.seenUsers = acc.seenUsers || {};
-                    if (visit?.user && !acc.seenUsers[(visit as any).user]) {
-                      acc.seenUsers[(visit as any).user] = true;
-                      acc.unique.push(visit);
-                    }
-                    return acc;
-                  },
-                  { unique: [], seenUsers: {} },
-                )
-                ?.unique?.map((visit) => visit.user) ?? [];
+              const message = {
+                key: 'StockRestored',
+                params: {
+                  product: foundProduct.name,
+                  location: stockLocation.name,
+                },
+              };
 
-            const locations = await this.locationService.findAllLocations();
-            const stockLocation = locations.find(
-              (location) => location._id === createStockDto.location,
-            );
+              const notificationEvents =
+                await this.notificationService.findAllEventNotifications();
+              const stockRestoredEvent = notificationEvents.find(
+                (notification) =>
+                  notification.event === NotificationEventType.STOCKRESTORED,
+              );
 
-            const message = {
-              key: 'StockRestored',
-              params: {
-                product: foundProduct.name,
-                location: stockLocation.name,
-              },
-            };
-
-            const notificationEvents =
-              await this.notificationService.findAllEventNotifications();
-            const stockRestoredEvent = notificationEvents.find(
-              (notification) =>
-                notification.event === NotificationEventType.STOCKRESTORED,
-            );
-
-            if (stockRestoredEvent) {
-              await this.notificationService.createNotification({
-                type: stockRestoredEvent.type,
-                createdBy: stockRestoredEvent.createdBy,
-                selectedUsers: stockRestoredEvent.selectedUsers,
-                selectedRoles: stockRestoredEvent.selectedRoles,
-                selectedLocations: stockRestoredEvent.selectedLocations,
-                seenBy: [],
-                event: NotificationEventType.STOCKRESTORED,
-                message,
-              });
+              if (stockRestoredEvent) {
+                await this.notificationService.createNotification({
+                  type: stockRestoredEvent.type,
+                  createdBy: stockRestoredEvent.createdBy,
+                  selectedUsers: stockRestoredEvent.selectedUsers,
+                  selectedRoles: stockRestoredEvent.selectedRoles,
+                  selectedLocations: stockRestoredEvent.selectedLocations,
+                  seenBy: [],
+                  event: NotificationEventType.STOCKRESTORED,
+                  message,
+                });
+              }
             }
           }
         }
       }
+
+      // Handle stock decrease to zero or negative - close menu item
+      if (oldQuantity > 0 && newStock.quantity <= 0) {
+        const foundProduct = await this.productModel.findById(
+          createStockDto.product,
+        );
+        if (foundProduct && foundProduct.matchedMenuItem) {
+          const menuItem = await this.menuService.findItemById(
+            foundProduct.matchedMenuItem,
+          );
+          if (menuItem) {
+            const category = await this.menuService.findCategoryById(
+              menuItem.category as number,
+            );
+            if (category?.disableWhenOutOfStock) {
+              await this.menuService.closeItemLocation(
+                foundProduct.matchedMenuItem,
+                createStockDto.location,
+              );
+            }
+          }
+        }
+      }
+
       // create Activity
       await this.activityService.addUpdateActivity(
         user,
@@ -2331,16 +2358,22 @@ export class AccountingService {
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-        const automatedMenuCloseExpenseTypes = ['tat', 'sand', 'ice']; //TODO: moduler yapı için uygun değil
-        const isExpenseTypeExist = foundProduct.expenseType.find((type) =>
-          automatedMenuCloseExpenseTypes.includes(type),
-        );
 
-        if (isExpenseTypeExist && foundProduct.matchedMenuItem) {
-          await this.menuService.closeItemLocation(
+        if (foundProduct.matchedMenuItem) {
+          const menuItem = await this.menuService.findItemById(
             foundProduct.matchedMenuItem,
-            stock.location,
           );
+          if (menuItem) {
+            const category = await this.menuService.findCategoryById(
+              menuItem.category as number,
+            );
+            if (category?.disableWhenOutOfStock) {
+              await this.menuService.closeItemLocation(
+                foundProduct.matchedMenuItem,
+                stock.location,
+              );
+            }
+          }
         }
         const message = {
           key: newQuantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
