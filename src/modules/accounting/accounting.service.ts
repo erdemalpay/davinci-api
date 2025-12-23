@@ -2004,7 +2004,7 @@ export class AccountingService {
         { new: true },
       );
       this.websocketGateway.emitStockChanged();
-      // create stock history with currentAmount
+
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
           user: user._id,
@@ -2090,7 +2090,6 @@ export class AccountingService {
         }
       }
 
-      // Handle stock decrease to zero or negative - close menu item
       if (oldQuantity > 0 && newStock.quantity <= 0) {
         const foundProduct = await this.productModel.findById(
           createStockDto.product,
@@ -2113,7 +2112,6 @@ export class AccountingService {
         }
       }
 
-      // create Activity
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
@@ -2130,13 +2128,13 @@ export class AccountingService {
       stock._id = stockId;
       await stock.save();
       this.websocketGateway.emitStockChanged();
-      // create Activity
+
       await this.activityService.addActivity(
         user,
         ActivityType.CREATE_STOCK,
         stock,
       );
-      // create stock history with currentAmount 0
+
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
           user: user._id,
