@@ -2015,7 +2015,8 @@ export class AccountingService {
           currentAmount: oldQuantity,
         });
       }
-      if (oldQuantity <= 0 && Number(createStockDto.quantity) > 0) {
+
+      if (oldQuantity <= 0 && newStock.quantity > 0) {
         const foundProduct = await this.productModel.findById(
           createStockDto.product,
         );
