@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
@@ -54,26 +55,70 @@ export class ShiftService {
     ) {
       daysInRange.push(d.toISOString().split('T')[0]);
     }
-    const filterQuery: any = {};
-    if (after) {
-      filterQuery['day'] = { $gte: after };
+
+    let shiftsData: Shift[] = [];
+    const daysNeedingFetch: string[] = [];
+    let cachedShiftsMap: Record<string, Shift[]> | null = null;
+
+    try {
+      cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
+      if (cachedShiftsMap) {
+        for (const day of daysInRange) {
+          if (cachedShiftsMap[day]) {
+            shiftsData.push(...cachedShiftsMap[day]);
+          } else {
+            daysNeedingFetch.push(day);
+          }
+        }
+      } else {
+        daysNeedingFetch.push(...daysInRange);
+      }
+    } catch (error) {
+      console.error('Failed to retrieve shifts from Redis:', error);
+      daysNeedingFetch.push(...daysInRange);
     }
-    if (before) {
-      filterQuery['day'] = {
-        ...filterQuery['day'],
-        $lte: before,
-      };
+
+    if (daysNeedingFetch.length > 0) {
+      try {
+        const filterQuery: any = {
+          day: { $in: daysNeedingFetch },
+        };
+
+        const dbShifts = await this.shiftModel.find(filterQuery).exec();
+        shiftsData.push(...dbShifts);
+
+        if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
+          try {
+            const existingCache = cachedShiftsMap || {};
+
+            for (const shift of dbShifts) {
+              if (!existingCache[shift.day]) {
+                existingCache[shift.day] = [];
+              }
+              existingCache[shift.day].push(shift);
+            }
+
+            for (const day of daysNeedingFetch) {
+              if (!existingCache[day]) {
+                existingCache[day] = [];
+              }
+            }
+
+            await this.redisService.set(RedisKeys.Shifts, existingCache);
+          } catch (error) {
+            console.error('Failed to cache shifts in Redis:', error);
+          }
+        }
+      } catch (error) {
+        throw new HttpException(
+          'Failed to fetch shifts',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
     if (location) {
-      filterQuery['location'] = location;
-    }
-    let shiftsData;
-    try {
-      shiftsData = await this.shiftModel.find(filterQuery).exec();
-    } catch (error) {
-      throw new HttpException(
-        'Failed to fetch shifts',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+      shiftsData = shiftsData.filter(
+        (shift) => Number(shift.location) === Number(location),
       );
     }
     const shiftsMap = new Map<string, any[]>();

@@ -315,6 +315,41 @@ export class MenuService {
       if (updates?.kitchen) {
       }
     }
+
+    // Sync menu items with current stock when disableWhenOutOfStock is enabled
+    if (updates.disableWhenOutOfStock === true) {
+      const items = await this.itemModel.find({ category: id });
+      const locations = await this.locationService.findAllLocations();
+
+      await Promise.all(
+        items.map(async (item) => {
+          if (item.matchedProduct) {
+            const stocks = await this.accountingService.findProductStock(
+              item.matchedProduct,
+            );
+
+            for (const location of locations) {
+              // Only process if category is available in this location
+              if (!category.locations.includes(location._id)) {
+                continue;
+              }
+
+              const stock = stocks.find((s) => s.location === location._id);
+              const isItemInLocation = item.locations.includes(location._id);
+
+              if (stock && stock.quantity <= 0 && isItemInLocation) {
+                // Close item in this location if stock is zero or negative
+                await this.closeItemLocation(item._id, location._id);
+              } else if (stock && stock.quantity > 0 && !isItemInLocation) {
+                // Open item in this location if stock is positive and item is closed
+                await this.openItemLocation(item._id, location._id);
+              }
+            }
+          }
+        }),
+      );
+    }
+
     this.websocketGateway.emitCategoryChanged();
     return category;
   }
@@ -402,6 +437,10 @@ export class MenuService {
       deleted: { $ne: true },
     });
     return item;
+  }
+
+  async findCategoryById(id: number) {
+    return this.categoryModel.findById(id);
   }
 
   async getAllIkasItems() {
