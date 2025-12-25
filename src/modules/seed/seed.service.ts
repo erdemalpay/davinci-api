@@ -184,12 +184,17 @@ export class SeedService {
       }
 
       // 24-27 açık masa, geri kalan kapalı
-      const openTableCount = this.randomInt(24, 27);
+      const requestedOpenTableCount = this.randomInt(24, 27);
+      // Açık masa sayısı, mevcut masa isimlerinden fazla olamaz
+      const openTableCount = Math.min(requestedOpenTableCount, tableNames.length);
       const closedTableCount = targetTableCount - openTableCount;
+
+      // Masa isimlerini shuffle et (açık masalar için tekrar kullanmamak için)
+      const shuffledTableNames = [...tableNames].sort(() => Math.random() - 0.5);
 
       // Açık masalar (sadece bugün, en az 1 saat önce açılmış)
       for (let i = 0; i < openTableCount; i++) {
-        const tableName = tableNames[i % tableNames.length];
+        const tableName = shuffledTableNames[i];
         const date = format(today, 'yyyy-MM-dd');
 
         // Şu andan en az 1 saat, en fazla 10 saat önce başlamış masalar
