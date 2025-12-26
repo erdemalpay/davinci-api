@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -49,7 +49,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -943,8 +943,6 @@ export class OrderService {
     }
 
     const createdOrders: number[] = [];
-    const kitchenSoundRoles = new Set<number>();
-    const kitchenSelectedUsers = new Set<string>();
     for (const order of orders) {
       if (order.quantity <= 0) {
         continue;
@@ -997,30 +995,11 @@ export class OrderService {
         createdOrders.push(createdOrder._id);
         const orderWithItem = await createdOrder.populate([
           { path: 'item' },
-          { path: 'kitchen' },
           {
             path: 'table',
             select: 'date _id name isOnlineSale finishHour type startHour',
           },
         ]);
-        if (
-          (orderWithItem?.kitchen as any)?.soundRoles &&
-          createdOrder.status !== OrderStatus.AUTOSERVED &&
-          createdOrder.status !== OrderStatus.SERVED
-        ) {
-          if ((orderWithItem?.kitchen as any)?.selectedUsers) {
-            (orderWithItem?.kitchen as any)?.selectedUsers.forEach(
-              (userId: string) => {
-                kitchenSelectedUsers.add(userId);
-              },
-            );
-          }
-          (orderWithItem?.kitchen as any)?.soundRoles.forEach(
-            (role: number) => {
-              kitchenSoundRoles.add(role);
-            },
-          );
-        }
         for (const ingredient of (orderWithItem.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
@@ -1047,6 +1026,30 @@ export class OrderService {
             createdOrder,
           );
         }
+
+        await this.tableService.updateTableOrders(
+          user,
+          table._id,
+          createdOrders,
+        );
+
+        const orderGroupModel = new this.orderGroupModel({
+          orders: createdOrders,
+          table: table._id,
+          createdBy: user._id,
+          createdAt: new Date(),
+          tableDate: new Date(table.date) ?? new Date(),
+        });
+        await orderGroupModel.save();
+        this.websocketGateway.emitOrderGroupChanged();
+        // to change the orders page in the frontend
+        this.websocketGateway.emitCreateMultipleOrder(
+          user,
+          table,
+          table.location,
+          createdOrder?.kitchen,
+        );
+        return createdOrders;
       } catch (error) {
         console.log(error);
         throw new HttpException(
@@ -1054,42 +1057,8 @@ export class OrderService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-      // update table
-      let updatedTable;
-      try {
-        updatedTable = await this.tableService.updateTableOrders(
-          user,
-          table._id,
-          createdOrders,
-        );
-      } catch (error) {
-        throw new HttpException(
-          'Failed to update table orders',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-      if (!updatedTable) {
-        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
-      }
+      
     }
-    const orderGroupModel = new this.orderGroupModel({
-      orders: createdOrders,
-      table: table._id,
-      createdBy: user._id,
-      createdAt: new Date(),
-      tableDate: new Date(table.date) ?? new Date(),
-    });
-    await orderGroupModel.save();
-    this.websocketGateway.emitOrderGroupChanged();
-    // to change the orders page in the frontend
-    this.websocketGateway.emitCreateMultipleOrder(
-      user,
-      table,
-      table.location,
-      Array.from(kitchenSoundRoles),
-      Array.from(kitchenSelectedUsers),
-    );
-    return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const users = await this.userService.findAllUsers();
