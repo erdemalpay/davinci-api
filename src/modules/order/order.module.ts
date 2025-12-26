@@ -17,6 +17,7 @@ import { BullModuleOptions } from './../../../node_modules/@nestjs/bull/dist/int
 import { DBConfig } from './../../app.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { AnomalyModule } from './../anomaly/anomaly.module';
 import { MenuModule } from './../menu/menu.module';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
@@ -42,6 +43,7 @@ const { host, port } = config.get<DBConfig>('redis');
     WebSocketModule,
     mongooseModule,
     ActivityModule,
+    forwardRef(() => AnomalyModule),
     RedisModule,
     VisitModule,
     ButtonCallModule,

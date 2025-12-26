@@ -13,6 +13,7 @@ import { DailyPlayerCount } from 'src/types';
 import { pick, pickWith } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { AnomalyService } from '../anomaly/anomaly.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -53,6 +54,8 @@ export class TableService {
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
+    @Inject(forwardRef(() => AnomalyService))
+    private readonly anomalyService: AnomalyService,
   ) {}
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
@@ -401,6 +404,16 @@ export class TableService {
       tableId: id,
       gameplay,
     });
+
+    // Anomaly detection: Rapid game explanations
+    try {
+      await this.anomalyService.detectRapidGameExplanations(
+        user,
+        new Date(),
+      );
+    } catch (error) {
+      console.error('Error detecting rapid game explanations:', error);
+    }
 
     table.gameplays.push(gameplay);
     await table.save();

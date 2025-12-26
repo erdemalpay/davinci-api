@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -37,6 +37,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
+import { AnomalyService } from './../anomaly/anomaly.service';
 import { MenuService } from './../menu/menu.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
@@ -49,7 +50,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -87,6 +88,9 @@ export class OrderService {
 
     @Inject(forwardRef(() => PointService))
     private readonly pointService: PointService,
+
+    @Inject(forwardRef(() => AnomalyService))
+    private readonly anomalyService: AnomalyService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -2285,6 +2289,16 @@ export class OrderService {
         );
       } catch (error) {
         console.error('Error adding take payment activity:', error);
+      }
+
+      // Anomaly detection: Rapid payments
+      try {
+        await this.anomalyService.detectRapidPayments(
+          user,
+          new Date(),
+        );
+      } catch (error) {
+        console.error('Error detecting rapid payments:', error);
       }
     } catch (error) {
       throw new HttpException(

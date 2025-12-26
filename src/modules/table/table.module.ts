@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityModule } from '../activity/activity.module';
+import { AnomalyModule } from '../anomaly/anomaly.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { MenuModule } from '../menu/menu.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -28,6 +29,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     mongooseModule,
     GameplayModule,
     ActivityModule,
+    forwardRef(() => AnomalyModule),
     PanelControlModule,
     NotificationModule,
     forwardRef(() => MenuModule),
