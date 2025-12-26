@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
+import { AnomalyModule } from './modules/anomaly/anomaly.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
@@ -51,6 +52,7 @@ const modules = [
   ScheduleModule.forRoot(),
   WebSocketModule, // Centralized WebSocket gateway
   ActivityModule,
+  AnomalyModule,
   AuthModule,
   AssetModule,
   AuthorizationModule,

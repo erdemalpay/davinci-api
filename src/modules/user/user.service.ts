@@ -1,8 +1,7 @@
 import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnModuleInit,
+    HttpException,
+    HttpStatus, Injectable,
+    OnModuleInit
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';

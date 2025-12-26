@@ -37,6 +37,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
+import { AnomalyService } from './../anomaly/anomaly.service';
 import { MenuService } from './../menu/menu.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
@@ -87,6 +88,9 @@ export class OrderService {
 
     @Inject(forwardRef(() => PointService))
     private readonly pointService: PointService,
+
+    @Inject(forwardRef(() => AnomalyService))
+    private readonly anomalyService: AnomalyService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -2256,6 +2260,16 @@ export class OrderService {
         );
       } catch (error) {
         console.error('Error adding take payment activity:', error);
+      }
+
+      // Anomaly detection: Rapid payments
+      try {
+        await this.anomalyService.detectRapidPayments(
+          user,
+          new Date(),
+        );
+      } catch (error) {
+        console.error('Error detecting rapid payments:', error);
       }
     } catch (error) {
       throw new HttpException(
