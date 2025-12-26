@@ -98,12 +98,12 @@ export class AppWebSocketGateway {
     this.server.emit('countListChanged');
   }
 
-  emitCreateMultipleOrder(user: User, table: Table, locationId: number, kitchenId: string) {
+  emitCreateMultipleOrder(user: User, table: Table, locationId: number, kitchenIds: string[]) {
     this.server.emit('createMultipleOrder', {
       user,
       table,
       locationId,
-      kitchenId,
+      kitchenIds,
     });
   }
 

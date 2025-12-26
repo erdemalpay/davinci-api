@@ -943,6 +943,8 @@ export class OrderService {
     }
 
     const createdOrders: number[] = [];
+    const orderKitchenIds: string[] = [];
+
     for (const order of orders) {
       if (order.quantity <= 0) {
         continue;
@@ -959,6 +961,7 @@ export class OrderService {
         createdAt: new Date(),
         table: table._id,
       });
+      orderKitchenIds.push(createdOrder.kitchen);
       const users = await this.userService.findAllUsers();
       if (createdOrder?.discount) {
         const discount = await this.discountModel.findById(
@@ -1032,24 +1035,6 @@ export class OrderService {
           table._id,
           createdOrders,
         );
-
-        const orderGroupModel = new this.orderGroupModel({
-          orders: createdOrders,
-          table: table._id,
-          createdBy: user._id,
-          createdAt: new Date(),
-          tableDate: new Date(table.date) ?? new Date(),
-        });
-        await orderGroupModel.save();
-        this.websocketGateway.emitOrderGroupChanged();
-        // to change the orders page in the frontend
-        this.websocketGateway.emitCreateMultipleOrder(
-          user,
-          table,
-          table.location,
-          createdOrder?.kitchen,
-        );
-        return createdOrders;
       } catch (error) {
         console.log(error);
         throw new HttpException(
@@ -1059,6 +1044,23 @@ export class OrderService {
       }
       
     }
+    const orderGroupModel = new this.orderGroupModel({
+      orders: createdOrders,
+      table: table._id,
+      createdBy: user._id,
+      createdAt: new Date(),
+      tableDate: new Date(table.date) ?? new Date(),
+    });
+    await orderGroupModel.save();
+    this.websocketGateway.emitOrderGroupChanged();
+    // to change the orders page in the frontend
+    this.websocketGateway.emitCreateMultipleOrder(
+      user,
+      table,
+      table.location,
+      orderKitchenIds,
+    );
+    return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
     const users = await this.userService.findAllUsers();
