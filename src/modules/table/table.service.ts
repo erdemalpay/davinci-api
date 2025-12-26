@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -32,7 +32,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes
+  TableTypes,
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -86,6 +86,11 @@ export class TableService {
     ) {
       const isWeekend = await this.panelControlService.isWeekend();
       const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+
+      const category = await this.menuService.findCategoryById(
+        menuItem.category as number,
+      );
+
       await this.orderService.createOrder(user, {
         table: createdTable._id,
         location: createdTable.location,
@@ -96,7 +101,7 @@ export class TableService {
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
-        kitchen: 'bar',
+        kitchen: category?.kitchen,
         tableDate: new Date(tableDto.date),
       });
     }
