@@ -404,7 +404,6 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
-    this.websocketGateway.emitGameplayCreated(user, gameplay, table._id);
     return gameplay;
   }
 
