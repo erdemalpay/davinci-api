@@ -8,6 +8,7 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
+import { BreakModule } from './modules/break/break.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
@@ -54,6 +55,7 @@ const modules = [
   AuthModule,
   AssetModule,
   AuthorizationModule,
+  BreakModule,
   IkasModule,
   DbModule,
   ChecklistModule,
