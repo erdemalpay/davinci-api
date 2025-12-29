@@ -43,7 +43,7 @@ export class BreakService {
     }
   }
 
-  async findAll(query: BreakQueryDto): Promise<Break[]> {
+  async findAll(query: BreakQueryDto) {
     const {
       user,
       location,
@@ -52,7 +52,7 @@ export class BreakService {
       before,
       page = 1,
       limit = 10,
-      sort = 'date',
+      sort = 'createdAt',
       asc = -1,
     } = query;
 
@@ -60,19 +60,25 @@ export class BreakService {
 
     if (user) filter.user = user;
     if (location) filter.location = location;
-    if (date) filter.date = date;
-    if (after || before) {
-      filter.date = {};
-      if (after) filter.date.$gte = after;
-      if (before) filter.date.$lte = before;
+    if (date) filter.createdAt = date;
+
+    const rangeFilter: Record<string, any> = {};
+    if (after) {
+      const start = this.parseLocalDate(after);
+      rangeFilter.$gte = start;
+    }
+    if (before) {
+      const end = this.parseLocalDate(before);
+      end.setHours(23, 59, 59, 999);
+      rangeFilter.$lte = end;
+    }
+    if (Object.keys(rangeFilter).length) {
+      filter.createdAt = rangeFilter;
     }
 
-    const skip = (page - 1) * limit;
     const sortObject: Record<string, 1 | -1> = {};
     if (sort) {
-      const dirRaw =
-        typeof asc === 'string' ? Number(asc) : (asc as number | undefined);
-      const dir: 1 | -1 = dirRaw === 1 ? 1 : -1;
+      const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
       sortObject[sort] = dir;
     } else {
       sortObject.date = -1;
@@ -82,12 +88,44 @@ export class BreakService {
       sortObject.startHour = -1;
     }
 
-    return this.breakModel
-      .find(filter)
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    try {
+      const [data, totalNumber] = await Promise.all([
+        this.breakModel
+          .find(filter)
+          .sort(sortObject)
+          .skip(skip)
+          .limit(limitNum)
+          .lean()
+          .exec(),
+        this.breakModel.countDocuments(filter),
+      ]);
+
+      const totalPages = Math.ceil(totalNumber / limitNum);
+      return {
+        data,
+        totalNumber,
+        totalPages,
+        page: pageNum,
+        limit: limitNum,
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch break records',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private parseLocalDate(dateString: string): Date {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      throw new HttpException('Invalid date format', HttpStatus.BAD_REQUEST);
+    }
+    return date;
   }
 
   async findById(id: string): Promise<Break> {
