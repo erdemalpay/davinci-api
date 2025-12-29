@@ -77,6 +77,10 @@ export class BreakService {
     } else {
       sortObject.date = -1;
     }
+    // Always sort by startHour as secondary sort to ensure proper ordering within the same date
+    if (sort !== 'startHour') {
+      sortObject.startHour = -1;
+    }
 
     return this.breakModel
       .find(filter)
