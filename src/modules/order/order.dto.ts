@@ -135,7 +135,7 @@ export class OrderQueryDto {
   after?: string;
   before?: string;
   eliminatedDiscounts?: string;
-  discount?: number;
+  discount?: string;
   createdBy?: string;
   preparedBy?: string;
   deliveredBy?: string;
