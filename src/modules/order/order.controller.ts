@@ -6,7 +6,7 @@ import {
   Param,
   Patch,
   Post,
-  Query
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Table } from '../table/table.schema';
@@ -18,7 +18,7 @@ import {
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
-  CreateOrderNotesDto
+  CreateOrderNotesDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -43,7 +43,7 @@ export class OrderController {
   findQueryOrders(
     @Query('after') after?: string,
     @Query('before') before?: string,
-    @Query('discount') discount?: number,
+    @Query('discount') discount?: string,
     @Query('createdBy') createdBy?: string,
     @Query('preparedBy') preparedBy?: string,
     @Query('deliveredBy') deliveredBy?: string,

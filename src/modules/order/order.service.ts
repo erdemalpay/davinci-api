@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -49,7 +49,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -198,7 +198,6 @@ export class OrderService {
       };
     }
     const filterKeys = [
-      'discount',
       'createdBy',
       'preparedBy',
       'deliveredBy',
@@ -211,6 +210,13 @@ export class OrderService {
         .map((item) => item.trim())
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
+    }
+    if (query.discount) {
+      const discountArray = query.discount
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['discount'] = { $in: discountArray };
     }
     if (item !== undefined) {
       filterQuery['item'] = Number(item);
@@ -1042,7 +1048,6 @@ export class OrderService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-      
     }
     const orderGroupModel = new this.orderGroupModel({
       orders: createdOrders,
