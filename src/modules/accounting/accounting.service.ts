@@ -2388,10 +2388,31 @@ export class AccountingService {
               menuItem.category as number,
             );
             if (category?.disableWhenOutOfStock) {
-              await this.menuService.closeItemLocation(
-                foundProduct.matchedMenuItem,
+              // Check if location has a fallback stock location
+              const currentLocation = await this.locationService.findLocationById(
                 stock.location,
               );
+              let shouldCloseItem = true;
+
+              if (currentLocation?.fallbackStockLocation) {
+                // Check stock in fallback location
+                const fallbackStock = await this.stockModel.findById(
+                  usernamify(
+                    (stock.product as any) + currentLocation.fallbackStockLocation,
+                  ),
+                );
+                // If fallback has stock, don't close the item
+                if (fallbackStock && fallbackStock.quantity > 0) {
+                  shouldCloseItem = false;
+                }
+              }
+
+              if (shouldCloseItem) {
+                await this.menuService.closeItemLocation(
+                  foundProduct.matchedMenuItem,
+                  stock.location,
+                );
+              }
             }
           }
         }
