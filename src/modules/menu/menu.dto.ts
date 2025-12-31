@@ -29,6 +29,7 @@ export class CreateItemDto {
   sku?: string;
   barcode?: string;
   suggestedDiscount?: number[];
+  isAutoServed?: boolean;
 }
 export class CreateBulkItemDto {
   name: string;

@@ -1,5 +1,5 @@
 import { OrderCollectionItem } from './collection.schema';
-import { IkasCustomer } from './order.schema';
+import { IkasCustomer, Order } from './order.schema';
 
 export class CreateOrderDto {
   location: number;
@@ -39,6 +39,8 @@ export class CreateOrderDto {
   isIkasCustomerPicked?: boolean;
   ikasOrderNumber?: string;
 }
+
+// TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
 export type OrderType = {
   _id: number;
   location: number;
@@ -88,7 +90,7 @@ export class CreateCollectionDto {
   orders?: OrderCollectionItem[];
   cancelNote?: string;
   table?: number;
-  newOrders?: OrderType[];
+  newOrders?: Order[];
   activityPlayer?: string;
   createdBy: string;
   ikasId?: string;
@@ -133,7 +135,7 @@ export class OrderQueryDto {
   after?: string;
   before?: string;
   eliminatedDiscounts?: string;
-  discount?: number;
+  discount?: string;
   createdBy?: string;
   preparedBy?: string;
   deliveredBy?: string;

@@ -104,7 +104,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.websocketGateway.emitVisitChanged(user, visit);
+    this.websocketGateway.emitVisitChanged();
     return visit;
   }
 
@@ -200,7 +200,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.websocketGateway.emitVisitChanged(user, visit);
+    this.websocketGateway.emitVisitChanged();
     return visit;
   }
   async remove(user: User, id: number) {
@@ -219,7 +219,7 @@ export class VisitService {
       console.error('Failed to add activity:', error);
     }
 
-    this.websocketGateway.emitVisitChanged(visit.user, visit);
+    this.websocketGateway.emitVisitChanged();
     return visit;
   }
 
@@ -367,7 +367,7 @@ export class VisitService {
         console.error('Failed to add activity:', error);
       }
 
-      this.websocketGateway.emitVisitChanged(user, visit);
+      this.websocketGateway.emitVisitChanged();
       return visit;
     }
     if (cafeVisitDto?.type === VisitTypes.EXIT) {
@@ -456,7 +456,7 @@ export class VisitService {
           console.error('Failed to add activity:', error);
         }
 
-        this.websocketGateway.emitVisitChanged(user, lastVisit);
+        this.websocketGateway.emitVisitChanged();
         return lastVisit;
       }
       const visit = await this.visitModel.create({
@@ -530,7 +530,7 @@ export class VisitService {
         console.error('Failed to add activity:', error);
       }
 
-      this.websocketGateway.emitVisitChanged(user, visit);
+      this.websocketGateway.emitVisitChanged();
       return visit;
     }
     throw new BadRequestException();
@@ -538,7 +538,7 @@ export class VisitService {
 
   async createCafeActivity(dto: CafeActivityDto) {
     const activity = await this.cafeActivityModel.create(dto);
-    this.websocketGateway.emitActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged();
     return activity;
   }
 
@@ -554,7 +554,7 @@ export class VisitService {
     if (!activity) {
       throw new NotFoundException(`CafeActivity with id ${id} not found`);
     }
-    this.websocketGateway.emitActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged();
     return activity;
   }
 
@@ -563,7 +563,7 @@ export class VisitService {
     if (!activity) {
       throw new NotFoundException(`CafeActivity with id ${id} not found`);
     }
-    this.websocketGateway.emitActivityChanged(activity);
+    this.websocketGateway.emitActivityChanged();
     return activity;
   }
 

@@ -4,9 +4,9 @@ import { hash } from 'bcrypt';
 import { Model } from 'mongoose';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
-    ConsumerQueryDto,
-    CreateConsumerDto,
-    UpdateConsumerDto,
+  ConsumerQueryDto,
+  CreateConsumerDto,
+  UpdateConsumerDto,
 } from './consumer.dto';
 import { Consumer, ConsumerStatus } from './consumer.schema';
 
@@ -54,7 +54,7 @@ export class ConsumerService {
       status: ConsumerStatus.ACTIVE,
     });
 
-    this.websocketGateway.emitConsumerChanged(consumer);
+    this.websocketGateway.emitConsumerChanged();
     return consumer;
   }
 
@@ -194,7 +194,7 @@ export class ConsumerService {
     consumer.updatedAt = new Date();
 
     await consumer.save();
-    this.websocketGateway.emitConsumerChanged(consumer);
+    this.websocketGateway.emitConsumerChanged();
     return consumer;
   }
 
@@ -217,7 +217,7 @@ export class ConsumerService {
     consumer.updatedAt = new Date();
 
     await consumer.save();
-    this.websocketGateway.emitConsumerChanged(consumer);
+    this.websocketGateway.emitConsumerChanged();
     return consumer;
   }
 }

@@ -11,11 +11,11 @@ export enum RedisKeys {
   MinimalUsers = 'minimal-users',
   Authorizations = 'authorizations',
   PopularDiscounts = 'popular-discounts',
-  Shifts = 'shifts',
   Kitchens = 'kitchens',
   Locations = 'locations',
   AllLocations = 'all-locations',
   Memberships = 'memberships',
   GamesMinimal = 'games-minimal',
   Tables = 'tables',
+  Shifts = 'shifts',
 }

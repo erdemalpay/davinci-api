@@ -1,11 +1,9 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Query,
+  Body,
+  Controller, Get,
+  Param,
+  Patch,
+  Query
 } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -130,6 +128,11 @@ export class GameplayController {
     return this.gameplayService.getAfterGivenDateMentoredCounts(after, before);
   }
 
+  @Get('/counts-by-date')
+  getGameplayCountsByDate(@Query('mentorId') mentorId: string) {
+    return this.gameplayService.getGameplayCountsByDate(mentorId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.gameplayService.findById(+id);
@@ -142,10 +145,5 @@ export class GameplayController {
     @Body() updateGameplayDto: PartialGameplayDto,
   ) {
     return this.gameplayService.update(user, +id, updateGameplayDto);
-  }
-
-  @Delete(':id')
-  remove(@ReqUser() user: User, @Param('id') id: string) {
-    return this.gameplayService.remove(user, +id);
   }
 }

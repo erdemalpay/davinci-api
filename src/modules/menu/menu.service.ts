@@ -32,9 +32,6 @@ import {
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
-interface SeenUsers {
-  [key: string]: boolean;
-}
 export class MenuService {
   constructor(
     @InjectModel(MenuCategory.name)
@@ -98,7 +95,7 @@ export class MenuService {
     if (!item) {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitItemChanged(null, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   async closeItemLocation(itemId: number, locationId: number) {
@@ -108,7 +105,7 @@ export class MenuService {
     if (!item) {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitItemChanged(null, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   async findActiveCategories() {
@@ -230,7 +227,7 @@ export class MenuService {
         }
       }),
     );
-    this.websocketGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged();
   }
 
   async findItemsInCategoryArray(categories: number[]) {
@@ -245,9 +242,9 @@ export class MenuService {
     items.forEach(async (item, index) => {
       await this.itemModel.findByIdAndUpdate(item._id, { order: index + 1 });
     });
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
   }
-  async createCategory(user: User, createCategoryDto: CreateCategoryDto) {
+  async createCategory(createCategoryDto: CreateCategoryDto) {
     const lastCategory = await this.categoryModel
       .findOne({})
       .sort({ order: 'desc' });
@@ -270,15 +267,11 @@ export class MenuService {
         await orderDataPage.save();
       }
     }
-    this.websocketGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged();
     return category;
   }
 
-  async updateCategory(
-    user: User,
-    id: number,
-    updates: UpdateQuery<MenuCategory>,
-  ) {
+  async updateCategory(id: number, updates: UpdateQuery<MenuCategory>) {
     const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -295,7 +288,7 @@ export class MenuService {
         }),
       );
 
-      this.websocketGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged();
     }
     if (updates.isKitchenMenu) {
       const ordersPage = await this.panelControlService.getPage('orders');
@@ -322,7 +315,42 @@ export class MenuService {
       if (updates?.kitchen) {
       }
     }
-    this.websocketGateway.emitCategoryChanged(user, category);
+
+    // Sync menu items with current stock when disableWhenOutOfStock is enabled
+    if (updates.disableWhenOutOfStock === true) {
+      const items = await this.itemModel.find({ category: id });
+      const locations = await this.locationService.findAllLocations();
+
+      await Promise.all(
+        items.map(async (item) => {
+          if (item.matchedProduct) {
+            const stocks = await this.accountingService.findProductStock(
+              item.matchedProduct,
+            );
+
+            for (const location of locations) {
+              // Only process if category is available in this location
+              if (!category.locations.includes(location._id)) {
+                continue;
+              }
+
+              const stock = stocks.find((s) => s.location === location._id);
+              const isItemInLocation = item.locations.includes(location._id);
+
+              if (stock && stock.quantity <= 0 && isItemInLocation) {
+                // Close item in this location if stock is zero or negative
+                await this.closeItemLocation(item._id, location._id);
+              } else if (stock && stock.quantity > 0 && !isItemInLocation) {
+                // Open item in this location if stock is positive and item is closed
+                await this.openItemLocation(item._id, location._id);
+              }
+            }
+          }
+        }),
+      );
+    }
+
+    this.websocketGateway.emitCategoryChanged();
     return category;
   }
   async updateKitchenCategory(
@@ -333,25 +361,6 @@ export class MenuService {
     const category = await this.categoryModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-
-    const visits = await this.visitService.findByDateAndLocation(
-      format(new Date(), 'yyyy-MM-dd'),
-      2,
-    );
-    const uniqueVisitUsers =
-      visits
-        ?.reduce(
-          (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
-            acc.seenUsers = acc.seenUsers || {};
-            if (visit?.user && !acc.seenUsers[(visit as any).user]) {
-              acc.seenUsers[(visit as any).user] = true;
-              acc.unique.push(visit);
-            }
-            return acc;
-          },
-          { unique: [], seenUsers: {} },
-        )
-        ?.unique?.map((visit) => visit.user) ?? [];
     const statusKey = updates?.active
       ? 'Status.Activated'
       : 'Status.Deactivated';
@@ -372,7 +381,6 @@ export class MenuService {
     const kitchenEvent = notificationEvents.find(
       (notification) => notification.event === eventType,
     );
-
     if (kitchenEvent) {
       await this.notificationService.createNotification({
         type: kitchenEvent.type,
@@ -385,10 +393,10 @@ export class MenuService {
         message,
       });
     }
-    this.websocketGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged();
     return category;
   }
-  async removeCategory(user: User, id: number) {
+  async removeCategory(id: number) {
     const itemsWithCategory = await this.itemModel.find({ category: id });
     if (itemsWithCategory.length > 0) {
       throw new HttpException('Category has items', HttpStatus.BAD_REQUEST);
@@ -412,7 +420,7 @@ export class MenuService {
       );
     }
     const category = await this.categoryModel.findByIdAndRemove(id);
-    this.websocketGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged();
     return category;
   }
 
@@ -431,6 +439,10 @@ export class MenuService {
     return item;
   }
 
+  async findCategoryById(id: number) {
+    return this.categoryModel.findById(id);
+  }
+
   async getAllIkasItems() {
     const items = await this.itemModel.find({
       ikasId: { $nin: [null, ''] },
@@ -438,6 +450,144 @@ export class MenuService {
       deleted: { $ne: true },
     });
     return items;
+  }
+
+  /**
+   * Updates ikasVariantId for all menu items that have ikasId
+   * Fetches all products once from Ikas API, then finds variants for each item
+   * Skips items that already have ikasVariantId
+   * @returns Object with success count, failed count, and details
+   */
+  async updateIkasVariantIds() {
+    // Get only items that have ikasId but don't have ikasVariantId yet
+    const items = await this.itemModel.find({
+      ikasId: { $nin: [null, ''] },
+      $or: [
+        { ikasVariantId: { $exists: false } },
+        { ikasVariantId: null },
+        { ikasVariantId: '' },
+      ],
+      deleted: { $ne: true },
+    });
+
+    const results = {
+      total: items.length,
+      skipped: 0,
+      success: 0,
+      failed: 0,
+      details: [] as Array<{
+        itemId: number;
+        itemName: string;
+        ikasId: string;
+        status: 'success' | 'failed' | 'skipped';
+        variantId?: string;
+        error?: string;
+      }>,
+    };
+
+    if (items.length === 0) {
+      return {
+        ...results,
+        message: 'No items to update. All items already have ikasVariantId.',
+      };
+    }
+
+    // Fetch all products once from Ikas API
+    let allProducts: any[] = [];
+    try {
+      allProducts = await this.IkasService.getAllProducts();
+    } catch (error) {
+      // If getAllProducts fails, mark all items as failed
+      for (const item of items) {
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId || '',
+          status: 'failed',
+          error: `Failed to fetch products from Ikas: ${
+            error?.message || 'Unknown error'
+          }`,
+        });
+        results.failed++;
+      }
+      return results;
+    }
+
+    // Process each item
+    for (const item of items) {
+      try {
+        if (!item.ikasId) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId || '',
+            status: 'failed',
+            error: 'No ikasId found',
+          });
+          results.failed++;
+          continue;
+        }
+
+        // Skip if already has ikasVariantId (shouldn't happen due to query, but double-check)
+        if (item.ikasVariantId) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId,
+            status: 'skipped',
+            variantId: item.ikasVariantId,
+          });
+          results.skipped++;
+          continue;
+        }
+
+        // Find product in the fetched list
+        const product = allProducts.find((p) => p?.id === item.ikasId);
+
+        if (!product || !product.variants || product.variants.length === 0) {
+          results.details.push({
+            itemId: item._id,
+            itemName: item.name,
+            ikasId: item.ikasId,
+            status: 'failed',
+            error: 'Product not found or has no variants',
+          });
+          results.failed++;
+          continue;
+        }
+
+        const variantId = product.variants[0].id;
+
+        // Update the item with variant ID
+        await this.itemModel.findByIdAndUpdate(item._id, {
+          ikasVariantId: variantId,
+        });
+
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId,
+          status: 'success',
+          variantId: variantId,
+        });
+        results.success++;
+      } catch (error) {
+        results.details.push({
+          itemId: item._id,
+          itemName: item.name,
+          ikasId: item.ikasId || '',
+          status: 'failed',
+          error: error?.message || 'Unknown error',
+        });
+        results.failed++;
+        console.error(
+          `Error updating variant ID for item ${item._id} (${item.name}):`,
+          error,
+        );
+      }
+    }
+
+    return results;
   }
   async findByMatchedProduct(id: string) {
     const item = await this.itemModel.findOne({
@@ -459,7 +609,7 @@ export class MenuService {
           matchedProduct: null,
           deleted: false,
         });
-        await this.websocketGateway.emitItemChanged(user, deletedItem);
+        await this.websocketGateway.emitItemChanged();
         return deletedItem;
       }
       const item = new this.itemModel({
@@ -499,7 +649,7 @@ export class MenuService {
       }
 
       await item.save();
-      this.websocketGateway.emitItemChanged(user, item);
+      this.websocketGateway.emitItemChanged();
       return item;
     } catch (error) {
       console.error('Error creating item:', error);
@@ -626,7 +776,7 @@ export class MenuService {
           status: StockHistoryStatusEnum.STOCKENTRY,
         });
       }
-      await this.websocketGateway.emitItemChanged(user, newItem);
+      await this.websocketGateway.emitItemChanged();
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -770,7 +920,7 @@ export class MenuService {
       item,
       updatedItem,
     );
-    this.websocketGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
   async syncAllIkasPrices(currency = 'TRY') {
@@ -793,7 +943,7 @@ export class MenuService {
     }));
     await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
   }
-  async updateItemsOrder(user: User, id: number, newOrder: number) {
+  async updateItemsOrder(id: number, newOrder: number) {
     const item = await this.itemModel.findById(id);
     if (!item) {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
@@ -804,13 +954,9 @@ export class MenuService {
       { _id: { $ne: id }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-    this.websocketGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged();
   }
-  async updateCategoriesOrder(
-    user: User,
-    categoryId: number,
-    newOrder: number,
-  ) {
+  async updateCategoriesOrder(categoryId: number, newOrder: number) {
     const category = await this.categoryModel.findById(categoryId);
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
@@ -821,13 +967,9 @@ export class MenuService {
       { _id: { $ne: categoryId }, order: { $gte: newOrder } },
       { $inc: { order: 1 } },
     );
-    this.websocketGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged();
   }
-  async updateOrderCategoriesOrder(
-    user: User,
-    categoryId: number,
-    newOrder: number,
-  ) {
+  async updateOrderCategoriesOrder(categoryId: number, newOrder: number) {
     const category = await this.categoryModel.findById(categoryId);
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
@@ -840,7 +982,7 @@ export class MenuService {
       { _id: { $ne: categoryId }, orderCategoryOrder: { $gte: newOrder } },
       { $inc: { orderCategoryOrder: 1 } },
     );
-    this.websocketGateway.emitCategoryChanged(user, category);
+    this.websocketGateway.emitCategoryChanged();
   }
 
   async updateMultipleItems(user: User, items: MenuItem[]) {
@@ -873,7 +1015,7 @@ export class MenuService {
       );
       await this.syncAllIkasPrices('TRY');
 
-      this.websocketGateway.emitItemChanged(user, items);
+      this.websocketGateway.emitItemChanged();
     } catch (error) {
       console.error('Error updating items:', error);
       throw new HttpException(
@@ -956,7 +1098,7 @@ export class MenuService {
     const updatedItem = await this.itemModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitItemChanged(user, updatedItem);
+    this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
 
@@ -977,7 +1119,7 @@ export class MenuService {
       );
     }
     await item.remove();
-    this.websocketGateway.emitItemChanged(user, item);
+    this.websocketGateway.emitItemChanged();
     return item;
   }
   // this is used for bulk update in menu page
@@ -991,7 +1133,7 @@ export class MenuService {
       throw new HttpException('Items not found', HttpStatus.NOT_FOUND);
     }
     await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
     return items;
   }
   // popular
@@ -1003,7 +1145,7 @@ export class MenuService {
       .sort({ order: 'asc' });
   }
 
-  async createPopular(user: User, createPopularDto: CreatePopularDto) {
+  async createPopular(createPopularDto: CreatePopularDto) {
     const popularItems = await this.popularModel.find().populate('item');
     const lastItem = popularItems[popularItems?.length - 1];
 
@@ -1011,28 +1153,24 @@ export class MenuService {
       ...createPopularDto,
       order: lastItem ? lastItem.order + 1 : 1,
     });
-    this.websocketGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged();
     return popularItem;
   }
 
-  async removePopular(user: User, id: number) {
+  async removePopular(id: number) {
     const popularItem = await this.popularModel.findOneAndDelete({ item: id });
-    this.websocketGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged();
     return popularItem;
   }
-  async updatePopular(user: User, id: number, updates: UpdateQuery<Popular>) {
+  async updatePopular(id: number, updates: UpdateQuery<Popular>) {
     const popularItem = await this.popularModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitPopularChanged(user, popularItem);
+    this.websocketGateway.emitPopularChanged();
     return popularItem;
   }
 
-  async updateMenuItemProduct(
-    user: User,
-    stayedProduct: string,
-    removedProduct: string,
-  ) {
+  async updateMenuItemProduct(stayedProduct: string, removedProduct: string) {
     const items = await this.itemModel.find();
 
     items.forEach(async (item) => {
@@ -1055,7 +1193,7 @@ export class MenuService {
         });
       }
     });
-    this.websocketGateway.emitItemChanged(user, items);
+    this.websocketGateway.emitItemChanged();
   }
   // kitchen
   async findAllKitchens() {
@@ -1084,7 +1222,7 @@ export class MenuService {
     }
   }
 
-  async createKitchen(user: User, createKitchenDto: CreateKitchenDto) {
+  async createKitchen(createKitchenDto: CreateKitchenDto) {
     const kitchen = new this.kitchenModel({
       ...createKitchenDto,
       soundRoles: [],
@@ -1097,24 +1235,24 @@ export class MenuService {
       permissionsRoles: [1],
     });
     await ordersPage.save();
-    this.websocketGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged();
     return kitchen;
   }
-  async updateKitchen(user: User, id: string, updates: UpdateQuery<Kitchen>) {
+  async updateKitchen(id: string, updates: UpdateQuery<Kitchen>) {
     const kitchen = await this.kitchenModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged();
     return kitchen;
   }
-  async removeKitchen(user: User, id: string) {
+  async removeKitchen(id: string) {
     const kitchen = await this.kitchenModel.findById(id);
     const ordersPage = await this.panelControlService.getPage('orders');
     ordersPage.tabs = ordersPage.tabs.filter(
       (tab) => tab.name !== kitchen.name,
     );
     await kitchen.remove();
-    this.websocketGateway.emitKitchenChanged(user, kitchen);
+    this.websocketGateway.emitKitchenChanged();
     return kitchen;
   }
 
@@ -1126,35 +1264,28 @@ export class MenuService {
     return this.upperCategoryModel.findById(id);
   }
 
-  async createUpperCategory(
-    user: User,
-    createUpperCategoryDto: CreateUpperCategoryDto,
-  ) {
+  async createUpperCategory(createUpperCategoryDto: CreateUpperCategoryDto) {
     const upperCategory = await this.upperCategoryModel.create(
       createUpperCategoryDto,
     );
-    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged();
     return upperCategory;
   }
 
-  async updateUpperCategory(
-    user: User,
-    id: number,
-    updates: UpdateQuery<UpperCategory>,
-  ) {
+  async updateUpperCategory(id: number, updates: UpdateQuery<UpperCategory>) {
     const upperCategory = await this.upperCategoryModel.findByIdAndUpdate(
       id,
       updates,
       { new: true },
     );
-    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged();
     return upperCategory;
   }
 
-  async removeUpperCategory(user: User, id: number) {
+  async removeUpperCategory(id: number) {
     const upperCategory = await this.upperCategoryModel.findById(id);
     await upperCategory.remove();
-    this.websocketGateway.emitUpperCategoryChanged(user, upperCategory);
+    this.websocketGateway.emitUpperCategoryChanged();
     return upperCategory;
   }
 
@@ -1332,7 +1463,7 @@ export class MenuService {
       });
       i++;
     });
-    this.websocketGateway.emitCategoryChanged(null, categories);
+    this.websocketGateway.emitCategoryChanged();
     return categories;
   }
   prunePriceHistory(history: PriceHistory[]): PriceHistory[] {
@@ -1353,7 +1484,7 @@ export class MenuService {
         }
       }
     });
-    this.websocketGateway.emitItemChanged(null, items);
+    this.websocketGateway.emitItemChanged();
   }
   async migrateSuggestedDiscounts(): Promise<{ modifiedCount: number }> {
     const res = await this.itemModel.updateMany({}, [

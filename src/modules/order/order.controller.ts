@@ -19,7 +19,6 @@ import {
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
-  OrderType,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -44,7 +43,7 @@ export class OrderController {
   findQueryOrders(
     @Query('after') after?: string,
     @Query('before') before?: string,
-    @Query('discount') discount?: number,
+    @Query('discount') discount?: string,
     @Query('createdBy') createdBy?: string,
     @Query('preparedBy') preparedBy?: string,
     @Query('deliveredBy') deliveredBy?: string,
@@ -353,7 +352,7 @@ export class OrderController {
     @ReqUser() user: User,
     @Body()
     payload: {
-      orders: OrderType[];
+      orders: Order[];
     },
   ) {
     return this.orderService.updateOrders(user, payload.orders);

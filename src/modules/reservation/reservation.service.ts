@@ -5,9 +5,9 @@ import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ReservationDto } from './reservation.dto';
 import { Reservation } from './reservation.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 type ReservationUpdatePayload = UpdateQuery<Reservation> & {
   comingDurationInMinutes?: number;
@@ -31,7 +31,7 @@ export class ReservationService {
       date,
       order: lastReservation?.order + 1 || 1,
     });
-    this.websocketGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged();
     this.activityService.addActivity(
       user,
       ActivityType.CREATE_RESERVATION,
@@ -49,7 +49,7 @@ export class ReservationService {
         new: true,
       },
     );
-    this.websocketGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged();
     this.activityService.addUpdateActivity(
       user,
       ActivityType.UPDATE_RESERVATION,
@@ -71,7 +71,7 @@ export class ReservationService {
       { $inc: { order: 1 } },
     );
 
-    this.websocketGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged();
   }
 
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
@@ -107,7 +107,7 @@ export class ReservationService {
       oldReservation,
       reservation,
     );
-    this.websocketGateway.emitReservationChanged(user, reservation);
+    this.websocketGateway.emitReservationChanged();
 
     return reservation;
   }
@@ -151,7 +151,7 @@ export class ReservationService {
         { new: true },
       );
       // Emit websocket event for each cancelled reservation
-      this.websocketGateway.emitReservationChanged(null, updatedReservation);
+      this.websocketGateway.emitReservationChanged();
     }
 
     return expiredReservations.length;

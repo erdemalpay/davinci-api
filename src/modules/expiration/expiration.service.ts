@@ -2,14 +2,13 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
-import { User } from '../user/user.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateExpirationCountDto,
   CreateExpirationListDto,
 } from './expiration.dto';
 import { ExpirationCount } from './expirationCount.schema';
 import { ExpirationList } from './expirationList.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ExpirationService {
@@ -25,10 +24,7 @@ export class ExpirationService {
     return this.expirationListModel.find();
   }
 
-  async createExpirationList(
-    user: User,
-    createExpirationListDto: CreateExpirationListDto,
-  ) {
+  async createExpirationList(createExpirationListDto: CreateExpirationListDto) {
     const expirationList = new this.expirationListModel(
       createExpirationListDto,
     );
@@ -36,15 +32,11 @@ export class ExpirationService {
     expirationList.locations = [1, 2];
     expirationList.active = true;
     await expirationList.save();
-    this.websocketGateway.emitExpirationListChanged(user, expirationList);
+    this.websocketGateway.emitExpirationListChanged();
     return expirationList;
   }
 
-  async updateExpirationList(
-    user: User,
-    id: string,
-    updates: UpdateQuery<ExpirationList>,
-  ) {
+  async updateExpirationList(id: string, updates: UpdateQuery<ExpirationList>) {
     const expirationList = await this.expirationListModel.findByIdAndUpdate(
       id,
       updates,
@@ -52,7 +44,7 @@ export class ExpirationService {
         new: true,
       },
     );
-    this.websocketGateway.emitExpirationListChanged(user, expirationList);
+    this.websocketGateway.emitExpirationListChanged();
     return expirationList;
   }
 
@@ -63,7 +55,6 @@ export class ExpirationService {
   }
 
   async createExpirationCount(
-    user: User,
     createExpirationCountDto: CreateExpirationCountDto,
   ) {
     const existing = await this.expirationCountModel.find({
@@ -84,12 +75,11 @@ export class ExpirationService {
     expirationCount._id = usernamify(
       expirationCount.user + new Date().toISOString(),
     );
-    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged();
     return expirationCount.save();
   }
 
   async updateExpirationCount(
-    user: User,
     id: string,
     updates: UpdateQuery<ExpirationCount>,
   ) {
@@ -98,15 +88,15 @@ export class ExpirationService {
       updates,
       { new: true },
     );
-    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged();
     return expirationCount;
   }
 
-  async removeExpirationCount(user: User, id: string) {
+  async removeExpirationCount(id: string) {
     const expirationCount = await this.expirationCountModel.findByIdAndRemove(
       id,
     );
-    this.websocketGateway.emitExpirationCountChanged(user, expirationCount);
+    this.websocketGateway.emitExpirationCountChanged();
     return expirationCount;
   }
 }

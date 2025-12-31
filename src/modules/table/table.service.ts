@@ -10,6 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
+import { pick, pickWith } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
@@ -85,6 +86,11 @@ export class TableService {
     ) {
       const isWeekend = await this.panelControlService.isWeekend();
       const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+
+      const category = await this.menuService.findCategoryById(
+        menuItem.category as number,
+      );
+
       await this.orderService.createOrder(user, {
         table: createdTable._id,
         location: createdTable.location,
@@ -95,7 +101,7 @@ export class TableService {
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
-        kitchen: 'bar',
+        kitchen: category?.kitchen,
         tableDate: new Date(tableDto.date),
       });
     }
@@ -104,7 +110,7 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     }
-    this.websocketGateway.emitTableCreated(user, createdTable);
+    this.websocketGateway.emitTableCreated(createdTable);
 
     return createdTable;
   }
@@ -121,11 +127,13 @@ export class TableService {
       updatedTable,
     );
     if (tableDto.finishHour) {
-      this.websocketGateway.emitTableChanged(user, updatedTable);
+      this.websocketGateway.emitTableChanged(updatedTable);
     } else if (tableDto.status === TableStatus.CANCELLED) {
-      this.websocketGateway.emitTableDeleted(user, updatedTable);
+      this.websocketGateway.emitTableDeleted(updatedTable);
     } else {
-      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
+      this.websocketGateway.emitSingleTableChanged(
+        pickWith(updatedTable, ['_id', 'date', 'location'], tableDto),
+      );
     }
     return updatedTable;
   }
@@ -158,7 +166,9 @@ export class TableService {
         );
       }
 
-      this.websocketGateway.emitSingleTableChanged(user, updatedTable);
+      this.websocketGateway.emitSingleTableChanged(
+        pick(updatedTable, ['orders', '_id', 'date', 'location']),
+      );
       return updatedTable;
     } catch (error) {
       console.error('Failed to update table orders:', error.message);
@@ -225,7 +235,7 @@ export class TableService {
       { new: true },
     );
 
-    this.websocketGateway.emitTableChanged(user, updatedTable);
+    this.websocketGateway.emitTableChanged(updatedTable);
     return updatedTable;
   }
 
@@ -261,11 +271,15 @@ export class TableService {
       );
     }
 
-    const cacheKey = `${RedisKeys.Tables}:${location}:${date}`;
     try {
-      const redisTables = await this.redisService.get(cacheKey);
+      const redisTables = await this.redisService.get(RedisKeys.Tables);
       if (redisTables) {
-        return redisTables;
+        const cachedTablesMap = redisTables as Record<string, Table[]>;
+        if (cachedTablesMap[date]) {
+          return cachedTablesMap[date]?.filter(
+            (table: Table) => Number(table.location) === Number(location),
+          );
+        }
       }
     } catch (error) {
       console.error('Failed to retrieve tables from Redis:', error);
@@ -273,7 +287,7 @@ export class TableService {
 
     try {
       const tables = await this.tableModel
-        .find({ location, date, status: { $ne: TableStatus.CANCELLED } })
+        .find({ date, status: { $ne: TableStatus.CANCELLED } })
         .populate({
           path: 'gameplays',
           select: 'startHour game playerCount mentor date finishHour',
@@ -282,6 +296,16 @@ export class TableService {
 
       if (tables.length > 0) {
         try {
+          // Get existing cached data
+          const existingCache =
+            ((await this.redisService.get(RedisKeys.Tables)) as Record<
+              string,
+              Table[]
+            >) || {};
+
+          // Update cache with new date's data
+          existingCache[date] = tables;
+
           const [year, month, day] = date.split('-').map(Number);
           const nextDayMidnight = new Date(
             year,
@@ -298,12 +322,15 @@ export class TableService {
             Math.floor((nextDayMidnight.getTime() - now.getTime()) / 1000),
             60,
           );
-          await this.redisService.set(cacheKey, tables, ttl);
+          await this.redisService.set(RedisKeys.Tables, existingCache, ttl);
         } catch (error) {
           console.error('Failed to cache tables in Redis:', error);
         }
       }
-      return tables;
+      return tables?.filter(
+        (table: Table) =>
+          Number(table.location) === Number(location) && table.date === date,
+      );
     } catch (error) {
       console.error('Failed to retrieve tables from database:', error);
       throw new HttpException(
@@ -374,7 +401,7 @@ export class TableService {
         );
       }
     }
-    const gameplay = await this.gameplayService.create(user, gameplayDto);
+    const gameplay = await this.gameplayService.create(user, gameplayDto, id);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
       tableId: id,
       gameplay,
@@ -382,7 +409,6 @@ export class TableService {
 
     table.gameplays.push(gameplay);
     await table.save();
-    this.websocketGateway.emitGameplayCreated(user, gameplay, table);
     return gameplay;
   }
 
@@ -393,7 +419,7 @@ export class TableService {
       throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
-    await this.gameplayService.remove(user, gameplayId);
+    await this.gameplayService.remove(user, gameplayId, tableId);
 
     this.activityService.addActivity(
       user,
@@ -401,11 +427,13 @@ export class TableService {
       gameplay,
     );
 
+    const deletedGameplay = await this.gameplayService.findById(gameplayId);
+
     table.gameplays = table.gameplays.filter(
       (gameplay) => gameplay._id !== gameplayId,
     );
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, gameplayId, table);
+    this.websocketGateway.emitGameplayDeleted(user, deletedGameplay, table);
     return table;
   }
 
@@ -429,11 +457,11 @@ export class TableService {
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
-        this.gameplayService.remove(user, gameplay._id),
+        this.gameplayService.remove(user, gameplay._id, table._id),
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(user, table);
+    this.websocketGateway.emitTableDeleted(table);
 
     return table;
   }
@@ -550,9 +578,9 @@ export class TableService {
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }
-  async removeTable(user: User, id: number) {
+  async removeTable(id: number) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(user, table);
+    this.websocketGateway.emitTableDeleted(table);
     return table;
   }
   async notifyUnclosedTables() {
@@ -651,7 +679,7 @@ export class TableService {
       ...(existingTable && { table: existingTable._id }),
     });
     await feedback.save();
-    this.websocketGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged();
     return feedback;
   }
 
@@ -664,7 +692,7 @@ export class TableService {
     if (!updatedFeedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitFeedbackChanged(updatedFeedback);
+    this.websocketGateway.emitFeedbackChanged();
     return updatedFeedback;
   }
 
@@ -673,7 +701,7 @@ export class TableService {
     if (!feedback) {
       throw new HttpException('Feedback not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitFeedbackChanged(feedback);
+    this.websocketGateway.emitFeedbackChanged();
     return feedback;
   }
 }
