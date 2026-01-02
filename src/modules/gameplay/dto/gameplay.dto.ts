@@ -1,4 +1,4 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsString } from 'class-validator';
 
 export class GameplayDto {
   @IsNumber()
@@ -21,4 +21,7 @@ export class GameplayDto {
 
   @IsNumber()
   game: number;
+
+  @IsBoolean()
+  isGameplayTime?: boolean;
 }

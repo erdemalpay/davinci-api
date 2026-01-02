@@ -17,6 +17,7 @@ import { EducationModule } from './modules/education/education.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
+import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { LocationModule } from './modules/location/location.module';
 import { MembershipModule } from './modules/membership/membership.module';
@@ -81,6 +82,8 @@ const modules = [
   NotificationModule,
   ShiftModule,
   ExpirationModule,
+  BreakModule,
+  GameplayTimeModule,
 ];
 
 if (config.get('migrationEnabled')) {

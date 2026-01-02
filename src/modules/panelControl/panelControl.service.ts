@@ -118,7 +118,6 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
 
   async createMultiplePages(createPageDto: CreatePageDto[]) {
-    console.log('createMultiplePages', createPageDto);
     const pagesWithIds = createPageDto.map((page) => ({
       ...page,
       _id: usernamify(page.name),

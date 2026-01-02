@@ -49,6 +49,10 @@ export class AppWebSocketGateway {
     this.server.emit('breakChanged');
   }
 
+  emitGameplayTimeChanged() {
+    this.server.emit('gameplayTimeChanged');
+  }
+
   async emitBulkProductAndMenuItemChanged() {
     await this.redisService.reset(RedisKeys.AccountingProducts);
     await this.redisService.reset(RedisKeys.MenuItems);
