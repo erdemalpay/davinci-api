@@ -3596,8 +3596,8 @@ export class OrderService {
       let categoryFilter = {};
 
       if (category) {
-        // Alt kategori öncelikli
-        categoryFilter = { item: category };
+        // Alt kategori - menuitems'daki category alanı ile filtrele
+        categoryFilter = { 'itemDetails.category': Number(category) };
       } else if (upperCategory) {
         // Üst kategori - alt kategorileri bul
         const foundUpperCategory =
@@ -3695,7 +3695,7 @@ export class OrderService {
 
     const pipeline: PipelineStage[] = [];
 
-    // Lookup ekle (eğer upperCategory varsa)
+    // Lookup ekle (eğer category veya upperCategory varsa)
     if (needsLookup) {
       pipeline.push({
         $lookup: {
