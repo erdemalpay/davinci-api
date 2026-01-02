@@ -2015,6 +2015,104 @@ export class AccountingService {
         createStockDto.product,
         createStockDto.location,
       );
+
+      if (oldQuantity <= 0 && newStock.quantity > 0) {
+
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const stockRestoredEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.STOCKRESTORED,
+        );
+
+        if (stockRestoredEvent) {
+          const foundProduct = await this.findProductById(
+            createStockDto.product,
+          );
+          const locations = await this.locationService.findAllLocations();
+          const stockLocation = locations.find(
+            (loc) => loc._id === createStockDto.location,
+          );
+
+          const message = {
+            key: 'StockRestored',
+            params: {
+              product: foundProduct?.name || 'Unknown',
+              location: stockLocation?.name || 'Unknown',
+            },
+          };
+
+          await this.notificationService.createNotification(
+            {
+              type: stockRestoredEvent.type,
+              createdBy: stockRestoredEvent.createdBy,
+              selectedUsers: stockRestoredEvent.selectedUsers,
+              selectedRoles: stockRestoredEvent.selectedRoles,
+              selectedLocations: stockRestoredEvent.selectedLocations,
+              seenBy: [],
+              event: NotificationEventType.STOCKRESTORED,
+              message,
+            },
+            user,
+          );
+        }
+      } else if (oldQuantity > 0 && newStock.quantity <= 0) {
+
+        const foundProduct = await this.findProductById(
+          createStockDto.product,
+        );
+        const locations = await this.locationService.findAllLocations();
+        const stockLocation = locations.find(
+          (location) => location._id === createStockDto.location,
+        );
+
+        const message = {
+          key: newStock.quantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
+          params: {
+            product: foundProduct?.name || 'Unknown',
+            location: stockLocation?.name || 'Unknown',
+          },
+        };
+
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const zeroNotificationEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.ZEROSTOCK,
+        );
+
+        const negativeNotificationEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.NEGATIVESTOCK,
+        );
+
+        const selectedEvent =
+          newStock.quantity === 0
+            ? zeroNotificationEvent
+            : negativeNotificationEvent;
+
+        if (selectedEvent) {
+          const notificationDto: CreateNotificationDto = {
+            type: selectedEvent.type,
+            createdBy: selectedEvent.createdBy,
+            selectedUsers: selectedEvent.selectedUsers,
+            selectedRoles: selectedEvent.selectedRoles,
+            selectedLocations: selectedEvent.selectedLocations,
+            seenBy: [],
+            event:
+              newStock.quantity === 0
+                ? NotificationEventType.ZEROSTOCK
+                : NotificationEventType.NEGATIVESTOCK,
+            message,
+          };
+
+          await this.notificationService.createNotification(
+            notificationDto,
+            user,
+          );
+        }
+      }
+
       this.updateIkasStock(
         createStockDto.product,
         createStockDto.location,
@@ -2042,6 +2140,48 @@ export class AccountingService {
           currentAmount: 0,
         });
       }
+
+      if (createStockDto.quantity > 0) {
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const stockRestoredEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.STOCKRESTORED,
+        );
+
+        if (stockRestoredEvent) {
+          const foundProduct = await this.findProductById(
+            createStockDto.product,
+          );
+          const locations = await this.locationService.findAllLocations();
+          const stockLocation = locations.find(
+            (loc) => loc._id === createStockDto.location,
+          );
+
+          const message = {
+            key: 'StockRestored',
+            params: {
+              product: foundProduct?.name || 'Unknown',
+              location: stockLocation?.name || 'Unknown',
+            },
+          };
+
+          await this.notificationService.createNotification(
+            {
+              type: stockRestoredEvent.type,
+              createdBy: stockRestoredEvent.createdBy,
+              selectedUsers: stockRestoredEvent.selectedUsers,
+              selectedRoles: stockRestoredEvent.selectedRoles,
+              selectedLocations: stockRestoredEvent.selectedLocations,
+              seenBy: [],
+              event: NotificationEventType.STOCKRESTORED,
+              message,
+            },
+            user,
+          );
+        }
+      }
+
       this.updateIkasStock(
         createStockDto.product,
         createStockDto.location,
