@@ -338,20 +338,13 @@ export class MenuService {
               const isItemInLocation = item.locations.includes(location._id);
 
               if (stock && stock.quantity <= 0 && isItemInLocation) {
-                // Check if location has a fallback stock location
-                let shouldCloseItem = true;
-
-                if (location.fallbackStockLocation) {
-                  const fallbackStock = stocks.find(
-                    (s) => s.location === location.fallbackStockLocation,
-                  );
-                  // If fallback has stock, don't close the item
-                  if (fallbackStock && fallbackStock.quantity > 0) {
-                    shouldCloseItem = false;
-                  }
-                }
-
-                if (shouldCloseItem) {
+                if (
+                  await this.accountingService.shouldCloseItemOnStockOut(
+                    item.matchedProduct,
+                    location._id,
+                    stocks,
+                  )
+                ) {
                   // Close item in this location if stock is zero or negative
                   await this.closeItemLocation(item._id, location._id);
                 }

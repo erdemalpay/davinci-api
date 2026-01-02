@@ -2104,26 +2104,12 @@ export class AccountingService {
               menuItem.category as number,
             );
             if (category?.disableWhenOutOfStock) {
-              // Check if location has a fallback stock location
-              const currentLocation = await this.locationService.findLocationById(
-                createStockDto.location,
-              );
-              let shouldCloseItem = true;
-
-              if (currentLocation?.fallbackStockLocation) {
-                // Check stock in fallback location
-                const fallbackStock = await this.stockModel.findById(
-                  usernamify(
-                    createStockDto.product + currentLocation.fallbackStockLocation,
-                  ),
-                );
-                // If fallback has stock, don't close the item
-                if (fallbackStock && fallbackStock.quantity > 0) {
-                  shouldCloseItem = false;
-                }
-              }
-
-              if (shouldCloseItem) {
+              if (
+                await this.shouldCloseItemOnStockOut(
+                  createStockDto.product,
+                  createStockDto.location,
+                )
+              ) {
                 await this.menuService.closeItemLocation(
                   foundProduct.matchedMenuItem,
                   createStockDto.location,
@@ -2388,26 +2374,12 @@ export class AccountingService {
               menuItem.category as number,
             );
             if (category?.disableWhenOutOfStock) {
-              // Check if location has a fallback stock location
-              const currentLocation = await this.locationService.findLocationById(
-                stock.location,
-              );
-              let shouldCloseItem = true;
-
-              if (currentLocation?.fallbackStockLocation) {
-                // Check stock in fallback location
-                const fallbackStock = await this.stockModel.findById(
-                  usernamify(
-                    (stock.product as any) + currentLocation.fallbackStockLocation,
-                  ),
-                );
-                // If fallback has stock, don't close the item
-                if (fallbackStock && fallbackStock.quantity > 0) {
-                  shouldCloseItem = false;
-                }
-              }
-
-              if (shouldCloseItem) {
+              if (
+                await this.shouldCloseItemOnStockOut(
+                  stock.product as any,
+                  stock.location,
+                )
+              ) {
                 await this.menuService.closeItemLocation(
                   foundProduct.matchedMenuItem,
                   stock.location,
@@ -3480,6 +3452,36 @@ export class AccountingService {
     } catch (error) {
       console.error('Failed to create stocks:', error);
     }
+  }
+
+  private async shouldCloseItemOnStockOut(
+    productId: string,
+    locationId: number,
+    stocks?: Stock[],
+  ): Promise<boolean> {
+    const currentLocation = await this.locationService.findLocationById(
+      locationId,
+    );
+    if (!currentLocation?.fallbackStockLocation) {
+      return true; // No fallback location, should close
+    }
+
+    let fallbackStock: Stock | undefined;
+    if (stocks) {
+      // If stocks array is provided, find fallback stock from it
+      fallbackStock = stocks.find(
+        (s) => s.location === currentLocation.fallbackStockLocation,
+      );
+    } else {
+      // Otherwise, query the database for fallback stock
+      const fallbackStockId = usernamify(
+        productId + currentLocation.fallbackStockLocation,
+      );
+      fallbackStock = await this.stockModel.findById(fallbackStockId);
+    }
+
+    // If fallback has stock, don't close. Otherwise, close.
+    return !(fallbackStock && fallbackStock.quantity > 0);
   }
 
   async removeUnwantedBaseLocations(): Promise<void> {
