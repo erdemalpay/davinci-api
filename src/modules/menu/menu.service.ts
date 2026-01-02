@@ -1526,4 +1526,62 @@ export class MenuService {
       modifiedCount: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
     };
   }
+
+  async updateProductVisibilityAfterStockChange(
+    productId: string,
+    changedLocationId: number,
+  ) {
+    const menuItem = await this.findByMatchedProduct(productId);
+    if (!menuItem) {
+      return;
+    }
+
+    const category = await this.findCategoryById(menuItem.category as number);
+    if (!category?.disableWhenOutOfStock) {
+      return;
+    }
+
+    const allLocations = await this.locationService.findAllLocations();
+    const affectedLocations = allLocations.filter(
+      (loc) =>
+        loc._id === changedLocationId ||
+        loc.fallbackStockLocation === changedLocationId,
+    );
+    if (
+      !affectedLocations.find(
+        (location) => location._id === changedLocationId,
+      )
+    ) {
+      const changedLocation = allLocations.find(
+        (location) => location._id === changedLocationId,
+      );
+      if (changedLocation) {
+        affectedLocations.push(changedLocation);
+      }
+    }
+
+    for (const location of affectedLocations) {
+      const primaryStocks =
+        await this.accountingService.findProductStockByLocation(
+          productId,
+          location._id,
+        );
+      let totalStock = primaryStocks.reduce((sum, s) => sum + s.quantity, 0);
+
+      if (location.fallbackStockLocation) {
+        const fallbackStocks =
+          await this.accountingService.findProductStockByLocation(
+            productId,
+            location.fallbackStockLocation,
+          );
+        totalStock += fallbackStocks.reduce((sum, s) => sum + s.quantity, 0);
+      }
+
+      if (totalStock > 0) {
+        await this.openItemLocation(menuItem._id, location._id);
+      } else {
+        await this.closeItemLocation(menuItem._id, location._id);
+      }
+    }
+  }
 }

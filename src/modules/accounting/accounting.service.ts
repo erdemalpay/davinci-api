@@ -2005,126 +2005,15 @@ export class AccountingService {
       );
       this.websocketGateway.emitStockChanged();
 
-      if (createStockDto.quantity !== 0) {
-        await this.createProductStockHistory(user, {
-          user: user._id,
-          product: createStockDto.product,
-          location: createStockDto.location,
-          change: createStockDto.quantity,
-          status,
-          currentAmount: oldQuantity,
-        });
-      }
-
-      if (oldQuantity <= 0 && newStock.quantity > 0) {
-        const foundProduct = await this.productModel.findById(
-          createStockDto.product,
-        );
-        if (foundProduct && foundProduct.matchedMenuItem) {
-          const menuItem = await this.menuService.findItemById(
-            foundProduct.matchedMenuItem,
-          );
-          if (menuItem) {
-            const category = await this.menuService.findCategoryById(
-              menuItem.category as number,
-            );
-            if (category?.disableWhenOutOfStock) {
-              await this.menuService.openItemLocation(
-                foundProduct.matchedMenuItem,
-                createStockDto.location,
-              );
-              /*
-              const visits = await this.visitService.findByDateAndLocation(
-                format(new Date(), 'yyyy-MM-dd'),
-                createStockDto.location,
-              );
-              const uniqueVisitUsers =
-                visits
-                  ?.reduce(
-                    (acc: { unique: typeof visits; seenUsers: any }, visit) => {
-                      acc.seenUsers = acc.seenUsers || {};
-                      if (visit?.user && !acc.seenUsers[(visit as any).user]) {
-                        acc.seenUsers[(visit as any).user] = true;
-                        acc.unique.push(visit);
-                      }
-                      return acc;
-                    },
-                    { unique: [], seenUsers: {} },
-                  )
-                  ?.unique?.map((visit) => visit.user) ?? [];
-              */
-              //su anda kullanilmadigindan db sorgusu atmamasi, icin su ust kismi yoruma aldim
-              const locations = await this.locationService.findAllLocations();
-              const stockLocation = locations.find(
-                (location) => location._id === createStockDto.location,
-              );
-
-              const message = {
-                key: 'StockRestored',
-                params: {
-                  product: foundProduct.name,
-                  location: stockLocation.name,
-                },
-              };
-
-              const notificationEvents =
-                await this.notificationService.findAllEventNotifications();
-              const stockRestoredEvent = notificationEvents.find(
-                (notification) =>
-                  notification.event === NotificationEventType.STOCKRESTORED,
-              );
-
-              if (stockRestoredEvent) {
-                await this.notificationService.createNotification({
-                  type: stockRestoredEvent.type,
-                  createdBy: stockRestoredEvent.createdBy,
-                  selectedUsers: stockRestoredEvent.selectedUsers,
-                  selectedRoles: stockRestoredEvent.selectedRoles,
-                  selectedLocations: stockRestoredEvent.selectedLocations,
-                  seenBy: [],
-                  event: NotificationEventType.STOCKRESTORED,
-                  message,
-                });
-              }
-            }
-          }
-        }
-      }
-
-      if (oldQuantity > 0 && newStock.quantity <= 0) {
-        const foundProduct = await this.productModel.findById(
-          createStockDto.product,
-        );
-        if (foundProduct && foundProduct.matchedMenuItem) {
-          const menuItem = await this.menuService.findItemById(
-            foundProduct.matchedMenuItem,
-          );
-          if (menuItem) {
-            const category = await this.menuService.findCategoryById(
-              menuItem.category as number,
-            );
-            if (category?.disableWhenOutOfStock) {
-              if (
-                await this.shouldCloseItemOnStockOut(
-                  createStockDto.product,
-                  createStockDto.location,
-                )
-              ) {
-                await this.menuService.closeItemLocation(
-                  foundProduct.matchedMenuItem,
-                  createStockDto.location,
-                );
-              }
-            }
-          }
-        }
-      }
-
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
         existingStock,
         newStock,
+      );
+      await this.menuService.updateProductVisibilityAfterStockChange(
+        createStockDto.product,
+        createStockDto.location,
       );
       this.updateIkasStock(
         createStockDto.product,
@@ -2295,6 +2184,10 @@ export class AccountingService {
         ActivityType.DELETE_STOCK,
         deletedStock,
       );
+      await this.menuService.updateProductVisibilityAfterStockChange(
+        stock.product?._id,
+        stock.location,
+      );
       // Remove the stock item
       this.websocketGateway.emitStockChanged();
       return deletedStock;
@@ -2333,61 +2226,19 @@ export class AccountingService {
         { new: true },
       );
       const newQuantity = stock.quantity - consumptStockDto.quantity;
-      const notificationEvents =
-        await this.notificationService.findAllEventNotifications();
-      const zeroNotificationEvent = notificationEvents.find(
-        (notification) =>
-          notification.event === NotificationEventType.ZEROSTOCK,
-      );
-
-      const negativeNotificationEvent = notificationEvents.find(
-        (notification) =>
-          notification.event === NotificationEventType.NEGATIVESTOCK,
-      );
-
-      // zero or negative stock - close menu item
-      if (
-        newQuantity <= 0 &&
-        ((newQuantity === 0 && zeroNotificationEvent) ||
-          (newQuantity < 0 && negativeNotificationEvent)) &&
-        (newQuantity === 0
-          ? zeroNotificationEvent?.selectedLocations?.includes(stock.location)
-          : negativeNotificationEvent?.selectedLocations?.includes(
-              stock.location,
-            ))
-      ) {
-        const locations = await this.locationService.findAllLocations();
-        const stockLocation = locations.find(
-          (location) => location._id === stock.location,
-        );
+      if (newQuantity <= 0) {
         const foundProduct = await this.findProductById(stock.product as any);
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
-
-        if (foundProduct.matchedMenuItem) {
-          const menuItem = await this.menuService.findItemById(
-            foundProduct.matchedMenuItem,
-          );
-          if (menuItem) {
-            const category = await this.menuService.findCategoryById(
-              menuItem.category as number,
-            );
-            if (category?.disableWhenOutOfStock) {
-              if (
-                await this.shouldCloseItemOnStockOut(
-                  stock.product as any,
-                  stock.location,
-                )
-              ) {
-                await this.menuService.closeItemLocation(
-                  foundProduct.matchedMenuItem,
-                  stock.location,
-                );
-              }
-            }
-          }
-        }
+        await this.menuService.updateProductVisibilityAfterStockChange(
+          stock.product as any,
+          stock.location,
+        );
+        const locations = await this.locationService.findAllLocations();
+        const stockLocation = locations.find(
+          (location) => location._id === stock.location,
+        );
         const message = {
           key: newQuantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
           params: {
@@ -2395,28 +2246,45 @@ export class AccountingService {
             location: stockLocation.name,
           },
         };
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const zeroNotificationEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.ZEROSTOCK,
+        );
+
+        const negativeNotificationEvent = notificationEvents.find(
+          (notification) =>
+            notification.event === NotificationEventType.NEGATIVESTOCK,
+        );
 
         const selectedEvent =
           newQuantity === 0 ? zeroNotificationEvent : negativeNotificationEvent;
-
-        const notificationDto: CreateNotificationDto = {
-          type: selectedEvent.type,
-          createdBy: selectedEvent.createdBy,
-          selectedUsers: selectedEvent.selectedUsers,
-          selectedRoles: selectedEvent.selectedRoles,
-          selectedLocations: selectedEvent.selectedLocations,
-          seenBy: [],
-          event:
-            newQuantity === 0
-              ? NotificationEventType.ZEROSTOCK
-              : NotificationEventType.NEGATIVESTOCK,
-          message,
-        };
-        await this.notificationService.createNotification(
-          notificationDto,
-          user,
-        );
+        if (
+          selectedEvent &&
+          selectedEvent.selectedLocations?.includes(stock.location)
+        ) {
+          const notificationDto: CreateNotificationDto = {
+            type: selectedEvent.type,
+            createdBy: selectedEvent.createdBy,
+            selectedUsers: selectedEvent.selectedUsers,
+            selectedRoles: selectedEvent.selectedRoles,
+            selectedLocations: selectedEvent.selectedLocations,
+            seenBy: [],
+            event:
+              newQuantity === 0
+                ? NotificationEventType.ZEROSTOCK
+                : NotificationEventType.NEGATIVESTOCK,
+            message,
+          };
+          await this.notificationService.createNotification(
+            notificationDto,
+            user,
+          );
+        }
       }
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
       const lossProductEvent = notificationEvents.find(
         (notification) =>
           notification.event === NotificationEventType.LOSSPRODUCT,
