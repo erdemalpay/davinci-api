@@ -2134,12 +2134,32 @@ export class OrderService {
           },
         },
         {
+          $lookup: {
+            from: 'paymentmethods',
+            localField: 'paymentMethod',
+            foreignField: '_id',
+            as: 'paymentMethodDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$paymentMethodDetails',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $match: {
+            'paymentMethodDetails.isPaymentMade': true,
+          },
+        },
+        {
           $group: {
             _id: null,
             totalAmount: { $sum: '$amount' },
           },
         },
       ]);
+
       return collectionsTotal.length > 0 ? collectionsTotal[0].totalAmount : 0;
     } catch (error) {
       throw new HttpException(
@@ -3559,7 +3579,12 @@ export class OrderService {
     } = params;
 
     // Validation
-    if (!primaryAfter || !primaryBefore || !secondaryAfter || !secondaryBefore) {
+    if (
+      !primaryAfter ||
+      !primaryBefore ||
+      !secondaryAfter ||
+      !secondaryBefore
+    ) {
       throw new HttpException(
         'Missing required date parameters',
         HttpStatus.BAD_REQUEST,
@@ -3575,9 +3600,8 @@ export class OrderService {
         categoryFilter = { item: category };
       } else if (upperCategory) {
         // Üst kategori - alt kategorileri bul
-        const foundUpperCategory = await this.menuService.findSingleUpperCategory(
-          Number(upperCategory),
-        );
+        const foundUpperCategory =
+          await this.menuService.findSingleUpperCategory(Number(upperCategory));
         const categoryIds = foundUpperCategory?.categoryGroup?.map(
           (cg) => cg?.category,
         );
@@ -3666,7 +3690,8 @@ export class OrderService {
     }
 
     // Kategori filtresi için itemDetails lookup gerekebilir
-    const needsLookup = categoryFilter && categoryFilter['itemDetails.category'];
+    const needsLookup =
+      categoryFilter && categoryFilter['itemDetails.category'];
 
     const pipeline: PipelineStage[] = [];
 
