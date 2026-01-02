@@ -3454,7 +3454,7 @@ export class AccountingService {
     }
   }
 
-  private async shouldCloseItemOnStockOut(
+  async shouldCloseItemOnStockOut(
     productId: string,
     locationId: number,
     stocks?: Stock[],
