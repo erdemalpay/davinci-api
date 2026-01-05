@@ -119,7 +119,7 @@ export class TableService {
 
   async update(user: User, id: number, tableDto: TableDto) {
     const existingTable = await this.tableModel.findById(id);
-    if (tableDto.finishHour && !existingTable.finishHour) {
+    if (tableDto.finishHour && !existingTable?.finishHour) {
       const orders = await this.orderService.findGivenTableOrders(id);
 
       // Filter out cancelled orders
