@@ -3504,24 +3504,23 @@ export class AccountingService {
       locationId,
     );
     if (!currentLocation?.fallbackStockLocation) {
-      return true; // No fallback location, should close
+      return true;
     }
 
     let fallbackStock: Stock | undefined;
     if (stocks) {
-      // If stocks array is provided, find fallback stock from it
+
       fallbackStock = stocks.find(
         (s) => s.location === currentLocation.fallbackStockLocation,
       );
     } else {
-      // Otherwise, query the database for fallback stock
+
       const fallbackStockId = usernamify(
         productId + currentLocation.fallbackStockLocation,
       );
       fallbackStock = await this.stockModel.findById(fallbackStockId);
     }
 
-    // If fallback has stock, don't close. Otherwise, close.
     return !(fallbackStock && fallbackStock.quantity > 0);
   }
 

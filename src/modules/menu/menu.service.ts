@@ -345,11 +345,11 @@ export class MenuService {
                     stocks,
                   )
                 ) {
-                  // Close item in this location if stock is zero or negative
+
                   await this.closeItemLocation(item._id, location._id);
                 }
               } else if (stock && stock.quantity > 0 && !isItemInLocation) {
-                // Open item in this location if stock is positive and item is closed
+
                 await this.openItemLocation(item._id, location._id);
               }
             }
