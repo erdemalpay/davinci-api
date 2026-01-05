@@ -35,13 +35,13 @@ import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
+import { SeedModule } from './modules/seed/seed.module';
 
 export interface DBConfig {
   host: string;
   port: number;
   name: string;
 }
-
 const { host, port, name }: DBConfig = config.get('db');
 const mongoUrl = `mongodb://${host}:${port}/${name}?replicaSet=rs0&retryWrites=true&w=majority&directConnection=true`;
 const DbModule = MongooseModule.forRoot(mongoUrl, {
@@ -84,6 +84,7 @@ const modules = [
   ExpirationModule,
   BreakModule,
   GameplayTimeModule,
+  SeedModule,
 ];
 
 if (config.get('migrationEnabled')) {
