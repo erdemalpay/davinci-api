@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -15,6 +15,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { GameplayTimeService } from '../gameplaytime/gameplaytime.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
@@ -32,7 +33,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes
+  TableTypes,
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -44,6 +45,7 @@ export class TableService {
     @InjectModel(Table.name) private tableModel: Model<Table>,
     @InjectModel(Feedback.name) private feedbackModel: Model<Feedback>,
     private readonly gameplayService: GameplayService,
+    private readonly gameplayTimeService: GameplayTimeService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
     private readonly menuService: MenuService,
@@ -86,6 +88,11 @@ export class TableService {
     ) {
       const isWeekend = await this.panelControlService.isWeekend();
       const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+
+      const category = await this.menuService.findCategoryById(
+        menuItem.category as number,
+      );
+
       await this.orderService.createOrder(user, {
         table: createdTable._id,
         location: createdTable.location,
@@ -96,7 +103,7 @@ export class TableService {
         status: OrderStatus.AUTOSERVED,
         paidQuantity: 0,
         unitPrice: menuItem.price,
-        kitchen: 'bar',
+        kitchen: category?.kitchen,
         tableDate: new Date(tableDto.date),
       });
     }
@@ -402,9 +409,18 @@ export class TableService {
       gameplay,
     });
 
+    if (gameplayDto?.isGameplayTime) {
+      this.gameplayTimeService.create({
+        user: user._id,
+        location: gameplayDto.location,
+        date: gameplayDto.date,
+        gameplay: gameplay._id,
+        startHour: gameplayDto.startHour,
+      });
+    }
+
     table.gameplays.push(gameplay);
     await table.save();
-    this.websocketGateway.emitGameplayCreated(user, gameplay, table);
     return gameplay;
   }
 

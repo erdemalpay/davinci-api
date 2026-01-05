@@ -198,7 +198,6 @@ export class OrderService {
       };
     }
     const filterKeys = [
-      'discount',
       'createdBy',
       'preparedBy',
       'deliveredBy',
@@ -211,6 +210,13 @@ export class OrderService {
         .map((item) => item.trim())
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
+    }
+    if (query.discount) {
+      const discountArray = query.discount
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['discount'] = { $in: discountArray };
     }
     if (item !== undefined) {
       filterQuery['item'] = Number(item);
@@ -943,8 +949,8 @@ export class OrderService {
     }
 
     const createdOrders: number[] = [];
-    const kitchenSoundRoles = new Set<number>();
-    const kitchenSelectedUsers = new Set<string>();
+    const orderKitchenIds: string[] = [];
+
     for (const order of orders) {
       if (order.quantity <= 0) {
         continue;
@@ -961,6 +967,7 @@ export class OrderService {
         createdAt: new Date(),
         table: table._id,
       });
+      orderKitchenIds.push(createdOrder.kitchen);
       const users = await this.userService.findAllUsers();
       if (createdOrder?.discount) {
         const discount = await this.discountModel.findById(
@@ -997,30 +1004,11 @@ export class OrderService {
         createdOrders.push(createdOrder._id);
         const orderWithItem = await createdOrder.populate([
           { path: 'item' },
-          { path: 'kitchen' },
           {
             path: 'table',
             select: 'date _id name isOnlineSale finishHour type startHour',
           },
         ]);
-        if (
-          (orderWithItem?.kitchen as any)?.soundRoles &&
-          createdOrder.status !== OrderStatus.AUTOSERVED &&
-          createdOrder.status !== OrderStatus.SERVED
-        ) {
-          if ((orderWithItem?.kitchen as any)?.selectedUsers) {
-            (orderWithItem?.kitchen as any)?.selectedUsers.forEach(
-              (userId: string) => {
-                kitchenSelectedUsers.add(userId);
-              },
-            );
-          }
-          (orderWithItem?.kitchen as any)?.soundRoles.forEach(
-            (role: number) => {
-              kitchenSoundRoles.add(role);
-            },
-          );
-        }
         for (const ingredient of (orderWithItem.item as any).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
@@ -1047,29 +1035,18 @@ export class OrderService {
             createdOrder,
           );
         }
+
+        await this.tableService.updateTableOrders(
+          user,
+          table._id,
+          createdOrders,
+        );
       } catch (error) {
         console.log(error);
         throw new HttpException(
           'Failed to create order',
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
-      }
-      // update table
-      let updatedTable;
-      try {
-        updatedTable = await this.tableService.updateTableOrders(
-          user,
-          table._id,
-          createdOrders,
-        );
-      } catch (error) {
-        throw new HttpException(
-          'Failed to update table orders',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-      if (!updatedTable) {
-        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
     }
     const orderGroupModel = new this.orderGroupModel({
@@ -1086,8 +1063,7 @@ export class OrderService {
       user,
       table,
       table.location,
-      Array.from(kitchenSoundRoles),
-      Array.from(kitchenSelectedUsers),
+      orderKitchenIds,
     );
     return createdOrders;
   }

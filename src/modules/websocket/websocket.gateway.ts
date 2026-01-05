@@ -1,6 +1,6 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
@@ -43,6 +43,14 @@ export class AppWebSocketGateway {
 
   emitBrandChanged() {
     this.server.emit('brandChanged');
+  }
+
+  emitBreakChanged() {
+    this.server.emit('breakChanged');
+  }
+
+  emitGameplayTimeChanged() {
+    this.server.emit('gameplayTimeChanged');
   }
 
   async emitBulkProductAndMenuItemChanged() {
@@ -98,13 +106,17 @@ export class AppWebSocketGateway {
     this.server.emit('countListChanged');
   }
 
-  emitCreateMultipleOrder(user: User, table: Table, locationId: number, soundRoles: number[], selectedUsers: string[]) {
+  emitCreateMultipleOrder(
+    user: User,
+    table: Table,
+    locationId: number,
+    kitchenIds: string[],
+  ) {
     this.server.emit('createMultipleOrder', {
       user,
       table,
       locationId,
-      soundRoles,
-      selectedUsers,
+      kitchenIds,
     });
   }
 
@@ -151,7 +163,11 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayChanged', { user, gameplay });
   }
 
-  async emitGameplayCreated(user: User, gameplay: Gameplay, tableId: Table["id"]) {
+  async emitGameplayCreated(
+    user: User,
+    gameplay: Gameplay,
+    tableId: Table['id'],
+  ) {
     await this.redisService.reset(RedisKeys.Tables);
 
     this.server.emit('gameplayCreated', { user, gameplay, tableId });
@@ -162,7 +178,11 @@ export class AppWebSocketGateway {
     this.server.emit('gameplayUpdated', { user, gameplay });
   }
 
-  async emitGameplayDeleted(user: User, gameplay: Gameplay, tableId: Table["id"]) {
+  async emitGameplayDeleted(
+    user: User,
+    gameplay: Gameplay,
+    tableId: Table['id'],
+  ) {
     await this.redisService.reset(RedisKeys.Tables);
 
     this.server.emit('gameplayDeleted', { user, gameplay, tableId });
@@ -214,7 +234,7 @@ export class AppWebSocketGateway {
       ...order.toObject(),
       item: extractRefId(order.item),
       kitchen: extractRefId(order.kitchen),
-    }
+    };
     this.server.emit('orderCreated', { order: normalizedOrder });
   }
 

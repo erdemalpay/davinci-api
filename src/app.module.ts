@@ -8,6 +8,7 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
+import { BreakModule } from './modules/break/break.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
@@ -16,6 +17,7 @@ import { EducationModule } from './modules/education/education.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
+import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { LocationModule } from './modules/location/location.module';
 import { MembershipModule } from './modules/membership/membership.module';
@@ -33,7 +35,6 @@ import { TableModule } from './modules/table/table.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
-import { SeedModule } from './modules/seed/seed.module';
 
 export interface DBConfig {
   host: string;
@@ -55,6 +56,7 @@ const modules = [
   AuthModule,
   AssetModule,
   AuthorizationModule,
+  BreakModule,
   IkasModule,
   DbModule,
   ChecklistModule,
@@ -80,7 +82,8 @@ const modules = [
   NotificationModule,
   ShiftModule,
   ExpirationModule,
-  SeedModule,
+  BreakModule,
+  GameplayTimeModule,
 ];
 
 if (config.get('migrationEnabled')) {
