@@ -1547,18 +1547,6 @@ export class MenuService {
         loc._id === changedLocationId ||
         loc.fallbackStockLocation === changedLocationId,
     );
-    if (
-      !affectedLocations.find(
-        (location) => location._id === changedLocationId,
-      )
-    ) {
-      const changedLocation = allLocations.find(
-        (location) => location._id === changedLocationId,
-      );
-      if (changedLocation) {
-        affectedLocations.push(changedLocation);
-      }
-    }
 
     for (const location of affectedLocations) {
       const primaryStocks =

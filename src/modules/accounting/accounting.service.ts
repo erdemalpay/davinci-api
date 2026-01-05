@@ -2005,6 +2005,17 @@ export class AccountingService {
       );
       this.websocketGateway.emitStockChanged();
 
+      if (createStockDto.quantity !== 0) {
+        await this.createProductStockHistory(user, {
+          user: user._id,
+          product: createStockDto.product,
+          location: createStockDto.location,
+          change: createStockDto.quantity,
+          status,
+          currentAmount: oldQuantity,
+        });
+      }
+
       await this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
