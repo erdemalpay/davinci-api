@@ -119,6 +119,27 @@ export class TableService {
 
   async update(user: User, id: number, tableDto: TableDto) {
     const existingTable = await this.tableModel.findById(id);
+    if (tableDto.finishHour && !existingTable?.finishHour) {
+      const orders = await this.orderService.findGivenTableOrders(id);
+
+      // Filter out cancelled orders
+      const activeOrders = orders.filter(
+        (order) => order.status !== OrderStatus.CANCELLED,
+      );
+
+      // Check if all items are marked as paid
+      const allItemsPaid = activeOrders.every(
+        (order) => order.paidQuantity === order.quantity,
+      );
+
+      // Validation: Cannot close table with unpaid orders
+      if (!allItemsPaid) {
+        throw new HttpException(
+          'Cannot close table with unpaid orders',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
     const updatedTable = await this.tableModel.findByIdAndUpdate(id, tableDto, {
       new: true,
     });
