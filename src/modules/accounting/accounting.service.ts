@@ -2045,6 +2045,28 @@ export class AccountingService {
             (loc) => loc._id === createStockDto.location,
           );
 
+          /*
+          // Future enhancement: Notify unique visitors of the day when stock is restored
+          const visits = await this.visitService.findByDateAndLocation(
+            format(new Date(), 'yyyy-MM-dd'),
+            createStockDto.location,
+          );
+          const uniqueVisitUsers =
+            visits
+              ?.reduce(
+                (acc: { unique: typeof visits; seenUsers: any }, visit) => {
+                  acc.seenUsers = acc.seenUsers || {};
+                  if (visit?.user && !acc.seenUsers[(visit as any).user]) {
+                    acc.seenUsers[(visit as any).user] = true;
+                    acc.unique.push(visit);
+                  }
+                  return acc;
+                },
+                { unique: [], seenUsers: {} },
+              )
+              ?.unique?.map((visit) => visit.user) ?? [];
+          */
+
           const message = {
             key: 'StockRestored',
             params: {
