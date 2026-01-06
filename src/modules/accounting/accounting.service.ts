@@ -3506,21 +3506,17 @@ export class AccountingService {
     if (!currentLocation?.fallbackStockLocation) {
       return true;
     }
-
     let fallbackStock: Stock | undefined;
     if (stocks) {
-
       fallbackStock = stocks.find(
         (s) => s.location === currentLocation.fallbackStockLocation,
       );
     } else {
-
       const fallbackStockId = usernamify(
         productId + currentLocation.fallbackStockLocation,
       );
       fallbackStock = await this.stockModel.findById(fallbackStockId);
     }
-
     return !(fallbackStock && fallbackStock.quantity > 0);
   }
 
