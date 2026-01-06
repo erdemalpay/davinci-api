@@ -161,6 +161,7 @@ export class GameplayTimeService {
   async findByDate(date: string): Promise<GameplayTime[]> {
     return this.gameplayTimeModel
       .find({ date, finishHour: { $exists: false } })
+      .populate('gameplay', 'mentor game playerCount')
       .sort({ startHour: 1 })
       .exec();
   }
