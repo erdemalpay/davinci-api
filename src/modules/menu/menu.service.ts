@@ -338,10 +338,18 @@ export class MenuService {
               const isItemInLocation = item.locations.includes(location._id);
 
               if (stock && stock.quantity <= 0 && isItemInLocation) {
-                // Close item in this location if stock is zero or negative
-                await this.closeItemLocation(item._id, location._id);
+                if (
+                  await this.accountingService.shouldCloseItemOnStockOut(
+                    item.matchedProduct,
+                    location._id,
+                    stocks,
+                  )
+                ) {
+
+                  await this.closeItemLocation(item._id, location._id);
+                }
               } else if (stock && stock.quantity > 0 && !isItemInLocation) {
-                // Open item in this location if stock is positive and item is closed
+
                 await this.openItemLocation(item._id, location._id);
               }
             }
@@ -1517,5 +1525,51 @@ export class MenuService {
     return {
       modifiedCount: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
     };
+  }
+
+  async updateProductVisibilityAfterStockChange(
+    productId: string,
+    changedLocationId: number,
+  ) {
+    const menuItem = await this.findByMatchedProduct(productId);
+    if (!menuItem) {
+      return;
+    }
+
+    const category = await this.findCategoryById(menuItem.category as number);
+    if (!category?.disableWhenOutOfStock) {
+      return;
+    }
+
+    const allLocations = await this.locationService.findAllLocations();
+    const affectedLocations = allLocations.filter(
+      (loc) =>
+        loc._id === changedLocationId ||
+        loc.fallbackStockLocation === changedLocationId,
+    );
+
+    for (const location of affectedLocations) {
+      const primaryStocks =
+        await this.accountingService.findProductStockByLocation(
+          productId,
+          location._id,
+        );
+      let totalStock = primaryStocks.reduce((sum, s) => sum + s.quantity, 0);
+
+      if (location.fallbackStockLocation) {
+        const fallbackStocks =
+          await this.accountingService.findProductStockByLocation(
+            productId,
+            location.fallbackStockLocation,
+          );
+        totalStock += fallbackStocks.reduce((sum, s) => sum + s.quantity, 0);
+      }
+
+      if (totalStock > 0) {
+        await this.openItemLocation(menuItem._id, location._id);
+      } else {
+        await this.closeItemLocation(menuItem._id, location._id);
+      }
+    }
   }
 }
