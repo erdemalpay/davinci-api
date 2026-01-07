@@ -432,7 +432,7 @@ export class TableService {
 
     if (gameplayDto?.isGameplayTime) {
       this.gameplayTimeService.create({
-        user: user._id,
+        user: gameplayDto.mentor, // Oyunu anlatan kişi (mentor)
         location: gameplayDto.location,
         date: gameplayDto.date,
         gameplay: gameplay._id,
