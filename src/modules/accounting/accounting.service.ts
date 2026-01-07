@@ -9,7 +9,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType
+  NotificationEventType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -48,7 +48,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -2885,7 +2885,7 @@ export class AccountingService {
     const count = await this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    if (count.isCompleted) {
+    if (updates.isCompleted) {
       const notificationEvents =
         await this.notificationService.findAllEventNotifications();
       const notificationEvent = notificationEvents.find(
