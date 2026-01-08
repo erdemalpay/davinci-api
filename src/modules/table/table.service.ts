@@ -437,6 +437,7 @@ export class TableService {
         date: gameplayDto.date,
         gameplay: gameplay._id,
         startHour: gameplayDto.startHour,
+        table: table._id,
       });
     }
 

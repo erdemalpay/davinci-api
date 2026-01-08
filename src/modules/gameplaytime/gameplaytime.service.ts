@@ -108,6 +108,7 @@ export class GameplayTimeService {
         this.gameplayTimeModel
           .find(filter)
           .populate('gameplay', 'mentor game playerCount')
+          .populate('table', '_id name')
           .sort(sortObject)
           .skip(skip)
           .limit(limitNum)

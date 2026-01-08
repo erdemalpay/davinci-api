@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Location } from '../location/location.schema';
+import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 
 @Schema({ _id: false, timestamps: true })
@@ -15,6 +16,9 @@ export class GameplayTime extends Document {
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
+
+  @Prop({ required: true, type: Number, ref: Table.name })
+  table: Table;
 
   @Prop({ required: true, type: Number, ref: Gameplay.name })
   gameplay: number;

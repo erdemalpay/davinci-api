@@ -21,6 +21,11 @@ export class CreateGameplayTimeDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()
+  table: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsNumber()
   gameplay: number;
 
   @ApiProperty()
@@ -53,6 +58,11 @@ export class UpdateGameplayTimeDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
+  table?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
   gameplay?: number;
 
   @ApiProperty({ required: false })
@@ -81,6 +91,11 @@ export class GameplayTimeQueryDto {
   @IsOptional()
   @IsNumber()
   location?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  table?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
