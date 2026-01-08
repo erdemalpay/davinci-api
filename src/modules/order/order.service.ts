@@ -2144,12 +2144,14 @@ export class OrderService {
         {
           $unwind: {
             path: '$paymentMethodDetails',
-            preserveNullAndEmptyArrays: false,
+            preserveNullAndEmptyArrays: true,
           },
         },
         {
           $match: {
-            'paymentMethodDetails.isPaymentMade': true,
+            // Exclude only collections with isPaymentMade: false
+            // Include if field is missing or true
+            'paymentMethodDetails.isPaymentMade': { $ne: false },
           },
         },
         {
