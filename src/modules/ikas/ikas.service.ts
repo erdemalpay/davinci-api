@@ -724,7 +724,7 @@ export class IkasService {
       }
     }
 
-    if (variantId) {
+    if (!variantId) {
       throw new HttpException(
         `Product with ID ${productId} not found or has no variants`,
         HttpStatus.NOT_FOUND,

@@ -15,6 +15,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { GameplayTimeService } from '../gameplaytime/gameplaytime.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
@@ -44,6 +45,7 @@ export class TableService {
     @InjectModel(Table.name) private tableModel: Model<Table>,
     @InjectModel(Feedback.name) private feedbackModel: Model<Feedback>,
     private readonly gameplayService: GameplayService,
+    private readonly gameplayTimeService: GameplayTimeService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
     private readonly menuService: MenuService,
@@ -117,6 +119,27 @@ export class TableService {
 
   async update(user: User, id: number, tableDto: TableDto) {
     const existingTable = await this.tableModel.findById(id);
+    if (tableDto.finishHour && !existingTable?.finishHour) {
+      const orders = await this.orderService.findGivenTableOrders(id);
+
+      // Filter out cancelled orders
+      const activeOrders = orders.filter(
+        (order) => order.status !== OrderStatus.CANCELLED,
+      );
+
+      // Check if all items are marked as paid
+      const allItemsPaid = activeOrders.every(
+        (order) => order.paidQuantity === order.quantity,
+      );
+
+      // Validation: Cannot close table with unpaid orders
+      if (!allItemsPaid) {
+        throw new HttpException(
+          'Cannot close table with unpaid orders',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
     const updatedTable = await this.tableModel.findByIdAndUpdate(id, tableDto, {
       new: true,
     });
@@ -406,6 +429,17 @@ export class TableService {
       tableId: id,
       gameplay,
     });
+
+    if (gameplayDto?.isGameplayTime) {
+      this.gameplayTimeService.create({
+        user: user._id,
+        location: gameplayDto.location,
+        date: gameplayDto.date,
+        gameplay: gameplay._id,
+        startHour: gameplayDto.startHour,
+        table: table._id,
+      });
+    }
 
     table.gameplays.push(gameplay);
     await table.save();

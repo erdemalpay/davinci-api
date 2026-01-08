@@ -78,6 +78,9 @@ export class Location extends Document {
 
   @Prop([DailyHours])
   dailyHours?: DailyHours[];
+
+  @Prop({ required: false, type: Number, ref: Location.name })
+  fallbackStockLocation?: number;
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
