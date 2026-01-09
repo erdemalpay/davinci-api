@@ -1,5 +1,5 @@
 import { OrderCollectionItem } from './collection.schema';
-import { IkasCustomer, Order } from './order.schema';
+import { IkasCustomer, Order, ShopifyCustomer } from './order.schema';
 
 export class CreateOrderDto {
   location: number;
@@ -33,11 +33,15 @@ export class CreateOrderDto {
   paymentMethod?: string;
   tableDate?: Date;
   ikasId?: string;
+  shopifyId?: string;
   activityTableName?: string;
   activityPlayer?: string;
   ikasCustomer?: IkasCustomer;
   isIkasCustomerPicked?: boolean;
+  shopifyCustomer?: ShopifyCustomer;
+  isShopifyCustomerPicked?: boolean;
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
 }
 
 // TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
@@ -72,6 +76,7 @@ export type OrderType = {
   discountNote?: string;
   stockNote?: string;
   ikasId?: string;
+  shopifyId?: string;
   activityTableName?: string;
   activityPlayer?: string;
   paymentMethod?: string;
@@ -79,7 +84,10 @@ export type OrderType = {
   isPaymentMade?: boolean;
   ikasCustomer?: IkasCustomer;
   isIkasCustomerPicked?: boolean;
+  shopifyCustomer?: ShopifyCustomer;
+  isShopifyCustomerPicked?: boolean;
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
 };
 
 export class CreateCollectionDto {
@@ -94,8 +102,10 @@ export class CreateCollectionDto {
   activityPlayer?: string;
   createdBy: string;
   ikasId?: string;
+  shopifyId?: string;
   tableDate?: Date;
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
   pointUser?: string;
   pointConsumer?: number;
 }

@@ -38,6 +38,7 @@
     "@nestjs/schedule": "^6.0.0",
     "@nestjs/swagger": "^5.1.5",
     "@nestjs/websockets": "9.1.6",
+    "@shopify/shopify-api": "^12.2.0",
     "bcrypt": "^5.1.0",
     "bgg": "^1.0.1",
     "bgg-xml-api-client": "^0.1.10",

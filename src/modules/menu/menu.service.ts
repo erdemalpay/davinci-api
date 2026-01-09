@@ -27,7 +27,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -439,6 +439,14 @@ export class MenuService {
     });
     return item;
   }
+
+  async findByShopifyId(id: string) {
+    const item = await this.itemModel.findOne({
+      shopifyId: id,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
   async findItemById(id: number) {
     const item = await this.itemModel.findById({
       _id: id,
@@ -454,6 +462,15 @@ export class MenuService {
   async getAllIkasItems() {
     const items = await this.itemModel.find({
       ikasId: { $nin: [null, ''] },
+      matchedProduct: { $nin: [null, ''] },
+      deleted: { $ne: true },
+    });
+    return items;
+  }
+
+  async getAllShopifyItems() {
+    const items = await this.itemModel.find({
+      shopifyId: { $nin: [null, ''] },
       matchedProduct: { $nin: [null, ''] },
       deleted: { $ne: true },
     });
