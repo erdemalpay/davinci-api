@@ -1,6 +1,16 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { GameplayService } from '../gameplay/gameplay.service';
+import { LocationService } from '../location/location.service';
+import { TableService } from '../table/table.service';
+import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateGameplayTimeDto,
@@ -15,6 +25,11 @@ export class GameplayTimeService {
     @InjectModel(GameplayTime.name)
     private gameplayTimeModel: Model<GameplayTime>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly locationService: LocationService,
+    private readonly userService: UserService,
+    private readonly gameplayService: GameplayService,
+    @Inject(forwardRef(() => TableService))
+    private readonly tableService: TableService,
   ) {}
 
   async create(
@@ -102,6 +117,46 @@ export class GameplayTimeService {
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
     const skip = (pageNum - 1) * limitNum;
+
+    if (query.search && String(query.search).trim().length > 0) {
+      const rx = new RegExp(String(query.search).trim(), 'i');
+      const numeric = Number(query.search);
+      const isNumeric = !Number.isNaN(numeric);
+      const [
+        searchedLocationIds,
+        searchedUserIds,
+        searchedGameplayIds,
+        searchedTableIds,
+      ] = await Promise.all([
+        this.locationService.searchLocationIds(query.search),
+        this.userService.searchUserIds(query.search),
+        this.gameplayService.searchGameplayIds(query.search),
+        this.tableService.searchTableIds(query.search),
+      ]);
+      const orConds: any[] = [
+        { date: { $regex: rx } },
+        { startHour: { $regex: rx } },
+        { finishHour: { $regex: rx } },
+        ...(searchedUserIds.length ? [{ user: { $in: searchedUserIds } }] : []),
+        ...(searchedLocationIds.length
+          ? [{ location: { $in: searchedLocationIds } }]
+          : []),
+        ...(searchedGameplayIds.length
+          ? [{ gameplay: { $in: searchedGameplayIds } }]
+          : []),
+        ...(searchedTableIds.length
+          ? [{ table: { $in: searchedTableIds } }]
+          : []),
+      ];
+      if (isNumeric) {
+        orConds.push({ _id: numeric as any });
+        orConds.push({ gameplay: numeric as any });
+        orConds.push({ table: numeric as any });
+      }
+      if (orConds.length) {
+        filter.$or = orConds;
+      }
+    }
 
     try {
       const [data, totalNumber] = await Promise.all([

@@ -45,6 +45,7 @@ export class TableService {
     @InjectModel(Table.name) private tableModel: Model<Table>,
     @InjectModel(Feedback.name) private feedbackModel: Model<Feedback>,
     private readonly gameplayService: GameplayService,
+    @Inject(forwardRef(() => GameplayTimeService))
     private readonly gameplayTimeService: GameplayTimeService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
@@ -56,6 +57,14 @@ export class TableService {
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
   ) {}
+
+  async searchTableIds(search: string) {
+    const searchTableIds = await this.tableModel
+      .find({ name: { $regex: new RegExp(search, 'i') } })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
+    return searchTableIds;
+  }
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
     const foundTable = await this.tableModel.findOne({

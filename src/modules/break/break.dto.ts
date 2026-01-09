@@ -104,5 +104,10 @@ export class BreakQueryDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   asc?: number | '1' | '0' | '-1';
 }

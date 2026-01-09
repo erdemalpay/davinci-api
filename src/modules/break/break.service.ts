@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { LocationService } from '../location/location.service';
+import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { BreakQueryDto, CreateBreakDto, UpdateBreakDto } from './break.dto';
 import { Break } from './break.schema';
@@ -10,6 +12,8 @@ export class BreakService {
   constructor(
     @InjectModel(Break.name) private breakModel: Model<Break>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly locationService: LocationService,
+    private readonly userService: UserService,
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
@@ -47,6 +51,7 @@ export class BreakService {
     const {
       user,
       location,
+      search,
       date,
       after,
       before,
@@ -91,6 +96,31 @@ export class BreakService {
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
     const skip = (pageNum - 1) * limitNum;
+
+    if (search && String(search).trim().length > 0) {
+      const rx = new RegExp(String(search).trim(), 'i');
+      const numeric = Number(search);
+      const isNumeric = !Number.isNaN(numeric);
+      const [searchedLocationIds, searchedUserIds] = await Promise.all([
+        this.locationService.searchLocationIds(search),
+        this.userService.searchUserIds(search),
+      ]);
+      const orConds: any[] = [
+        { date: { $regex: rx } },
+        { startHour: { $regex: rx } },
+        { finishHour: { $regex: rx } },
+        ...(searchedUserIds.length ? [{ user: { $in: searchedUserIds } }] : []),
+        ...(searchedLocationIds.length
+          ? [{ location: { $in: searchedLocationIds } }]
+          : []),
+      ];
+      if (isNumeric) {
+        orConds.push({ _id: numeric as any });
+      }
+      if (orConds.length) {
+        filter.$or = orConds;
+      }
+    }
 
     try {
       const [data, totalNumber] = await Promise.all([
