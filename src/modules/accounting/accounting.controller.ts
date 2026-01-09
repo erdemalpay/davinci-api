@@ -713,6 +713,11 @@ export class AccountingController {
     return this.accountingService.removeCount(id);
   }
 
+  @Get('/counts/:id')
+  findCountById(@Param('id') id: string) {
+    return this.accountingService.findCountById(id);
+  }
+
   @Get('/match-products')
   matchProducts() {
     return this.accountingService.matchProducts();

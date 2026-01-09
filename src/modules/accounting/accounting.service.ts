@@ -1915,7 +1915,12 @@ export class AccountingService {
               as: 'productDetails',
             },
           },
-          { $unwind: { path: '$productDetails', preserveNullAndEmptyArrays: true } },
+          {
+            $unwind: {
+              path: '$productDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
           // Lookup stock history changes after target date
           {
             $lookup: {
@@ -1983,7 +1988,9 @@ export class AccountingService {
       };
 
       const afterDate = new Date(after);
-      const beforeDate = new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000);
+      const beforeDate = new Date(
+        new Date(before).getTime() + 24 * 60 * 60 * 1000,
+      );
 
       const [afterTotalValue, beforeTotalValue] = await Promise.all([
         calculateStockValueAtDate(afterDate),
@@ -2071,7 +2078,6 @@ export class AccountingService {
       );
 
       if (oldQuantity <= 0 && newStock.quantity > 0) {
-
         const notificationEvents =
           await this.notificationService.findAllEventNotifications();
         const stockRestoredEvent = notificationEvents.find(
@@ -2133,17 +2139,17 @@ export class AccountingService {
           );
         }
       } else if (oldQuantity > 0 && newStock.quantity <= 0) {
-
-        const foundProduct = await this.findProductById(
-          createStockDto.product,
-        );
+        const foundProduct = await this.findProductById(createStockDto.product);
         const locations = await this.locationService.findAllLocations();
         const stockLocation = locations.find(
           (location) => location._id === createStockDto.location,
         );
 
         const message = {
-          key: newStock.quantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
+          key:
+            newStock.quantity === 0
+              ? 'StockZeroReached'
+              : 'StockNegativeReached',
           params: {
             product: foundProduct?.name || 'Unknown',
             location: stockLocation?.name || 'Unknown',
@@ -2806,7 +2812,9 @@ export class AccountingService {
   findAllCounts() {
     return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
   }
-
+  findCountById(id: string) {
+    return this.countModel.findById(id);
+  }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
