@@ -22,6 +22,7 @@ import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { Kitchen } from '../menu/kitchen.schema';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { PointService } from '../point/point.service';
@@ -57,6 +58,74 @@ import { OrderNotes } from './orderNotes.schema';
 interface SeenUsers {
   [key: string]: boolean;
 }
+
+interface PopulatedMenuItem {
+  _id: number;
+  name: string;
+  category: number;
+  itemProduction: Array<{
+    quantity: number;
+    product: string;
+    isDecrementStock: boolean;
+  }>;
+}
+
+interface PopulatedOrder {
+  _id: number;
+  item: PopulatedMenuItem;
+  kitchen?: Kitchen;
+  quantity: number;
+  unitPrice: number;
+  location: number;
+  stockLocation?: number;
+  discount?: number;
+  discountPercentage?: number;
+  discountAmount?: number;
+  paidQuantity: number;
+  status: OrderStatus;
+  createdBy: number;
+  createdAt: Date;
+  table?: number | PopulatedTable;
+}
+
+interface PopulatedTable {
+  _id: number;
+  date: string;
+  name?: string;
+  isOnlineSale?: boolean;
+  finishHour?: string;
+  type?: string;
+  startHour?: string;
+}
+
+interface OrderDocument {
+  _id: number;
+  item?: number;
+  [key: string]: unknown;
+}
+
+interface PaidOrderItem {
+  order: number;
+  paidQuantity: number;
+}
+
+// Type guard helpers
+function isPopulatedMenuItem(
+  item: number | PopulatedMenuItem,
+): item is PopulatedMenuItem {
+  return typeof item === 'object' && item !== null && 'itemProduction' in item;
+}
+
+function isPopulatedTable(
+  table: number | PopulatedTable,
+): table is PopulatedTable {
+  return typeof table === 'object' && table !== null && 'date' in table;
+}
+
+function isPopulatedKitchen(kitchen: string | Kitchen): kitchen is Kitchen {
+  return typeof kitchen === 'object' && kitchen !== null && 'name' in kitchen;
+}
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -164,7 +233,7 @@ export class OrderService {
     return result;
   }
   async findQueryOrders(query: OrderQueryDto) {
-    const filterQuery: Record<string, any> = {
+    const filterQuery: Record<string, unknown> = {
       quantity: { $gt: 0 },
     };
     const { after, before, category, location, isIkasPickUp, item } = query;
@@ -193,7 +262,10 @@ export class OrderService {
         endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
       }
       filterQuery.tableDate = {
-        ...(filterQuery.tableDate ?? {}),
+        ...(typeof filterQuery.tableDate === 'object' &&
+        filterQuery.tableDate !== null
+          ? filterQuery.tableDate
+          : {}),
         $lte: endUtc,
       };
     }
@@ -270,7 +342,7 @@ export class OrderService {
     return new Date(year, month - 1, day);
   }
   async findPersonalCollectionNumbers(query: OrderQueryDto) {
-    const filterQuery: any = {};
+    const filterQuery: Record<string, unknown> = {};
     const { after, before } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
@@ -315,7 +387,7 @@ export class OrderService {
   }
 
   async findPersonalDatas(query: OrderQueryDto) {
-    const filterQuery: any = {};
+    const filterQuery: Record<string, unknown> = {};
     const { after, before, eliminatedDiscounts } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
@@ -884,11 +956,19 @@ export class OrderService {
           ms: avgMs,
           formatted: formatDuration(avgMs),
         },
-        topOrders: stats.topOrders.map((o: any) => ({
-          order: o,
-          ms: o.preparationTimeMs,
-          formatted: formatDuration(o.preparationTimeMs),
-        })),
+        topOrders: stats.topOrders.map(
+          (o: {
+            _id: number;
+            item: number;
+            orderTable: unknown;
+            preparationTimeMs: number;
+            deliveredAt: Date;
+          }) => ({
+            order: o,
+            ms: o.preparationTimeMs,
+            formatted: formatDuration(o.preparationTimeMs),
+          }),
+        ),
       };
     } catch (error) {
       throw new HttpException(
@@ -1009,7 +1089,9 @@ export class OrderService {
             select: 'date _id name isOnlineSale finishHour type startHour',
           },
         ]);
-        for (const ingredient of (orderWithItem.item as any).itemProduction) {
+        for (const ingredient of (
+          orderWithItem.item as unknown as PopulatedMenuItem
+        ).itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const consumptionQuantity =
@@ -1145,18 +1227,20 @@ export class OrderService {
         },
       ]);
 
-      for (const ingredient of (orderWithItem.item as any).itemProduction) {
-        const isStockDecrementRequired = ingredient?.isDecrementStock;
-        if (isStockDecrementRequired) {
-          const consumptionQuantity =
-            ingredient?.quantity * orderWithItem.quantity;
-          await this.accountingService.consumptStock(user, {
-            product: ingredient?.product,
-            location: order?.stockLocation ?? order?.location,
-            quantity: consumptionQuantity,
-            status:
-              createOrderDto?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
-          });
+      if (isPopulatedMenuItem(orderWithItem.item)) {
+        for (const ingredient of orderWithItem.item.itemProduction) {
+          const isStockDecrementRequired = ingredient?.isDecrementStock;
+          if (isStockDecrementRequired) {
+            const consumptionQuantity =
+              ingredient?.quantity * orderWithItem.quantity;
+            await this.accountingService.consumptStock(user, {
+              product: ingredient?.product,
+              location: order?.stockLocation ?? order?.location,
+              quantity: consumptionQuantity,
+              status:
+                createOrderDto?.stockNote ?? StockHistoryStatusEnum.ORDERCREATE,
+            });
+          }
         }
       }
       try {
@@ -1243,8 +1327,12 @@ export class OrderService {
           ?.reduce(
             (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
               acc.seenUsers = acc.seenUsers || {};
-              if (visit?.user && !acc.seenUsers[(visit as any).user]) {
-                acc.seenUsers[(visit as any).user] = true;
+              const userId =
+                typeof visit?.user === 'string'
+                  ? visit.user
+                  : (visit?.user as User)?._id;
+              if (visit?.user && !acc.seenUsers[userId]) {
+                acc.seenUsers[userId] = true;
                 acc.unique.push(visit);
               }
               return acc;
@@ -1255,8 +1343,8 @@ export class OrderService {
       const message = {
         key: 'OrderNotConfirmedForMinutes',
         params: {
-          brand: (order?.kitchen as any)?.name,
-          product: (order.item as any).name,
+          brand: isPopulatedKitchen(order?.kitchen) ? order.kitchen.name : '',
+          product: isPopulatedMenuItem(order.item) ? order.item.name : '',
           minutes: 5,
         },
       };
@@ -1359,17 +1447,18 @@ export class OrderService {
       const populatedReturnOrder = await this.orderModel
         .findById(returnOrder._id)
         .populate('item');
-      for (const ingredient of (populatedReturnOrder?.item as any)
-        .itemProduction) {
-        if (ingredient?.isDecrementStock) {
-          const incrementQuantity =
-            ingredient?.quantity * populatedReturnOrder?.quantity;
-          await this.accountingService.createStock(user, {
-            product: ingredient?.product,
-            location: populatedReturnOrder?.stockLocation,
-            quantity: incrementQuantity,
-            status: StockHistoryStatusEnum.ORDERRETURN,
-          });
+      if (isPopulatedMenuItem(populatedReturnOrder?.item)) {
+        for (const ingredient of populatedReturnOrder.item.itemProduction) {
+          if (ingredient?.isDecrementStock) {
+            const incrementQuantity =
+              ingredient?.quantity * populatedReturnOrder?.quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: populatedReturnOrder?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.ORDERRETURN,
+            });
+          }
         }
       }
       //update the original order status
@@ -1427,8 +1516,11 @@ export class OrderService {
         );
       }
 
-      if (updates?.status === OrderStatus.CANCELLED) {
-        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+      if (
+        updates?.status === OrderStatus.CANCELLED &&
+        isPopulatedMenuItem(oldOrder?.item)
+      ) {
+        for (const ingredient of oldOrder.item.itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const incrementQuantity = ingredient?.quantity * oldOrder?.quantity;
@@ -1459,9 +1551,10 @@ export class OrderService {
           OrderStatus.WASTED,
           OrderStatus.RETURNED,
           OrderStatus.CANCELLED,
-        ].includes(updates?.status)
+        ].includes(updates?.status) &&
+        isPopulatedMenuItem(oldOrder?.item)
       ) {
-        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+        for (const ingredient of oldOrder.item.itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const incrementQuantity = ingredient?.quantity * oldOrder?.quantity;
@@ -1479,8 +1572,11 @@ export class OrderService {
       const oldOrder = await (
         await this.orderModel.findById(id)
       ).populate('item');
-      if (oldOrder?.quantity < updates?.quantity) {
-        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+      if (
+        oldOrder?.quantity < updates?.quantity &&
+        isPopulatedMenuItem(oldOrder?.item)
+      ) {
+        for (const ingredient of oldOrder.item.itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const incrementQuantity =
@@ -1497,8 +1593,11 @@ export class OrderService {
           ...oldOrder,
           quantity: updates?.quantity,
         });
-      } else if (updates?.quantity < oldOrder?.quantity) {
-        for (const ingredient of (oldOrder?.item as any).itemProduction) {
+      } else if (
+        updates?.quantity < oldOrder?.quantity &&
+        isPopulatedMenuItem(oldOrder?.item)
+      ) {
+        for (const ingredient of oldOrder.item.itemProduction) {
           const isStockDecrementRequired = ingredient?.isDecrementStock;
           if (isStockDecrementRequired) {
             const incrementQuantity =
@@ -1624,15 +1723,17 @@ export class OrderService {
           },
           { new: true },
         );
-        for (const ingredient of (order?.item as any).itemProduction) {
-          if (ingredient?.isDecrementStock) {
-            const incrementQuantity = ingredient?.quantity * quantity;
-            await this.accountingService.createStock(user, {
-              product: ingredient?.product,
-              location: order?.stockLocation,
-              quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.IKASORDERCANCEL,
-            });
+        if (isPopulatedMenuItem(order?.item)) {
+          for (const ingredient of order.item.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              const incrementQuantity = ingredient?.quantity * quantity;
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: order?.stockLocation,
+                quantity: incrementQuantity,
+                status: StockHistoryStatusEnum.IKASORDERCANCEL,
+              });
+            }
           }
         }
       } else {
@@ -1661,15 +1762,17 @@ export class OrderService {
           },
           { new: true },
         );
-        for (const ingredient of (order?.item as any).itemProduction) {
-          if (ingredient?.isDecrementStock) {
-            const incrementQuantity = ingredient?.quantity * order?.quantity;
-            await this.accountingService.createStock(user, {
-              product: ingredient?.product,
-              location: order?.stockLocation,
-              quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.IKASORDERCANCEL,
-            });
+        if (isPopulatedMenuItem(order?.item)) {
+          for (const ingredient of order.item.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              const incrementQuantity = ingredient?.quantity * order?.quantity;
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: order?.stockLocation,
+                quantity: incrementQuantity,
+                status: StockHistoryStatusEnum.IKASORDERCANCEL,
+              });
+            }
           }
         }
       }
@@ -1716,13 +1819,15 @@ export class OrderService {
     if (!orders?.length) return;
     const session = opts?.session;
     const deferEmit =
-      opts?.deferEmit ?? Boolean(session && (session as any).inTransaction?.());
+      opts?.deferEmit ?? Boolean(session && session.inTransaction?.());
     try {
       const ids = orders.map((o) => o._id);
       const existing = await this.orderModel
         .find({ _id: { $in: ids } }, null, withSession({}, session))
         .lean();
-      const map = new Map(existing.map((o: any) => [String(o._id), o]));
+      const map = new Map(
+        existing.map((o: OrderDocument) => [String(o._id), o]),
+      );
       const missing = ids.filter((id) => !map.has(String(id)));
       if (missing.length) {
         throw new HttpException(
@@ -1763,7 +1868,8 @@ export class OrderService {
     location?: number,
     upperCategory?: number,
   ) {
-    const twelveMonthsAgo = moment()
+    const twelveMonthsAgo = moment
+      .tz('Europe/Istanbul')
       .subtract(12, 'months')
       .startOf('month')
       .toDate();
@@ -2021,7 +2127,7 @@ export class OrderService {
     }
   }
   async findQueryCollections(query: CollectionQueryDto) {
-    const filterQuery: Record<string, any> = {};
+    const filterQuery: Record<string, unknown> = {};
     const { after, before, location } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
@@ -2048,7 +2154,10 @@ export class OrderService {
         endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
       }
       filterQuery.tableDate = {
-        ...(filterQuery.tableDate ?? {}),
+        ...(typeof filterQuery.tableDate === 'object' &&
+        filterQuery.tableDate !== null
+          ? filterQuery.tableDate
+          : {}),
         $lte: endUtc,
       };
     }
@@ -2292,9 +2401,10 @@ export class OrderService {
           const foundNewOrder = newOrders.find(
             (newOrder) => newOrder._id === orderCollectionItem.order,
           );
-          const existingOrder: any = tablePaidOrders?.find(
-            (paidOrder: any) => paidOrder.order === orderCollectionItem.order,
-          );
+          const existingOrder = tablePaidOrders?.find(
+            (paidOrder: PaidOrderItem) =>
+              paidOrder.order === orderCollectionItem.order,
+          ) as PaidOrderItem | undefined;
           const expectedPaidQuantity =
             (existingOrder?.paidQuantity ?? 0) +
             orderCollectionItem.paidQuantity;
@@ -3126,8 +3236,8 @@ export class OrderService {
 
       for (const order of orders) {
         // Convert date to Europe/Istanbul timezone, or use UTC as a fallback
-        order.tableDate = order.table
-          ? new Date((order.table as any).date)
+        order.tableDate = isPopulatedTable(order.table)
+          ? new Date(order.table.date)
           : order.createdAt; // Convert createdAt to Date object directly
 
         await order.save();
@@ -3145,8 +3255,8 @@ export class OrderService {
 
       for (const collection of collections) {
         // Similarly, handle dates for collections
-        collection.tableDate = collection.table
-          ? new Date((collection.table as any).date)
+        collection.tableDate = isPopulatedTable(collection.table)
+          ? new Date(collection.table.date)
           : collection.createdAt; // Use createdAt as Date object
 
         await collection.save();
@@ -3318,7 +3428,9 @@ export class OrderService {
     const sinceOnly = options?.sinceOnly;
     const dryRun = !!options?.dryRun;
 
-    const matchStage: any = { ikasId: { $exists: true, $ne: null } };
+    const matchStage: Record<string, unknown> = {
+      ikasId: { $exists: true, $ne: null },
+    };
     if (sinceOnly) matchStage.createdAt = { $gte: sinceOnly };
 
     const dupGroups = await this.orderModel.aggregate([
@@ -3377,11 +3489,11 @@ export class OrderService {
           let survivorOrderId: number | null = null;
           if (referencedOrderIds.size > 0) {
             const earliestReferenced = orders.find((o) =>
-              referencedOrderIds.has(o._id as unknown as number),
+              referencedOrderIds.has(o._id as number),
             );
-            survivorOrderId = earliestReferenced?._id as unknown as number;
+            survivorOrderId = earliestReferenced?._id as number;
           } else {
-            survivorOrderId = orders[0]?._id as unknown as number;
+            survivorOrderId = orders[0]?._id as number;
           }
           if (survivorOrderId == null) continue;
 
@@ -3389,7 +3501,7 @@ export class OrderService {
             (c.orders ?? []).some((oi) => oi.order === survivorOrderId),
           );
 
-          let keptCollection: any = null;
+          let keptCollection: Collection | null = null;
 
           if (survivorCollections.length > 0) {
             keptCollection = survivorCollections.sort(
@@ -3427,7 +3539,7 @@ export class OrderService {
                   keptCollection.orders.push({
                     order: survivorOrderId,
                     paidQuantity: 0,
-                  } as any);
+                  });
                 }
               } else {
                 let addPQ = 0;
@@ -3447,7 +3559,7 @@ export class OrderService {
           }
 
           const collectionsToDelete = collections.filter(
-            (c) => !keptCollection || c._id !== (keptCollection as any)._id,
+            (c) => !keptCollection || c._id !== keptCollection._id,
           );
           if (!dryRun && collectionsToDelete.length > 0) {
             const delRes = await this.collectionModel.deleteMany(
@@ -3494,7 +3606,7 @@ export class OrderService {
             ikasId,
             survivorOrder: survivorOrderId,
             keptCollection: keptCollection
-              ? (keptCollection._id as unknown as number)
+              ? (keptCollection._id as number)
               : undefined,
           });
         }

@@ -27,6 +27,7 @@ import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
+import { Order } from './../order/order.schema';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { Feedback } from './feedback.schema';
 import {
@@ -488,8 +489,10 @@ export class TableService {
         HttpStatus.NOT_FOUND,
       );
     }
-    const isTableHasOrders = (table?.orders as any)?.some(
-      (order) => order.status !== OrderStatus.CANCELLED,
+    const orders = table.orders as (number | Order)[];
+    const isTableHasOrders = orders?.some(
+      (order) =>
+        typeof order === 'object' && order.status !== OrderStatus.CANCELLED,
     );
     if (isTableHasOrders) {
       throw new HttpException(
@@ -690,7 +693,7 @@ export class TableService {
   }
   //feedback
   async findQueryFeedback(after?: string, before?: string, location?: number) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     const createdAt: Record<string, Date> = {};
     if (after) {
       createdAt.$gte = new Date(after);

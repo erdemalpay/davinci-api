@@ -81,14 +81,14 @@ export class GameplayTimeService {
       asc = -1,
     } = query;
 
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
 
     if (user) filter.user = user;
     if (location) filter.location = location;
     if (gameplay) filter.gameplay = gameplay;
     if (date) filter.createdAt = date;
 
-    const rangeFilter: Record<string, any> = {};
+    const rangeFilter: Record<string, Date> = {};
     if (after) {
       const start = this.parseLocalDate(after);
       rangeFilter.$gte = start;

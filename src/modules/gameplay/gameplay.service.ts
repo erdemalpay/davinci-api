@@ -108,7 +108,7 @@ export class GameplayService {
       search,
     } = query;
 
-    const filter: Record<string, any> = {};
+    const filter: Record<string, unknown> = {};
     if (location !== undefined && location !== null && `${location}` !== '') {
       const locNum =
         typeof location === 'string' ? Number(location) : (location as number);
@@ -134,12 +134,17 @@ export class GameplayService {
       if (mentor) filter.mentor = mentor;
     }
     if (startDate || endDate) {
-      const range: Record<string, any> = {};
+      const range: Record<string, Date> = {};
       if (startDate) {
         filter.date = { $gte: startDate };
       }
       if (endDate) {
-        filter.date = { ...filter.date, $lte: endDate };
+        filter.date = {
+          ...(typeof filter.date === 'object' && filter.date !== null
+            ? filter.date
+            : {}),
+          $lte: endDate,
+        };
       }
     }
     const sortObject: Record<string, 1 | -1> = {};
@@ -172,7 +177,7 @@ export class GameplayService {
         return acc;
       }, {});
 
-      const pipeline: any[] = [
+      const pipeline: PipelineStage[] = [
         { $match: filter },
         { $group: { _id: idSpec, total: { $sum: 1 } } },
       ];
@@ -191,8 +196,8 @@ export class GameplayService {
       const data = first.data ?? [];
       const totalNumber = (first.meta?.[0]?.totalNumber as number) ?? 0;
       const totalPages = Math.ceil(totalNumber / limitNum);
-      const normalized = data.map((row: any) => ({
-        ...row._id,
+      const normalized = data.map((row: Record<string, unknown>) => ({
+        ...(typeof row._id === 'object' && row._id !== null ? row._id : {}),
         total: row.total,
       }));
 
@@ -299,7 +304,10 @@ export class GameplayService {
       filterQuery['location'] = Number(location);
     }
     // Initial grouping object
-    const initialGroup: any = {
+    const initialGroup: {
+      _id: Record<string, string>;
+      total: { $sum: number };
+    } = {
       _id: {},
       total: { $sum: 1 },
     };
@@ -309,7 +317,7 @@ export class GameplayService {
 
     const aggregation: PipelineStage[] = [
       { $match: filterQuery },
-      { $group: initialGroup },
+      { $group: initialGroup as PipelineStage.Group['$group'] },
       { $sort: { total: -1 } },
     ];
 
