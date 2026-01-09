@@ -9,7 +9,7 @@ import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   GameplayQueryDto,
-  GameplayQueryGroupDto
+  GameplayQueryGroupDto,
 } from './dto/gameplay-query.dto';
 import { GameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
@@ -36,6 +36,27 @@ export class GameplayService {
 
   findAll() {
     return this.gameplayModel.find();
+  }
+
+  async searchGameplayIds(search: string) {
+    const searchRegex = new RegExp(search, 'i');
+    const [mentorIds, gameIds] = await Promise.all([
+      this.userModel
+        .find({ name: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id)),
+      this.gameModel
+        .find({ name: { $regex: searchRegex } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id)),
+    ]);
+    const searchGameplayIds = await this.gameplayModel
+      .find({
+        $or: [{ mentor: { $in: mentorIds } }, { game: { $in: gameIds } }],
+      })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
+    return searchGameplayIds;
   }
 
   async groupByField(query) {
