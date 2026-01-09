@@ -21,4 +21,8 @@ export class Stock extends Document {
 
 export const StockSchema = SchemaFactory.createForClass(Stock);
 
+// Compound index for stock queries by product and location
+StockSchema.index({ product: 1, location: 1 });
+StockSchema.index({ location: 1 });
+
 purifySchema(StockSchema);
