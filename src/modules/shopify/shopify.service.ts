@@ -1,3 +1,4 @@
+import { HttpService } from '@nestjs/axios';
 import {
   forwardRef,
   HttpException,
@@ -7,12 +8,15 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
+import '@shopify/shopify-api/adapters/node';
 import { format } from 'date-fns';
+import { firstValueFrom } from 'rxjs';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
+import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
@@ -30,17 +34,34 @@ interface SeenUsers {
   [key: string]: boolean;
 }
 
+interface ShopifyToken {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number; // Unix timestamp in milliseconds
+  refreshTokenExpiresAt?: number; // Unix timestamp in milliseconds
+  createdAt: number;
+}
+
 @Injectable()
 export class ShopifyService {
   private readonly storeUrl: string;
-  private readonly accessToken: string;
+  private readonly apiKey: string;
+  private readonly apiSecretKey: string;
   private readonly apiVersion: ApiVersion = ApiVersion.January26;
-  private readonly shopify: ReturnType<typeof shopifyApi>;
-  private readonly session: Session;
+  private shopifyInstance: ReturnType<typeof shopifyApi> | null = null;
+  private readonly scopes: string[] = [
+    'read_products',
+    'write_products',
+    'read_orders',
+    'write_orders',
+    'read_inventory',
+    'write_inventory',
+  ];
 
   constructor(
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly httpService: HttpService,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     @Inject(forwardRef(() => MenuService))
@@ -54,36 +75,203 @@ export class ShopifyService {
     private readonly visitService: VisitService,
   ) {
     this.storeUrl = this.configService.get<string>('SHOPIFY_STORE_URL');
-    this.accessToken = this.configService.get<string>('SHOPIFY_ACCESS_TOKEN') || '';
+    this.apiKey = this.configService.get<string>('SHOPIFY_API_KEY') || '';
+    this.apiSecretKey = this.configService.get<string>('SHOPIFY_API_SECRET') || '';
     
     if (!this.storeUrl) {
       console.warn('Shopify store URL not configured');
     }
+  }
 
-    // Custom Store App için adminApiAccessToken gerekli
-    this.shopify = shopifyApi({
-      apiKey: this.configService.get<string>('SHOPIFY_API_KEY') || '',
-      apiSecretKey: this.configService.get<string>('SHOPIFY_API_SECRET') || '',
+  private async getShopifyInstance(): Promise<ReturnType<typeof shopifyApi>> {
+    if (this.shopifyInstance) {
+      return this.shopifyInstance;
+    }
+
+    // Get token for adminApiAccessToken
+    const accessToken = await this.getToken();
+
+    // Initialize Shopify API client with token
+    this.shopifyInstance = shopifyApi({
+      apiKey: this.apiKey,
+      apiSecretKey: this.apiSecretKey,
       apiVersion: this.apiVersion,
-      scopes: ['read_products', 'write_products', 'read_orders', 'write_orders', 'read_inventory', 'write_inventory'],
+      scopes: this.scopes,
       hostName: this.configService.get<string>('SHOPIFY_LOCAL_URL') || '',
       isEmbeddedApp: false,
       isCustomStoreApp: true,
-      adminApiAccessToken: this.accessToken, // Custom Store App için gerekli
+      adminApiAccessToken: accessToken,
     });
 
-    // Create session for GraphQL client
-    this.session = new Session({
+    return this.shopifyInstance;
+  }
+
+  private isTokenExpired(expiresAt?: number): boolean {
+    if (!expiresAt) {
+      return false; // Non-expiring token
+    }
+    const currentTime = new Date().getTime();
+    // Add 5 minute buffer before expiration
+    return currentTime >= expiresAt - 5 * 60 * 1000;
+  }
+
+  private async getToken(): Promise<string> {
+    let shopifyToken: ShopifyToken | null = await this.redisService.get(RedisKeys.ShopifyToken);
+    
+    // Check if token exists and is not expired
+    if (shopifyToken && !this.isTokenExpired(shopifyToken.expiresAt)) {
+      return shopifyToken.accessToken;
+    }
+
+    // Token expired or doesn't exist - get a new token using Client Credentials Grant
+    try {
+      shopifyToken = await this.getClientCredentialsToken();
+      return shopifyToken.accessToken;
+    } catch (error) {
+      console.error('Error getting client credentials token:', error.message);
+      throw new HttpException(
+        'Shopify access token not found and unable to obtain new token. Please check configuration.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  /**
+   * Get access token using Client Credentials Grant
+   * This method is used for server-to-server integrations without user interaction
+   * Token is valid for 24 hours (86399 seconds) and must be refreshed by calling this method again
+   */
+  private async getClientCredentialsToken(): Promise<ShopifyToken> {
+    const tokenUrl = `https://${this.storeUrl}/admin/oauth/access_token`;
+    
+    if (!this.apiKey || !this.apiSecretKey) {
+      throw new HttpException(
+        'SHOPIFY_API_KEY and SHOPIFY_API_SECRET must be configured',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          tokenUrl,
+          new URLSearchParams({
+            client_id: this.apiKey,
+            client_secret: this.apiSecretKey,
+            grant_type: 'client_credentials',
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json',
+            },
+          }
+        )
+      );
+
+      const tokenData: ShopifyToken = {
+        accessToken: response.data.access_token,
+        // Client Credentials Grant does not provide refresh tokens
+        refreshToken: undefined,
+        expiresAt: response.data.expires_in
+          ? new Date().getTime() + response.data.expires_in * 1000
+          : undefined,
+        refreshTokenExpiresAt: undefined,
+        createdAt: new Date().getTime(),
+      };
+
+      await this.redisService.set(RedisKeys.ShopifyToken, tokenData);
+      // Reset shopify instance to use new token
+      this.shopifyInstance = null;
+      return tokenData;
+    } catch (error) {
+      console.error('Error getting client credentials token:', error.response?.data || error.message);
+      throw new HttpException(
+        'Unable to get access token using client credentials grant',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async exchangeAuthorizationCode(code: string): Promise<ShopifyToken> {
+    const tokenUrl = `https://${this.storeUrl}/admin/oauth/access_token`;
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          tokenUrl,
+          new URLSearchParams({
+            client_id: this.apiKey,
+            client_secret: this.apiSecretKey,
+            code: code,
+            expiring: '1', // Request expiring offline token
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+
+      const tokenData: ShopifyToken = {
+        accessToken: response.data.access_token,
+        refreshToken: response.data.refresh_token,
+        expiresAt: response.data.expires_in
+          ? new Date().getTime() + response.data.expires_in * 1000
+          : undefined,
+        refreshTokenExpiresAt: response.data.refresh_token_expires_in
+          ? new Date().getTime() + response.data.refresh_token_expires_in * 1000
+          : undefined,
+        createdAt: new Date().getTime(),
+      };
+
+      await this.redisService.set(RedisKeys.ShopifyToken, tokenData);
+      // Reset shopify instance to use new token
+      this.shopifyInstance = null;
+      return tokenData;
+    } catch (error) {
+      console.error('Error exchanging authorization code:', error.response?.data || error.message);
+      throw new HttpException(
+        'Unable to exchange authorization code for access token',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+
+  getAuthorizationUrl(redirectUri: string, state?: string): string {
+    const scopes = this.scopes.join(',');
+    const params = new URLSearchParams({
+      client_id: this.apiKey,
+      scope: scopes,
+      redirect_uri: redirectUri,
+      'granted_options[]': 'per-user',
+    });
+
+    if (state) {
+      params.append('state', state);
+    }
+
+    return `https://${this.storeUrl}/admin/oauth/authorize?${params.toString()}`;
+  }
+
+  private async getSession(): Promise<Session> {
+    const accessToken = await this.getToken();
+    
+    return new Session({
       id: `${this.storeUrl}_session`,
       shop: this.storeUrl || '',
-      accessToken: this.accessToken,
+      accessToken: accessToken,
       state: 'state',
       isOnline: false,
     });
   }
 
   private async getGraphQLClient() {
-    return new this.shopify.clients.Graphql({ session: this.session });
+    const shopify = await this.getShopifyInstance();
+    const session = await this.getSession();
+    return new shopify.clients.Graphql({ session });
   }
 
   async getAllProducts() {
@@ -122,8 +310,6 @@ export class ShopifyService {
                       sku
                       barcode
                       inventoryQuantity
-                      weight
-                      weightUnit
                       image {
                         url
                       }

@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { UserModule } from 'src/modules/user/user.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -15,6 +16,7 @@ import { ShopifyService } from './shopify.service';
   imports: [
     WebSocketModule,
     RedisModule,
+    HttpModule,
     UserModule,
     LocationModule,
     NotificationModule,
