@@ -27,6 +27,7 @@ import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { MenuService } from './../menu/menu.service';
 import { CreateOrderDto, OrderStatus } from './../order/order.dto';
+import { Order } from './../order/order.schema';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { Feedback } from './feedback.schema';
 import {
@@ -45,6 +46,7 @@ export class TableService {
     @InjectModel(Table.name) private tableModel: Model<Table>,
     @InjectModel(Feedback.name) private feedbackModel: Model<Feedback>,
     private readonly gameplayService: GameplayService,
+    @Inject(forwardRef(() => GameplayTimeService))
     private readonly gameplayTimeService: GameplayTimeService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
@@ -56,6 +58,14 @@ export class TableService {
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
   ) {}
+
+  async searchTableIds(search: string) {
+    const searchTableIds = await this.tableModel
+      .find({ name: { $regex: new RegExp(search, 'i') } })
+      .select('_id')
+      .then((docs) => docs.map((doc) => doc._id));
+    return searchTableIds;
+  }
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
     const foundTable = await this.tableModel.findOne({
@@ -432,7 +442,7 @@ export class TableService {
 
     if (gameplayDto?.isGameplayTime) {
       this.gameplayTimeService.create({
-        user: user._id,
+        user: gameplayDto.mentor, // Oyunu anlatan kişi (mentor)
         location: gameplayDto.location,
         date: gameplayDto.date,
         gameplay: gameplay._id,
@@ -479,8 +489,10 @@ export class TableService {
         HttpStatus.NOT_FOUND,
       );
     }
-    const isTableHasOrders = (table?.orders as any)?.some(
-      (order) => order.status !== OrderStatus.CANCELLED,
+    const orders = table.orders as (number | Order)[];
+    const isTableHasOrders = orders?.some(
+      (order) =>
+        typeof order === 'object' && order.status !== OrderStatus.CANCELLED,
     );
     if (isTableHasOrders) {
       throw new HttpException(
@@ -681,7 +693,7 @@ export class TableService {
   }
   //feedback
   async findQueryFeedback(after?: string, before?: string, location?: number) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     const createdAt: Record<string, Date> = {};
     if (after) {
       createdAt.$gte = new Date(after);

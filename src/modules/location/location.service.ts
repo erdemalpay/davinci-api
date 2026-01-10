@@ -49,6 +49,21 @@ export class LocationService {
       );
     }
   }
+
+  async findOrdersSummaryLocations() {
+    try {
+      const locations = await this.locationModel
+        .find({ seenInOrdersSummaryPage: true })
+        .exec();
+      return locations;
+    } catch (error) {
+      console.error('Failed to retrieve orders summary locations from database:', error);
+      throw new HttpException(
+        'Could not retrieve orders summary locations',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   findStockLocations() {
     return this.locationModel.find({ type: { $in: [2] } });
   }

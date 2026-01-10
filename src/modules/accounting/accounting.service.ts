@@ -1891,66 +1891,116 @@ export class AccountingService {
   async findQueryStocksTotalValue(query: StockQueryDto) {
     try {
       const { after, before, location } = query;
-      const products = await this.findActiveProducts();
       const stockLocation = location ? Number(location) : null;
-      let afterFilterQuery = {};
-      let beforeFilterQuery = {};
-      afterFilterQuery['createdAt'] = { $gte: new Date(after) };
 
-      beforeFilterQuery['createdAt'] = {
-        $gte: new Date(new Date(before).getTime() + 24 * 60 * 60 * 1000),
-      };
-
-      if (stockLocation) {
-        afterFilterQuery['location'] = stockLocation;
-        beforeFilterQuery['location'] = stockLocation;
-      }
-
-      const findFilterStocksValue = async (filterQuery) => {
-        const stocks = await this.stockModel.find({
-          ...(stockLocation && { location: stockLocation }),
-        });
-        let filteredStocks = [];
-        const stockHistory = await this.productStockHistoryModel.find({
-          ...filterQuery,
-        });
-        for (const stock of stocks) {
-          const productStockHistory = stockHistory?.filter(
-            (stockHistory) =>
-              stockHistory.product.toString() === stock.product.toString() &&
-              stockHistory.location === stock.location,
-          );
-          let changeSum = productStockHistory?.reduce(
-            (acc, history) => acc + history.change * -1,
-            0,
-          );
-          if (productStockHistory?.length > 0) {
-            stock.quantity += changeSum;
-          }
-          filteredStocks.push({
-            _id: stock._id,
-            product: stock.product,
-            location: Number(stock.location),
-            quantity: stock.quantity,
-          });
+      const calculateStockValueAtDate = async (targetDate: Date) => {
+        // Build match conditions
+        const stockMatch: any = {};
+        if (stockLocation) {
+          stockMatch.location = stockLocation;
         }
-        filteredStocks;
-        const totalValue = filteredStocks.reduce((acc, stock) => {
-          const foundProduct = products.find(
-            (product) => product._id === stock.product,
-          );
-          if (!foundProduct) {
-            return acc;
-          }
-          const expense = (foundProduct?.unitPrice ?? 0) * stock.quantity;
-          return acc + expense;
-        }, 0);
-        return totalValue;
+
+        const historyMatch: any = {
+          createdAt: { $gte: targetDate },
+        };
+        if (stockLocation) {
+          historyMatch.location = stockLocation;
+        }
+
+        // Aggregation pipeline to calculate stock value
+        const result = await this.stockModel.aggregate([
+          // Match stocks by location if specified
+          { $match: stockMatch },
+          // Lookup product details
+          {
+            $lookup: {
+              from: 'products',
+              localField: 'product',
+              foreignField: '_id',
+              as: 'productDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$productDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          // Lookup stock history changes after target date
+          {
+            $lookup: {
+              from: 'productstockhistories',
+              let: { stockProduct: '$product', stockLocation: '$location' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$product', '$$stockProduct'] },
+                        { $eq: ['$location', '$$stockLocation'] },
+                        { $gte: ['$createdAt', targetDate] },
+                      ],
+                    },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    totalChange: { $sum: { $multiply: ['$change', -1] } },
+                  },
+                },
+              ],
+              as: 'historyChanges',
+            },
+          },
+          // Calculate adjusted quantity
+          {
+            $addFields: {
+              adjustedQuantity: {
+                $add: [
+                  '$quantity',
+                  {
+                    $ifNull: [
+                      { $arrayElemAt: ['$historyChanges.totalChange', 0] },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          // Calculate value for each stock item
+          {
+            $addFields: {
+              stockValue: {
+                $multiply: [
+                  '$adjustedQuantity',
+                  { $ifNull: ['$productDetails.unitPrice', 0] },
+                ],
+              },
+            },
+          },
+          // Sum all stock values
+          {
+            $group: {
+              _id: null,
+              totalValue: { $sum: '$stockValue' },
+            },
+          },
+        ]);
+
+        return result.length > 0 ? result[0].totalValue : 0;
       };
 
-      // Using await to ensure that the asynchronous function completes before proceeding.
-      const afterTotalValue = await findFilterStocksValue(afterFilterQuery);
-      const beforeTotalValue = await findFilterStocksValue(beforeFilterQuery);
+      const afterDate = new Date(after);
+      const beforeDate = new Date(
+        new Date(before).getTime() + 24 * 60 * 60 * 1000,
+      );
+
+      const [afterTotalValue, beforeTotalValue] = await Promise.all([
+        calculateStockValueAtDate(afterDate),
+        calculateStockValueAtDate(beforeDate),
+      ]);
 
       return { beforeTotalValue, afterTotalValue };
     } catch (error) {
@@ -2033,7 +2083,6 @@ export class AccountingService {
       );
 
       if (oldQuantity <= 0 && newStock.quantity > 0) {
-
         const notificationEvents =
           await this.notificationService.findAllEventNotifications();
         const stockRestoredEvent = notificationEvents.find(
@@ -2095,17 +2144,17 @@ export class AccountingService {
           );
         }
       } else if (oldQuantity > 0 && newStock.quantity <= 0) {
-
-        const foundProduct = await this.findProductById(
-          createStockDto.product,
-        );
+        const foundProduct = await this.findProductById(createStockDto.product);
         const locations = await this.locationService.findAllLocations();
         const stockLocation = locations.find(
           (location) => location._id === createStockDto.location,
         );
 
         const message = {
-          key: newStock.quantity === 0 ? 'StockZeroReached' : 'StockNegativeReached',
+          key:
+            newStock.quantity === 0
+              ? 'StockZeroReached'
+              : 'StockNegativeReached',
           params: {
             product: foundProduct?.name || 'Unknown',
             location: stockLocation?.name || 'Unknown',
@@ -2768,7 +2817,9 @@ export class AccountingService {
   findAllCounts() {
     return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
   }
-
+  findCountById(id: string) {
+    return this.countModel.findById(id);
+  }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);

@@ -35,4 +35,9 @@ export class ProductStockHistory extends Document {
 export const ProductStockHistorySchema =
   SchemaFactory.createForClass(ProductStockHistory);
 
+// Compound index for efficient stock value queries
+ProductStockHistorySchema.index({ product: 1, location: 1, createdAt: 1 });
+// Index for date range queries
+ProductStockHistorySchema.index({ createdAt: 1, location: 1 });
+
 purifySchema(ProductStockHistorySchema);

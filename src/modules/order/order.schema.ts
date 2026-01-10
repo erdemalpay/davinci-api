@@ -198,5 +198,7 @@ OrderSchema.index({ location: 1, status: 1 });
 OrderSchema.index({ createdBy: 1, createdAt: -1 });
 // For findQueryOrders() - isIkasPickUp queries (special case)
 OrderSchema.index({ ikasCustomer: 1, status: 1 });
+// For findSummaryDiscountTotal() - discount queries with date and location
+OrderSchema.index({ createdAt: 1, location: 1, discountAmount: 1 });
 
 purifySchema(OrderSchema);
