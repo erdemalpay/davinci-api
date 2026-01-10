@@ -4,7 +4,8 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -44,6 +45,7 @@ interface ShopifyToken {
 
 @Injectable()
 export class ShopifyService {
+  private readonly logger = new Logger(ShopifyService.name);
   private readonly storeUrl: string;
   private readonly apiKey: string;
   private readonly apiSecretKey: string;
@@ -79,7 +81,7 @@ export class ShopifyService {
     this.apiSecretKey = this.configService.get<string>('SHOPIFY_API_SECRET') || '';
     
     if (!this.storeUrl) {
-      console.warn('Shopify store URL not configured');
+      this.logger.warn('Shopify store URL not configured');
     }
   }
 
@@ -1255,9 +1257,9 @@ export class ShopifyService {
   }
 
   async updateAllProductStocks() {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
+    // if (process.env.NODE_ENV !== 'production') {
+    //   return;
+    // }
     try {
       const shopifyItems = await this.menuService.getAllShopifyItems();
       console.log('Fetched Shopify Items:', shopifyItems);
