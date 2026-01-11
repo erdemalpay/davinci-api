@@ -7,6 +7,7 @@ export enum RedisKeys {
   Discounts = 'discounts',
   Pages = 'pages',
   IkasToken = 'ikas-token',
+  ShopifyToken = 'shopify-token',
   Users = 'users',
   MinimalUsers = 'minimal-users',
   Authorizations = 'authorizations',

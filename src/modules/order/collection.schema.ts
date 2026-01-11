@@ -64,7 +64,13 @@ export class Collection extends Document {
   ikasId: string;
 
   @Prop({ required: false, type: String })
+  shopifyId: string;
+
+  @Prop({ required: false, type: String })
   ikasOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  shopifyOrderNumber: string;
 
   @Prop({ required: false, type: Date })
   tableDate: Date;

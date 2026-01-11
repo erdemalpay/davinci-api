@@ -1,6 +1,6 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer,
+  WebSocketServer
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
@@ -190,6 +190,10 @@ export class AppWebSocketGateway {
 
   emitIkasProductStockChanged() {
     this.server.emit('ikasProductStockChanged');
+  }
+
+  emitShopifyProductStockChanged() {
+    this.server.emit('shopifyProductStockChanged');
   }
 
   emitIncomeChanged() {

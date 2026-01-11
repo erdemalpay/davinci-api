@@ -56,6 +56,9 @@ export class Location extends Document {
   ikasId: string;
 
   @Prop({ required: false, type: String })
+  shopifyId: string;
+
+  @Prop({ required: false, type: String })
   backgroundColor: string;
 
   @Prop({ required: false, type: Boolean })
