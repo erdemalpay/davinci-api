@@ -99,7 +99,7 @@ export class ShopifyService {
       apiSecretKey: this.apiSecretKey,
       apiVersion: this.apiVersion,
       scopes: this.scopes,
-      hostName: this.configService.get<string>('SHOPIFY_LOCAL_URL') || '',
+      hostName: this.configService.get<string>('SHOPIFY_HOST_URL') || '',
       isEmbeddedApp: false,
       isCustomStoreApp: true,
       adminApiAccessToken: accessToken,
