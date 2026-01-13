@@ -13,14 +13,16 @@ export class ReservationDto {
   @IsNumber()
   playerCount?: number;
 
-  @IsString()
-  name: string;
-
-  @IsString()
-  phone: string;
-
-  @IsString()
   @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
   createdBy?: string;
 
   @IsOptional()
