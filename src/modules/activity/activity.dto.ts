@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { Expense } from '../accounting/expense.schema';
 import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Product } from '../accounting/product.schema';
@@ -170,14 +170,43 @@ export type ActivityTypePayload = {
 };
 
 export class ActivityQueryDto {
+  @IsOptional()
+  @IsString()
   user?: string;
+
+  @IsOptional()
+  @IsString()
   date?: string;
+
+  @IsOptional()
+  @IsNumber()
   page?: number;
+
+  @IsOptional()
+  @IsNumber()
   limit?: number;
+
+  @IsOptional()
+  @IsString()
   sort?: string;
+
+  @IsOptional()
+  @IsString()
   type?: string;
+
+  @IsOptional()
+  @IsNumber()
   asc?: number;
+
+  @IsOptional()
+  @IsString()
   after?: string;
+
+  @IsOptional()
+  @IsString()
   before?: string;
+
+  @IsOptional()
+  @IsString()
   search?: string;
 }

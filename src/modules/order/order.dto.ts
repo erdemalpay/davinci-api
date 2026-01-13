@@ -1,42 +1,184 @@
-import { OrderCollectionItem } from './collection.schema';
-import { IkasCustomer, Order } from './order.schema';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsDate,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested
+} from 'class-validator';
+import { Order } from './order.schema';
+
+export class OrderCollectionItemDto {
+  @IsNumber()
+  order: number;
+
+  @IsNumber()
+  paidQuantity: number;
+}
+
+export class IkasCustomerDto {
+  @IsString()
+  id: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsNumber()
+  location: number;
+}
 
 export class CreateOrderDto {
+  @IsNumber()
   location: number;
+
+  @IsNumber()
   item: number;
+
+  @IsOptional()
+  @IsNumber()
   table?: number;
+
+  @IsNumber()
   quantity: number;
+
+  @IsString()
   status: string;
+
+  @IsOptional()
+  @IsString()
   note?: string;
+
+  @IsNumber()
   unitPrice: number;
-  createdAt: Date;
-  createdBy: string;
+
+  @IsOptional()
+  @IsDate()
+  createdAt?: Date;
+
+  @IsOptional()
+  @IsString()
+  createdBy?: string;
+
+  @IsOptional()
+  @IsDate()
   preparedAt?: Date;
+
+  @IsOptional()
+  @IsDate()
   confirmedAt?: Date;
+
+  @IsOptional()
+  @IsString()
   confirmedBy?: string;
+
+  @IsOptional()
+  @IsString()
   preparedBy?: string;
+
+  @IsOptional()
+  @IsDate()
   deliveredAt?: Date;
+
+  @IsOptional()
+  @IsString()
   deliveredBy?: string;
+
+  @IsOptional()
+  @IsDate()
   cancelledAt?: Date;
+
+  @IsOptional()
+  @IsString()
   cancelledBy?: string;
+
+  @IsNumber()
   paidQuantity: number;
+
+  @IsOptional()
+  @IsNumber()
   discount?: number;
+
+  @IsOptional()
+  @IsNumber()
   discountPercentage?: number;
+
+  @IsOptional()
+  @IsNumber()
   discountAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
   division?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isOnlinePrice?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isReturned?: boolean;
+
+  @IsOptional()
+  @IsNumber()
   stockLocation?: number;
+
+  @IsOptional()
   discountNote?: string | string[];
+
+  @IsOptional()
+  @IsString()
   kitchen?: string;
+
+  @IsOptional()
+  @IsString()
   stockNote?: string;
+
+  @IsOptional()
+  @IsString()
   paymentMethod?: string;
+
+  @IsOptional()
+  @IsDate()
   tableDate?: Date;
+
+  @IsOptional()
+  @IsString()
   ikasId?: string;
+
+  @IsOptional()
+  @IsString()
   activityTableName?: string;
+
+  @IsOptional()
+  @IsString()
   activityPlayer?: string;
-  ikasCustomer?: IkasCustomer;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => IkasCustomerDto)
+  ikasCustomer?: IkasCustomerDto;
+
+  @IsOptional()
+  @IsBoolean()
   isIkasCustomerPicked?: boolean;
+
+  @IsOptional()
+  @IsString()
   ikasOrderNumber?: string;
 }
 
@@ -77,38 +219,105 @@ export type OrderType = {
   paymentMethod?: string;
   tableDate?: Date;
   isPaymentMade?: boolean;
-  ikasCustomer?: IkasCustomer;
+  ikasCustomer?: IkasCustomerDto;
   isIkasCustomerPicked?: boolean;
   ikasOrderNumber?: string;
 };
 
 export class CreateCollectionDto {
+  @IsNumber()
   location: number;
+
+  @IsNumber()
   amount: number;
+
+  @IsString()
   status: string;
+
+  @IsString()
   paymentMethod: string;
-  orders?: OrderCollectionItem[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderCollectionItemDto)
+  orders?: OrderCollectionItemDto[];
+
+  @IsOptional()
+  @IsString()
   cancelNote?: string;
+
+  @IsOptional()
+  @IsNumber()
   table?: number;
+
+  @IsOptional()
+  @IsArray()
   newOrders?: Order[];
+
+  @IsOptional()
+  @IsString()
   activityPlayer?: string;
-  createdBy: string;
+
+  @IsString()
+  @IsOptional()
+  createdBy?: string;
+
+  @IsOptional()
+  @IsString()
   ikasId?: string;
+
+  @IsOptional()
+  @IsDate()
   tableDate?: Date;
+
+  @IsOptional()
+  @IsString()
   ikasOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
   pointUser?: string;
+
+  @IsOptional()
+  @IsNumber()
   pointConsumer?: number;
 }
 
 export class CreateDiscountDto {
+  @IsString()
   name: string;
+
+  @IsOptional()
+  @IsNumber()
   percentage?: number;
+
+  @IsOptional()
+  @IsNumber()
   amount?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isNoteRequired?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isOnlineOrder?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isStoreOrder?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isVisibleOnPaymentScreen?: boolean;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
   note?: string;
 }
 export enum OrderDiscountStatus {
@@ -132,39 +341,105 @@ export enum OrderCollectionStatus {
 }
 
 export class OrderQueryDto {
+  @IsOptional()
+  @IsString()
   after?: string;
+
+  @IsOptional()
+  @IsString()
   before?: string;
+
+  @IsOptional()
+  @IsString()
   eliminatedDiscounts?: string;
+
+  @IsOptional()
+  @IsString()
   discount?: string;
+
+  @IsOptional()
+  @IsString()
   createdBy?: string;
+
+  @IsOptional()
+  @IsString()
   preparedBy?: string;
+
+  @IsOptional()
+  @IsString()
   deliveredBy?: string;
+
+  @IsOptional()
+  @IsString()
   cancelledBy?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
   location?: string;
+
+  @IsOptional()
+  @IsBoolean()
   isIkasPickUp?: boolean;
+
+  @IsOptional()
+  @IsNumber()
   item?: number;
 }
 
 export class CollectionQueryDto {
+  @IsOptional()
+  @IsString()
   after?: string;
+
+  @IsOptional()
+  @IsString()
   before?: string;
+
+  @IsOptional()
+  @IsString()
   location?: string;
 }
 export class SummaryCollectionQueryDto {
+  @IsOptional()
+  @IsString()
   after?: string;
+
+  @IsOptional()
+  @IsString()
   before?: string;
+
+  @IsOptional()
+  @IsNumber()
   location?: number;
 }
 
 export class CreateOrderNotesDto {
+  @IsString()
   note: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
   categories?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
   items?: number[];
 }
 
 export class CancelIkasOrderDto {
+  @IsString()
   ikasId: string;
+
+  @IsNumber()
   quantity: number;
 }

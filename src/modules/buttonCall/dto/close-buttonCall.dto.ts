@@ -17,8 +17,8 @@ export class CloseButtonCallDto {
   @IsString()
   readonly hour: string;
 
-  @ApiProperty({ required: true })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  readonly type: string;
+  readonly type?: string;
 }
