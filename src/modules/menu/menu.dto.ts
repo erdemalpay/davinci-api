@@ -5,7 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  ValidateNested
+  ValidateNested,
 } from 'class-validator';
 
 export class ItemProductionDto {
@@ -130,6 +130,10 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   isAutoServed?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAutoPrepared?: boolean;
 }
 export class CreateBulkItemDto {
   @IsString()
