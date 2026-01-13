@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -50,7 +50,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1777,7 +1777,7 @@ export class OrderService {
         }
       }
       await this.websocketGateway.emitOrderUpdated([order]);
-      await this.websocketGateway.emitCollectionChanged(collection);
+      this.websocketGateway.emitCollectionChanged(collection);
       return { message: 'Order cancelled successfully' };
     } catch (error) {
       console.error('Error cancelling ikas order:', error);
