@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsDate, IsNumber, IsOptional, IsString } from 'class-validator';
 import { CheckDuty } from './check.schema';
 import { ChecklistDuty } from './checklist.schema';
@@ -13,9 +14,6 @@ export class CreateChecklistDto {
 
 export class CreateCheckDto {
   @IsString()
-  name: string;
-
-  @IsString()
   user: string;
 
   @IsNumber()
@@ -24,12 +22,14 @@ export class CreateCheckDto {
   @IsString()
   checklist: string;
 
+  @IsOptional()
   @IsArray()
-  duties: CheckDuty[];
+  duties?: CheckDuty[];
 
   @IsBoolean()
   isCompleted: boolean;
 
+  @Type(() => Date)
   @IsDate()
   createdAt: Date;
 }
