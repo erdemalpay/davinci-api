@@ -1,6 +1,17 @@
 import { IsArray, IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 import { CategoryGroup } from './upperCategory.schema';
 
+export class ItemProductionDto {
+  @IsString()
+  product: string;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsBoolean()
+  isDecrementStock: boolean;
+}
+
 export class CreateCategoryDto {
   @IsString()
   name: string;
@@ -124,11 +135,7 @@ export class CreateBulkItemDto {
 
   @IsOptional()
   @IsArray()
-  itemProduction?: {
-    product: string;
-    quantity: number;
-    isDecrementStock: boolean;
-  }[];
+  itemProduction?: ItemProductionDto[];
 
   @IsOptional()
   @IsString()

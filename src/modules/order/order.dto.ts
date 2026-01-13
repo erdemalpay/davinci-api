@@ -1,13 +1,46 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
   IsDate,
   IsNumber,
   IsOptional,
-  IsString
+  IsString,
+  ValidateNested
 } from 'class-validator';
-import { OrderCollectionItem } from './collection.schema';
-import { IkasCustomer, Order } from './order.schema';
+import { Order } from './order.schema';
+
+export class OrderCollectionItemDto {
+  @IsNumber()
+  order: number;
+
+  @IsNumber()
+  paidQuantity: number;
+}
+
+export class IkasCustomerDto {
+  @IsString()
+  id: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsNumber()
+  location: number;
+}
 
 export class CreateOrderDto {
   @IsNumber()
@@ -136,7 +169,9 @@ export class CreateOrderDto {
   activityPlayer?: string;
 
   @IsOptional()
-  ikasCustomer?: IkasCustomer;
+  @ValidateNested()
+  @Type(() => IkasCustomerDto)
+  ikasCustomer?: IkasCustomerDto;
 
   @IsOptional()
   @IsBoolean()
@@ -184,7 +219,7 @@ export type OrderType = {
   paymentMethod?: string;
   tableDate?: Date;
   isPaymentMade?: boolean;
-  ikasCustomer?: IkasCustomer;
+  ikasCustomer?: IkasCustomerDto;
   isIkasCustomerPicked?: boolean;
   ikasOrderNumber?: string;
 };
@@ -204,7 +239,9 @@ export class CreateCollectionDto {
 
   @IsOptional()
   @IsArray()
-  orders?: OrderCollectionItem[];
+  @ValidateNested({ each: true })
+  @Type(() => OrderCollectionItemDto)
+  orders?: OrderCollectionItemDto[];
 
   @IsOptional()
   @IsString()
