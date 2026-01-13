@@ -1676,11 +1676,14 @@ export class OrderService {
       }
       if (order?.quantity !== quantity) {
         const newQuantity = order.quantity - quantity;
-        const newOrder = await this.orderModel.create({
-          ...order.toObject(),
+        const orderWithoutId = order.toObject();
+        delete orderWithoutId._id;
+        const newOrderData = {
+          ...orderWithoutId,
           quantity: newQuantity,
           paidQuantity: newQuantity,
-        });
+        };
+        const newOrder = await this.orderModel.create(newOrderData);
         const newCollection = await this.collectionModel.create({
           ...collection.toObject(),
           orders: [
