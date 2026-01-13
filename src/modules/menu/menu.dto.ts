@@ -1,5 +1,12 @@
-import { IsArray, IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
-import { CategoryGroup } from './upperCategory.schema';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested
+} from 'class-validator';
 
 export class ItemProductionDto {
   @IsString()
@@ -10,6 +17,14 @@ export class ItemProductionDto {
 
   @IsBoolean()
   isDecrementStock: boolean;
+}
+
+export class CategoryGroupDto {
+  @IsNumber()
+  category: number;
+
+  @IsNumber()
+  percentage: number;
 }
 
 export class CreateCategoryDto {
@@ -177,5 +192,7 @@ export class CreateUpperCategoryDto {
   name: string;
 
   @IsArray()
-  categoryGroup: CategoryGroup[];
+  @ValidateNested({ each: true })
+  @Type(() => CategoryGroupDto)
+  categoryGroup: CategoryGroupDto[];
 }
