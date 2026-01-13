@@ -65,7 +65,7 @@ export class BreakService {
 
     if (user) filter.user = user;
     if (location) filter.location = location;
-    if (date) filter.createdAt = date;
+    if (date) filter.date = date;
 
     const rangeFilter: Record<string, any> = {};
     if (after) {
@@ -85,12 +85,7 @@ export class BreakService {
     if (sort) {
       const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
       sortObject[sort] = dir;
-    } else {
-      sortObject.date = -1;
-    }
-    // Always sort by startHour as secondary sort to ensure proper ordering within the same date
-    if (sort !== 'startHour') {
-      sortObject.startHour = -1;
+      sortObject.createdAt = -1;
     }
 
     const pageNum = Math.max(1, Number(page) || 1);
@@ -134,9 +129,46 @@ export class BreakService {
         this.breakModel.countDocuments(filter),
       ]);
 
+      // Calculate duration for each break and group by user+date for daily totals
+      const dailyDurationMap = new Map<string, number>();
+
+      // Process each break to calculate duration
+      const dataWithDuration = data.map((breakRecord: any) => {
+        let duration = 0;
+
+        if (breakRecord.startHour && breakRecord.finishHour) {
+          const [startH, startM] = breakRecord.startHour.split(':').map(Number);
+          const [finishH, finishM] = breakRecord.finishHour
+            .split(':')
+            .map(Number);
+
+          const startMinutes = startH * 60 + startM;
+          const finishMinutes = finishH * 60 + finishM;
+
+          duration = finishMinutes - startMinutes;
+
+          // Add to daily total per user
+          const key = `${breakRecord.user}-${breakRecord.date}`;
+          const currentDaily = dailyDurationMap.get(key) || 0;
+          dailyDurationMap.set(key, currentDaily + duration);
+        }
+
+        return {
+          ...breakRecord,
+          duration,
+        };
+      });
+
+      // Add dailyDuration to each record
+      const dataWithDailyDuration = dataWithDuration.map((breakRecord) => ({
+        ...breakRecord,
+        dailyDuration:
+          dailyDurationMap.get(`${breakRecord.user}-${breakRecord.date}`) || 0,
+      }));
+
       const totalPages = Math.ceil(totalNumber / limitNum);
       return {
-        data,
+        data: dataWithDailyDuration,
         totalNumber,
         totalPages,
         page: pageNum,
