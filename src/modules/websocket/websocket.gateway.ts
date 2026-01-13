@@ -4,6 +4,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
+import { Stock } from '../accounting/stock.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Notification } from '../notification/notification.schema';
 import { Collection } from '../order/collection.schema';
@@ -332,6 +333,10 @@ export class AppWebSocketGateway {
   async emitStockChanged() {
     await this.redisService.reset(RedisKeys.AccountingStocks);
     this.server.emit('stockChanged');
+  }
+  async emitStockAdded(stock: Stock) {
+    await this.redisService.reset(RedisKeys.AccountingStocks);
+    this.server.emit('stockAdded', { stock });
   }
 
   async emitTableChanged(table: Table) {
