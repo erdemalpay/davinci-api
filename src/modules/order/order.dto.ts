@@ -173,3 +173,8 @@ export class CreateOrderNotesDto {
   categories?: number[];
   items?: number[];
 }
+
+export class CancelIkasOrderDto {
+  ikasId: string;
+  quantity: number;
+}

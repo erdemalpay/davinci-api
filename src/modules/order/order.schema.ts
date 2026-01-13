@@ -180,7 +180,7 @@ export class Order extends Document {
 export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index(
   { ikasId: 1 },
-  { unique: true, partialFilterExpression: { ikasId: { $type: 'string' } } },
+  { partialFilterExpression: { ikasId: { $type: 'string' } } },
 );
 OrderSchema.index(
   { shopifyId: 1 },

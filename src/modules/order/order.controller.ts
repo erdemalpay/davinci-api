@@ -6,7 +6,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Query
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Table } from '../table/table.schema';
@@ -15,10 +15,12 @@ import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
+  CancelIkasOrderDto,
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
+  OrderQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -40,34 +42,8 @@ export class OrderController {
   }
 
   @Get('/query')
-  findQueryOrders(
-    @Query('after') after?: string,
-    @Query('before') before?: string,
-    @Query('discount') discount?: string,
-    @Query('createdBy') createdBy?: string,
-    @Query('preparedBy') preparedBy?: string,
-    @Query('deliveredBy') deliveredBy?: string,
-    @Query('cancelledBy') cancelledBy?: string,
-    @Query('status') status?: string,
-    @Query('category') category?: string,
-    @Query('location') location?: string,
-    @Query('isIkasPickUp') isIkasPickUp?: boolean,
-    @Query('item') item?: number,
-  ) {
-    return this.orderService.findQueryOrders({
-      after,
-      before,
-      discount,
-      createdBy,
-      preparedBy,
-      deliveredBy,
-      cancelledBy,
-      status,
-      category,
-      location,
-      isIkasPickUp,
-      item,
-    });
+  findQueryOrders(@Query() query: OrderQueryDto) {
+    return this.orderService.findQueryOrders(query);
   }
 
   @Get('/false-ikas-collections')
@@ -251,11 +227,7 @@ export class OrderController {
   @Post('/cancel-ikas-order')
   cancelIkasOrder(
     @ReqUser() user: User,
-    @Body()
-    payload: {
-      ikasId: string;
-      quantity: number;
-    },
+    @Body() payload: CancelIkasOrderDto,
   ) {
     return this.orderService.cancelIkasOrder(
       user,
