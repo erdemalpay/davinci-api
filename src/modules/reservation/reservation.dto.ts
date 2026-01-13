@@ -1,12 +1,15 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ReservationDto {
+  @IsOptional()
   @IsNumber()
   _id?: number;
 
+  @IsOptional()
   @IsNumber()
   location?: number;
 
+  @IsOptional()
   @IsNumber()
   playerCount?: number;
 
@@ -17,29 +20,38 @@ export class ReservationDto {
   phone: string;
 
   @IsString()
-  createdBy: string;
+  @IsOptional()
+  createdBy?: string;
 
+  @IsOptional()
   @IsString()
   date?: string;
 
+  @IsOptional()
   @IsString()
   note?: string;
 
+  @IsOptional()
   @IsString()
   reservationHour?: string;
 
+  @IsOptional()
   @IsString()
   reservedTable?: string;
 
+  @IsOptional()
   @IsString()
   callHour?: string;
 
+  @IsOptional()
   @IsString()
   approvedHour?: string;
 
+  @IsOptional()
   @IsString()
   status?: string;
 
+  @IsOptional()
   @IsNumber()
   comingDurationInMinutes?: number;
 }

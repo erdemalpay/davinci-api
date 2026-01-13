@@ -4,7 +4,7 @@ import {
   IsNumber,
   IsObject,
   IsOptional,
-  IsString,
+  IsString
 } from 'class-validator';
 
 export class TableDto {
@@ -72,6 +72,7 @@ export class TableResponse {
   @IsString()
   startHour: string;
 
+  @IsOptional()
   @IsString()
   type?: string;
 
@@ -99,9 +100,18 @@ export class AggregatedPlayerCountResponse {
   countsByLocation: { [key: string]: number };
 }
 export class CreateFeedbackDto {
+  @IsNumber()
   location: number;
+
+  @IsString()
   tableName: string;
+
+  @IsOptional()
+  @IsNumber()
   starRating?: number;
+
+  @IsOptional()
+  @IsString()
   comment?: string;
 }
 
