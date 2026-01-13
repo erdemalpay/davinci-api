@@ -72,8 +72,9 @@ export class CreateItemDto {
   @IsNumber({}, { each: true })
   locations: number[];
 
+  @IsOptional()
   @IsNumber()
-  order: number;
+  order?: number;
 
   @IsOptional()
   @IsNumber()
