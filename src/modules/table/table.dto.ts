@@ -60,8 +60,9 @@ export class TableDto {
   @IsBoolean()
   isOnlineSale?: boolean;
 
+  @IsOptional()
   @IsBoolean()
-  isAutoEntryAdded: boolean;
+  isAutoEntryAdded?: boolean;
 }
 
 export class TableResponse {
