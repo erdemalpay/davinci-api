@@ -1,3 +1,5 @@
+import { OrderCollectionItem } from './collection.schema';
+import { IkasCustomer, ShopifyCustomer } from './order.schema';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -162,6 +164,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  shopifyId?: string;
   activityTableName?: string;
 
   @IsOptional()
@@ -179,7 +182,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  shopifyCustomer?: ShopifyCustomer;
+  isShopifyCustomerPicked?: boolean;
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
 }
 
 // TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
@@ -214,6 +220,7 @@ export type OrderType = {
   discountNote?: string;
   stockNote?: string;
   ikasId?: string;
+  shopifyId?: string;
   activityTableName?: string;
   activityPlayer?: string;
   paymentMethod?: string;
@@ -221,7 +228,10 @@ export type OrderType = {
   isPaymentMade?: boolean;
   ikasCustomer?: IkasCustomerDto;
   isIkasCustomerPicked?: boolean;
+  shopifyCustomer?: ShopifyCustomer;
+  isShopifyCustomerPicked?: boolean;
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
 };
 
 export class CreateCollectionDto {
@@ -266,6 +276,7 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsString()
   ikasId?: string;
+  shopifyId?: string;
 
   @IsOptional()
   @IsDate()
@@ -274,6 +285,7 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsString()
   ikasOrderNumber?: string;
+  shopifyOrderNumber?: string;
 
   @IsOptional()
   @IsString()

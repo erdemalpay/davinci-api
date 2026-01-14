@@ -28,6 +28,26 @@ export class IkasCustomer {
   location: number;
 }
 
+export class ShopifyCustomer {
+  @Prop({ required: true, type: String })
+  id: string;
+
+  @Prop({ required: false, type: String })
+  firstName: string;
+
+  @Prop({ required: false, type: String })
+  lastName: string;
+
+  @Prop({ required: false, type: String })
+  email: string;
+
+  @Prop({ required: false, type: String })
+  phone: string;
+
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
+}
+
 @Schema({ _id: false })
 export class Order extends Document {
   @Prop({ type: Number })
@@ -133,7 +153,13 @@ export class Order extends Document {
   ikasId: string;
 
   @Prop({ required: false, type: String })
+  shopifyId: string;
+
+  @Prop({ required: false, type: String })
   ikasOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  shopifyOrderNumber: string;
 
   @Prop({ required: false, type: Date })
   tableDate: Date;
@@ -143,12 +169,22 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Boolean })
   isIkasCustomerPicked: boolean;
+
+  @Prop({ required: false, type: ShopifyCustomer })
+  shopifyCustomer: ShopifyCustomer;
+
+  @Prop({ required: false, type: Boolean })
+  isShopifyCustomerPicked: boolean;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index(
   { ikasId: 1 },
   { partialFilterExpression: { ikasId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { shopifyId: 1 },
+  { unique: true, partialFilterExpression: { shopifyId: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead

@@ -15,6 +15,7 @@ export class CreateProductDto {
 export class CreateProductCategoryDto {
   name: string;
   ikasId?: string;
+  shopifyId?: string;
 }
 
 export class CreateServiceDto {
@@ -229,9 +230,11 @@ export enum StockHistoryStatusEnum {
   LOSSPRODUCT = 'LOSSPRODUCT',
   ORDERRETURN = 'ORDERRETURN',
   IKASORDERCREATE = 'IKASORDERCREATE',
+  SHOPIFYORDERCREATE = 'SHOPIFYORDERCREATE',
   LOSSPRODUCTCANCEL = 'LOSSPRODUCTCANCEL',
   CONSUMPTIONCANCEL = 'CONSUMPTIONCANCEL',
   IKASORDERCANCEL = 'IKASORDERCANCEL',
+  SHOPIFYORDERCANCEL = 'SHOPIFYORDERCANCEL',
 }
 
 export type StockHistoryFilter = {

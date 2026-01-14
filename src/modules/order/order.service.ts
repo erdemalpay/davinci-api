@@ -1805,6 +1805,135 @@ export class OrderService {
     }
   }
 
+  async cancelShopifyOrder(user: User, shopifyId: string, quantity: number) {
+    try {
+      const order = await this.orderModel
+        .findOne({ shopifyId: shopifyId })
+        .populate('item');
+      const collection = await this.collectionModel.findOne({ shopifyId: shopifyId });
+      if (!order || !collection) {
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      }
+      if (
+        order.status === OrderStatus.CANCELLED ||
+        collection.status === OrderCollectionStatus.CANCELLED ||
+        quantity > order.quantity
+      ) {
+        throw new HttpException(
+          'Order already cancelled',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (order?.quantity !== quantity) {
+        const newQuantity = order.quantity - quantity;
+        const newOrder = await this.orderModel.create({
+          ...order.toObject(),
+          quantity: newQuantity,
+          paidQuantity: newQuantity,
+        });
+        const newCollection = await this.collectionModel.create({
+          ...collection.toObject(),
+          orders: [
+            {
+              order: newOrder._id,
+              paidQuantity: newQuantity,
+            },
+          ],
+        });
+        this.websocketGateway.emitCollectionChanged(newCollection);
+        await this.orderModel.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: user._id,
+              quantity: quantity,
+              paidQuantity: quantity,
+            },
+            $unset: {
+              shopifyCustomer: '',
+              isShopifyCustomerPicked: '',
+            },
+          },
+          { new: true },
+        );
+        await this.collectionModel.findByIdAndUpdate(
+          collection._id,
+          {
+            status: OrderCollectionStatus.CANCELLED,
+            orders: [
+              {
+                order: order._id,
+                paidQuantity: quantity,
+              },
+            ],
+            cancelledAt: new Date(),
+            cancelledBy: user._id,
+          },
+          { new: true },
+        );
+        for (const ingredient of (order?.item as any).itemProduction) {
+          if (ingredient?.isDecrementStock) {
+            const incrementQuantity = ingredient?.quantity * quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: order?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
+            });
+          }
+        }
+      } else {
+        await this.orderModel.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: user._id,
+            },
+            $unset: {
+              shopifyCustomer: '',
+              isShopifyCustomerPicked: '',
+            },
+          },
+          { new: true },
+        );
+
+        await this.collectionModel.findByIdAndUpdate(
+          collection._id,
+          {
+            status: OrderCollectionStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: user._id,
+          },
+          { new: true },
+        );
+        for (const ingredient of (order?.item as any).itemProduction) {
+          if (ingredient?.isDecrementStock) {
+            const incrementQuantity = ingredient?.quantity * order?.quantity;
+            await this.accountingService.createStock(user, {
+              product: ingredient?.product,
+              location: order?.stockLocation,
+              quantity: incrementQuantity,
+              status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
+            });
+          }
+        }
+      }
+      await this.websocketGateway.emitOrderUpdated([order]);
+      await this.websocketGateway.emitCollectionChanged(collection);
+      return { message: 'Order cancelled successfully' };
+    } catch (error) {
+      console.error('Error cancelling shopify order:', error);
+      throw new HttpException(
+        'Failed to cancel order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async updateMultipleOrders(
     user: User,
     ids: number[],
@@ -3394,6 +3523,10 @@ export class OrderService {
   }
   findByIkasId(ikasId: string) {
     return this.orderModel.findOne({ ikasId: ikasId }).exec();
+  }
+
+  findByShopifyId(shopifyId: string) {
+    return this.orderModel.findOne({ shopifyId: shopifyId }).exec();
   }
   async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
     const orderNote = await new this.orderNotesModel(createOrderNoteDto);

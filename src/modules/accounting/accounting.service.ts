@@ -9,7 +9,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType,
+  NotificationEventType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -48,7 +48,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct,
+  UpdateMultipleProduct
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -757,6 +757,11 @@ export class AccountingService {
   }
   async findPaymentMethodByIkasId(id: string) {
     const paymentMethod = await this.paymentMethodModel.findOne({ ikasId: id });
+    return paymentMethod;
+  }
+
+  async findPaymentMethodByShopifyId(id: string) {
+    const paymentMethod = await this.paymentMethodModel.findOne({ shopifyId: id });
     return paymentMethod;
   }
 

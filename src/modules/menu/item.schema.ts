@@ -94,6 +94,9 @@ export class MenuItem extends Document {
   ikasVariantId: string;
 
   @Prop({ required: false, type: String })
+  shopifyId: string;
+
+  @Prop({ required: false, type: String })
   sku: string;
 
   @Prop({ required: false, type: String })

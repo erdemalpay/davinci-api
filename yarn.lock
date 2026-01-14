@@ -1334,6 +1334,39 @@
   resolved "https://registry.npmjs.org/@scarf/scarf/-/scarf-1.4.0.tgz#3bbb984085dbd6d982494538b523be1ce6562972"
   integrity sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==
 
+"@shopify/admin-api-client@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.npmjs.org/@shopify/admin-api-client/-/admin-api-client-1.1.1.tgz#e846da46795ba894e5eac4e147d9e04b032aad94"
+  integrity sha512-J/cdodM7jmk9yKxHnkrnVHP2Gm70w2dFA4O3ehPvIBsXvK0PwXmiRjQOCCPfyLo442awON5soQ/XuWVSUmZL/g==
+  dependencies:
+    "@shopify/graphql-client" "^1.4.1"
+
+"@shopify/graphql-client@^1.4.1":
+  version "1.4.1"
+  resolved "https://registry.npmjs.org/@shopify/graphql-client/-/graphql-client-1.4.1.tgz#794d9964bbacabc4a15573c0aaf7c56e7a9a3534"
+  integrity sha512-/w4Uchx8ueI8gwmJd1ZbbIGndsjfMEFlzmay3P7rya5zj7K308xne/ggIvWDweueIut2qf1A8lI58xQl9Pu22w==
+
+"@shopify/shopify-api@^12.2.0":
+  version "12.2.0"
+  resolved "https://registry.npmjs.org/@shopify/shopify-api/-/shopify-api-12.2.0.tgz#9a1cd08a060e6d177b95d3a74750e021339a0da4"
+  integrity sha512-SlSGlVcGPjIrdv8FwRYhZeZ6Zj7Itff/AQiJyL0zrORFBDuBdezGw+grqJYL7qvoc7sRBmjaavrEfcEOqKtJng==
+  dependencies:
+    "@shopify/admin-api-client" "^1.1.1"
+    "@shopify/graphql-client" "^1.4.1"
+    "@shopify/storefront-api-client" "^1.0.9"
+    compare-versions "^6.1.1"
+    isbot "^5.1.26"
+    jose "^5.9.6"
+    lossless-json "^4.3.0"
+    tslib "^2.8.1"
+
+"@shopify/storefront-api-client@^1.0.9":
+  version "1.0.9"
+  resolved "https://registry.npmjs.org/@shopify/storefront-api-client/-/storefront-api-client-1.0.9.tgz#460e50d14e11f1eed1e996885931a239aaf39fad"
+  integrity sha512-vgc0ZczMvrbsQQFYcIIONnIiqiafpcMyq5osI8X6PB65DhnmCQEp3kSlXKOjBPzyAWYvp28nLHS0+r4xsp4yQA==
+  dependencies:
+    "@shopify/graphql-client" "^1.4.1"
+
 "@sinonjs/commons@^1.7.0":
   version "1.8.6"
   resolved "https://registry.npmjs.org/@sinonjs/commons/-/commons-1.8.6.tgz#80c516a4dc264c2a69115e7578d62581ff455ed9"
@@ -3159,6 +3192,11 @@ commander@^2.20.0:
   resolved "https://registry.npmjs.org/commander/-/commander-2.20.3.tgz#fd485e84c03eb4881c20722ba48035e8531aeb33"
   integrity sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==
 
+compare-versions@^6.1.1:
+  version "6.1.1"
+  resolved "https://registry.npmjs.org/compare-versions/-/compare-versions-6.1.1.tgz#7af3cc1099ba37d244b3145a9af5201b629148a9"
+  integrity sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==
+
 component-emitter@^1.3.0:
   version "1.3.1"
   resolved "https://registry.npmjs.org/component-emitter/-/component-emitter-1.3.1.tgz#ef1d5796f7d93f135ee6fb684340b26403c97d17"
@@ -4969,6 +5007,11 @@ isarray@~1.0.0:
   resolved "https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz#bb935d48582cba168c06834957a54a3e07124f11"
   integrity sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==
 
+isbot@^5.1.26:
+  version "5.1.32"
+  resolved "https://registry.npmjs.org/isbot/-/isbot-5.1.32.tgz#a75b327460c79f07d8a5d7e3456f5fb25c84d3d1"
+  integrity sha512-VNfjM73zz2IBZmdShMfAUg10prm6t7HFUQmNAEOAVS4YH92ZrZcvkMcGX6cIgBJAzWDzPent/EeAtYEHNPNPBQ==
+
 isexe@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz#e8fbf374dc556ff8947a10dcb0572d633f2cfa10"
@@ -5426,6 +5469,11 @@ jest@27.4.7:
     import-local "^3.0.2"
     jest-cli "^27.4.7"
 
+jose@^5.9.6:
+  version "5.10.0"
+  resolved "https://registry.npmjs.org/jose/-/jose-5.10.0.tgz#c37346a099d6467c401351a9a0c2161e0f52c4be"
+  integrity sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==
+
 js-tokens@^4.0.0:
   version "4.0.0"
   resolved "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"
@@ -5703,6 +5751,11 @@ log-symbols@^4.1.0:
   dependencies:
     chalk "^4.1.0"
     is-unicode-supported "^0.1.0"
+
+lossless-json@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.npmjs.org/lossless-json/-/lossless-json-4.3.0.tgz#7d26864820ecf08aee800213fc193666e794802a"
+  integrity sha512-ToxOC+SsduRmdSuoLZLYAr5zy1Qu7l5XhmPWM3zefCZ5IcrzW/h108qbJUKfOlDlhvhjUK84+8PSVX0kxnit0g==
 
 lru-cache@^5.1.1:
   version "5.1.1"
@@ -7500,7 +7553,7 @@ tslib@2.4.0:
   resolved "https://registry.npmjs.org/tslib/-/tslib-2.4.0.tgz#7cecaa7f073ce680a05847aa77be941098f36dc3"
   integrity sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==
 
-tslib@2.8.1, tslib@^2.1.0, tslib@^2.6.2:
+tslib@2.8.1, tslib@^2.1.0, tslib@^2.6.2, tslib@^2.8.1:
   version "2.8.1"
   resolved "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz#612efe4ed235d567e8aba5f2a5fab70280ade83f"
   integrity sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==
