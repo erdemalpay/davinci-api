@@ -12,6 +12,9 @@ export class ProductCategory extends Document {
 
   @Prop({ required: false, type: String })
   ikasId: string;
+
+  @Prop({ required: false, type: String })
+  shopifyId: string;
 }
 
 export const ProductCategorySchema =

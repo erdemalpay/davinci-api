@@ -15,6 +15,7 @@ export class CreateProductDto {
 export class CreateProductCategoryDto {
   name: string;
   ikasId?: string;
+  shopifyId?: string;
 }
 
 export class CreateServiceDto {
