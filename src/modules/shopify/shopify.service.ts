@@ -1146,6 +1146,13 @@ export class ShopifyService {
         return;
       }
 
+      const createdOrders: Array<{
+        order: number;
+        paidQuantity: number;
+        amount: number;
+      }> = [];
+      let totalAmount = 0;
+
       for (const lineItem of lineItems) {
         try {
           const { quantity, variant_id, product_id, price } = lineItem;
@@ -1238,6 +1245,14 @@ export class ShopifyService {
             );
             console.log('Order created:', order);
 
+            const itemAmount = parseFloat(price) * quantity;
+            createdOrders.push({
+              order: order._id,
+              paidQuantity: quantity,
+              amount: itemAmount,
+            });
+            totalAmount += itemAmount;
+
             if (data?.shipping_address && foundLocation) {
               const visits = await this.visitService.findByDateAndLocation(
                 format(order.createdAt, 'yyyy-MM-dd'),
@@ -1288,48 +1303,56 @@ export class ShopifyService {
                 });
               }
             }
-
-            const createdCollection = {
-              location: 4,
-              paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
-              amount: parseFloat(price) * quantity,
-              status: OrderCollectionStatus.PAID,
-              orders: [
-                {
-                  order: order._id,
-                  paidQuantity: quantity,
-                },
-              ],
-              createdBy: constantUser._id,
-              tableDate: new Date(),
-              shopifyId: data?.id?.toString(),
-              ...(shopifyOrderNumber && {
-                shopifyOrderNumber: shopifyOrderNumber.toString(),
-              }),
-            };
-
-            try {
-              const collection = await this.orderService.createCollection(
-                constantUser,
-                createdCollection,
-              );
-              console.log('Collection created:', collection);
-            } catch (collectionError) {
-              console.error(
-                'Error creating collection:',
-                collectionError?.message || collectionError,
-              );
-            }
           } catch (orderError) {
+            console.error('Error creating order:', orderError);
             console.error(
-              'Error creating order:',
-              orderError?.message || orderError,
+              'Full error details:',
+              JSON.stringify(orderError, null, 2),
             );
           }
         } catch (itemError) {
           console.error(
             'Error processing line item:',
             itemError?.message || itemError,
+          );
+        }
+      }
+
+      // Create a single collection for all orders from this Shopify order
+      if (createdOrders.length > 0) {
+        const foundPaymentMethod =
+          await this.accountingService.findPaymentMethodByShopifyId(
+            data?.payment_gateway_names?.[0],
+          );
+        const shopifyOrderNumber = data?.order_number;
+
+        const createdCollection = {
+          location: 4,
+          paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
+          amount: totalAmount,
+          status: OrderCollectionStatus.PAID,
+          orders: createdOrders.map(({ order, paidQuantity }) => ({
+            order,
+            paidQuantity,
+          })),
+          createdBy: constantUser._id,
+          tableDate: new Date(),
+          shopifyId: data?.id?.toString(),
+          ...(shopifyOrderNumber && {
+            shopifyOrderNumber: shopifyOrderNumber.toString(),
+          }),
+        };
+
+        try {
+          const collection = await this.orderService.createCollection(
+            constantUser,
+            createdCollection,
+          );
+          console.log('Collection created:', collection);
+        } catch (collectionError) {
+          console.error(
+            'Error creating collection:',
+            collectionError?.message || collectionError,
           );
         }
       }
