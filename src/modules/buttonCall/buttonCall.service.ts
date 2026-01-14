@@ -171,15 +171,25 @@ export class ButtonCallService {
         longestCalls: [],
       };
     }
-    const callsWithSeconds = calls.map((call) => {
-      const [h, m, s] = call.duration.split(':').map(Number);
+    const callsWithSeconds = calls
+      .map((call) => {
+        const [h, m, s] = call.duration.split(':').map(Number);
+        return {
+          tableName: call.tableName,
+          duration: call.duration,
+          seconds: h * 3600 + m * 60 + s,
+          finishHour: call.finishHour as string,
+        };
+      })
+      .filter((call) => call.seconds > 15);
+
+    if (callsWithSeconds.length === 0) {
       return {
-        tableName: call.tableName,
-        duration: call.duration,
-        seconds: h * 3600 + m * 60 + s,
-        finishHour: call.finishHour as string,
+        averageDuration: '00:00:00',
+        longestCalls: [],
       };
-    });
+    }
+
     const totalSeconds = callsWithSeconds.reduce(
       (sum, c) => sum + c.seconds,
       0,
