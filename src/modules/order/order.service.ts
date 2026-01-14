@@ -1285,8 +1285,10 @@ export class OrderService {
         }
       }
     } catch (error) {
+      console.error('Error in createOrder:', error);
+      console.error('Full error details:', JSON.stringify(error, null, 2));
       throw new HttpException(
-        'Failed to create order',
+        `Failed to create order: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
