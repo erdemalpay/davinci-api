@@ -114,6 +114,17 @@ export class MenuController {
     return this.menuService.createMultipleIkasProduct(user, payload.itemIds);
   }
 
+  @Post('/items/create-shopify-products')
+  createShopifyProducts(
+    @ReqUser() user: User,
+    @Body()
+    payload: {
+      itemIds: Array<number>;
+    },
+  ) {
+    return this.menuService.createMultipleShopifyProduct(user, payload.itemIds);
+  }
+
   @Post('/items/migrate-suggested-discount')
   migrateSuggestedDiscount() {
     return this.menuService.migrateSuggestedDiscounts();

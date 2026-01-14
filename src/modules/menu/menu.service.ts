@@ -16,6 +16,7 @@ import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
+import { ShopifyService } from './../shopify/shopify.service';
 import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { MenuCategory } from './category.schema';
@@ -49,6 +50,8 @@ export class MenuService {
     private readonly accountingService: AccountingService,
     @Inject(forwardRef(() => IkasService))
     private readonly IkasService: IkasService,
+    @Inject(forwardRef(() => ShopifyService))
+    private readonly shopifyService: ShopifyService,
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
@@ -1422,6 +1425,39 @@ export class MenuService {
       } catch (error) {
         console.error(
           'Failed to create Ikas product for item ID ' + item._id + ':',
+          error,
+        );
+        failedItems.push(item._id);
+      }
+    }
+    if (failedItems.length > 0) {
+      console.log('Items that failed to create:', failedItems);
+    }
+    return failedItems;
+  }
+
+  async createMultipleShopifyProduct(user: User, itemIds: Array<number>) {
+    const items = await this.itemModel.find({
+      _id: { $in: itemIds },
+    });
+    let failedItems = [];
+    const shopifyCollections =
+      await this.accountingService.findAllProductCategory();
+    for (const item of items) {
+      try {
+        const shopifyCollectionIds = item?.productCategories
+          ?.map((catId) =>
+            shopifyCollections.find((c) => c._id === catId)?.shopifyId,
+          )
+          ?.filter((shopifyId) => shopifyId !== undefined);
+        await this.shopifyService.createItemProduct(
+          user,
+          item,
+          shopifyCollectionIds,
+        );
+      } catch (error) {
+        console.error(
+          'Failed to create Shopify product for item ID ' + item._id + ':',
           error,
         );
         failedItems.push(item._id);

@@ -600,7 +600,11 @@ export class ShopifyService {
     }
   }
 
-  async createItemProduct(user: User, item: MenuItem) {
+  async createItemProduct(
+    user: User,
+    item: MenuItem,
+    shopifyCollectionIds?: string[],
+  ) {
     try {
       const createShopifyProductItem = {
         title: item.name,
@@ -620,7 +624,10 @@ export class ShopifyService {
             : []),
         ],
       };
-      const shopifyProduct = await this.createProduct(createShopifyProductItem);
+      const shopifyProduct = await this.createProduct(
+        createShopifyProductItem,
+        shopifyCollectionIds,
+      );
       if (shopifyProduct) {
         const productId = shopifyProduct.id.split('/').pop();
         const updatedItem = { ...item.toObject(), shopifyId: productId };
@@ -650,7 +657,7 @@ export class ShopifyService {
     }
   }
 
-  async createProduct(productInput: any) {
+  async createProduct(productInput: any, collectionIds?: string[]) {
     const mutation = `
       mutation productCreate($input: ProductInput!) {
         productCreate(input: $input) {
@@ -716,6 +723,14 @@ export class ShopifyService {
         const productId = product.id.split('/').pop();
         const imageUrls = productInput.images.map((img: any) => img.src);
         await this.createProductImages(productId, imageUrls);
+      }
+
+      // Add product to collections if provided
+      if (collectionIds?.length > 0 && product.id) {
+        const productId = product.id.split('/').pop();
+        for (const collectionId of collectionIds) {
+          await this.addProductToCollection(collectionId, productId);
+        }
       }
 
       return product;
@@ -1000,6 +1015,61 @@ export class ShopifyService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+    }
+  }
+
+  async addProductToCollection(collectionId: string, productId: string) {
+    const client = await this.getGraphQLClient();
+
+    const mutation = `
+      mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
+        collectionAddProducts(id: $id, productIds: $productIds) {
+          collection {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await client.request(mutation, {
+        variables: {
+          id: `gid://shopify/Collection/${collectionId}`,
+          productIds: [`gid://shopify/Product/${productId}`],
+        },
+      });
+
+      if (
+        response.errors ||
+        response.data.collectionAddProducts.userErrors?.length > 0
+      ) {
+        const errors =
+          response.errors || response.data.collectionAddProducts.userErrors;
+        console.error(
+          `Error adding product to collection ${collectionId}:`,
+          JSON.stringify(errors, null, 2),
+        );
+        throw new HttpException(
+          `Unable to add product to collection ${collectionId}.`,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      console.log(
+        `Product ${productId} added to collection ${collectionId} successfully`,
+      );
+    } catch (error) {
+      console.error(
+        `Error adding product to collection ${collectionId}:`,
+        JSON.stringify(error.response?.data || error.message, null, 2),
+      );
+      throw new HttpException(
+        `Unable to add product to collection ${collectionId}.`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
