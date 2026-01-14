@@ -1175,12 +1175,14 @@ export class ShopifyService {
               data?.payment_gateway_names?.[0],
             );
 
-          const foundShopifyOrder = await this.orderService.findByShopifyId(
-            data?.id?.toString(),
-          );
+          const foundShopifyOrder =
+            await this.orderService.findByShopifyIdAndItem(
+              data?.id?.toString(),
+              foundMenuItem._id,
+            );
           if (foundShopifyOrder) {
             console.log(
-              `Order already exists for shopify order id: ${data.id}, skipping to next item.`,
+              `Order already exists for shopify order id: ${data.id} and item: ${foundMenuItem._id}, skipping to next item.`,
             );
             continue;
           }
