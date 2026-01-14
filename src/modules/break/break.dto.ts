@@ -74,7 +74,7 @@ export class BreakQueryDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   date?: string;
 
   @ApiProperty({ required: false })
