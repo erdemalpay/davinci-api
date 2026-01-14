@@ -1155,7 +1155,13 @@ export class ShopifyService {
 
       for (const lineItem of lineItems) {
         try {
-          const { quantity, variant_id, product_id, price } = lineItem;
+          const {
+            id: lineItemId,
+            quantity,
+            variant_id,
+            product_id,
+            price,
+          } = lineItem;
 
           if (!product_id || !quantity) {
             throw new HttpException(
@@ -1182,14 +1188,13 @@ export class ShopifyService {
               data?.payment_gateway_names?.[0],
             );
 
-          const foundShopifyOrder =
-            await this.orderService.findByShopifyIdAndItem(
-              data?.id?.toString(),
-              foundMenuItem._id,
-            );
+          // Check if this specific line item order already exists
+          const foundShopifyOrder = await this.orderService.findByShopifyId(
+            lineItemId?.toString(),
+          );
           if (foundShopifyOrder) {
             console.log(
-              `Order already exists for shopify order id: ${data.id} and item: ${foundMenuItem._id}, skipping to next item.`,
+              `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,
             );
             continue;
           }
@@ -1215,7 +1220,7 @@ export class ShopifyService {
             tableDate: new Date(),
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
-            shopifyId: data?.id?.toString(),
+            shopifyId: lineItemId?.toString(),
             ...(foundPaymentMethod && {
               paymentMethod: foundPaymentMethod._id,
             }),
