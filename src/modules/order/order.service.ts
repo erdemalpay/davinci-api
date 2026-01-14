@@ -1810,7 +1810,9 @@ export class OrderService {
       const order = await this.orderModel
         .findOne({ shopifyId: shopifyId })
         .populate('item');
-      const collection = await this.collectionModel.findOne({ shopifyId: shopifyId });
+      const collection = await this.collectionModel.findOne({
+        shopifyId: shopifyId,
+      });
       if (!order || !collection) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
@@ -3528,6 +3530,13 @@ export class OrderService {
   findByShopifyId(shopifyId: string) {
     return this.orderModel.findOne({ shopifyId: shopifyId }).exec();
   }
+
+  findByShopifyIdAndItem(shopifyId: string, itemId: number) {
+    return this.orderModel
+      .findOne({ shopifyId: shopifyId, item: itemId })
+      .exec();
+  }
+
   async createOrderNote(createOrderNoteDto: CreateOrderNotesDto) {
     const orderNote = await new this.orderNotesModel(createOrderNoteDto);
     await this.websocketGateway.emitOrderNotesChanged();
