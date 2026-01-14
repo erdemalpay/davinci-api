@@ -1221,9 +1221,7 @@ export class ShopifyService {
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
             shopifyId: lineItemId?.toString(),
-            ...(foundPaymentMethod && {
-              paymentMethod: foundPaymentMethod._id,
-            }),
+            paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
             }),
