@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -50,7 +50,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1027,13 +1027,18 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
-
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
 
     for (const order of orders) {
       if (order.quantity <= 0) {
         continue;
+      }
+      if (table.type === TableTypes.ACTIVITY && !order?.activityPlayer) {
+        throw new HttpException(
+          'Activity tables require an activityPlayer',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (Array.isArray(order.discountNote)) {
@@ -1161,12 +1166,21 @@ export class OrderService {
       createOrderDto.discountNote = createOrderDto.discountNote.join(',');
     }
 
-    // Check if table is closed (finishHour exists)
+    // Check if table is closed (finishHour exists) and activity table player requirement
     if (createOrderDto.table) {
       const table = await this.tableService.findById(createOrderDto.table);
       if (table && table.finishHour) {
         throw new HttpException(
           'Cannot add orders to a closed table',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        table.type === TableTypes.ACTIVITY &&
+        !createOrderDto?.activityPlayer
+      ) {
+        throw new HttpException(
+          'Activity tables require an activityPlayer',
           HttpStatus.BAD_REQUEST,
         );
       }

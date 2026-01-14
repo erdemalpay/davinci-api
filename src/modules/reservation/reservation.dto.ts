@@ -1,45 +1,59 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ReservationDto {
+  @IsOptional()
   @IsNumber()
   _id?: number;
 
+  @IsOptional()
   @IsNumber()
   location?: number;
 
+  @IsOptional()
   @IsNumber()
   playerCount?: number;
 
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
+  @IsOptional()
   @IsString()
-  phone: string;
+  phone?: string;
 
+  @IsOptional()
   @IsString()
-  createdBy: string;
+  createdBy?: string;
 
+  @IsOptional()
   @IsString()
   date?: string;
 
+  @IsOptional()
   @IsString()
   note?: string;
 
+  @IsOptional()
   @IsString()
   reservationHour?: string;
 
+  @IsOptional()
   @IsString()
   reservedTable?: string;
 
+  @IsOptional()
   @IsString()
   callHour?: string;
 
+  @IsOptional()
   @IsString()
   approvedHour?: string;
 
+  @IsOptional()
   @IsString()
   status?: string;
 
+  @IsOptional()
   @IsNumber()
   comingDurationInMinutes?: number;
 }

@@ -1301,7 +1301,7 @@ export class AccountingService {
               { new: true },
             );
 
-            this.websocketGateway.emitStockChanged();
+            this.websocketGateway.emitStockAdded(newStock);
 
             if (rollback.stockDelta !== 0) {
               const stockHist = await this.productStockHistoryModel.create({
@@ -1331,7 +1331,7 @@ export class AccountingService {
               quantity: rollback.stockDelta,
             });
             await stockDoc.save();
-            this.websocketGateway.emitStockChanged();
+            this.websocketGateway.emitStockAdded(stockDoc);
 
             await this.activityService.addActivity(
               user,
@@ -2058,7 +2058,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
-      this.websocketGateway.emitStockChanged();
+      this.websocketGateway.emitStockAdded(newStock);
 
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -2209,7 +2209,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
-      this.websocketGateway.emitStockChanged();
+      this.websocketGateway.emitStockAdded(stock);
 
       await this.activityService.addActivity(
         user,

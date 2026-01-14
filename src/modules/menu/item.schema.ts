@@ -39,6 +39,9 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   isAutoServed: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isAutoPrepared: boolean;
+
   @Prop({ required: true, type: Number })
   order: number;
 
