@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -79,20 +79,26 @@ export class ShopifyService {
     const isProduction = process.env.NODE_ENV === 'production';
 
     this.storeUrl = this.configService.get<string>(
-      isProduction ? 'SHOPIFY_STORE_URL' : 'SHOPIFY_STAGING_STORE_URL'
+      isProduction ? 'SHOPIFY_STORE_URL' : 'SHOPIFY_STAGING_STORE_URL',
     );
-    this.apiKey = this.configService.get<string>(
-      isProduction ? 'SHOPIFY_API_KEY' : 'SHOPIFY_STAGING_API_KEY'
-    ) || '';
-    this.apiSecretKey = this.configService.get<string>(
-      isProduction ? 'SHOPIFY_API_SECRET' : 'SHOPIFY_STAGING_API_SECRET'
-    ) || '';
+    this.apiKey =
+      this.configService.get<string>(
+        isProduction ? 'SHOPIFY_API_KEY' : 'SHOPIFY_STAGING_API_KEY',
+      ) || '';
+    this.apiSecretKey =
+      this.configService.get<string>(
+        isProduction ? 'SHOPIFY_API_SECRET' : 'SHOPIFY_STAGING_API_SECRET',
+      ) || '';
 
     if (!this.storeUrl) {
       this.logger.warn('Shopify store URL not configured');
     }
 
-    this.logger.log(`Shopify initialized in ${isProduction ? 'PRODUCTION' : 'STAGING'} mode: ${this.storeUrl}`);
+    this.logger.log(
+      `Shopify initialized in ${
+        isProduction ? 'PRODUCTION' : 'STAGING'
+      } mode: ${this.storeUrl}`,
+    );
   }
 
   private async getShopifyInstance(): Promise<ReturnType<typeof shopifyApi>> {
@@ -128,8 +134,10 @@ export class ShopifyService {
   }
 
   private async getToken(): Promise<string> {
-    let shopifyToken: ShopifyToken | null = await this.redisService.get(RedisKeys.ShopifyToken);
-    
+    let shopifyToken: ShopifyToken | null = await this.redisService.get(
+      RedisKeys.ShopifyToken,
+    );
+
     // Check if token exists and is not expired
     if (shopifyToken && !this.isTokenExpired(shopifyToken.expiresAt)) {
       return shopifyToken.accessToken;
@@ -155,14 +163,14 @@ export class ShopifyService {
    */
   private async getClientCredentialsToken(): Promise<ShopifyToken> {
     const tokenUrl = `https://${this.storeUrl}/admin/oauth/access_token`;
-    
+
     if (!this.apiKey || !this.apiSecretKey) {
       throw new HttpException(
         'SHOPIFY_API_KEY and SHOPIFY_API_SECRET must be configured',
         HttpStatus.BAD_REQUEST,
       );
     }
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.post(
@@ -175,10 +183,10 @@ export class ShopifyService {
           {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'Accept': 'application/json',
+              Accept: 'application/json',
             },
-          }
-        )
+          },
+        ),
       );
 
       const tokenData: ShopifyToken = {
@@ -197,7 +205,10 @@ export class ShopifyService {
       this.shopifyInstance = null;
       return tokenData;
     } catch (error) {
-      console.error('Error getting client credentials token:', error.response?.data || error.message);
+      console.error(
+        'Error getting client credentials token:',
+        error.response?.data || error.message,
+      );
       throw new HttpException(
         'Unable to get access token using client credentials grant',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -207,7 +218,7 @@ export class ShopifyService {
 
   async exchangeAuthorizationCode(code: string): Promise<ShopifyToken> {
     const tokenUrl = `https://${this.storeUrl}/admin/oauth/access_token`;
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.post(
@@ -222,8 +233,8 @@ export class ShopifyService {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
             },
-          }
-        )
+          },
+        ),
       );
 
       const tokenData: ShopifyToken = {
@@ -243,14 +254,16 @@ export class ShopifyService {
       this.shopifyInstance = null;
       return tokenData;
     } catch (error) {
-      console.error('Error exchanging authorization code:', error.response?.data || error.message);
+      console.error(
+        'Error exchanging authorization code:',
+        error.response?.data || error.message,
+      );
       throw new HttpException(
         'Unable to exchange authorization code for access token',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
-
 
   getAuthorizationUrl(redirectUri: string, state?: string): string {
     const scopes = this.scopes.join(',');
@@ -265,12 +278,14 @@ export class ShopifyService {
       params.append('state', state);
     }
 
-    return `https://${this.storeUrl}/admin/oauth/authorize?${params.toString()}`;
+    return `https://${
+      this.storeUrl
+    }/admin/oauth/authorize?${params.toString()}`;
   }
 
   private async getSession(): Promise<Session> {
     const accessToken = await this.getToken();
-    
+
     return new Session({
       id: `${this.storeUrl}_session`,
       shop: this.storeUrl || '',
@@ -487,9 +502,7 @@ export class ShopifyService {
           );
         }
 
-        const orders = response.data.orders.edges.map(
-          (edge: any) => edge.node,
-        );
+        const orders = response.data.orders.edges.map((edge: any) => edge.node);
         allOrders.push(...orders);
 
         hasNextPage = response.data.orders.pageInfo.hasNextPage;
@@ -538,9 +551,7 @@ export class ShopifyService {
         );
       }
 
-      return response.data.collections.edges.map(
-        (edge: any) => edge.node,
-      );
+      return response.data.collections.edges.map((edge: any) => edge.node);
     } catch (error) {
       console.error(
         'Error fetching collections:',
@@ -698,8 +709,12 @@ export class ShopifyService {
         variables: { input },
       });
 
-      if (response.errors || response.data.productCreate.userErrors?.length > 0) {
-        const errors = response.errors || response.data.productCreate.userErrors;
+      if (
+        response.errors ||
+        response.data.productCreate.userErrors?.length > 0
+      ) {
+        const errors =
+          response.errors || response.data.productCreate.userErrors;
         throw new HttpException(
           `Shopify API error: ${JSON.stringify(errors)}`,
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -709,7 +724,10 @@ export class ShopifyService {
       const product = response.data.productCreate.product;
 
       // Update variant price if provided
-      if (productInput.variants?.[0]?.price && product.variants?.edges?.[0]?.node?.id) {
+      if (
+        productInput.variants?.[0]?.price &&
+        product.variants?.edges?.[0]?.node?.id
+      ) {
         const variantId = product.variants.edges[0].node.id;
         await this.updateProductPrice(
           product.id.split('/').pop(),
@@ -782,7 +800,9 @@ export class ShopifyService {
     try {
       const variantResponse = await client.request(variantQuery, {
         variables: {
-          id: variantId.includes('gid://') ? variantId : `gid://shopify/ProductVariant/${variantId}`,
+          id: variantId.includes('gid://')
+            ? variantId
+            : `gid://shopify/ProductVariant/${variantId}`,
         },
       });
 
@@ -821,7 +841,9 @@ export class ShopifyService {
             setQuantities: [
               {
                 inventoryItemId: inventoryItemId,
-                locationId: locationId.includes('gid://') ? locationId : `gid://shopify/Location/${locationId}`,
+                locationId: locationId.includes('gid://')
+                  ? locationId
+                  : `gid://shopify/Location/${locationId}`,
                 quantity: stockCount,
               },
             ],
@@ -829,8 +851,13 @@ export class ShopifyService {
         },
       });
 
-      if (response.errors || response.data.inventorySetOnHandQuantities.userErrors?.length > 0) {
-        const errors = response.errors || response.data.inventorySetOnHandQuantities.userErrors;
+      if (
+        response.errors ||
+        response.data.inventorySetOnHandQuantities.userErrors?.length > 0
+      ) {
+        const errors =
+          response.errors ||
+          response.data.inventorySetOnHandQuantities.userErrors;
         console.error('Failed to update stock:', JSON.stringify(errors));
         return false;
       }
@@ -936,8 +963,12 @@ export class ShopifyService {
         },
       });
 
-      if (response.errors || response.data.productVariantsBulkUpdate.userErrors?.length > 0) {
-        const errors = response.errors || response.data.productVariantsBulkUpdate.userErrors;
+      if (
+        response.errors ||
+        response.data.productVariantsBulkUpdate.userErrors?.length > 0
+      ) {
+        const errors =
+          response.errors || response.data.productVariantsBulkUpdate.userErrors;
         console.error('Failed to update price:', JSON.stringify(errors));
         return false;
       }
@@ -993,8 +1024,12 @@ export class ShopifyService {
           },
         });
 
-        if (response.errors || response.data.productCreateMedia.userErrors?.length > 0) {
-          const errors = response.errors || response.data.productCreateMedia.userErrors;
+        if (
+          response.errors ||
+          response.data.productCreateMedia.userErrors?.length > 0
+        ) {
+          const errors =
+            response.errors || response.data.productCreateMedia.userErrors;
           console.error(
             `Error uploading image ${i + 1}:`,
             JSON.stringify(errors, null, 2),
@@ -1074,6 +1109,8 @@ export class ShopifyService {
   }
 
   async orderCreateWebHook(data?: any) {
+    console.log('Processing Shopify order webhook...');
+    console.log('Webhook data:', data);
     try {
       if (!data) {
         throw new HttpException(
@@ -1099,8 +1136,13 @@ export class ShopifyService {
         return;
       }
 
-      if (data?.financial_status !== 'paid' && data?.financial_status !== 'pending') {
-        console.log(`Skipping order as financial status is not 'paid' or 'pending'`);
+      if (
+        data?.financial_status !== 'paid' &&
+        data?.financial_status !== 'pending'
+      ) {
+        console.log(
+          `Skipping order as financial status is not 'paid' or 'pending'`,
+        );
         return;
       }
 
@@ -1207,10 +1249,7 @@ export class ShopifyService {
                       visit,
                     ) => {
                       acc.seenUsers = acc.seenUsers || {};
-                      if (
-                        visit?.user &&
-                        !acc.seenUsers[(visit as any).user]
-                      ) {
+                      if (visit?.user && !acc.seenUsers[(visit as any).user]) {
                         acc.seenUsers[(visit as any).user] = true;
                         acc.unique.push(visit);
                       }
@@ -1280,10 +1319,16 @@ export class ShopifyService {
               );
             }
           } catch (orderError) {
-            console.error('Error creating order:', orderError?.message || orderError);
+            console.error(
+              'Error creating order:',
+              orderError?.message || orderError,
+            );
           }
         } catch (itemError) {
-          console.error('Error processing line item:', itemError?.message || itemError);
+          console.error(
+            'Error processing line item:',
+            itemError?.message || itemError,
+          );
         }
       }
     } catch (error) {
@@ -1321,7 +1366,10 @@ export class ShopifyService {
         return;
       }
 
-      if (data?.financial_status !== 'refunded' && data?.cancelled_at === null) {
+      if (
+        data?.financial_status !== 'refunded' &&
+        data?.cancelled_at === null
+      ) {
         console.log(`Skipping order as status is not 'refunded' or cancelled`);
         return;
       }
@@ -1393,7 +1441,8 @@ export class ShopifyService {
                 continue;
               }
 
-              const variantId = foundShopifyProduct.variants?.edges?.[0]?.node?.id;
+              const variantId =
+                foundShopifyProduct.variants?.edges?.[0]?.node?.id;
               if (variantId) {
                 await this.updateProductStock(
                   item.shopifyId,
@@ -1424,4 +1473,3 @@ export class ShopifyService {
     }
   }
 }
-
