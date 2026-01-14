@@ -76,13 +76,23 @@ export class ShopifyService {
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
   ) {
-    this.storeUrl = this.configService.get<string>('SHOPIFY_STORE_URL');
-    this.apiKey = this.configService.get<string>('SHOPIFY_API_KEY') || '';
-    this.apiSecretKey = this.configService.get<string>('SHOPIFY_API_SECRET') || '';
-    
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    this.storeUrl = this.configService.get<string>(
+      isProduction ? 'SHOPIFY_STORE_URL' : 'SHOPIFY_STAGING_STORE_URL'
+    );
+    this.apiKey = this.configService.get<string>(
+      isProduction ? 'SHOPIFY_API_KEY' : 'SHOPIFY_STAGING_API_KEY'
+    ) || '';
+    this.apiSecretKey = this.configService.get<string>(
+      isProduction ? 'SHOPIFY_API_SECRET' : 'SHOPIFY_STAGING_API_SECRET'
+    ) || '';
+
     if (!this.storeUrl) {
       this.logger.warn('Shopify store URL not configured');
     }
+
+    this.logger.log(`Shopify initialized in ${isProduction ? 'PRODUCTION' : 'STAGING'} mode: ${this.storeUrl}`);
   }
 
   private async getShopifyInstance(): Promise<ReturnType<typeof shopifyApi>> {
@@ -641,10 +651,6 @@ export class ShopifyService {
   }
 
   async createProduct(productInput: any) {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
-
     const mutation = `
       mutation productCreate($input: ProductInput!) {
         productCreate(input: $input) {
@@ -674,16 +680,15 @@ export class ShopifyService {
     const client = await this.getGraphQLClient();
 
     try {
+      // Build input without variants and images in ProductInput
+      const input: any = {
+        title: productInput.title,
+        descriptionHtml: productInput.descriptionHtml,
+        productType: productInput.productType,
+      };
+
       const response = await client.request(mutation, {
-        variables: {
-          input: {
-            title: productInput.title,
-            descriptionHtml: productInput.descriptionHtml,
-            productType: productInput.productType,
-            variants: productInput.variants,
-            images: productInput.images,
-          },
-        },
+        variables: { input },
       });
 
       if (response.errors || response.data.productCreate.userErrors?.length > 0) {
@@ -694,7 +699,26 @@ export class ShopifyService {
         );
       }
 
-      return response.data.productCreate.product;
+      const product = response.data.productCreate.product;
+
+      // Update variant price if provided
+      if (productInput.variants?.[0]?.price && product.variants?.edges?.[0]?.node?.id) {
+        const variantId = product.variants.edges[0].node.id;
+        await this.updateProductPrice(
+          product.id.split('/').pop(),
+          variantId,
+          parseFloat(productInput.variants[0].price),
+        );
+      }
+
+      // Add images if provided
+      if (productInput.images?.length > 0 && product.id) {
+        const productId = product.id.split('/').pop();
+        const imageUrls = productInput.images.map((img: any) => img.src);
+        await this.createProductImages(productId, imageUrls);
+      }
+
+      return product;
     } catch (error) {
       console.error(
         'Error creating product:',
@@ -713,10 +737,6 @@ export class ShopifyService {
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
-
     const foundLocation = await this.locationService.findLocationById(
       stockLocationId,
     );
@@ -816,9 +836,6 @@ export class ShopifyService {
   }
 
   async updateProductImages(itemId: number): Promise<void> {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
     const item = await this.menuService.findItemById(itemId);
     if (!item) {
       throw new HttpException(
@@ -867,14 +884,10 @@ export class ShopifyService {
     variantId: string,
     newPrice: number,
   ): Promise<boolean> {
-    if (process.env.NODE_ENV !== 'production') {
-      return;
-    }
-
     const mutation = `
-      mutation productVariantUpdate($input: ProductVariantInput!) {
-        productVariantUpdate(input: $input) {
-          productVariant {
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
             id
             price
           }
@@ -889,17 +902,27 @@ export class ShopifyService {
     const client = await this.getGraphQLClient();
 
     try {
+      const formattedProductId = productId.includes('gid://')
+        ? productId
+        : `gid://shopify/Product/${productId}`;
+      const formattedVariantId = variantId.includes('gid://')
+        ? variantId
+        : `gid://shopify/ProductVariant/${variantId}`;
+
       const response = await client.request(mutation, {
         variables: {
-          input: {
-            id: variantId,
-            price: newPrice.toString(),
-          },
+          productId: formattedProductId,
+          variants: [
+            {
+              id: formattedVariantId,
+              price: newPrice.toString(),
+            },
+          ],
         },
       });
 
-      if (response.errors || response.data.productVariantUpdate.userErrors?.length > 0) {
-        const errors = response.errors || response.data.productVariantUpdate.userErrors;
+      if (response.errors || response.data.productVariantsBulkUpdate.userErrors?.length > 0) {
+        const errors = response.errors || response.data.productVariantsBulkUpdate.userErrors;
         console.error('Failed to update price:', JSON.stringify(errors));
         return false;
       }
@@ -1257,9 +1280,6 @@ export class ShopifyService {
   }
 
   async updateAllProductStocks() {
-    // if (process.env.NODE_ENV !== 'production') {
-    //   return;
-    // }
     try {
       const shopifyItems = await this.menuService.getAllShopifyItems();
       console.log('Fetched Shopify Items:', shopifyItems);
