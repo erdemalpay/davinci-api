@@ -38,6 +38,13 @@ jobs:
           echo WHATSAPP_ACCESS_TOKEN=${{secrets.WHATSAPP_ACCESS_TOKEN}} >> .env
           echo BUTTON_CALL_NEO_PORT=${{secrets.BUTTON_CALL_NEO_PORT}} >> .env
           echo BGG_API_TOKEN=${{secrets.BGG_API_TOKEN}} >> .env
+          echo SHOPIFY_API_KEY=${{secrets.SHOPIFY_API_KEY}} >> .env
+          echo SHOPIFY_API_SECRET=${{secrets.SHOPIFY_API_SECRET}} >> .env
+          echo SHOPIFY_STORE_URL=${{secrets.SHOPIFY_STORE_URL}} >> .env
+          echo SHOPIFY_HOST_URL=${{secrets.SHOPIFY_HOST_URL}} >> .env
+          echo SHOPIFY_STAGING_API_KEY=${{secrets.SHOPIFY_STAGING_API_KEY}} >> .env
+          echo SHOPIFY_STAGING_API_SECRET=${{secrets.SHOPIFY_STAGING_API_SECRET}} >> .env
+          echo SHOPIFY_STAGING_STORE_URL=${{secrets.SHOPIFY_STAGING_STORE_URL}} >> .env
 
       - name: Create ssh folder
         run: mkdir -p ~/.ssh
