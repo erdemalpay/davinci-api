@@ -35,14 +35,12 @@ export class ShopifyController {
   updateProductStock(
     @Body()
     payload: {
-      productId: string;
       variantId: string;
       stockLocationId: number;
       stockCount: number;
     },
   ) {
     return this.shopifyService.updateProductStock(
-      payload.productId,
       payload.variantId,
       payload.stockLocationId,
       payload.stockCount,
@@ -97,4 +95,3 @@ export class ShopifyController {
     return this.shopifyService.orderCancelWebHook(data);
   }
 }
-
