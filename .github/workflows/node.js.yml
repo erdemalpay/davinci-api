@@ -45,6 +45,7 @@ jobs:
           echo SHOPIFY_STAGING_API_KEY=${{secrets.SHOPIFY_STAGING_API_KEY}} >> .env
           echo SHOPIFY_STAGING_API_SECRET=${{secrets.SHOPIFY_STAGING_API_SECRET}} >> .env
           echo SHOPIFY_STAGING_STORE_URL=${{secrets.SHOPIFY_STAGING_STORE_URL}} >> .env
+          echo SHOPIFY_STAGING_HOST_URL=${{secrets.SHOPIFY_STAGING_HOST_URL}} >> .env
 
       - name: Create ssh folder
         run: mkdir -p ~/.ssh

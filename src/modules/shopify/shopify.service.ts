@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -49,6 +49,7 @@ export class ShopifyService {
   private readonly storeUrl: string;
   private readonly apiKey: string;
   private readonly apiSecretKey: string;
+  private readonly hostUrl: string;
   private readonly apiVersion: ApiVersion = ApiVersion.January26;
   private shopifyInstance: ReturnType<typeof shopifyApi> | null = null;
   private readonly scopes: string[] = [
@@ -90,6 +91,8 @@ export class ShopifyService {
         isProduction ? 'SHOPIFY_API_SECRET' : 'SHOPIFY_STAGING_API_SECRET',
       ) || '';
 
+    this.hostUrl = this.configService.get<string>(isProduction ? 'SHOPIFY_HOST_URL' : 'SHOPIFY_STAGING_HOST_URL') || '';
+
     if (!this.storeUrl) {
       this.logger.warn('Shopify store URL not configured');
     }
@@ -115,7 +118,7 @@ export class ShopifyService {
       apiSecretKey: this.apiSecretKey,
       apiVersion: this.apiVersion,
       scopes: this.scopes,
-      hostName: this.configService.get<string>('SHOPIFY_HOST_URL') || '',
+      hostName: this.hostUrl,
       isEmbeddedApp: false,
       isCustomStoreApp: true,
       adminApiAccessToken: accessToken,
