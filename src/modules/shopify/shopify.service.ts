@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -91,7 +91,10 @@ export class ShopifyService {
         isProduction ? 'SHOPIFY_API_SECRET' : 'SHOPIFY_STAGING_API_SECRET',
       ) || '';
 
-    this.hostUrl = this.configService.get<string>(isProduction ? 'SHOPIFY_HOST_URL' : 'SHOPIFY_STAGING_HOST_URL') || '';
+    this.hostUrl =
+      this.configService.get<string>(
+        isProduction ? 'SHOPIFY_HOST_URL' : 'SHOPIFY_STAGING_HOST_URL',
+      ) || '';
 
     if (!this.storeUrl) {
       this.logger.warn('Shopify store URL not configured');
@@ -654,12 +657,7 @@ export class ShopifyService {
           const variantId = shopifyProduct.variants.edges[0].node.id
             .split('/')
             .pop();
-          await this.updateProductStock(
-            productId,
-            variantId,
-            6,
-            storeStock.quantity,
-          );
+          await this.updateProductStock(variantId, 6, storeStock.quantity);
         }
       }
     } catch (error) {
@@ -768,11 +766,14 @@ export class ShopifyService {
   }
 
   async updateProductStock(
-    productId: string,
     variantId: string,
     stockLocationId: number,
     stockCount: number,
   ): Promise<boolean> {
+    if (!variantId) {
+      throw new HttpException('variantId is required', HttpStatus.BAD_REQUEST);
+    }
+
     const foundLocation = await this.locationService.findLocationById(
       stockLocationId,
     );
@@ -1476,7 +1477,6 @@ export class ShopifyService {
                 foundShopifyProduct.variants?.edges?.[0]?.node?.id;
               if (variantId) {
                 await this.updateProductStock(
-                  item.shopifyId,
                   variantId,
                   stock.location,
                   stock.quantity,
