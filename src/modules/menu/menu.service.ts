@@ -16,9 +16,9 @@ import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { IkasService } from './../ikas/ikas.service';
-import { ShopifyService } from './../shopify/shopify.service';
 import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
+import { ShopifyService } from './../shopify/shopify.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem, PriceHistory } from './item.schema';
 import { Kitchen } from './kitchen.schema';
@@ -28,7 +28,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -348,11 +348,9 @@ export class MenuService {
                     stocks,
                   )
                 ) {
-
                   await this.closeItemLocation(item._id, location._id);
                 }
               } else if (stock && stock.quantity > 0 && !isItemInLocation) {
-
                 await this.openItemLocation(item._id, location._id);
               }
             }
@@ -971,6 +969,34 @@ export class MenuService {
     }));
     await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
   }
+
+  async syncAllShopifyPrices() {
+    if (process.env.NODE_ENV !== 'production') return;
+
+    const items = await this.itemModel.find(
+      {
+        shopifyId: { $exists: true, $ne: null },
+        shopifyVariantId: { $exists: true, $ne: null },
+      },
+      {
+        shopifyId: 1,
+        shopifyVariantId: 1,
+        price: 1,
+        onlinePrice: 1,
+      },
+    );
+
+    for (const item of items) {
+      if (item.shopifyId && item.shopifyVariantId) {
+        await this.shopifyService.updateProductPrice(
+          item.shopifyId,
+          item.shopifyVariantId,
+          item.onlinePrice ?? item.price,
+        );
+      }
+    }
+  }
+
   async updateItemsOrder(id: number, newOrder: number) {
     const item = await this.itemModel.findById(id);
     if (!item) {
@@ -1446,8 +1472,9 @@ export class MenuService {
     for (const item of items) {
       try {
         const shopifyCollectionIds = item?.productCategories
-          ?.map((catId) =>
-            shopifyCollections.find((c) => c._id === catId)?.shopifyId,
+          ?.map(
+            (catId) =>
+              shopifyCollections.find((c) => c._id === catId)?.shopifyId,
           )
           ?.filter((shopifyId) => shopifyId !== undefined);
         await this.shopifyService.createItemProduct(

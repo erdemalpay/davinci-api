@@ -135,6 +135,11 @@ export class MenuController {
     return this.menuService.syncAllIkasPrices();
   }
 
+  @Post('/items/shopify/sync-all-prices')
+  syncAllShopifyPrices() {
+    return this.menuService.syncAllShopifyPrices();
+  }
+
   @Post('/items/create-damaged-item')
   createDamagedItem(
     @ReqUser() user: User,
