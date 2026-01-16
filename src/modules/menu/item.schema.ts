@@ -97,6 +97,9 @@ export class MenuItem extends Document {
   shopifyId: string;
 
   @Prop({ required: false, type: String })
+  shopifyVariantId: string;
+
+  @Prop({ required: false, type: String })
   sku: string;
 
   @Prop({ required: false, type: String })
