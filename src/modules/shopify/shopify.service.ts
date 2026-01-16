@@ -154,7 +154,7 @@ export class ShopifyService {
       shopifyToken = await this.getClientCredentialsToken();
       return shopifyToken.accessToken;
     } catch (error) {
-      console.error('Error getting client credentials token:', error.message);
+      this.logError('Error getting client credentials token', error);
       throw new HttpException(
         'Shopify access token not found and unable to obtain new token. Please check configuration.',
         HttpStatus.UNAUTHORIZED,
@@ -206,15 +206,10 @@ export class ShopifyService {
         createdAt: new Date().getTime(),
       };
 
-      await this.redisService.set(RedisKeys.ShopifyToken, tokenData);
-      // Reset shopify instance to use new token
-      this.shopifyInstance = null;
+      await this.resetShopifyToken(tokenData);
       return tokenData;
     } catch (error) {
-      console.error(
-        'Error getting client credentials token:',
-        error.response?.data || error.message,
-      );
+      this.logError('Error getting client credentials token', error);
       throw new HttpException(
         'Unable to get access token using client credentials grant',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -255,15 +250,10 @@ export class ShopifyService {
         createdAt: new Date().getTime(),
       };
 
-      await this.redisService.set(RedisKeys.ShopifyToken, tokenData);
-      // Reset shopify instance to use new token
-      this.shopifyInstance = null;
+      await this.resetShopifyToken(tokenData);
       return tokenData;
     } catch (error) {
-      console.error(
-        'Error exchanging authorization code:',
-        error.response?.data || error.message,
-      );
+      this.logError('Error exchanging authorization code', error);
       throw new HttpException(
         'Unable to exchange authorization code for access token',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -307,12 +297,105 @@ export class ShopifyService {
     return new shopify.clients.Graphql({ session });
   }
 
+  /**
+   * Format Shopify ID to GID format if not already formatted
+   */
+  private formatShopifyId(
+    type: 'Product' | 'ProductVariant' | 'Location' | 'Collection',
+    id: string,
+  ): string {
+    if (id.includes('gid://')) {
+      return id;
+    }
+    return `gid://shopify/${type}/${id}`;
+  }
+
+  /**
+   * Handle GraphQL response errors
+   */
+  private handleGraphQLErrors(
+    response: any,
+    userErrorsPath?: string,
+  ): void {
+    const userErrors = userErrorsPath
+      ? userErrorsPath.split('.').reduce((current, prop) => current?.[prop], response)
+      : null;
+    const hasErrors =
+      response.errors ||
+      (userErrors && Array.isArray(userErrors) && userErrors.length > 0);
+
+    if (hasErrors) {
+      const errors = response.errors || userErrors;
+      throw new HttpException(
+        `Shopify API error: ${JSON.stringify(errors)}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Reset Shopify token and instance
+   */
+  private async resetShopifyToken(tokenData: ShopifyToken): Promise<void> {
+    await this.redisService.set(RedisKeys.ShopifyToken, tokenData);
+    this.shopifyInstance = null;
+  }
+
+  /**
+   * Log error with consistent format
+   */
+  private logError(context: string, error: any): void {
+    this.logger.error(
+      context,
+      JSON.stringify(error.response?.data || error.message || error, null, 2),
+    );
+  }
+
+  /**
+   * Execute GraphQL request with automatic token refresh on 401 errors
+   * @param requestFn Function that executes the GraphQL request
+   * @returns Promise with the GraphQL response
+   */
+  private async executeGraphQLRequest<T>(
+    requestFn: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      const response = await requestFn();
+      return response;
+    } catch (error: any) {
+      // Check if it's a 401 Unauthorized error
+      if (error?.response?.code === 401) {
+        this.logger.warn(
+          'Received 401 error, refreshing token and retrying request',
+        );
+        // Clear the token and shopify instance to force refresh
+        await this.redisService.reset(RedisKeys.ShopifyToken);
+        this.shopifyInstance = null;
+
+        // Get new token
+        await this.getToken();
+
+        // Retry the request once
+        try {
+          return await requestFn();
+        } catch (retryError: any) {
+          this.logger.error(
+            'Request failed again after token refresh',
+            retryError,
+          );
+          throw retryError;
+        }
+      }
+
+      // If not a 401 error, throw the original error
+      throw error;
+    }
+  }
+
   async getAllProducts() {
     const allProducts: any[] = [];
     let hasNextPage = true;
     let cursor: string | null = null;
-
-    const client = await this.getGraphQLClient();
 
     while (hasNextPage) {
       const query = `
@@ -365,16 +448,14 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(query, {
-          variables: cursor ? { cursor } : {},
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(query, {
+            variables: cursor ? { cursor } : {},
+          });
         });
 
-        if (response.errors) {
-          throw new HttpException(
-            `Shopify API error: ${JSON.stringify(response.errors)}`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
-          );
-        }
+        this.handleGraphQLErrors(response);
 
         const products = response.data.products.edges.map(
           (edge: any) => edge.node,
@@ -384,10 +465,7 @@ export class ShopifyService {
         hasNextPage = response.data.products.pageInfo.hasNextPage;
         cursor = response.data.products.pageInfo.endCursor;
       } catch (error) {
-        console.error(
-          'Error fetching products:',
-          JSON.stringify(error.response?.data || error.message),
-        );
+        this.logError('Error fetching products', error);
         throw new HttpException(
           'Unable to fetch products from Shopify.',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -400,9 +478,7 @@ export class ShopifyService {
 
   async getProductById(productId: string) {
     // Ensure productId is in the correct format
-    const formattedProductId = productId.includes('gid://')
-      ? productId
-      : `gid://shopify/Product/${productId}`;
+    const formattedProductId = this.formatShopifyId('Product', productId);
 
     const query = `
       query GetProduct($id: ID!) {
@@ -420,26 +496,19 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query, {
-        variables: { id: formattedProductId },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query, {
+          variables: { id: formattedProductId },
+        });
       });
 
-      if (response.errors) {
-        throw new HttpException(
-          `Shopify API error: ${JSON.stringify(response.errors)}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      this.handleGraphQLErrors(response);
 
       return response.data.product;
     } catch (error) {
-      console.error(
-        'Error fetching product by ID:',
-        JSON.stringify(error.response?.data || error.message),
-      );
+      this.logError('Error fetching product by ID', error);
       throw new HttpException(
         `Unable to fetch product ${productId} from Shopify.`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -451,8 +520,6 @@ export class ShopifyService {
     const allOrders: any[] = [];
     let hasNextPage = true;
     let cursor: string | null = null;
-
-    const client = await this.getGraphQLClient();
 
     while (hasNextPage) {
       const query = `
@@ -497,16 +564,14 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(query, {
-          variables: cursor ? { cursor } : {},
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(query, {
+            variables: cursor ? { cursor } : {},
+          });
         });
 
-        if (response.errors) {
-          throw new HttpException(
-            `Shopify API error: ${JSON.stringify(response.errors)}`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
-          );
-        }
+        this.handleGraphQLErrors(response);
 
         const orders = response.data.orders.edges.map((edge: any) => edge.node);
         allOrders.push(...orders);
@@ -514,10 +579,7 @@ export class ShopifyService {
         hasNextPage = response.data.orders.pageInfo.hasNextPage;
         cursor = response.data.orders.pageInfo.endCursor;
       } catch (error) {
-        console.error(
-          'Error fetching orders:',
-          JSON.stringify(error.response?.data || error.message),
-        );
+        this.logError('Error fetching orders', error);
         throw new HttpException(
           'Unable to fetch orders from Shopify.',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -545,24 +607,17 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
 
-      if (response.errors) {
-        throw new HttpException(
-          `Shopify API error: ${JSON.stringify(response.errors)}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      this.handleGraphQLErrors(response);
 
       return response.data.collections.edges.map((edge: any) => edge.node);
     } catch (error) {
-      console.error(
-        'Error fetching collections:',
-        JSON.stringify(error.response?.data || error.message),
-      );
+      this.logError('Error fetching collections', error);
       throw new HttpException(
         'Unable to fetch collections from Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -592,24 +647,17 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
 
-      if (response.errors) {
-        throw new HttpException(
-          `Shopify API error: ${JSON.stringify(response.errors)}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      this.handleGraphQLErrors(response);
 
       return response.data.locations.edges.map((edge: any) => edge.node);
     } catch (error) {
-      console.error(
-        'Error fetching locations:',
-        JSON.stringify(error.response?.data || error.message),
-      );
+      this.logError('Error fetching locations', error);
       throw new HttpException(
         'Unable to fetch locations from Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -661,7 +709,7 @@ export class ShopifyService {
         }
       }
     } catch (error) {
-      console.error('Failed to create item product:', error);
+      this.logError('Failed to create item product', error);
       throw new HttpException(
         'Failed to process item product due to an error.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -696,8 +744,6 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
       // Build input without variants and images in ProductInput
       const input: any = {
@@ -706,21 +752,14 @@ export class ShopifyService {
         productType: productInput.productType,
       };
 
-      const response = await client.request(mutation, {
-        variables: { input },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: { input },
+        });
       });
 
-      if (
-        response.errors ||
-        response.data.productCreate.userErrors?.length > 0
-      ) {
-        const errors =
-          response.errors || response.data.productCreate.userErrors;
-        throw new HttpException(
-          `Shopify API error: ${JSON.stringify(errors)}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      this.handleGraphQLErrors(response, 'data.productCreate.userErrors');
 
       const product = response.data.productCreate.product;
 
@@ -754,10 +793,7 @@ export class ShopifyService {
 
       return product;
     } catch (error) {
-      console.error(
-        'Error creating product:',
-        JSON.stringify(error.response?.data || error.message, null, 2),
-      );
+      this.logError('Error creating product', error);
       throw new HttpException(
         'Unable to create product in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -798,28 +834,24 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     let inventoryItemId: string;
     try {
-      const variantResponse = await client.request(variantQuery, {
-        variables: {
-          id: variantId.includes('gid://')
-            ? variantId
-            : `gid://shopify/ProductVariant/${variantId}`,
-        },
+      const variantResponse = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(variantQuery, {
+          variables: {
+            id: this.formatShopifyId('ProductVariant', variantId),
+          },
+        });
       });
 
-      if (variantResponse.errors || !variantResponse.data.productVariant) {
-        throw new HttpException(
-          `Unable to fetch variant: ${JSON.stringify(variantResponse.errors)}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+      if (!variantResponse.data.productVariant) {
+        this.handleGraphQLErrors(variantResponse);
       }
 
       inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
     } catch (error) {
-      console.error('Error fetching variant:', error);
+      this.logError('Error fetching variant', error);
       throw new HttpException(
         'Unable to fetch variant inventory item.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -838,31 +870,31 @@ export class ShopifyService {
     `;
 
     try {
-      const response = await client.request(mutation, {
-        variables: {
-          input: {
-            reason: 'correction',
-            setQuantities: [
-              {
-                inventoryItemId: inventoryItemId,
-                locationId: locationId.includes('gid://')
-                  ? locationId
-                  : `gid://shopify/Location/${locationId}`,
-                quantity: stockCount,
-              },
-            ],
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              reason: 'correction',
+              setQuantities: [
+                {
+                  inventoryItemId: inventoryItemId,
+                  locationId: this.formatShopifyId('Location', locationId),
+                  quantity: stockCount,
+                },
+              ],
+            },
           },
-        },
+        });
       });
 
-      if (
-        response.errors ||
-        response.data.inventorySetOnHandQuantities.userErrors?.length > 0
-      ) {
-        const errors =
-          response.errors ||
-          response.data.inventorySetOnHandQuantities.userErrors;
-        console.error('Failed to update stock:', JSON.stringify(errors));
+      try {
+        this.handleGraphQLErrors(
+          response,
+          'data.inventorySetOnHandQuantities.userErrors',
+        );
+      } catch (error) {
+        this.logError('Failed to update stock', error);
         return false;
       }
 
@@ -870,10 +902,7 @@ export class ShopifyService {
       await this.websocketGateway.emitShopifyProductStockChanged();
       return true;
     } catch (error) {
-      console.error(
-        'Error updating stock:',
-        JSON.stringify(error.response?.data || error.message, null, 2),
-      );
+      this.logError('Error updating stock', error);
       throw new HttpException(
         'Unable to update product stock.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -901,7 +930,7 @@ export class ShopifyService {
     }
     item.productImages?.forEach((url) => urls.push(url));
 
-    const productId = `gid://shopify/Product/${item.shopifyId}`;
+    const productId = this.formatShopifyId('Product', item.shopifyId);
     const product = await this.getProductById(productId);
     if (!product) {
       throw new HttpException(
@@ -914,9 +943,9 @@ export class ShopifyService {
       await this.createProductImages(item.shopifyId, urls);
       console.log(`Successfully updated images for product ${item.shopifyId}`);
     } catch (err) {
-      console.error(
-        `Failed to push images for product ${item.shopifyId}:`,
-        err.response?.data || err.message,
+      this.logError(
+        `Failed to push images for product ${item.shopifyId}`,
+        err,
       );
       throw new HttpException(
         'Unable to upload product images.',
@@ -945,35 +974,32 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const formattedProductId = productId.includes('gid://')
-        ? productId
-        : `gid://shopify/Product/${productId}`;
-      const formattedVariantId = variantId.includes('gid://')
-        ? variantId
-        : `gid://shopify/ProductVariant/${variantId}`;
+      const formattedProductId = this.formatShopifyId('Product', productId);
+      const formattedVariantId = this.formatShopifyId('ProductVariant', variantId);
 
-      const response = await client.request(mutation, {
-        variables: {
-          productId: formattedProductId,
-          variants: [
-            {
-              id: formattedVariantId,
-              price: newPrice.toString(),
-            },
-          ],
-        },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            productId: formattedProductId,
+            variants: [
+              {
+                id: formattedVariantId,
+                price: newPrice.toString(),
+              },
+            ],
+          },
+        });
       });
 
-      if (
-        response.errors ||
-        response.data.productVariantsBulkUpdate.userErrors?.length > 0
-      ) {
-        const errors =
-          response.errors || response.data.productVariantsBulkUpdate.userErrors;
-        console.error('Failed to update price:', JSON.stringify(errors));
+      try {
+        this.handleGraphQLErrors(
+          response,
+          'data.productVariantsBulkUpdate.userErrors',
+        );
+      } catch (error) {
+        this.logError('Failed to update price', error);
         return false;
       }
 
@@ -981,10 +1007,7 @@ export class ShopifyService {
       await this.websocketGateway.emitShopifyProductStockChanged();
       return true;
     } catch (error) {
-      console.error(
-        'Error updating price:',
-        JSON.stringify(error.response?.data || error.message, null, 2),
-      );
+      this.logError('Error updating price', error);
       throw new HttpException(
         'Unable to update product price.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -993,8 +1016,6 @@ export class ShopifyService {
   }
 
   async createProductImages(productId: string, imageArray: string[]) {
-    const client = await this.getGraphQLClient();
-
     for (let i = 0; i < imageArray.length; i++) {
       const mutation = `
         mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
@@ -1016,39 +1037,28 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(mutation, {
-          variables: {
-            productId: `gid://shopify/Product/${productId}`,
-            media: [
-              {
-                originalSource: imageArray[i],
-                mediaContentType: 'IMAGE',
-              },
-            ],
-          },
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(mutation, {
+            variables: {
+              productId: this.formatShopifyId('Product', productId),
+              media: [
+                {
+                  originalSource: imageArray[i],
+                  mediaContentType: 'IMAGE',
+                },
+              ],
+            },
+          });
         });
 
-        if (
-          response.errors ||
-          response.data.productCreateMedia.userErrors?.length > 0
-        ) {
-          const errors =
-            response.errors || response.data.productCreateMedia.userErrors;
-          console.error(
-            `Error uploading image ${i + 1}:`,
-            JSON.stringify(errors, null, 2),
-          );
-          throw new HttpException(
-            `Unable to upload image ${i + 1} to Shopify.`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
-          );
-        }
+        this.handleGraphQLErrors(
+          response,
+          'data.productCreateMedia.userErrors',
+        );
         console.log(`Image ${i + 1} uploaded successfully`);
       } catch (error) {
-        console.error(
-          `Error uploading image ${i + 1}:`,
-          JSON.stringify(error.response?.data || error.message, null, 2),
-        );
+        this.logError(`Error uploading image ${i + 1}`, error);
         throw new HttpException(
           `Unable to upload image ${i + 1} to Shopify.`,
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1058,8 +1068,6 @@ export class ShopifyService {
   }
 
   async addProductToCollection(collectionId: string, productId: string) {
-    const client = await this.getGraphQLClient();
-
     const mutation = `
       mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
         collectionAddProducts(id: $id, productIds: $productIds) {
@@ -1075,35 +1083,27 @@ export class ShopifyService {
     `;
 
     try {
-      const response = await client.request(mutation, {
-        variables: {
-          id: `gid://shopify/Collection/${collectionId}`,
-          productIds: [`gid://shopify/Product/${productId}`],
-        },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            id: this.formatShopifyId('Collection', collectionId),
+            productIds: [this.formatShopifyId('Product', productId)],
+          },
+        });
       });
 
-      if (
-        response.errors ||
-        response.data.collectionAddProducts.userErrors?.length > 0
-      ) {
-        const errors =
-          response.errors || response.data.collectionAddProducts.userErrors;
-        console.error(
-          `Error adding product to collection ${collectionId}:`,
-          JSON.stringify(errors, null, 2),
-        );
-        throw new HttpException(
-          `Unable to add product to collection ${collectionId}.`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      this.handleGraphQLErrors(
+        response,
+        'data.collectionAddProducts.userErrors',
+      );
       console.log(
         `Product ${productId} added to collection ${collectionId} successfully`,
       );
     } catch (error) {
-      console.error(
-        `Error adding product to collection ${collectionId}:`,
-        JSON.stringify(error.response?.data || error.message, null, 2),
+      this.logError(
+        `Error adding product to collection ${collectionId}`,
+        error,
       );
       throw new HttpException(
         `Unable to add product to collection ${collectionId}.`,
@@ -1311,17 +1311,10 @@ export class ShopifyService {
               }
             }
           } catch (orderError) {
-            console.error('Error creating order:', orderError);
-            console.error(
-              'Full error details:',
-              JSON.stringify(orderError, null, 2),
-            );
+            this.logError('Error creating order', orderError);
           }
         } catch (itemError) {
-          console.error(
-            'Error processing line item:',
-            itemError?.message || itemError,
-          );
+          this.logError('Error processing line item', itemError);
         }
       }
 
@@ -1357,14 +1350,11 @@ export class ShopifyService {
           );
           console.log('Collection created:', collection);
         } catch (collectionError) {
-          console.error(
-            'Error creating collection:',
-            collectionError?.message || collectionError,
-          );
+          this.logError('Error creating collection', collectionError);
         }
       }
     } catch (error) {
-      console.error('Error in orderCreateWebHook:', error);
+      this.logError('Error in orderCreateWebHook', error);
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1421,11 +1411,11 @@ export class ShopifyService {
             lineItem.quantity,
           );
         } catch (itemError) {
-          console.error('Error processing line item:', itemError.message);
+          this.logError('Error processing line item', itemError);
         }
       }
     } catch (error) {
-      console.error('Error in orderCancelWebHook:', error.message);
+      this.logError('Error in orderCancelWebHook', error);
     }
   }
 
@@ -1450,16 +1440,16 @@ export class ShopifyService {
           for (const stock of productStocks) {
             try {
               if (!item.shopifyId) {
-                console.error(
+                this.logger.warn(
                   `Product ${item.matchedProduct} does not have a Shopify ID`,
                 );
                 continue;
               }
 
-              const productId = `gid://shopify/Product/${item.shopifyId}`;
+              const productId = this.formatShopifyId('Product', item.shopifyId);
               const foundShopifyProduct = await this.getProductById(productId);
               if (!foundShopifyProduct) {
-                console.error(`Product ${item.shopifyId} not found in Shopify`);
+                this.logger.warn(`Product ${item.shopifyId} not found in Shopify`);
                 continue;
               }
 
@@ -1467,7 +1457,7 @@ export class ShopifyService {
                 (location) => location._id === stock.location,
               );
               if (!foundLocation?.shopifyId) {
-                console.error(
+                this.logger.warn(
                   `Location ${stock.location} does not have a Shopify ID`,
                 );
                 continue;
@@ -1486,21 +1476,21 @@ export class ShopifyService {
                 );
               }
             } catch (stockError) {
-              console.error(
-                `Error updating stock for product ${item.shopifyId}, location ${stock.location}:`,
-                stockError.message,
+              this.logError(
+                `Error updating stock for product ${item.shopifyId}, location ${stock.location}`,
+                stockError,
               );
             }
           }
         } catch (productStockError) {
-          console.error(
-            `Error fetching product stocks for ${item.shopifyId}:`,
-            productStockError.message,
+          this.logError(
+            `Error fetching product stocks for ${item.shopifyId}`,
+            productStockError,
           );
         }
       }
     } catch (shopifyItemsError) {
-      console.error('Error fetching Shopify items:', shopifyItemsError.message);
+      this.logError('Error fetching Shopify items', shopifyItemsError);
     }
   }
 }
