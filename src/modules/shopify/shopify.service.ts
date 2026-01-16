@@ -304,12 +304,51 @@ export class ShopifyService {
     return new shopify.clients.Graphql({ session });
   }
 
+  /**
+   * Execute GraphQL request with automatic token refresh on 401 errors
+   * @param requestFn Function that executes the GraphQL request
+   * @returns Promise with the GraphQL response
+   */
+  private async executeGraphQLRequest<T>(
+    requestFn: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      const response = await requestFn();
+      return response;
+    } catch (error: any) {
+      // Check if it's a 401 Unauthorized error
+      if (error?.response?.code === 401) {
+        this.logger.warn(
+          'Received 401 error, refreshing token and retrying request',
+        );
+        // Clear the token and shopify instance to force refresh
+        await this.redisService.reset(RedisKeys.ShopifyToken);
+        this.shopifyInstance = null;
+
+        // Get new token
+        await this.getToken();
+
+        // Retry the request once
+        try {
+          return await requestFn();
+        } catch (retryError: any) {
+          this.logger.error(
+            'Request failed again after token refresh',
+            retryError,
+          );
+          throw retryError;
+        }
+      }
+
+      // If not a 401 error, throw the original error
+      throw error;
+    }
+  }
+
   async getAllProducts() {
     const allProducts: any[] = [];
     let hasNextPage = true;
     let cursor: string | null = null;
-
-    const client = await this.getGraphQLClient();
 
     while (hasNextPage) {
       const query = `
@@ -362,8 +401,11 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(query, {
-          variables: cursor ? { cursor } : {},
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(query, {
+            variables: cursor ? { cursor } : {},
+          });
         });
 
         if (response.errors) {
@@ -417,11 +459,12 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query, {
-        variables: { id: formattedProductId },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query, {
+          variables: { id: formattedProductId },
+        });
       });
 
       if (response.errors) {
@@ -448,8 +491,6 @@ export class ShopifyService {
     const allOrders: any[] = [];
     let hasNextPage = true;
     let cursor: string | null = null;
-
-    const client = await this.getGraphQLClient();
 
     while (hasNextPage) {
       const query = `
@@ -494,8 +535,11 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(query, {
-          variables: cursor ? { cursor } : {},
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(query, {
+            variables: cursor ? { cursor } : {},
+          });
         });
 
         if (response.errors) {
@@ -542,10 +586,11 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
 
       if (response.errors) {
         throw new HttpException(
@@ -589,10 +634,11 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
-      const response = await client.request(query);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
 
       if (response.errors) {
         throw new HttpException(
@@ -698,8 +744,6 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
       // Build input without variants and images in ProductInput
       const input: any = {
@@ -708,8 +752,11 @@ export class ShopifyService {
         productType: productInput.productType,
       };
 
-      const response = await client.request(mutation, {
-        variables: { input },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: { input },
+        });
       });
 
       if (
@@ -797,16 +844,17 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     let inventoryItemId: string;
     try {
-      const variantResponse = await client.request(variantQuery, {
-        variables: {
-          id: variantId.includes('gid://')
-            ? variantId
-            : `gid://shopify/ProductVariant/${variantId}`,
-        },
+      const variantResponse = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(variantQuery, {
+          variables: {
+            id: variantId.includes('gid://')
+              ? variantId
+              : `gid://shopify/ProductVariant/${variantId}`,
+          },
+        });
       });
 
       if (variantResponse.errors || !variantResponse.data.productVariant) {
@@ -837,21 +885,24 @@ export class ShopifyService {
     `;
 
     try {
-      const response = await client.request(mutation, {
-        variables: {
-          input: {
-            reason: 'correction',
-            setQuantities: [
-              {
-                inventoryItemId: inventoryItemId,
-                locationId: locationId.includes('gid://')
-                  ? locationId
-                  : `gid://shopify/Location/${locationId}`,
-                quantity: stockCount,
-              },
-            ],
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              reason: 'correction',
+              setQuantities: [
+                {
+                  inventoryItemId: inventoryItemId,
+                  locationId: locationId.includes('gid://')
+                    ? locationId
+                    : `gid://shopify/Location/${locationId}`,
+                  quantity: stockCount,
+                },
+              ],
+            },
           },
-        },
+        });
       });
 
       if (
@@ -944,8 +995,6 @@ export class ShopifyService {
       }
     `;
 
-    const client = await this.getGraphQLClient();
-
     try {
       const formattedProductId = productId.includes('gid://')
         ? productId
@@ -954,16 +1003,19 @@ export class ShopifyService {
         ? variantId
         : `gid://shopify/ProductVariant/${variantId}`;
 
-      const response = await client.request(mutation, {
-        variables: {
-          productId: formattedProductId,
-          variants: [
-            {
-              id: formattedVariantId,
-              price: newPrice.toString(),
-            },
-          ],
-        },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            productId: formattedProductId,
+            variants: [
+              {
+                id: formattedVariantId,
+                price: newPrice.toString(),
+              },
+            ],
+          },
+        });
       });
 
       if (
@@ -992,8 +1044,6 @@ export class ShopifyService {
   }
 
   async createProductImages(productId: string, imageArray: string[]) {
-    const client = await this.getGraphQLClient();
-
     for (let i = 0; i < imageArray.length; i++) {
       const mutation = `
         mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
@@ -1015,16 +1065,19 @@ export class ShopifyService {
       `;
 
       try {
-        const response = await client.request(mutation, {
-          variables: {
-            productId: `gid://shopify/Product/${productId}`,
-            media: [
-              {
-                originalSource: imageArray[i],
-                mediaContentType: 'IMAGE',
-              },
-            ],
-          },
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(mutation, {
+            variables: {
+              productId: `gid://shopify/Product/${productId}`,
+              media: [
+                {
+                  originalSource: imageArray[i],
+                  mediaContentType: 'IMAGE',
+                },
+              ],
+            },
+          });
         });
 
         if (
@@ -1057,8 +1110,6 @@ export class ShopifyService {
   }
 
   async addProductToCollection(collectionId: string, productId: string) {
-    const client = await this.getGraphQLClient();
-
     const mutation = `
       mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
         collectionAddProducts(id: $id, productIds: $productIds) {
@@ -1074,11 +1125,14 @@ export class ShopifyService {
     `;
 
     try {
-      const response = await client.request(mutation, {
-        variables: {
-          id: `gid://shopify/Collection/${collectionId}`,
-          productIds: [`gid://shopify/Product/${productId}`],
-        },
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            id: `gid://shopify/Collection/${collectionId}`,
+            productIds: [`gid://shopify/Product/${productId}`],
+          },
+        });
       });
 
       if (
