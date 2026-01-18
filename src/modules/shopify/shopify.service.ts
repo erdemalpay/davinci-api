@@ -1193,7 +1193,7 @@ export class ShopifyService {
             );
 
           // Check if this specific line item order already exists
-          const foundShopifyOrder = await this.orderService.findByShopifyId(
+          const foundShopifyOrder = await this.orderService.findByShopifyOrderLineItemId(
             lineItemId?.toString(),
           );
           if (foundShopifyOrder) {
@@ -1224,7 +1224,8 @@ export class ShopifyService {
             tableDate: new Date(),
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
-            shopifyId: lineItemId?.toString(),
+            shopifyOrderId: data?.id?.toString(),
+            shopifyOrderLineItemId: lineItemId?.toString(),
             paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
@@ -1407,7 +1408,7 @@ export class ShopifyService {
 
       console.log('Received Shopify cancel webhook data:', data);
 
-      const lineItems = data?.line_items ?? [];
+      const refunds = data?.refunds ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
       if (!constantUser) {
@@ -1417,8 +1418,8 @@ export class ShopifyService {
         );
       }
 
-      if (lineItems.length === 0) {
-        console.log('No line items to process');
+      if (refunds.length === 0) {
+        console.log('No refunds to process');
         return;
       }
 
@@ -1430,22 +1431,146 @@ export class ShopifyService {
         return;
       }
 
-      for (const lineItem of lineItems) {
-        try {
-          const orderId = data?.id?.toString();
-          if (!orderId) {
-            throw new HttpException(
-              'Invalid line item data',
-              HttpStatus.BAD_REQUEST,
+      // Collect all cancellation info first
+      const cancellationResults: Array<{
+        order: any;
+        collection: any;
+        cancelledAmount: number;
+        isPartial: boolean;
+        remainingQuantity: number;
+        cancelledOrder: any;
+      }> = [];
+
+      // Process each refund and its refund_line_items
+      for (const refund of refunds) {
+        const refundLineItems = refund?.refund_line_items ?? [];
+        
+        if (refundLineItems.length === 0) {
+          console.log('No refund line items in this refund');
+          continue;
+        }
+
+        for (const refundLineItem of refundLineItems) {
+          try {
+            const lineItemId = refundLineItem?.line_item_id?.toString();
+            const quantity = refundLineItem?.quantity ?? 0;
+
+            if (!lineItemId) {
+              this.logger.warn(
+                'Invalid refund line item data: missing line_item_id',
+                JSON.stringify(refundLineItem),
+              );
+              continue;
+            }
+
+            if (quantity <= 0) {
+              this.logger.warn(
+                `Invalid quantity for line item ${lineItemId}: ${quantity}`,
+              );
+              continue;
+            }
+
+            const cancellationResult = await this.orderService.cancelShopifyOrder(
+              constantUser,
+              lineItemId,
+              quantity,
             );
+            
+            if (cancellationResult) {
+              cancellationResults.push(cancellationResult);
+            }
+          } catch (itemError) {
+            this.logError('Error processing refund line item', itemError);
           }
-          await this.orderService.cancelShopifyOrder(
+        }
+      }
+
+      // Group cancellations by collection and update collections
+      const collectionMap = new Map();
+      
+      for (const result of cancellationResults) {
+        const collectionId = result.collection._id.toString();
+        
+        if (!collectionMap.has(collectionId)) {
+          collectionMap.set(collectionId, {
+            collection: result.collection,
+            cancellations: [],
+            totalCancelledAmount: 0,
+          });
+        }
+        
+        const collectionData = collectionMap.get(collectionId);
+        collectionData.cancellations.push(result);
+        collectionData.totalCancelledAmount += result.cancelledAmount;
+      }
+
+      // Update each collection once
+      for (const [collectionId, collectionData] of collectionMap.entries()) {
+        try {
+          const { collection, cancellations, totalCancelledAmount } = collectionData;
+          
+          // Build updated orders array
+          const orderUpdateMap = new Map();
+          
+          // Initialize with existing orders
+          for (const orderItem of collection.orders) {
+            orderUpdateMap.set(orderItem.order.toString(), {
+              order: orderItem.order,
+              paidQuantity: orderItem.paidQuantity,
+            });
+          }
+
+          // Update based on cancellations
+          for (const cancellation of cancellations) {
+            if (cancellation.isPartial) {
+              // Partial cancellation: update existing order's paidQuantity
+              orderUpdateMap.set(cancellation.order._id.toString(), {
+                order: cancellation.order._id,
+                paidQuantity: cancellation.remainingQuantity,
+              });
+            } else {
+              // Full cancellation: remove order from collection
+              orderUpdateMap.delete(cancellation.order._id.toString());
+            }
+          }
+
+          const updatedOrders = Array.from(orderUpdateMap.values());
+          const newAmount = collection.amount - totalCancelledAmount;
+
+          // Check if all orders in collection are cancelled
+          const allOrderIds = updatedOrders.map((o) => o.order);
+          const activeOrders = await this.orderService.findActiveOrdersByIds(allOrderIds);
+
+          const updateData: any = {
+            orders: updatedOrders,
+            amount: Math.max(0, newAmount), // Ensure amount doesn't go negative
+          };
+
+          // If no active orders left or amount is 0, cancel the collection
+          if (activeOrders.length === 0 || newAmount <= 0) {
+            updateData.status = OrderCollectionStatus.CANCELLED;
+            updateData.cancelledAt = new Date();
+            updateData.cancelledBy = constantUser._id;
+          }
+
+          // UpdateCollection already emits websocket events for collection
+          // We only need to emit order updates here
+          const allUpdatedOrders = cancellations.flatMap(c => 
+            c.isPartial ? [c.order, c.cancelledOrder] : [c.order]
+          ).filter(Boolean); // Remove null/undefined values
+          
+          await this.orderService.updateCollection(
             constantUser,
-            orderId,
-            lineItem.quantity,
+            collection._id,
+            updateData,
           );
-        } catch (itemError) {
-          this.logError('Error processing line item', itemError);
+          
+          // Emit order updates separately since updateCollection might emit different orders
+          if (allUpdatedOrders.length > 0) {
+            await this.websocketGateway.emitOrderUpdated(allUpdatedOrders);
+          }
+        } catch (collectionError) {
+          this.logError('Error updating collection', collectionError);
         }
       }
     } catch (error) {

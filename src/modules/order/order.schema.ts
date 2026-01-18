@@ -153,7 +153,10 @@ export class Order extends Document {
   ikasId: string;
 
   @Prop({ required: false, type: String })
-  shopifyId: string;
+  shopifyOrderId: string;
+  
+  @Prop({ required: false, type: String })
+  shopifyOrderLineItemId: string;
 
   @Prop({ required: false, type: String })
   ikasOrderNumber: string;

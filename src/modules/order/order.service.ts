@@ -175,6 +175,24 @@ export class OrderService {
       );
     }
   }
+
+  async findActiveOrdersByIds(orderIds: number[]) {
+    try {
+      if (!orderIds || orderIds.length === 0) {
+        return [];
+      }
+      const orders = await this.orderModel.find({
+        _id: { $in: orderIds },
+        status: { $ne: OrderStatus.CANCELLED },
+      });
+      return orders;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch orders by IDs',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   async findPopularDiscounts() {
     const cacheKey = RedisKeys.PopularDiscounts;
     const today = new Date().toISOString().split('T')[0]; // e.g. "2025-05-30"
@@ -1811,88 +1829,101 @@ export class OrderService {
     }
   }
 
-  async cancelShopifyOrder(user: User, shopifyId: string, quantity: number) {
+  async cancelShopifyOrder(
+    user: User,
+    shopifyOrderLineItemId: string,
+    quantity: number,
+  ) {
     try {
+      // Find order by shopifyOrderLineItemId (not shopifyOrderId, because we can have multiple orders per Shopify order)
       const order = await this.orderModel
-        .findOne({ shopifyId: shopifyId })
+        .findOne({ shopifyOrderLineItemId })
         .populate('item');
-      const collection = await this.collectionModel.findOne({
-        shopifyId: shopifyId,
-      });
-      if (!order || !collection) {
+      
+      if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+
+      // Find collection by shopifyOrderId from the order
+      const collection = await this.collectionModel.findOne({
+        shopifyId: order.shopifyOrderId,
+      });
+
+      if (!collection) {
+        throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
+      }
+
+      // Validation checks
       if (
         order.status === OrderStatus.CANCELLED ||
         collection.status === OrderCollectionStatus.CANCELLED ||
         quantity > order.quantity
       ) {
         throw new HttpException(
-          'Order already cancelled',
+          'Order already cancelled or invalid quantity',
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (order?.quantity !== quantity) {
-        const newQuantity = order.quantity - quantity;
-        const newOrder = await this.orderModel.create({
-          ...order.toObject(),
-          quantity: newQuantity,
-          paidQuantity: newQuantity,
+
+      const cancelledAmount = order.unitPrice * quantity;
+
+      // Scenario 1: Partial cancellation (e.g., order has 2, cancel 1)
+      if (order.quantity !== quantity) {
+        const remainingQuantity = order.quantity - quantity;
+
+        // Create cancelled order for the cancelled quantity
+        const orderWithoutId = order.toObject();
+        delete orderWithoutId._id;
+        delete orderWithoutId.shopifyOrderLineItemId; // Remove shopifyOrderLineItemId from cancelled order
+        const cancelledOrder = await this.orderModel.create({
+          ...orderWithoutId,
+          quantity: quantity,
+          paidQuantity: quantity,
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledBy: user._id,
         });
-        const newCollection = await this.collectionModel.create({
-          ...collection.toObject(),
-          orders: [
-            {
-              order: newOrder._id,
-              paidQuantity: newQuantity,
-            },
-          ],
-        });
-        this.websocketGateway.emitCollectionChanged(newCollection);
+
+        // Update the original order with remaining quantity (keep it active, not cancelled)
         await this.orderModel.findByIdAndUpdate(
           order._id,
           {
             $set: {
-              status: OrderStatus.CANCELLED,
-              cancelledAt: new Date(),
-              cancelledBy: user._id,
-              quantity: quantity,
-              paidQuantity: quantity,
-            },
-            $unset: {
-              shopifyCustomer: '',
-              isShopifyCustomerPicked: '',
+              quantity: remainingQuantity,
+              paidQuantity: remainingQuantity,
             },
           },
           { new: true },
         );
-        await this.collectionModel.findByIdAndUpdate(
-          collection._id,
-          {
-            status: OrderCollectionStatus.CANCELLED,
-            orders: [
-              {
-                order: order._id,
-                paidQuantity: quantity,
-              },
-            ],
-            cancelledAt: new Date(),
-            cancelledBy: user._id,
-          },
-          { new: true },
-        );
-        for (const ingredient of (order?.item as any).itemProduction) {
-          if (ingredient?.isDecrementStock) {
-            const incrementQuantity = ingredient?.quantity * quantity;
-            await this.accountingService.createStock(user, {
-              product: ingredient?.product,
-              location: order?.stockLocation,
-              quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
-            });
+
+        // Restore stock for cancelled quantity
+        if (isPopulatedMenuItem(order.item)) {
+          for (const ingredient of order.item.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              const incrementQuantity = ingredient?.quantity * quantity;
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: order?.stockLocation,
+                quantity: incrementQuantity,
+                status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
+              });
+            }
           }
         }
+
+        await this.websocketGateway.emitOrderUpdated([order, cancelledOrder]);
+        
+        // Return cancellation info for collection update
+        return {
+          order,
+          collection,
+          cancelledAmount,
+          isPartial: true,
+          remainingQuantity,
+          cancelledOrder,
+        };
       } else {
+        // Scenario 2: Full cancellation (cancel entire order)
         await this.orderModel.findByIdAndUpdate(
           order._id,
           {
@@ -1909,30 +1940,33 @@ export class OrderService {
           { new: true },
         );
 
-        await this.collectionModel.findByIdAndUpdate(
-          collection._id,
-          {
-            status: OrderCollectionStatus.CANCELLED,
-            cancelledAt: new Date(),
-            cancelledBy: user._id,
-          },
-          { new: true },
-        );
-        for (const ingredient of (order?.item as any).itemProduction) {
-          if (ingredient?.isDecrementStock) {
-            const incrementQuantity = ingredient?.quantity * order?.quantity;
-            await this.accountingService.createStock(user, {
-              product: ingredient?.product,
-              location: order?.stockLocation,
-              quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
-            });
+        // Restore stock for full quantity
+        if (isPopulatedMenuItem(order.item)) {
+          for (const ingredient of order.item.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              const incrementQuantity = ingredient?.quantity * order.quantity;
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: order?.stockLocation,
+                quantity: incrementQuantity,
+                status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
+              });
+            }
           }
         }
+
+        await this.websocketGateway.emitOrderUpdated([order]);
+        
+        // Return cancellation info for collection update
+        return {
+          order,
+          collection,
+          cancelledAmount,
+          isPartial: false,
+          remainingQuantity: 0,
+          cancelledOrder: null,
+        };
       }
-      await this.websocketGateway.emitOrderUpdated([order]);
-      await this.websocketGateway.emitCollectionChanged(collection);
-      return { message: 'Order cancelled successfully' };
     } catch (error) {
       console.error('Error cancelling shopify order:', error);
       throw new HttpException(
@@ -3533,8 +3567,8 @@ export class OrderService {
     return this.orderModel.findOne({ ikasId: ikasId }).exec();
   }
 
-  findByShopifyId(shopifyId: string) {
-    return this.orderModel.findOne({ shopifyId: shopifyId }).exec();
+  findByShopifyOrderLineItemId(shopifyOrderLineItemId: string) {
+    return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
   }
 
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {

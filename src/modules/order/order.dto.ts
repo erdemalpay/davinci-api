@@ -162,7 +162,12 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
-  shopifyId?: string;
+  shopifyOrderId?: string;
+  
+  @IsOptional()
+  @IsString()
+  shopifyOrderLineItemId?: string;
+  
   activityTableName?: string;
 
   @IsOptional()
