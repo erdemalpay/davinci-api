@@ -73,6 +73,25 @@ export class ShopifyController {
     return this.shopifyService.getAllLocations();
   }
 
+  @Get('/webhook')
+  getAllWebhooks() {
+    return this.shopifyService.getAllWebhooks();
+  }
+
+  @Post('/webhook')
+  createWebhook(
+    @Body()
+    payload: {
+      callbackUrl: string;
+      topic: string;
+    },
+  ) {
+    return this.shopifyService.createWebhook(
+      payload.callbackUrl,
+      payload.topic,
+    );
+  }
+
   @Post('/update-all-stocks')
   updateAllProductStocks() {
     return this.shopifyService.updateAllProductStocks();
@@ -82,6 +101,8 @@ export class ShopifyController {
   @Post('/order-create-webhook')
   async createOrderWebhook(@Body() data?: any) {
     try {
+      let i = 0;
+      console.log('Received Shopify order webhook data:', i++);
       return await this.shopifyService.orderCreateWebHook(data);
     } catch (error) {
       console.error('Error in order-create-webhook controller:', error);
