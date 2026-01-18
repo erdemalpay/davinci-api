@@ -1811,13 +1811,13 @@ export class OrderService {
     }
   }
 
-  async cancelShopifyOrder(user: User, shopifyId: string, quantity: number) {
+  async cancelShopifyOrder(user: User, shopifyOrderId: string, quantity: number) {
     try {
       const order = await this.orderModel
-        .findOne({ shopifyId: shopifyId })
+        .findOne({ shopifyOrderId })
         .populate('item');
       const collection = await this.collectionModel.findOne({
-        shopifyId: shopifyId,
+        shopifyId: shopifyOrderId,
       });
       if (!order || !collection) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -3533,8 +3533,8 @@ export class OrderService {
     return this.orderModel.findOne({ ikasId: ikasId }).exec();
   }
 
-  findByShopifyId(shopifyId: string) {
-    return this.orderModel.findOne({ shopifyId: shopifyId }).exec();
+  findByShopifyOrderLineItemId(shopifyOrderLineItemId: string) {
+    return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
   }
 
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {

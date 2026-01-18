@@ -1193,7 +1193,7 @@ export class ShopifyService {
             );
 
           // Check if this specific line item order already exists
-          const foundShopifyOrder = await this.orderService.findByShopifyId(
+          const foundShopifyOrder = await this.orderService.findByShopifyOrderLineItemId(
             lineItemId?.toString(),
           );
           if (foundShopifyOrder) {
@@ -1224,7 +1224,8 @@ export class ShopifyService {
             tableDate: new Date(),
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
-            shopifyId: lineItemId?.toString(),
+            shopifyOrderId: data?.id?.toString(),
+            shopifyOrderLineItemId: lineItemId?.toString(),
             paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),

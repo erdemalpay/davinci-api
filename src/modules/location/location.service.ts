@@ -107,7 +107,7 @@ export class LocationService {
   }
 
   async findByShopifyId(id: string) {
-    const location = await this.locationModel.findOne({ shopifyId: id });
+    const location = await this.locationModel.findOne({ shopifyOrderId: id });
     return location;
   }
 
