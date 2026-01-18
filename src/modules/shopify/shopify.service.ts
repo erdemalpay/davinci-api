@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -1229,9 +1229,11 @@ export class ShopifyService {
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
             }),
+            isShopifyCustomerPicked: !data.shipping_address,
           };
 
-          if (data?.shipping_address) {
+          // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz. 
+          if (!data?.shipping_address) {
             createOrderObject = {
               ...createOrderObject,
               shopifyCustomer: {
@@ -1349,6 +1351,38 @@ export class ShopifyService {
             createdCollection,
           );
           console.log('Collection created:', collection);
+
+          // Send notification for new Shopify order
+          const notificationEvents =
+            await this.notificationService.findAllEventNotifications();
+
+          const shopifyOrderEvent = notificationEvents.find(
+            (notification) =>
+              notification.event === NotificationEventType.SHOPIFYORDER,
+          );
+
+          if (shopifyOrderEvent) {
+            const orderNumber = shopifyOrderNumber || data?.name || 'N/A';
+            const message = {
+              key: 'ShopifyOrderReceived',
+              params: {
+                orderNumber: orderNumber.toString(),
+                amount: totalAmount.toFixed(2),
+                itemCount: createdOrders.length,
+              },
+            };
+
+            await this.notificationService.createNotification({
+              type: shopifyOrderEvent.type,
+              createdBy: shopifyOrderEvent.createdBy,
+              selectedUsers: shopifyOrderEvent.selectedUsers,
+              selectedRoles: shopifyOrderEvent.selectedRoles,
+              selectedLocations: shopifyOrderEvent.selectedLocations,
+              seenBy: [],
+              event: NotificationEventType.SHOPIFYORDER,
+              message,
+            });
+          }
         } catch (collectionError) {
           this.logError('Error creating collection', collectionError);
         }
@@ -1491,6 +1525,93 @@ export class ShopifyService {
       }
     } catch (shopifyItemsError) {
       this.logError('Error fetching Shopify items', shopifyItemsError);
+    }
+  }
+
+  async getAllWebhooks() {
+    const query = `
+      query GetWebhooks {
+        webhookSubscriptions(first: 250) {
+          edges {
+            node {
+              id
+              callbackUrl
+              format
+              topic
+              createdAt
+              updatedAt
+              
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
+
+      this.handleGraphQLErrors(response);
+
+      return response.data.webhookSubscriptions.edges.map(
+        (edge: any) => edge.node,
+      );
+    } catch (error) {
+      this.logError('Error fetching webhooks', error);
+      throw new HttpException(
+        'Unable to fetch webhooks from Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async createWebhook(callbackUrl: string, topic: string) {
+    const mutation = `
+      mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+        webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+          webhookSubscription {
+            id
+            callbackUrl
+            format
+            topic
+            createdAt
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            topic: topic,
+            webhookSubscription: {
+              callbackUrl: callbackUrl,
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        response,
+        'data.webhookSubscriptionCreate.userErrors',
+      );
+
+      return response.data.webhookSubscriptionCreate.webhookSubscription;
+    } catch (error) {
+      this.logError('Error creating webhook', error);
+      throw new HttpException(
+        'Unable to create webhook in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

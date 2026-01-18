@@ -1,5 +1,3 @@
-import { OrderCollectionItem } from './collection.schema';
-import { IkasCustomer, ShopifyCustomer } from './order.schema';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -10,7 +8,7 @@ import {
   IsString,
   ValidateNested
 } from 'class-validator';
-import { Order } from './order.schema';
+import { Order, ShopifyCustomer } from './order.schema';
 
 export class OrderCollectionItemDto {
   @IsNumber()
@@ -400,6 +398,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsBoolean()
   isIkasPickUp?: boolean;
+  
+  @IsOptional()
+  @IsBoolean()
+  isShopifyPickUp?: boolean;
 
   @IsOptional()
   @IsNumber()

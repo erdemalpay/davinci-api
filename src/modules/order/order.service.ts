@@ -4,7 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -15,7 +15,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -50,7 +50,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -236,7 +236,7 @@ export class OrderService {
     const filterQuery: Record<string, unknown> = {
       quantity: { $gt: 0 },
     };
-    const { after, before, category, location, isIkasPickUp, item } = query;
+    const { after, before, category, location, isIkasPickUp, isShopifyPickUp, item } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
       let startUtc: Date;
@@ -299,10 +299,14 @@ export class OrderService {
       }
     });
 
-    if (isIkasPickUp) {
-      filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
-      filterQuery['ikasCustomer'] = { $exists: true };
-    }
+      if (isIkasPickUp) {
+        filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
+        filterQuery['ikasCustomer'] = { $exists: true };
+      }
+      if (isShopifyPickUp) {
+        filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
+        filterQuery['shopifyCustomer'] = { $exists: true };
+      }
 
     try {
       let itemIds = [];
