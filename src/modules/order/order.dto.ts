@@ -6,7 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  ValidateNested
+  ValidateNested,
 } from 'class-validator';
 import { Order, ShopifyCustomer } from './order.schema';
 
@@ -163,11 +163,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   shopifyOrderId?: string;
-  
+
   @IsOptional()
   @IsString()
   shopifyOrderLineItemId?: string;
-  
+
   activityTableName?: string;
 
   @IsOptional()
@@ -291,6 +291,10 @@ export class CreateCollectionDto {
   shopifyOrderNumber?: string;
 
   @IsOptional()
+  @IsNumber()
+  shopifyShippingAmount?: number;
+
+  @IsOptional()
   @IsString()
   pointUser?: string;
 
@@ -403,7 +407,7 @@ export class OrderQueryDto {
   @IsOptional()
   @IsBoolean()
   isIkasPickUp?: boolean;
-  
+
   @IsOptional()
   @IsBoolean()
   isShopifyPickUp?: boolean;

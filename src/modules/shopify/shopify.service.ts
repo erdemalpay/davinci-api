@@ -1325,10 +1325,6 @@ export class ShopifyService {
             location: 4,
             unitPrice: parseFloat(price),
             paidQuantity: quantity,
-            deliveredAt: new Date(),
-            deliveredBy: constantUser?._id,
-            preparedAt: new Date(),
-            preparedBy: constantUser?._id,
             status: OrderStatus.AUTOSERVED,
             stockLocation: foundLocation?._id || locationId,
             createdAt: new Date(data?.created_at || new Date()),
@@ -1439,6 +1435,10 @@ export class ShopifyService {
             data?.payment_gateway_names?.[0],
           );
         const shopifyOrderNumber = data?.order_number;
+        const shippingAmount = data?.total_shipping_price_set?.shop_money
+          ?.amount
+          ? parseFloat(data.total_shipping_price_set.shop_money.amount)
+          : 0;
 
         const createdCollection = {
           location: 4,
@@ -1454,6 +1454,9 @@ export class ShopifyService {
           shopifyId: data?.id?.toString(),
           ...(shopifyOrderNumber && {
             shopifyOrderNumber: shopifyOrderNumber.toString(),
+          }),
+          ...(shippingAmount > 0 && {
+            shopifyShippingAmount: shippingAmount,
           }),
         };
 
