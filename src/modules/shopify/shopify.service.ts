@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -313,12 +313,11 @@ export class ShopifyService {
   /**
    * Handle GraphQL response errors
    */
-  private handleGraphQLErrors(
-    response: any,
-    userErrorsPath?: string,
-  ): void {
+  private handleGraphQLErrors(response: any, userErrorsPath?: string): void {
     const userErrors = userErrorsPath
-      ? userErrorsPath.split('.').reduce((current, prop) => current?.[prop], response)
+      ? userErrorsPath
+          .split('.')
+          .reduce((current, prop) => current?.[prop], response)
       : null;
     const hasErrors =
       response.errors ||
@@ -428,6 +427,25 @@ export class ShopifyService {
                       inventoryQuantity
                       image {
                         url
+                      }
+                      inventoryItem {
+                        id
+                        tracked
+                        inventoryLevels(first: 10) {
+                          edges {
+                            node {
+                              id
+                              quantities(names: ["available", "on_hand"]) {
+                                name
+                                quantity
+                              }
+                              location {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -888,6 +906,7 @@ export class ShopifyService {
     variantId: string,
     stockLocationId: number,
     stockCount: number,
+    isInvalidateProductCache = true,
   ): Promise<boolean> {
     if (!variantId) {
       this.logError('variantId is required for Shopify stock update', {
@@ -986,7 +1005,10 @@ export class ShopifyService {
       }
 
       this.logger.log('Stock updated successfully.');
-      await this.websocketGateway.emitShopifyProductStockChanged();
+      if (isInvalidateProductCache) {
+        await this.websocketGateway.emitShopifyProductStockChanged();
+      }
+
       return true;
     } catch (error) {
       this.logError('Error updating stock', error);
@@ -1027,12 +1049,11 @@ export class ShopifyService {
 
     try {
       await this.createProductImages(item.shopifyId, urls);
-      this.logger.log(`Successfully updated images for product ${item.shopifyId}`);
-    } catch (err) {
-      this.logError(
-        `Failed to push images for product ${item.shopifyId}`,
-        err,
+      this.logger.log(
+        `Successfully updated images for product ${item.shopifyId}`,
       );
+    } catch (err) {
+      this.logError(`Failed to push images for product ${item.shopifyId}`, err);
       throw new HttpException(
         'Unable to upload product images.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1062,7 +1083,10 @@ export class ShopifyService {
 
     try {
       const formattedProductId = this.formatShopifyId('Product', productId);
-      const formattedVariantId = this.formatShopifyId('ProductVariant', variantId);
+      const formattedVariantId = this.formatShopifyId(
+        'ProductVariant',
+        variantId,
+      );
 
       const response = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
@@ -1279,9 +1303,10 @@ export class ShopifyService {
             );
 
           // Check if this specific line item order already exists
-          const foundShopifyOrder = await this.orderService.findByShopifyOrderLineItemId(
-            lineItemId?.toString(),
-          );
+          const foundShopifyOrder =
+            await this.orderService.findByShopifyOrderLineItemId(
+              lineItemId?.toString(),
+            );
           if (foundShopifyOrder) {
             this.logger.log(
               `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,
@@ -1319,7 +1344,7 @@ export class ShopifyService {
             isShopifyCustomerPicked: !data.shipping_address,
           };
 
-          // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz. 
+          // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz.
           if (!data?.shipping_address) {
             createOrderObject = {
               ...createOrderObject,
@@ -1513,7 +1538,9 @@ export class ShopifyService {
         data?.financial_status !== 'refunded' &&
         data?.cancelled_at === null
       ) {
-        this.logger.log(`Skipping order as status is not 'refunded' or cancelled`);
+        this.logger.log(
+          `Skipping order as status is not 'refunded' or cancelled`,
+        );
         return;
       }
 
@@ -1530,7 +1557,7 @@ export class ShopifyService {
       // Process each refund and its refund_line_items
       for (const refund of refunds) {
         const refundLineItems = refund?.refund_line_items ?? [];
-        
+
         if (refundLineItems.length === 0) {
           this.logger.log('No refund line items in this refund');
           continue;
@@ -1556,12 +1583,13 @@ export class ShopifyService {
               continue;
             }
 
-            const cancellationResult = await this.orderService.cancelShopifyOrder(
-              constantUser,
-              lineItemId,
-              quantity,
-            );
-            
+            const cancellationResult =
+              await this.orderService.cancelShopifyOrder(
+                constantUser,
+                lineItemId,
+                quantity,
+              );
+
             if (cancellationResult) {
               cancellationResults.push(cancellationResult);
             }
@@ -1573,10 +1601,10 @@ export class ShopifyService {
 
       // Group cancellations by collection and update collections
       const collectionMap = new Map();
-      
+
       for (const result of cancellationResults) {
         const collectionId = result.collection._id.toString();
-        
+
         if (!collectionMap.has(collectionId)) {
           collectionMap.set(collectionId, {
             collection: result.collection,
@@ -1584,7 +1612,7 @@ export class ShopifyService {
             totalCancelledAmount: 0,
           });
         }
-        
+
         const collectionData = collectionMap.get(collectionId);
         collectionData.cancellations.push(result);
         collectionData.totalCancelledAmount += result.cancelledAmount;
@@ -1593,11 +1621,12 @@ export class ShopifyService {
       // Update each collection once
       for (const [collectionId, collectionData] of collectionMap.entries()) {
         try {
-          const { collection, cancellations, totalCancelledAmount } = collectionData;
-          
+          const { collection, cancellations, totalCancelledAmount } =
+            collectionData;
+
           // Build updated orders array
           const orderUpdateMap = new Map();
-          
+
           // Initialize with existing orders
           for (const orderItem of collection.orders) {
             orderUpdateMap.set(orderItem.order.toString(), {
@@ -1625,7 +1654,9 @@ export class ShopifyService {
 
           // Check if all orders in collection are cancelled
           const allOrderIds = updatedOrders.map((o) => o.order);
-          const activeOrders = await this.orderService.findActiveOrdersByIds(allOrderIds);
+          const activeOrders = await this.orderService.findActiveOrdersByIds(
+            allOrderIds,
+          );
 
           const updateData: any = {
             orders: updatedOrders,
@@ -1641,16 +1672,18 @@ export class ShopifyService {
 
           // UpdateCollection already emits websocket events for collection
           // We only need to emit order updates here
-          const allUpdatedOrders = cancellations.flatMap(c => 
-            c.isPartial ? [c.order, c.cancelledOrder] : [c.order]
-          ).filter(Boolean); // Remove null/undefined values
-          
+          const allUpdatedOrders = cancellations
+            .flatMap((c) =>
+              c.isPartial ? [c.order, c.cancelledOrder] : [c.order],
+            )
+            .filter(Boolean); // Remove null/undefined values
+
           await this.orderService.updateCollection(
             constantUser,
             collection._id,
             updateData,
           );
-          
+
           // Emit order updates separately since updateCollection might emit different orders
           if (allUpdatedOrders.length > 0) {
             await this.websocketGateway.emitOrderUpdated(allUpdatedOrders);
@@ -1692,9 +1725,13 @@ export class ShopifyService {
               }
 
               const productId = this.formatShopifyId('Product', item.shopifyId);
-              const foundShopifyProduct = await this.getProductById(productId);
+              const foundShopifyProduct = shopifyProducts.find(
+                (product) => product.id === productId,
+              );
               if (!foundShopifyProduct) {
-                this.logger.warn(`Product ${item.shopifyId} not found in Shopify`);
+                this.logger.warn(
+                  `Product ${item.shopifyId} not found in Shopify`,
+                );
                 continue;
               }
 
@@ -1710,11 +1747,27 @@ export class ShopifyService {
 
               const variantId =
                 foundShopifyProduct.variants?.edges?.[0]?.node?.id;
+              console.log('variantId', variantId);
+              const currentInventoryQuantity =
+                foundShopifyProduct?.variants?.edges?.[0]?.node
+                  ?.inventoryQuantity;
+              console.log('currentInventoryQuantity', currentInventoryQuantity);
+              console.log('stock.quantity', stock.quantity);
+              console.log(foundShopifyProduct.variants);
               if (variantId) {
+                // Skip update if quantities are already equal
+                if (currentInventoryQuantity === stock.quantity) {
+                  this.logger.log(
+                    `Stock already up to date for product ${item.shopifyId}, location ${stock.location} (${stock.quantity})`,
+                  );
+                  continue;
+                }
+
                 await this.updateProductStock(
                   variantId,
                   stock.location,
                   stock.quantity,
+                  false,
                 );
                 this.logger.log(
                   `Stock updated for product ${item.shopifyId}, location ${stock.location}`,
@@ -1734,6 +1787,7 @@ export class ShopifyService {
           );
         }
       }
+      this.websocketGateway.emitShopifyProductStockChanged();
     } catch (shopifyItemsError) {
       this.logError('Error fetching Shopify items', shopifyItemsError);
     }
