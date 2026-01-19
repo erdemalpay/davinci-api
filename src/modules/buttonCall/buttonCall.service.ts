@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -25,6 +26,8 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 
 @Injectable()
 export class ButtonCallService {
+  private readonly logger = new Logger(ButtonCallService.name);
+
   constructor(
     @InjectModel(ButtonCall.name)
     private readonly buttonCallModel: Model<ButtonCall>,
@@ -152,7 +155,7 @@ export class ButtonCallService {
           .pipe(timeout(10000)),
       );
     } catch (error) {
-      console.error('Error notifying cafe:', error.message);
+      this.logger.error('Error notifying cafe:', error.message);
     }
   }
   async averageButtonCallStats(date: string, location: number) {

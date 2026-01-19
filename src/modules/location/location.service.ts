@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
@@ -8,6 +8,8 @@ import { CreateStockLocationDto } from './dto/create-location.dto';
 import { Location } from './location.schema';
 @Injectable()
 export class LocationService {
+  private readonly logger = new Logger(LocationService.name);
+
   constructor(
     @InjectModel(Location.name) private locationModel: Model<Location>,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -29,7 +31,7 @@ export class LocationService {
         return redisLocations;
       }
     } catch (error) {
-      console.error('Failed to retrieve store locations from Redis:', error);
+      this.logger.error('Failed to retrieve store locations from Redis:', error);
     }
 
     try {
@@ -42,7 +44,7 @@ export class LocationService {
       }
       return locations;
     } catch (error) {
-      console.error('Failed to retrieve store locations from database:', error);
+      this.logger.error('Failed to retrieve store locations from database:', error);
       throw new HttpException(
         'Could not retrieve store locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -57,7 +59,7 @@ export class LocationService {
         .exec();
       return locations;
     } catch (error) {
-      console.error('Failed to retrieve orders summary locations from database:', error);
+      this.logger.error('Failed to retrieve orders summary locations from database:', error);
       throw new HttpException(
         'Could not retrieve orders summary locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -79,7 +81,7 @@ export class LocationService {
         return redisAllLocations;
       }
     } catch (error) {
-      console.error('Failed to retrieve all locations from Redis:', error);
+      this.logger.error('Failed to retrieve all locations from Redis:', error);
     }
 
     try {
@@ -90,7 +92,7 @@ export class LocationService {
       }
       return allLocations;
     } catch (error) {
-      console.error('Failed to retrieve all locations from database:', error);
+      this.logger.error('Failed to retrieve all locations from database:', error);
       throw new HttpException(
         'Could not retrieve all locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -130,7 +132,7 @@ export class LocationService {
     await this.create(location1);
     await this.create(location2);
 
-    console.log('Created default locations.'); // eslint-disable-line no-console
+    this.logger.log('Created default locations.');
   }
   async searchLocationIds(search: string) {
     const searchLocationIds = await this.locationModel

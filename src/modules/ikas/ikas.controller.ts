@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Patch, Post } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { IkasService } from './ikas.service';
 
 @Controller('ikas')
 export class IkasController {
+  private readonly logger = new Logger(IkasController.name);
+
   constructor(private readonly ikasService: IkasService) {}
 
   @Get('/product')
@@ -105,7 +107,7 @@ export class IkasController {
     try {
       return await this.ikasService.orderCreateWebHook(data);
     } catch (error) {
-      console.error('Error in order-create-webhook controller:', error);
+      this.logger.error('Error in order-create-webhook controller:', error);
       // Return a response to prevent unhandled rejection
       return { success: false, error: error?.message || 'Unknown error' };
     }

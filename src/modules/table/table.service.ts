@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -34,7 +34,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes,
+  TableTypes
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -204,7 +204,7 @@ export class TableService {
       );
       return updatedTable;
     } catch (error) {
-      console.error('Failed to update table orders:', error.message);
+      this.logger.error('Failed to update table orders:', error.message);
       throw new HttpException(
         'Failed to update table orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -315,7 +315,7 @@ export class TableService {
         }
       }
     } catch (error) {
-      console.error('Failed to retrieve tables from Redis:', error);
+      this.logger.error('Failed to retrieve tables from Redis:', error);
     }
 
     try {
@@ -357,7 +357,7 @@ export class TableService {
           );
           await this.redisService.set(RedisKeys.Tables, existingCache, ttl);
         } catch (error) {
-          console.error('Failed to cache tables in Redis:', error);
+          this.logger.error('Failed to cache tables in Redis:', error);
         }
       }
       return tables?.filter(
@@ -365,7 +365,7 @@ export class TableService {
           Number(table.location) === Number(location) && table.date === date,
       );
     } catch (error) {
-      console.error('Failed to retrieve tables from database:', error);
+      this.logger.error('Failed to retrieve tables from database:', error);
       throw new HttpException(
         'Could not retrieve tables',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -406,7 +406,7 @@ export class TableService {
         waitingReservations.length
       );
     } catch (error) {
-      console.error('Error retrieving tables:', error);
+      this.logger.error('Error retrieving tables:', error);
       throw new HttpException(
         'Failed to retrieve table availability.',
         HttpStatus.INTERNAL_SERVER_ERROR,

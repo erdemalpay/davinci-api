@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format } from 'date-fns';
 import { Model, PipelineStage } from 'mongoose';
@@ -17,6 +17,8 @@ import { Gameplay } from './gameplay.schema';
 
 @Injectable()
 export class GameplayService {
+  private readonly logger = new Logger(GameplayService.name);
+
   constructor(
     @InjectModel(Gameplay.name) private gameplayModel: Model<Gameplay>,
     @InjectModel(Game.name) private gameModel: Model<Game>,
@@ -470,7 +472,7 @@ export class GameplayService {
 
       return gameplays;
     } catch (error) {
-      console.error('Error finding earliest games by mentor:', error);
+      this.logger.error('Error finding earliest games by mentor:', error);
       throw error;
     }
   }
