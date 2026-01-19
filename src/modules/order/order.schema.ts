@@ -186,8 +186,8 @@ OrderSchema.index(
   { partialFilterExpression: { ikasId: { $type: 'string' } } },
 );
 OrderSchema.index(
-  { shopifyId: 1 },
-  { unique: true, partialFilterExpression: { shopifyId: { $type: 'string' } } },
+  { shopifyOrderLineItemId: 1 },
+  { unique: true, partialFilterExpression: { shopifyOrderLineItemId: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead

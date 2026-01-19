@@ -16,6 +16,7 @@ import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
   CancelIkasOrderDto,
+  CancelShopifyOrderDto,
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
@@ -232,6 +233,18 @@ export class OrderController {
     return this.orderService.cancelIkasOrder(
       user,
       payload.ikasId,
+      payload.quantity,
+    );
+  }
+
+  @Post('/cancel-shopify-order')
+  cancelShopifyOrder(
+    @ReqUser() user: User,
+    @Body() payload: CancelShopifyOrderDto,
+  ) {
+    return this.orderService.cancelShopifyOrder(
+      user,
+      payload.shopifyOrderLineItemId,
       payload.quantity,
     );
   }
