@@ -890,7 +890,12 @@ export class ShopifyService {
     stockCount: number,
   ): Promise<boolean> {
     if (!variantId) {
-      throw new HttpException('variantId is required', HttpStatus.BAD_REQUEST);
+      this.logError('variantId is required for Shopify stock update', {
+        variantId,
+        stockLocationId,
+        stockCount,
+      });
+      return false;
     }
 
     const foundLocation = await this.locationService.findLocationById(
@@ -935,10 +940,9 @@ export class ShopifyService {
       inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
     } catch (error) {
       this.logError('Error fetching variant', error);
-      throw new HttpException(
-        'Unable to fetch variant inventory item.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Don't throw exception, just log the error
+      // This allows the main flow to continue even if Shopify update fails
+      return false;
     }
 
     const mutation = `
@@ -986,10 +990,9 @@ export class ShopifyService {
       return true;
     } catch (error) {
       this.logError('Error updating stock', error);
-      throw new HttpException(
-        'Unable to update product stock.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Don't throw exception, just log the error
+      // This allows the main flow to continue even if Shopify update fails
+      return false;
     }
   }
 
