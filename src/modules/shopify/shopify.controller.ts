@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Patch, Post } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
 export class ShopifyController {
+  private readonly logger = new Logger(ShopifyController.name);
+
   constructor(private readonly shopifyService: ShopifyService) {}
 
   @Get('/product')
@@ -102,10 +104,10 @@ export class ShopifyController {
   async createOrderWebhook(@Body() data?: any) {
     try {
       let i = 0;
-      console.log('Received Shopify order webhook data:', i++);
+      this.logger.log(`Received Shopify order webhook data: ${i++}`);
       return await this.shopifyService.orderCreateWebHook(data);
     } catch (error) {
-      console.error('Error in order-create-webhook controller:', error);
+      this.logger.error('Error in order-create-webhook controller:', error);
       return { success: false, error: error?.message || 'Unknown error' };
     }
   }

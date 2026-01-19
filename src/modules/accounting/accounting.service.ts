@@ -1,4 +1,11 @@
-import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { FilterQuery, Model, PipelineStage, UpdateQuery } from 'mongoose';
@@ -67,7 +74,10 @@ import { Vendor } from './vendor.schema';
 
 const path = require('path');
 
+@Injectable()
 export class AccountingService {
+  private readonly logger = new Logger(AccountingService.name);
+
   constructor(
     @InjectModel(Product.name)
     private productModel: Model<Product>,
@@ -112,7 +122,7 @@ export class AccountingService {
         return redisProducts;
       }
     } catch (error) {
-      console.error('Failed to retrieve all products from Redis:', error);
+      this.logger.error('Failed to retrieve all products from Redis:', error);
     }
 
     try {
@@ -123,7 +133,7 @@ export class AccountingService {
       }
       return products;
     } catch (error) {
-      console.error('Failed to retrieve all products from database:', error);
+      this.logger.error('Failed to retrieve all products from database:', error);
       throw new HttpException(
         'Could not retrieve products',
         HttpStatus.NOT_FOUND,
@@ -143,7 +153,7 @@ export class AccountingService {
         return redisProducts;
       }
     } catch (error) {
-      console.error('Failed to retrieve products from Redis:', error);
+      this.logger.error('Failed to retrieve products from Redis:', error);
     }
 
     try {
@@ -155,7 +165,7 @@ export class AccountingService {
       }
       return products;
     } catch (error) {
-      console.error('Failed to retrieve products from database:', error);
+      this.logger.error('Failed to retrieve products from database:', error);
       throw new HttpException(
         'Could not retrieve products',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -617,7 +627,7 @@ export class AccountingService {
         );
         return { success: true, brand: brand, error: null };
       } catch (error) {
-        console.error('Error creating brand:', error);
+        this.logger.error('Error creating brand:', error);
         return { success: false, brand: null, error: error };
       }
     });
@@ -1535,7 +1545,7 @@ export class AccountingService {
       );
       return expense;
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error creating expense:', error);
       throw new HttpException(
         'Expense creation failed.',
         HttpStatus.BAD_REQUEST,
@@ -1814,7 +1824,7 @@ export class AccountingService {
         return redisStocks;
       }
     } catch (error) {
-      console.error('Failed to retrieve stocks from Redis:', error);
+      this.logger.error('Failed to retrieve stocks from Redis:', error);
     }
 
     try {
@@ -1824,7 +1834,7 @@ export class AccountingService {
       }
       return stocks;
     } catch (error) {
-      console.error('Failed to retrieve stocks from database:', error);
+      this.logger.error('Failed to retrieve stocks from database:', error);
       throw new HttpException(
         'Failed to retrieve stocks from database',
         HttpStatus.BAD_REQUEST,
@@ -2086,7 +2096,7 @@ export class AccountingService {
       );
     } catch (error) {
       // Log error but don't throw - allow main flow to continue
-      console.error(
+      this.logger.error(
         `Error updating Shopify stock for product ${productId}, location ${location}:`,
         error,
       );
@@ -3259,7 +3269,7 @@ export class AccountingService {
           { new: true },
         );
       } catch (e) {
-        console.log(e);
+        this.logger.error('Error updating product:', e);
         errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
       }
     }
@@ -3314,7 +3324,7 @@ export class AccountingService {
               }
             }
           } catch (e) {
-            console.log(e);
+            this.logger.error('Error adding product:', e);
             errorDatas.push({
               ...addDto,
               errorNote:
@@ -3571,7 +3581,7 @@ export class AccountingService {
           }
         }
       } catch (e) {
-        console.log(e);
+        this.logger.error('Error adding product:', e);
         errorDatas.push({ ...addDto, errorNote: 'Error occured' });
       }
     }
@@ -3608,9 +3618,9 @@ export class AccountingService {
       }
       await Promise.all(createStockTasks);
       this.websocketGateway.emitStockChanged();
-      console.log('All missing stocks created.');
+      this.logger.log('All missing stocks created.');
     } catch (error) {
-      console.error('Failed to create stocks:', error);
+      this.logger.error('Failed to create stocks:', error);
     }
   }
 

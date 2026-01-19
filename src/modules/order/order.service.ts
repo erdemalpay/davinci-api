@@ -4,7 +4,8 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
+  Logger
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -128,6 +129,8 @@ function isPopulatedKitchen(kitchen: string | Kitchen): kitchen is Kitchen {
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     @InjectConnection() private readonly conn: Connection,
     @InjectQueue('order-confirmation')
@@ -204,7 +207,7 @@ export class OrderService {
         return cached.data;
       }
     } catch (err) {
-      console.warn('Could not read popular discounts from Redis:', err);
+      this.logger.warn('Could not read popular discounts from Redis:', err);
     }
     // Not cached
     const thirtyDaysAgo = new Date();
@@ -245,7 +248,7 @@ export class OrderService {
       // Optionally set an expiry, e.g. 24h:
       // await this.redisService.expire(cacheKey, 60 * 60 * 24);
     } catch (err) {
-      console.warn('Could not write popular discounts to Redis:', err);
+      this.logger.warn('Could not write popular discounts to Redis:', err);
     }
 
     return result;
@@ -1151,7 +1154,7 @@ export class OrderService {
           createdOrders,
         );
       } catch (error) {
-        console.log(error);
+        this.logger.error('Error in order processing:', error);
         throw new HttpException(
           'Failed to create order',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1286,7 +1289,7 @@ export class OrderService {
           order,
         );
       } catch (error) {
-        console.error('Error adding create order activity:', error);
+        this.logger.error('Error adding create order activity:', error);
       }
       if (order.discount) {
         try {
@@ -1296,19 +1299,19 @@ export class OrderService {
             order,
           );
         } catch (error) {
-          console.error('Error adding order discount activity:', error);
+          this.logger.error('Error adding order discount activity:', error);
         }
       }
       if (order?.table) {
         try {
           this.websocketGateway.emitOrderCreated(order);
         } catch (error) {
-          console.error('Error emitting order created:', error);
+          this.logger.error('Error emitting order created:', error);
         }
       }
     } catch (error) {
-      console.error('Error in createOrder:', error);
-      console.error('Full error details:', JSON.stringify(error, null, 2));
+      this.logger.error('Error in createOrder:', error);
+      this.logger.error('Full error details:', JSON.stringify(error, null, 2));
       throw new HttpException(
         `Failed to create order: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1513,7 +1516,7 @@ export class OrderService {
       this.websocketGateway.emitOrderCreated(returnOrder);
       return returnOrder;
     } catch (error) {
-      console.error('Error in returnOrder:', error);
+      this.logger.error('Error in returnOrder:', error);
       throw new HttpException(
         error?.message || 'Failed to process the return order',
         error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1821,7 +1824,7 @@ export class OrderService {
       this.websocketGateway.emitCollectionChanged(collection);
       return { message: 'Order cancelled successfully' };
     } catch (error) {
-      console.error('Error cancelling ikas order:', error);
+      this.logger.error('Error cancelling ikas order:', error);
       throw new HttpException(
         'Failed to cancel order',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1968,7 +1971,7 @@ export class OrderService {
         };
       }
     } catch (error) {
-      console.error('Error cancelling shopify order:', error);
+      this.logger.error('Error cancelling shopify order:', error);
       throw new HttpException(
         'Failed to cancel order',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1992,7 +1995,7 @@ export class OrderService {
       const orders = await this.orderModel.find({ _id: { $in: ids } });
       this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
-      console.error('Error updating orders:', error);
+      this.logger.error('Error updating orders:', error);
       throw new HttpException(
         'Failed to update some orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2043,7 +2046,7 @@ export class OrderService {
         this.websocketGateway.emitOrderUpdated(orders);
       }
     } catch (err) {
-      console.error('Error updating orders:', err);
+      this.logger.error('Error updating orders:', err);
       throw new HttpException(
         'Failed to update some orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2641,7 +2644,7 @@ export class OrderService {
       try {
         this.websocketGateway.emitCollectionChanged(collection);
       } catch (error) {
-        console.error('Error emitting collection changed:', error);
+        this.logger.error('Error emitting collection changed:', error);
       }
       try {
         await this.activityService.addActivity(
@@ -2650,7 +2653,7 @@ export class OrderService {
           collection,
         );
       } catch (error) {
-        console.error('Error adding take payment activity:', error);
+        this.logger.error('Error adding take payment activity:', error);
       }
     } catch (error) {
       throw new HttpException(
@@ -2747,7 +2750,7 @@ export class OrderService {
         return redisDiscounts;
       }
     } catch (error) {
-      console.error('Failed to retrieve discounts from Redis:', error);
+      this.logger.error('Failed to retrieve discounts from Redis:', error);
     }
 
     try {
@@ -2757,7 +2760,7 @@ export class OrderService {
       }
       return discounts;
     } catch (error) {
-      console.error('Failed to retrieve discounts from database:', error);
+      this.logger.error('Failed to retrieve discounts from database:', error);
       throw new HttpException(
         'Failed to fetch discounts',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2903,7 +2906,7 @@ export class OrderService {
           { currentOrder: oldOrder.toObject(), newOrder: newOrder.toObject() },
         );
       } catch (error) {
-        console.error('Failed to add activity:', error);
+        this.logger.error('Failed to add activity:', error);
       }
     }
     return orders;
@@ -3353,7 +3356,7 @@ export class OrderService {
         this.websocketGateway.emitOrderUpdated(orders);
       }
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error in order operation:', error);
       throw new HttpException(
         'Failed to transfer orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -3398,7 +3401,7 @@ export class OrderService {
       await this.tableService.removeTable(oldTableId);
       this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error in order operation:', error);
       throw new HttpException(
         'Failed to transfer orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -3450,7 +3453,7 @@ export class OrderService {
         await collection.save();
       }
     } catch (error) {
-      console.error('Failed to update table dates:', error);
+      this.logger.error('Failed to update table dates:', error);
       throw new HttpException(
         'Failed to update table dates',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -3470,7 +3473,7 @@ export class OrderService {
 
       return updateResult;
     } catch (error) {
-      console.error('Error updating orders with ikasId:', error);
+      this.logger.error('Error updating orders with ikasId:', error);
       throw error; // Or handle it more gracefully as needed
     }
   }
@@ -3505,7 +3508,7 @@ export class OrderService {
         modifiedCollections: collectionResult.modifiedCount,
       };
     } catch (error) {
-      console.error('Error migrating orders to online:', error);
+      this.logger.error('Error migrating orders to online:', error);
       throw error;
     }
   }
@@ -3526,7 +3529,7 @@ export class OrderService {
         modifiedOrders: result.modifiedCount,
       };
     } catch (error) {
-      console.error('Error migrating orders to online:', error);
+      this.logger.error('Error migrating orders to online:', error);
       throw error;
     }
   }
@@ -3556,7 +3559,7 @@ export class OrderService {
         gameplayStats,
       };
     } catch (error) {
-      console.error('Error getting daily summary:', error);
+      this.logger.error('Error getting daily summary:', error);
       throw error;
     }
   }
@@ -3616,7 +3619,7 @@ export class OrderService {
         deletedCount: result.deletedCount,
       };
     } catch (error) {
-      console.error('Error removing zero quantity orders:', error);
+      this.logger.error('Error removing zero quantity orders:', error);
       throw new HttpException(
         'Failed to remove zero quantity orders',
         HttpStatus.INTERNAL_SERVER_ERROR,

@@ -1,4 +1,11 @@
-import { forwardRef, HttpException, HttpStatus, Inject } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
@@ -28,12 +35,15 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
+@Injectable()
 export class MenuService {
+  private readonly logger = new Logger(MenuService.name);
+
   constructor(
     @InjectModel(MenuCategory.name)
     private categoryModel: Model<MenuCategory>,
@@ -69,7 +79,7 @@ export class MenuService {
         return redisCategories; // Return cached categories if available
       }
     } catch (error) {
-      console.error('Failed to retrieve categories from Redis:', error);
+      this.logger.error('Failed to retrieve categories from Redis:', error);
     }
 
     try {
@@ -84,7 +94,7 @@ export class MenuService {
       }
       return allCategories; // Return categories from the database
     } catch (error) {
-      console.error('Failed to retrieve categories from database:', error);
+      this.logger.error('Failed to retrieve categories from database:', error);
       throw new HttpException(
         'Could not retrieve categories',
         HttpStatus.NOT_FOUND,
@@ -121,7 +131,7 @@ export class MenuService {
         return redisActiveCategories; // Return cached active categories if available
       }
     } catch (error) {
-      console.error('Failed to retrieve active categories from Redis:', error);
+      this.logger.error('Failed to retrieve active categories from Redis:', error);
     }
 
     try {
@@ -139,7 +149,7 @@ export class MenuService {
       }
       return activeCategories; // Return active categories from the database
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Failed to retrieve active categories from database:',
         error,
       );
@@ -160,7 +170,7 @@ export class MenuService {
         return redisItems; // Return cached items if available
       }
     } catch (error) {
-      console.error('Failed to retrieve items from Redis:', error);
+      this.logger.error('Failed to retrieve items from Redis:', error);
     }
 
     try {
@@ -175,7 +185,7 @@ export class MenuService {
       }
       return allItems; // Return items from the database
     } catch (error) {
-      console.error('Failed to retrieve items from database:', error);
+      this.logger.error('Failed to retrieve items from database:', error);
       throw new HttpException('Could not retrieve items', HttpStatus.NOT_FOUND);
     }
   }
@@ -606,7 +616,7 @@ export class MenuService {
           error: error?.message || 'Unknown error',
         });
         results.failed++;
-        console.error(
+        this.logger.error(
           `Error updating variant ID for item ${item._id} (${item.name}):`,
           error,
         );
@@ -678,7 +688,7 @@ export class MenuService {
       this.websocketGateway.emitItemChanged();
       return item;
     } catch (error) {
-      console.error('Error creating item:', error);
+      this.logger.error('Error creating item:', error);
       throw new HttpException(
         `Error creating item: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -729,7 +739,7 @@ export class MenuService {
             });
           }
         } catch (error) {
-          console.log(error);
+          this.logger.error('Error in menu operation:', error);
           throw new HttpException(
             'Failed to handle matched product',
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -804,7 +814,7 @@ export class MenuService {
       }
       await this.websocketGateway.emitItemChanged();
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error in menu operation:', error);
       throw new HttpException(
         'Error creating damaged item',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -906,7 +916,7 @@ export class MenuService {
     if ((priceChanged || onlinePriceChanged) && item?.ikasId) {
       const ikasProducts = await this.IkasService.getAllProducts();
 
-      console.log('Updating price in Ikas for item:', item._id);
+      this.logger.log('Updating price in Ikas for item:', item._id);
       try {
         const basePrice = updates.hasOwnProperty('price')
           ? updates.price
@@ -1071,7 +1081,7 @@ export class MenuService {
 
       this.websocketGateway.emitItemChanged();
     } catch (error) {
-      console.error('Error updating items:', error);
+      this.logger.error('Error updating items:', error);
       throw new HttpException(
         'Failed to update some items',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1257,7 +1267,7 @@ export class MenuService {
         return redisKitchens;
       }
     } catch (error) {
-      console.error('Failed to retrieve kitchens from Redis:', error);
+      this.logger.error('Failed to retrieve kitchens from Redis:', error);
     }
 
     try {
@@ -1268,7 +1278,7 @@ export class MenuService {
       }
       return kitchens;
     } catch (error) {
-      console.error('Failed to retrieve kitchens from database:', error);
+      this.logger.error('Failed to retrieve kitchens from database:', error);
       throw new HttpException(
         'Could not retrieve kitchens',
         HttpStatus.NOT_FOUND,
@@ -1404,7 +1414,7 @@ export class MenuService {
         );
 
         if (!ikasProduct) {
-          console.warn(
+          this.logger.warn(
             `No matching product found for IkasItem ID: ${ikasItem.ikasId}`,
           );
           continue; // Skip this iteration if no matching product is found
@@ -1429,7 +1439,7 @@ export class MenuService {
 
       this.websocketGateway.emitItemChanged();
     } catch (error) {
-      console.error('Failed to update Ikas categories:', error);
+      this.logger.error('Failed to update Ikas categories:', error);
       throw error;
     }
   }
@@ -1449,7 +1459,7 @@ export class MenuService {
         item.productCategories = ikasCategoryIds;
         await this.IkasService.createItemProduct(user, item);
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Failed to create Ikas product for item ID ' + item._id + ':',
           error,
         );
@@ -1457,7 +1467,7 @@ export class MenuService {
       }
     }
     if (failedItems.length > 0) {
-      console.log('Items that failed to create:', failedItems);
+      this.logger.warn('Items that failed to create:', failedItems);
     }
     return failedItems;
   }
@@ -1483,7 +1493,7 @@ export class MenuService {
           shopifyCollectionIds,
         );
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Failed to create Shopify product for item ID ' + item._id + ':',
           error,
         );
@@ -1491,7 +1501,7 @@ export class MenuService {
       }
     }
     if (failedItems.length > 0) {
-      console.log('Items that failed to create:', failedItems);
+      this.logger.warn('Items that failed to create:', failedItems);
     }
     return failedItems;
   }
@@ -1529,7 +1539,7 @@ export class MenuService {
       );
 
       if (!ikasProduct) {
-        console.log(
+        this.logger.log(
           `No matching product found for IkasItem ID: ${item.ikasId}`,
         );
         return null;

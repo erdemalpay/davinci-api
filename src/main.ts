@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as config from 'config';
@@ -10,32 +10,33 @@ import { RolesGuard } from './modules/authorization/authorization.guard';
 
 EventEmitter.defaultMaxListeners = 50;
 const express = require('express');
+const logger = new Logger('Bootstrap');
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Log the error but don't crash the process in production
   // In production, you might want to use a logging service
   if (process.env.NODE_ENV === 'production') {
-    console.error('Unhandled rejection details:', {
+    logger.error('Unhandled rejection details:', {
       reason: reason?.message || reason,
       stack: reason?.stack,
       timestamp: new Date().toISOString(),
     });
   } else {
     // In development, log more details
-    console.error('Full error:', reason);
+    logger.error('Full error:', reason);
   }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
-  console.error('Uncaught Exception:', error);
-  console.error('Stack:', error.stack);
+  logger.error('Uncaught Exception:', error);
+  logger.error('Stack:', error.stack);
   // Log the error but allow the process to continue
   // In production, you might want to gracefully shutdown
   if (process.env.NODE_ENV === 'production') {
-    console.error('Uncaught exception details:', {
+    logger.error('Uncaught exception details:', {
       message: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString(),
@@ -75,6 +76,7 @@ async function bootstrap() {
 
   await app.listen(config.get('app.port'));
 
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

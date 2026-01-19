@@ -4,7 +4,8 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable
+  Injectable,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
@@ -39,6 +40,7 @@ const ONLINE_PRICE_LIST_ID = '2ca3e615-516c-4c09-8f6d-6c3183699c21';
 
 @Injectable()
 export class IkasService {
+  private readonly logger = new Logger(IkasService.name);
   private readonly tokenPayload: Record<string, string>;
 
   constructor(
@@ -93,7 +95,7 @@ export class IkasService {
 
         return ikasToken.token;
       } catch (error) {
-        console.error('Error fetching Ikas token:', error.message);
+        this.logger.error('Error fetching Ikas token:', error.message);
         throw new HttpException(
           'Unable to fetch Ikas token',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -220,7 +222,7 @@ export class IkasService {
 
         return response.data.data.listProduct?.data;
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching products:',
           JSON.stringify(error.response?.data || error.message),
         );
@@ -289,7 +291,7 @@ export class IkasService {
       // Return the first product if found, or null if not found
       return products && products.length > 0 ? products[0] : null;
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Error fetching product by ID:',
         JSON.stringify(error.response?.data || error.message),
       );
@@ -334,8 +336,8 @@ export class IkasService {
 
         return response.data.data.listOrder.data;
       } catch (error) {
-        console.error(
-          'Error fetching products:',
+        this.logger.error(
+          'Error fetching orders:',
           JSON.stringify(error.response?.data || error.message),
         );
         throw new HttpException(
@@ -392,7 +394,7 @@ export class IkasService {
 
         return response.data.data.listCategory; // Return the list of categories
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching categories:',
           JSON.stringify(error.response?.data || error.message),
         );
@@ -434,7 +436,7 @@ export class IkasService {
 
         return response.data.data.listPriceList;
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching price lists:',
           JSON.stringify(error.response?.data || error.message),
         );
@@ -502,7 +504,7 @@ export class IkasService {
 
         return response.data.data.listStockLocation; // Return the list of stock locations
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching stock locations:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
@@ -553,7 +555,7 @@ export class IkasService {
 
         return response.data.data.listSalesChannel; // Return the list of sales channels
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching sales channels:',
           JSON.stringify(error.response?.data || error.message),
         );
@@ -613,7 +615,7 @@ export class IkasService {
         }
       }
     } catch (error) {
-      console.error('Failed to create item product:', error);
+      this.logger.error('Failed to create item product:', error);
       throw new HttpException(
         'Failed to process item product due to an error.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -678,10 +680,10 @@ export class IkasService {
             },
           })
           .toPromise();
-        console.log(response);
+        this.logger.log('Product saved successfully:', response.data?.data?.saveProduct?.id);
         return response.data.data.saveProduct; // Return the saved product
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error saving product:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
@@ -735,7 +737,7 @@ export class IkasService {
       stockLocationId,
     );
     if (!foundStockLocation.ikasId) {
-      console.log(
+      this.logger.warn(
         `Stock Location with ID ${stockLocationId} does not have ikas id`,
       );
       return;
@@ -769,19 +771,19 @@ export class IkasService {
           })
           .toPromise();
         if (response.data.data.saveProductStockLocations) {
-          console.log('Stock updated successfully.');
+          this.logger.log('Stock updated successfully.');
           await this.websocketGateway.emitIkasProductStockChanged();
           return true; // Return true if the mutation succeeds
         } else {
-          console.error('Failed to update stock: Mutation returned false.');
+          this.logger.error('Failed to update stock: Mutation returned false.');
           return false; // Return false if the mutation fails
         }
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error updating stock:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        console.log(error);
+        this.logger.error('Stock update error details:', error);
         throw new HttpException(
           'Unable to update product stock.',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -824,9 +826,9 @@ export class IkasService {
     const variantId = ikas.variants[0].id;
     try {
       await this.createProductImages(variantId, urls);
-      console.log(`Successfully updated images for variant ${variantId}`);
+      this.logger.log(`Successfully updated images for variant ${variantId}`);
     } catch (err) {
-      console.error(
+      this.logger.error(
         `Failed to push images for variant ${variantId}:`,
         err.response?.data || err.message,
       );
@@ -886,19 +888,19 @@ export class IkasService {
           })
           .toPromise();
         if (response.data.data.saveVariantPrices) {
-          console.log(`ikas ${productId} price updated successfully.`);
+          this.logger.log(`ikas ${productId} price updated successfully.`);
           await this.websocketGateway.emitIkasProductStockChanged();
           return true;
         } else {
-          console.error('Failed to update price: Mutation returned false.');
+          this.logger.error('Failed to update price: Mutation returned false.');
           return false;
         }
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error updating price:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
-        console.log(error);
+        this.logger.error('Price update error details:', error);
         throw new HttpException(
           'Unable to update product price.',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -939,7 +941,7 @@ export class IkasService {
 
         return response.data.data.listWebhook; // Return the list of webhooks
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error fetching webhooks:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
@@ -983,10 +985,10 @@ export class IkasService {
             },
           })
           .toPromise();
-        console.log(response);
+        this.logger.log('Webhook saved successfully:', response.data?.data?.saveWebhook?.id);
         return response.data.data.saveWebhook; // Return the saved webhook
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error saving webhook:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
@@ -1025,10 +1027,10 @@ export class IkasService {
             },
           })
           .toPromise();
-        console.log('Webhook deleted:', response.data);
+        this.logger.log('Webhook deleted:', response.data?.data?.deleteWebhook);
         return response.data.data.deleteWebhook; // Return the result of deletion
       } catch (error) {
-        console.error(
+        this.logger.error(
           'Error deleting webhook:',
           JSON.stringify(error.response?.data || error.message, null, 2),
         );
@@ -1067,9 +1069,9 @@ export class IkasService {
               },
             })
             .toPromise();
-          console.log(`Image ${i + 1} uploaded successfully`, response.data);
+          this.logger.log(`Image ${i + 1} uploaded successfully`);
         } catch (error) {
-          console.error(
+          this.logger.error(
             `Error uploading image ${i + 1}:`,
             JSON.stringify(error.response?.data || error.message, null, 2),
           );
@@ -1103,7 +1105,7 @@ export class IkasService {
         }
       }
 
-      console.log('Received data:', data);
+      this.logger.log('Received order webhook data');
 
       const orderLineItems = data?.data?.orderLineItems ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
@@ -1116,11 +1118,11 @@ export class IkasService {
       }
 
       if (orderLineItems.length === 0) {
-        console.log('No order line items to process');
+        this.logger.log('No order line items to process');
         return;
       }
       if (data?.data?.status !== 'CREATED') {
-        console.log(`Skipping item as status is not 'CREATED'`);
+        this.logger.log(`Skipping item as status is not 'CREATED'`);
         return;
       }
       for (const orderLineItem of orderLineItems) {
@@ -1137,7 +1139,7 @@ export class IkasService {
 
           const foundMenuItem = await this.menuService.findByIkasId(productId);
           if (!foundMenuItem?.matchedProduct) {
-            console.log(`Menu item not found for productId: ${productId}`);
+            this.logger.warn(`Menu item not found for productId: ${productId}`);
             continue;
           }
 
@@ -1145,7 +1147,7 @@ export class IkasService {
             stockLocationId,
           );
           if (!foundLocation) {
-            console.log(
+            this.logger.warn(
               `Location not found for stockLocationId: ${stockLocationId}`,
             );
             continue;
@@ -1157,7 +1159,7 @@ export class IkasService {
             );
           const foundIkasOrder = await this.orderService.findByIkasId(id);
           if (foundIkasOrder) {
-            console.log(
+            this.logger.log(
               `Order already exists for ikas order id: ${id}, skipping to next item.`,
             );
             continue;
@@ -1214,7 +1216,7 @@ export class IkasService {
               constantUser,
               createOrderObject,
             );
-            console.log('Order created:', order);
+            this.logger.log(`Order created: ${order._id}`);
             if (data?.data?.stockLocationId) {
               const foundLocation = await this.locationService.findByIkasId(
                 data?.data?.stockLocationId,
@@ -1296,31 +1298,31 @@ export class IkasService {
                 constantUser,
                 createdCollection,
               );
-              console.log('Collection created:', collection);
+              this.logger.log(`Collection created: ${collection._id}`);
             } catch (collectionError) {
-              console.error(
+              this.logger.error(
                 'Error creating collection:',
                 collectionError?.message || collectionError,
               );
-              console.error('Collection error stack:', collectionError?.stack);
+              this.logger.error('Collection error stack:', collectionError?.stack);
               // Don't throw here, continue with next item
               // but log the error for debugging
             }
           } catch (orderError) {
-            console.error('Error creating order:', orderError?.message || orderError);
-            console.error('Order error stack:', orderError?.stack);
+            this.logger.error('Error creating order:', orderError?.message || orderError);
+            this.logger.error('Order error stack:', orderError?.stack);
             // Don't throw here, continue with next item
             // but log the error for debugging
           }
         } catch (itemError) {
-          console.error('Error processing order line item:', itemError?.message || itemError);
-          console.error('Item error stack:', itemError?.stack);
+          this.logger.error('Error processing order line item:', itemError?.message || itemError);
+          this.logger.error('Item error stack:', itemError?.stack);
           // Continue with next item instead of crashing
         }
       }
     } catch (error) {
-      console.error('Error in orderCreateWebHook:', error);
-      console.error('Error stack:', error?.stack);
+      this.logger.error('Error in orderCreateWebHook:', error);
+      this.logger.error('Error stack:', error?.stack);
       // Re-throw the error to ensure it's properly handled
       // but wrap it to prevent unhandled rejection
       throw new HttpException(
@@ -1350,7 +1352,7 @@ export class IkasService {
         }
       }
 
-      console.log('Received data:', data);
+      this.logger.log('Received order cancel webhook data');
 
       const orderLineItems = data?.data?.orderLineItems ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv'); // Required for stock consumption
@@ -1362,11 +1364,11 @@ export class IkasService {
         );
       }
       if (orderLineItems.length === 0) {
-        console.log('No order line items to process');
+        this.logger.log('No order line items to process');
         return;
       }
       if (!['CANCELLED', 'REFUNDED'].includes(data?.data?.status)) {
-        console.log(`Skipping item as status is not 'CANCELLED' or 'REFUNDED'`);
+        this.logger.log(`Skipping item as status is not 'CANCELLED' or 'REFUNDED'`);
         return;
       }
       for (const orderLineItem of orderLineItems) {
@@ -1384,11 +1386,11 @@ export class IkasService {
             orderLineItem.quantity,
           );
         } catch (itemError) {
-          console.error('Error processing order line item:', itemError.message);
+          this.logger.error('Error processing order line item:', itemError.message);
         }
       }
     } catch (error) {
-      console.error('Error in orderCreateWebHook:', error.message);
+      this.logger.error('Error in orderCancelWebHook:', error.message);
     }
   }
 
@@ -1398,24 +1400,23 @@ export class IkasService {
     }
     try {
       const ikasItems = await this.menuService.getAllIkasItems();
-      console.log('Fetched Ikas Items:', ikasItems);
+      this.logger.log(`Fetched ${ikasItems.length} Ikas Items`);
       const ikasProducts = await this.getAllProducts();
-      console.log('Fetched Ikas Products:', ikasProducts);
+      this.logger.log(`Fetched ${ikasProducts.length} Ikas Products`);
       const locations = await this.locationService.findAllLocations();
-      console.log('Fetched Stock Locations:', locations);
+      this.logger.log(`Fetched ${locations.length} Stock Locations`);
       for (const item of ikasItems) {
         try {
           const productStocks = await this.accountingService.findProductStock(
             item.matchedProduct,
           );
-          console.log(
-            `Fetched product stocks for ${item.ikasId}:`,
-            productStocks,
+          this.logger.debug(
+            `Fetched ${productStocks.length} product stocks for ${item.ikasId}`,
           );
           for (const stock of productStocks) {
             try {
               if (!item.ikasId) {
-                console.error(
+                this.logger.warn(
                   `Product ${item.matchedProduct} does not have an Ikas ID`,
                 );
                 continue;
@@ -1424,14 +1425,14 @@ export class IkasService {
                 (product) => product?.id === item.ikasId,
               );
               if (!foundIkasProduct) {
-                console.error(`Product ${item.ikasId} not found in Ikas`);
+                this.logger.warn(`Product ${item.ikasId} not found in Ikas`);
                 continue;
               }
               const foundLocation = locations?.find(
                 (location) => location._id === stock.location,
               );
               if (!foundLocation?.ikasId) {
-                console.error(
+                this.logger.warn(
                   `Location ${stock.location} does not have an Ikas ID`,
                 );
                 continue;
@@ -1445,26 +1446,26 @@ export class IkasService {
                   stock.location,
                   stock.quantity,
                 );
-                console.log(
+                this.logger.log(
                   `Stock updated for product ${item.ikasId}, location ${stock.location}`,
                 );
               }
             } catch (stockError) {
-              console.error(
+              this.logger.error(
                 `Error updating stock for product ${item.ikasId}, location ${stock.location}:`,
                 stockError.message,
               );
             }
           }
         } catch (productStockError) {
-          console.error(
+          this.logger.error(
             `Error fetching product stocks for ${item.ikasId}:`,
             productStockError.message,
           );
         }
       }
     } catch (ikasItemsError) {
-      console.error('Error fetching Ikas items:', ikasItemsError.message);
+      this.logger.error('Error fetching Ikas items:', ikasItemsError.message);
     }
   }
   async bulkUpdateAllProductStocks() {
@@ -1492,7 +1493,7 @@ export class IkasService {
         try {
           const product = ikasProducts.find((p) => p.id === item.ikasId);
           if (!product) {
-            console.error(`Product ${item.ikasId} not found in Ikas`);
+            this.logger.warn(`Product ${item.ikasId} not found in Ikas`);
             continue;
           }
           const productStocks =
@@ -1507,7 +1508,7 @@ export class IkasService {
             if (!location || !location.ikasId) continue;
             const variant = product.variants[0];
             if (!variant) {
-              console.error(`No variant found for product ${item.ikasId}`);
+              this.logger.warn(`No variant found for product ${item.ikasId}`);
               continue;
             }
             const currentStock = variant.stocks?.find(
@@ -1525,7 +1526,7 @@ export class IkasService {
             }
           }
         } catch (err) {
-          console.error(
+          this.logger.error(
             `Error fetching product stocks for ${item.ikasId}:`,
             err.message,
           );
@@ -1533,11 +1534,11 @@ export class IkasService {
       }
 
       if (stockUpdates.length === 0) {
-        console.log('No products need a stock update.');
+        this.logger.log('No products need a stock update.');
         return;
       }
 
-      console.log(`Updating ${stockUpdates.length} stock entries`);
+      this.logger.log(`Updating ${stockUpdates.length} stock entries`);
 
       // Process updates in batches to avoid overwhelming the API
       const batchSize = 100;
@@ -1576,26 +1577,26 @@ export class IkasService {
             .toPromise();
 
           if (response.data.data.saveProductStockLocations) {
-            console.log(
+            this.logger.log(
               `Batch ${Math.floor(i / batchSize) + 1} updated successfully`,
             );
           } else {
-            console.error(
+            this.logger.error(
               `Batch ${Math.floor(i / batchSize) + 1} failed to update`,
             );
           }
         } catch (error) {
-          console.error(
+          this.logger.error(
             `Error updating batch ${Math.floor(i / batchSize) + 1}:`,
             JSON.stringify(error.response?.data || error.message, null, 2),
           );
         }
       }
       this.websocketGateway.emitIkasProductStockChanged();
-      console.log('Bulk stock update completed');
+      this.logger.log('Bulk stock update completed');
       return { success: true, updatedCount: stockUpdates.length };
     } catch (error) {
-      console.log(error.response?.data?.errors || error.message);
+      this.logger.error('Bulk stock update error:', error.response?.data?.errors || error.message);
       throw new HttpException(
         'Unable to perform bulk product stock update.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1758,7 +1759,7 @@ export class IkasService {
         },
       )
       .toPromise();
-    console.log('Batch save response:', data);
+    this.logger.debug('Batch save response received');
     return data?.data?.saveVariantPrices === true;
   }
 

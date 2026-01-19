@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
@@ -30,6 +31,8 @@ import { TaskTrack } from './taskTrack.schema';
 
 @Injectable()
 export class PanelControlService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(PanelControlService.name);
+
   constructor(
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(Action.name) private actionModel: Model<Action>,
@@ -56,7 +59,7 @@ export class PanelControlService implements OnApplicationBootstrap {
         return redisPages;
       }
     } catch (error) {
-      console.error('Failed to retrieve pages from Redis:', error);
+      this.logger.error('Failed to retrieve pages from Redis:', error);
     }
 
     try {
@@ -67,7 +70,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       }
       return pages;
     } catch (error) {
-      console.error('Failed to retrieve pages from database:', error);
+      this.logger.error('Failed to retrieve pages from database:', error);
       throw new HttpException('Could not retrieve pages', HttpStatus.NOT_FOUND);
     }
   }
@@ -134,7 +137,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     }
 
     this.websocketGateway.emitPageChanged();
-    console.log('here');
+    this.logger.debug('Pages created/updated');
     return pagesWithIds;
   }
 
@@ -235,7 +238,7 @@ export class PanelControlService implements OnApplicationBootstrap {
         .toPromise();
       return response.data;
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Error sending WhatsApp message:',
         error.response?.data || error.message,
       );
@@ -251,7 +254,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       const conditions = await this.disabledConditionModel.find();
       return conditions;
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Failed to retrieve disabled conditions from database:',
         error,
       );
@@ -308,7 +311,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       const actions = await this.actionModel.find();
       return actions;
     } catch (error) {
-      console.error('Failed to retrieve actions from database:', error);
+      this.logger.error('Failed to retrieve actions from database:', error);
       throw new HttpException(
         'Could not retrieve actions',
         HttpStatus.NOT_FOUND,
@@ -343,7 +346,7 @@ export class PanelControlService implements OnApplicationBootstrap {
       const taskTracks = await this.taskTrackModel.find();
       return taskTracks;
     } catch (error) {
-      console.error('Failed to retrieve taskTracks from database:', error);
+      this.logger.error('Failed to retrieve taskTracks from database:', error);
       throw new HttpException(
         'Could not retrieve task tracks',
         HttpStatus.NOT_FOUND,

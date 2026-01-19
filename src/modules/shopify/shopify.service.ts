@@ -819,7 +819,7 @@ export class ShopifyService {
       stockLocationId,
     );
     if (!foundLocation.shopifyId) {
-      console.log(
+      this.logger.log(
         `Stock Location with ID ${stockLocationId} does not have shopify id`,
       );
       return;
@@ -902,7 +902,7 @@ export class ShopifyService {
         return false;
       }
 
-      console.log('Stock updated successfully.');
+      this.logger.log('Stock updated successfully.');
       await this.websocketGateway.emitShopifyProductStockChanged();
       return true;
     } catch (error) {
@@ -944,7 +944,7 @@ export class ShopifyService {
 
     try {
       await this.createProductImages(item.shopifyId, urls);
-      console.log(`Successfully updated images for product ${item.shopifyId}`);
+      this.logger.log(`Successfully updated images for product ${item.shopifyId}`);
     } catch (err) {
       this.logError(
         `Failed to push images for product ${item.shopifyId}`,
@@ -1006,7 +1006,7 @@ export class ShopifyService {
         return false;
       }
 
-      console.log(`Shopify ${productId} price updated successfully.`);
+      this.logger.log(`Shopify ${productId} price updated successfully.`);
       await this.websocketGateway.emitShopifyProductStockChanged();
       return true;
     } catch (error) {
@@ -1059,7 +1059,7 @@ export class ShopifyService {
           response,
           'data.productCreateMedia.userErrors',
         );
-        console.log(`Image ${i + 1} uploaded successfully`);
+        this.logger.log(`Image ${i + 1} uploaded successfully`);
       } catch (error) {
         this.logError(`Error uploading image ${i + 1}`, error);
         throw new HttpException(
@@ -1100,7 +1100,7 @@ export class ShopifyService {
         response,
         'data.collectionAddProducts.userErrors',
       );
-      console.log(
+      this.logger.log(
         `Product ${productId} added to collection ${collectionId} successfully`,
       );
     } catch (error) {
@@ -1116,8 +1116,8 @@ export class ShopifyService {
   }
 
   async orderCreateWebHook(data?: any) {
-    console.log('Processing Shopify order webhook...');
-    console.log('Webhook data:', data);
+    this.logger.log('Processing Shopify order webhook...');
+    this.logger.debug('Webhook data:', data);
     try {
       if (!data) {
         throw new HttpException(
@@ -1126,7 +1126,7 @@ export class ShopifyService {
         );
       }
 
-      console.log('Received Shopify order webhook data:', data);
+      this.logger.log('Received Shopify order webhook data:', data);
 
       const lineItems = data?.line_items ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
@@ -1139,7 +1139,7 @@ export class ShopifyService {
       }
 
       if (lineItems.length === 0) {
-        console.log('No line items to process');
+        this.logger.log('No line items to process');
         return;
       }
 
@@ -1147,7 +1147,7 @@ export class ShopifyService {
         data?.financial_status !== 'paid' &&
         data?.financial_status !== 'pending'
       ) {
-        console.log(
+        this.logger.log(
           `Skipping order as financial status is not 'paid' or 'pending'`,
         );
         return;
@@ -1181,7 +1181,7 @@ export class ShopifyService {
             product_id.toString(),
           );
           if (!foundMenuItem?.matchedProduct) {
-            console.log(`Menu item not found for productId: ${product_id}`);
+            this.logger.log(`Menu item not found for productId: ${product_id}`);
             continue;
           }
 
@@ -1200,7 +1200,7 @@ export class ShopifyService {
             lineItemId?.toString(),
           );
           if (foundShopifyOrder) {
-            console.log(
+            this.logger.log(
               `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,
             );
             continue;
@@ -1256,7 +1256,7 @@ export class ShopifyService {
               constantUser,
               createOrderObject,
             );
-            console.log('Order created:', order);
+            this.logger.log('Order created:', order);
 
             const itemAmount = parseFloat(price) * quantity;
             createdOrders.push({
@@ -1354,7 +1354,7 @@ export class ShopifyService {
             constantUser,
             createdCollection,
           );
-          console.log('Collection created:', collection);
+          this.logger.log('Collection created:', collection);
 
           // Send notification for new Shopify order
           const notificationEvents =
@@ -1409,7 +1409,7 @@ export class ShopifyService {
         );
       }
 
-      console.log('Received Shopify cancel webhook data:', data);
+      this.logger.log('Received Shopify cancel webhook data:', data);
 
       const refunds = data?.refunds ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
@@ -1422,7 +1422,7 @@ export class ShopifyService {
       }
 
       if (refunds.length === 0) {
-        console.log('No refunds to process');
+        this.logger.log('No refunds to process');
         return;
       }
 
@@ -1430,7 +1430,7 @@ export class ShopifyService {
         data?.financial_status !== 'refunded' &&
         data?.cancelled_at === null
       ) {
-        console.log(`Skipping order as status is not 'refunded' or cancelled`);
+        this.logger.log(`Skipping order as status is not 'refunded' or cancelled`);
         return;
       }
 
@@ -1449,7 +1449,7 @@ export class ShopifyService {
         const refundLineItems = refund?.refund_line_items ?? [];
         
         if (refundLineItems.length === 0) {
-          console.log('No refund line items in this refund');
+          this.logger.log('No refund line items in this refund');
           continue;
         }
 
@@ -1584,18 +1584,18 @@ export class ShopifyService {
   async updateAllProductStocks() {
     try {
       const shopifyItems = await this.menuService.getAllShopifyItems();
-      console.log('Fetched Shopify Items:', shopifyItems);
+      this.logger.log('Fetched Shopify Items:', shopifyItems);
       const shopifyProducts = await this.getAllProducts();
-      console.log('Fetched Shopify Products:', shopifyProducts);
+      this.logger.log('Fetched Shopify Products:', shopifyProducts);
       const locations = await this.locationService.findAllLocations();
-      console.log('Fetched Stock Locations:', locations);
+      this.logger.log('Fetched Stock Locations:', locations);
 
       for (const item of shopifyItems) {
         try {
           const productStocks = await this.accountingService.findProductStock(
             item.matchedProduct,
           );
-          console.log(
+          this.logger.log(
             `Fetched product stocks for ${item.shopifyId}:`,
             productStocks,
           );
@@ -1633,7 +1633,7 @@ export class ShopifyService {
                   stock.location,
                   stock.quantity,
                 );
-                console.log(
+                this.logger.log(
                   `Stock updated for product ${item.shopifyId}, location ${stock.location}`,
                 );
               }
