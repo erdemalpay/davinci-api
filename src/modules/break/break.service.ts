@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { dateRanges } from 'src/utils/dateRanges';
 import { LocationService } from '../location/location.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -60,27 +61,32 @@ export class BreakService {
       sort = 'createdAt',
       asc = -1,
     } = query;
-
     const filter: any = {};
 
     if (user) filter.user = user;
     if (location) filter.location = location;
-    if (date) filter.date = date;
 
-    const rangeFilter: Record<string, any> = {};
-    if (after) {
-      const start = this.parseLocalDate(after);
-      rangeFilter.$gte = start;
-    }
-    if (before) {
-      const end = this.parseLocalDate(before);
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
       end.setHours(23, 59, 59, 999);
-      rangeFilter.$lte = end;
+      filter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const end = this.parseLocalDate(before);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = end;
+      }
+      if (Object.keys(rangeFilter).length) {
+        filter.createdAt = rangeFilter;
+      }
     }
-    if (Object.keys(rangeFilter).length) {
-      filter.createdAt = rangeFilter;
-    }
-
     const sortObject: Record<string, 1 | -1> = {};
     if (sort) {
       const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
