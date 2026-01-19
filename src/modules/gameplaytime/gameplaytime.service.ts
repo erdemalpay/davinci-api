@@ -268,4 +268,9 @@ export class GameplayTimeService {
     this.websocketGateway.emitGameplayTimeChanged();
     return deletedGameplayTime;
   }
+
+  async deleteByGameplayId(gameplayId: number): Promise<void> {
+    await this.gameplayTimeModel.deleteMany({ gameplay: gameplayId });
+    this.websocketGateway.emitGameplayTimeChanged();
+  }
 }

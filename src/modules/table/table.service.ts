@@ -463,6 +463,10 @@ export class TableService {
       throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
+
+    
+    await this.gameplayTimeService.deleteByGameplayId(gameplayId);
+
     await this.gameplayService.remove(user, gameplayId, tableId);
 
     this.activityService.addActivity(
