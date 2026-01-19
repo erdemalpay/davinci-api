@@ -14,6 +14,7 @@ import {
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { ShopifyService } from '../shopify/shopify.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
@@ -93,6 +94,8 @@ export class AccountingService {
     private readonly locationService: LocationService,
     @Inject(forwardRef(() => IkasService))
     private readonly ikasService: IkasService,
+    @Inject(forwardRef(() => ShopifyService))
+    private readonly shopifyService: ShopifyService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
@@ -2045,6 +2048,50 @@ export class AccountingService {
       quantity,
     );
   }
+
+  async updateShopifyStock(
+    productId: string,
+    location: number,
+    quantity: number,
+  ) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.shopifyId) {
+        return;
+      }
+      const foundLocation = await this.locationService.findLocationById(
+        location,
+      );
+      if (!foundLocation.shopifyId) {
+        return;
+      }
+
+      // Get the product variant ID from Shopify
+      // We need to get the variant ID from the product
+      const shopifyProduct = await this.shopifyService.getProductById(
+        menuItem.shopifyId,
+      );
+      if (!shopifyProduct?.variants?.edges?.[0]?.node?.id) {
+        return;
+      }
+
+      const variantId = shopifyProduct.variants.edges[0].node.id
+        .split('/')
+        .pop();
+
+      await this.shopifyService.updateProductStock(
+        variantId,
+        location,
+        quantity,
+      );
+    } catch (error) {
+      // Log error but don't throw - allow main flow to continue
+      console.error(
+        `Error updating Shopify stock for product ${productId}, location ${location}:`,
+        error,
+      );
+    }
+  }
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
@@ -2205,6 +2252,11 @@ export class AccountingService {
         createStockDto.location,
         Number(oldQuantity) + Number(createStockDto.quantity),
       );
+      this.updateShopifyStock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2270,6 +2322,11 @@ export class AccountingService {
       }
 
       this.updateIkasStock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
+      this.updateShopifyStock(
         createStockDto.product,
         createStockDto.location,
         createStockDto.quantity,
@@ -2406,6 +2463,7 @@ export class AccountingService {
       }
       const deletedStock = await this.stockModel.findByIdAndRemove(id);
       this.updateIkasStock(stock.product?._id, stock.location, 0);
+      this.updateShopifyStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -2576,6 +2634,11 @@ export class AccountingService {
         newStock,
       );
       this.updateIkasStock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
+      this.updateShopifyStock(
         consumptStockDto.product,
         stock.location,
         stock.quantity - consumptStockDto.quantity,
