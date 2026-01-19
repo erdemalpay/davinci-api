@@ -2332,6 +2332,7 @@ export class AccountingService {
         createStockDto.quantity,
       );
     }
+    this.websocketGateway.emitStockChanged();
   }
 
   async updateStock(user: User, id: string, updates: UpdateQuery<Stock>) {
@@ -2363,6 +2364,7 @@ export class AccountingService {
         status: StockHistoryStatusEnum.STOCKUPDATEENTRY,
       });
     }
+    this.websocketGateway.emitStockChanged();
   }
 
   async updateStockForStockCountBulk(user: User, currentCountId: number) {
@@ -2439,7 +2441,6 @@ export class AccountingService {
       quantity: -quantity,
       status: StockHistoryStatusEnum.STOCKTRANSFER,
     });
-    this.websocketGateway.emitStockChanged();
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {
