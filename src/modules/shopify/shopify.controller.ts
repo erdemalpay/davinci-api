@@ -8,6 +8,7 @@ export class ShopifyController {
 
   constructor(private readonly shopifyService: ShopifyService) {}
 
+  @Public()
   @Get('/product')
   getAllProducts() {
     return this.shopifyService.getAllProducts();
