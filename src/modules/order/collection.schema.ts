@@ -72,6 +72,9 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   shopifyOrderNumber: string;
 
+  @Prop({ required: false, type: Number })
+  shopifyShippingAmount: number;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 }
