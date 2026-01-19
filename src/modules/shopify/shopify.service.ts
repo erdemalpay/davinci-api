@@ -697,6 +697,13 @@ export class ShopifyService {
         const productId = shopifyProduct.id.split('/').pop();
         const updatedItem = { ...item.toObject(), shopifyId: productId };
         await this.menuService.updateItem(user, item._id, updatedItem);
+
+        // Stok takibini shopify arayüzünden elle açmamak için burada ürünün stok takibini açarak yolluyoruz.
+        if (shopifyProduct.variants?.edges?.[0]?.node?.id) {
+          const variantId = shopifyProduct.variants.edges[0].node.id;
+          await this.enableInventoryTracking(variantId);
+        }
+
         const productStock = await this.accountingService.findProductStock(
           item.matchedProduct,
         );
@@ -798,6 +805,82 @@ export class ShopifyService {
         'Unable to create product in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async enableInventoryTracking(variantId: string): Promise<boolean> {
+    // Get inventoryItemId from variant
+    const variantQuery = `
+      query GetVariant($id: ID!) {
+        productVariant(id: $id) {
+          id
+          inventoryItem {
+            id
+            tracked
+          }
+        }
+      }
+    `;
+
+    try {
+      const variantResponse = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(variantQuery, {
+          variables: {
+            id: this.formatShopifyId('ProductVariant', variantId),
+          },
+        });
+      });
+
+      if (!variantResponse.data.productVariant) {
+        this.handleGraphQLErrors(variantResponse);
+      }
+
+      const inventoryItem = variantResponse.data.productVariant.inventoryItem;
+
+      // Skip if already tracked
+      if (inventoryItem.tracked) {
+        console.log('Inventory tracking is already enabled');
+        return true;
+      }
+
+      // Enable tracking
+      const mutation = `
+        mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+          inventoryItemUpdate(id: $id, input: $input) {
+            inventoryItem {
+              id
+              tracked
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+
+      const updateResponse = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            id: inventoryItem.id,
+            input: {
+              tracked: true,
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        updateResponse,
+        'data.inventoryItemUpdate.userErrors',
+      );
+      console.log('Inventory tracking enabled successfully');
+      return true;
+    } catch (error) {
+      this.logError('Error enabling inventory tracking', error);
+      return false;
     }
   }
 
