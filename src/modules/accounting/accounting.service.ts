@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -16,7 +16,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType
+  NotificationEventType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -56,7 +56,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -133,7 +133,10 @@ export class AccountingService {
       }
       return products;
     } catch (error) {
-      this.logger.error('Failed to retrieve all products from database:', error);
+      this.logger.error(
+        'Failed to retrieve all products from database:',
+        error,
+      );
       throw new HttpException(
         'Could not retrieve products',
         HttpStatus.NOT_FOUND,
@@ -774,7 +777,9 @@ export class AccountingService {
   }
 
   async findPaymentMethodByShopifyId(id: string) {
-    const paymentMethod = await this.paymentMethodModel.findOne({ shopifyId: id });
+    const paymentMethod = await this.paymentMethodModel.findOne({
+      shopifyId: id,
+    });
     return paymentMethod;
   }
 
@@ -1314,7 +1319,7 @@ export class AccountingService {
               { new: true },
             );
 
-            this.websocketGateway.emitStockAdded(newStock);
+            this.websocketGateway.emitStockChanged();
 
             if (rollback.stockDelta !== 0) {
               const stockHist = await this.productStockHistoryModel.create({
@@ -1344,7 +1349,7 @@ export class AccountingService {
               quantity: rollback.stockDelta,
             });
             await stockDoc.save();
-            this.websocketGateway.emitStockAdded(stockDoc);
+            this.websocketGateway.emitStockChanged();
 
             await this.activityService.addActivity(
               user,
@@ -2115,7 +2120,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
-      this.websocketGateway.emitStockAdded(newStock);
+      this.websocketGateway.emitStockChanged();
 
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -2271,7 +2276,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
-      this.websocketGateway.emitStockAdded(stock);
+      this.websocketGateway.emitStockChanged();
 
       await this.activityService.addActivity(
         user,
