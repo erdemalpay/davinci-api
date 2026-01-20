@@ -15,6 +15,7 @@ import { usernamify } from 'src/utils/usernamify';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
@@ -52,27 +53,55 @@ export class PanelControlService implements OnApplicationBootstrap {
     this.getAllRoutes();
   }
   //pages
-  async findAllPages() {
+  async findAllPages(user: User) {
+    let pages;
+
     try {
       const redisPages = await this.redisService.get(RedisKeys.Pages);
       if (redisPages) {
-        return redisPages;
+        pages = redisPages;
       }
     } catch (error) {
       this.logger.error('Failed to retrieve pages from Redis:', error);
     }
 
-    try {
-      const pages = await this.pageModel.find().exec();
+    if (!pages) {
+      try {
+        pages = await this.pageModel.find().exec();
 
-      if (pages.length > 0) {
-        await this.redisService.set(RedisKeys.Pages, pages);
+        if (pages.length > 0) {
+          await this.redisService.set(RedisKeys.Pages, pages);
+        }
+      } catch (error) {
+        this.logger.error('Failed to retrieve pages from database:', error);
+        throw new HttpException(
+          'Could not retrieve pages',
+          HttpStatus.NOT_FOUND,
+        );
       }
-      return pages;
-    } catch (error) {
-      this.logger.error('Failed to retrieve pages from database:', error);
-      throw new HttpException('Could not retrieve pages', HttpStatus.NOT_FOUND);
     }
+
+    // If user is not provided or user role is 1 (admin), return all pages
+    if (!user || user.role?._id === 1) {
+      return pages;
+    }
+
+    // Filter pages and tabs based on user's role
+    const userRoleId = user.role?._id;
+    const filteredPages = pages
+      .filter((page) => page?.permissionRoles?.includes(userRoleId))
+      .map((page) => ({
+        ...(page.toObject ? page.toObject() : page),
+        tabs:
+          page.tabs?.filter(
+            (tab) =>
+              (tab?.permissionRoles || tab?.permissionsRoles) &&
+              (tab.permissionRoles?.includes(userRoleId) ||
+                tab.permissionsRoles?.includes(userRoleId)),
+          ) || [],
+      }));
+
+    return filteredPages;
   }
 
   async createPage(createPageDto: CreatePageDto) {
