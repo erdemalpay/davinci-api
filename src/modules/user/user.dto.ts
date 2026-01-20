@@ -15,15 +15,18 @@ export class CreateUserDto {
   @ApiProperty()
   name: string;
 
+  @IsOptional()
   @IsString()
   _id: string;
 
   @IsString()
   fullName: string;
 
+  @IsOptional()
   @IsString()
   password: string;
 
+  @IsOptional()
   @IsBoolean()
   active: boolean;
 
