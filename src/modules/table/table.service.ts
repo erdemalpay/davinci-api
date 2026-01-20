@@ -38,6 +38,13 @@ import {
 } from './table.dto';
 import { Table } from './table.schema';
 
+enum TableErrorMessages {
+  GAMEPLAY_EXISTS = 'Oyun anlatımı bulunmaktadır. Lütfen önce oyun anlatımlarını silin.',
+  TABLE_NOT_FOUND = 'Table not found',
+  TABLE_HAS_ORDERS = 'Table has orders. Please cancel the orders first.',
+  CANNOT_CLOSE_WITH_UNPAID_ORDERS = 'Cannot close table with unpaid orders',
+}
+
 @Injectable()
 export class TableService {
   private logger: Logger = new Logger('TableService');
@@ -129,6 +136,17 @@ export class TableService {
 
   async update(user: User, id: number, tableDto: TableDto) {
     const existingTable = await this.tableModel.findById(id);
+    
+
+    if (tableDto.status === TableStatus.CANCELLED) {
+      if (existingTable?.gameplays && existingTable.gameplays.length > 0) {
+        throw new HttpException(
+          TableErrorMessages.GAMEPLAY_EXISTS,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    
     if (tableDto.finishHour && !existingTable?.finishHour) {
       const orders = await this.orderService.findGivenTableOrders(id);
 
@@ -145,7 +163,7 @@ export class TableService {
       // Validation: Cannot close table with unpaid orders
       if (!allItemsPaid) {
         throw new HttpException(
-          'Cannot close table with unpaid orders',
+          TableErrorMessages.CANNOT_CLOSE_WITH_UNPAID_ORDERS,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -180,7 +198,7 @@ export class TableService {
   async updateTableOrders(user: User, id: number, order: number | number[]) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
-      throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.BAD_REQUEST);
     }
 
     try {
@@ -418,7 +436,7 @@ export class TableService {
     const table = await this.tableModel.findById(id);
 
     if (!table) {
-      throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
+      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.NOT_FOUND);
     }
     // Close the previous gameplay
     if (table.gameplays.length) {
@@ -460,7 +478,7 @@ export class TableService {
     const table = await this.tableModel.findById(tableId);
 
     if (!table) {
-      throw new HttpException('Table not found', HttpStatus.NOT_FOUND);
+      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.NOT_FOUND);
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
 
@@ -500,10 +518,19 @@ export class TableService {
     );
     if (isTableHasOrders) {
       throw new HttpException(
-        'Table has orders. Please cancel the orders first.',
+        TableErrorMessages.TABLE_HAS_ORDERS,
         HttpStatus.BAD_REQUEST,
       );
     }
+    
+   
+    if (table.gameplays && table.gameplays.length > 0) {
+      throw new HttpException(
+        TableErrorMessages.GAMEPLAY_EXISTS,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
