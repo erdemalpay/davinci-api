@@ -8,6 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { Action } from './action.schema';
 import { DisabledCondition } from './disabledCondition.schema';
 import { Page } from './page.schema';
@@ -27,8 +29,8 @@ export class PanelControlController {
 
   // Pages
   @Get('/pages')
-  getPages() {
-    return this.panelControlService.findAllPages();
+  getPages(@ReqUser() user: User) {
+    return this.panelControlService.findAllPages(user);
   }
   @Get('routes')
   getAllRoutes() {

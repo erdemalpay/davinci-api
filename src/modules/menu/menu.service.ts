@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -35,7 +35,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -131,7 +131,10 @@ export class MenuService {
         return redisActiveCategories; // Return cached active categories if available
       }
     } catch (error) {
-      this.logger.error('Failed to retrieve active categories from Redis:', error);
+      this.logger.error(
+        'Failed to retrieve active categories from Redis:',
+        error,
+      );
     }
 
     try {
@@ -275,7 +278,7 @@ export class MenuService {
       if (!orderDataPage.tabs.find((tab) => tab.name === category.name)) {
         orderDataPage.tabs.push({
           name: category.name,
-          permissionsRoles: [1],
+          permissionRoles: [1],
         });
         await orderDataPage.save();
       }
@@ -311,7 +314,7 @@ export class MenuService {
       if (!orderDataPage.tabs.find((tab) => tab.name === category.name)) {
         orderDataPage.tabs.push({
           name: category.name,
-          permissionsRoles: [1],
+          permissionRoles: [1],
         });
         if (
           !ordersPage.tabs.find(
@@ -320,7 +323,7 @@ export class MenuService {
         ) {
           ordersPage.tabs.push({
             name: category.name + ' ' + 'Menu',
-            permissionsRoles: [1],
+            permissionRoles: [1],
           });
           Promise.all([await ordersPage.save(), await orderDataPage.save()]);
         }
@@ -1296,7 +1299,7 @@ export class MenuService {
     const ordersPage = await this.panelControlService.getPage('orders');
     ordersPage.tabs.push({
       name: kitchen.name,
-      permissionsRoles: [1],
+      permissionRoles: [1],
     });
     await ordersPage.save();
     this.websocketGateway.emitKitchenChanged();

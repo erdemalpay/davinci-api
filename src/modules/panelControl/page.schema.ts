@@ -7,7 +7,7 @@ export class PageTab {
   name: string;
 
   @Prop({ required: true, type: [Number] })
-  permissionsRoles: number[];
+  permissionRoles: number[];
 }
 
 @Schema({ _id: false })
