@@ -24,6 +24,7 @@ export class ButtonCallController {
   constructor(private readonly buttonCallService: ButtonCallService) {}
 
   @ApiResponse({ type: [ButtonCall] })
+  @Public()
   @Get()
   getButtonCalls(
     @Query('date') date: string,
@@ -118,9 +119,7 @@ export class ButtonCallController {
   @Public()
   @ApiResponse({ type: ButtonCall })
   @Post('close-from-customer')
-  closeButtonCallFromCustomer(
-    @Body() closeButtonCallDto: CloseButtonCallDto,
-  ) {
+  closeButtonCallFromCustomer(@Body() closeButtonCallDto: CloseButtonCallDto) {
     if (!closeButtonCallDto.tableName || !closeButtonCallDto.location) {
       throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
     }
