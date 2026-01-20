@@ -129,6 +129,17 @@ export class TableService {
 
   async update(user: User, id: number, tableDto: TableDto) {
     const existingTable = await this.tableModel.findById(id);
+    
+
+    if (tableDto.status === TableStatus.CANCELLED) {
+      if (existingTable?.gameplays && existingTable.gameplays.length > 0) {
+        throw new HttpException(
+          'Oyun anlatımı bulunmaktadır. Lütfen önce oyun anlatımlarını silin.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    
     if (tableDto.finishHour && !existingTable?.finishHour) {
       const orders = await this.orderService.findGivenTableOrders(id);
 
@@ -504,6 +515,15 @@ export class TableService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    
+   
+    if (table.gameplays && table.gameplays.length > 0) {
+      throw new HttpException(
+        'Oyun anlatımı bulunmaktadır. Lütfen önce oyun anlatımlarını silin.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
