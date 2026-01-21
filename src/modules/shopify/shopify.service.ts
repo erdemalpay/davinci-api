@@ -1918,11 +1918,21 @@ export class ShopifyService {
     `;
 
     try {
+      // Format the orderId to GID format
+      const formattedOrderId = orderId.includes('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      this.logger.log(
+        'Cancelling Shopify order with formatted ID:',
+        formattedOrderId,
+      );
+
       const response = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
         return await client.request(mutation, {
           variables: {
-            orderId: orderId,
+            orderId: formattedOrderId,
             notifyCustomer: notifyCustomer,
             refundMethod: {
               originalPaymentMethodsRefund: true,
@@ -1944,6 +1954,97 @@ export class ShopifyService {
       this.logError('Error cancelling order', error);
       throw new HttpException(
         'Unable to cancel order in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Partially refund a Shopify order by refunding specific line items with quantities
+   * This is used for partial cancellations since orderCancel mutation cancels entire orders
+   */
+  async partialRefundShopifyOrder(
+    orderId: string,
+    lineItemRefunds: Array<{
+      lineItemId: string;
+      quantity: number;
+      restockType?: 'RETURN' | 'CANCEL' | 'LEGACY_RESTOCK' | 'NO_RESTOCK';
+      locationId?: string; // Shopify location ID for restocking
+    }>,
+    notifyCustomer: boolean = true,
+    note?: string,
+  ) {
+    const mutation = `
+      mutation refundCreate($input: RefundInput!) {
+        refundCreate(input: $input) {
+          refund {
+            id
+            createdAt
+            order {
+              id
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      // Format the orderId to GID format
+      const formattedOrderId = orderId.includes('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      this.logger.log(
+        'Creating partial refund for Shopify order with formatted ID:',
+        formattedOrderId,
+      );
+      this.logger.log('Refund line items:', lineItemRefunds);
+
+      // Build refund line items with location for restocking
+      const refundLineItems = lineItemRefunds.map((item) => {
+        const refundItem: any = {
+          lineItemId: item.lineItemId.includes('gid://')
+            ? item.lineItemId
+            : `gid://shopify/LineItem/${item.lineItemId}`,
+          quantity: item.quantity,
+          restockType: item.restockType || 'CANCEL',
+        };
+
+        // Add locationId if restocking and location is provided
+        if (item.restockType !== 'NO_RESTOCK' && item.locationId) {
+          refundItem.locationId = item.locationId.includes('gid://')
+            ? item.locationId
+            : `gid://shopify/Location/${item.locationId}`;
+        }
+
+        return refundItem;
+      });
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              orderId: formattedOrderId,
+              note: note,
+              notify: notifyCustomer,
+              refundLineItems: refundLineItems,
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.refundCreate.userErrors');
+
+      return response.data.refundCreate.refund;
+    } catch (error) {
+      this.logError('Error creating partial refund', error);
+      throw new HttpException(
+        'Unable to create partial refund in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

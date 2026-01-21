@@ -6,7 +6,7 @@ import {
   Param,
   Patch,
   Post,
-  Query
+  Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Table } from '../table/table.schema';
@@ -16,11 +16,12 @@ import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
   CancelIkasOrderDto,
+  CancelShopifyOrderDto,
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
-  OrderQueryDto
+  OrderQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -225,17 +226,24 @@ export class OrderController {
   }
 
   @Post('/cancel-ikas-order')
-  cancelIkasOrder(
-    @ReqUser() user: User,
-    @Body() payload: CancelIkasOrderDto,
-  ) {
+  cancelIkasOrder(@ReqUser() user: User, @Body() payload: CancelIkasOrderDto) {
     return this.orderService.cancelIkasOrder(
       user,
       payload.ikasId,
       payload.quantity,
     );
   }
-
+  @Post('/cancel-shopify-order')
+  cancelShopifyOrder(
+    @ReqUser() user: User,
+    @Body() payload: CancelShopifyOrderDto,
+  ) {
+    return this.orderService.cancelShopifyOrder(
+      user,
+      payload.shopifyOrderLineItemId,
+      payload.quantity,
+    );
+  }
   @Post('/migrate-online')
   migrateOnline() {
     return this.orderService.migrateOnline();

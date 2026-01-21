@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -16,13 +16,14 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ButtonCallService } from '../buttonCall/buttonCall.service';
 import { GameplayService } from '../gameplay/gameplay.service';
+import { LocationService } from '../location/location.service';
 import { Kitchen } from '../menu/kitchen.schema';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -40,6 +41,8 @@ import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
+import { OrderCancelReason } from './../shopify/shopify.dto';
+import { ShopifyService } from './../shopify/shopify.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
@@ -51,7 +54,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -153,12 +156,16 @@ export class OrderService {
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
     private readonly buttonCallService: ButtonCallService,
+    private readonly locationService: LocationService,
 
     @Inject(forwardRef(() => GameplayService))
     private readonly gameplayService: GameplayService,
 
     @Inject(forwardRef(() => PointService))
     private readonly pointService: PointService,
+
+    @Inject(forwardRef(() => ShopifyService))
+    private readonly shopifyService: ShopifyService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -257,7 +264,15 @@ export class OrderService {
     const filterQuery: Record<string, unknown> = {
       quantity: { $gt: 0 },
     };
-    const { after, before, category, location, isIkasPickUp, isShopifyPickUp, item } = query;
+    const {
+      after,
+      before,
+      category,
+      location,
+      isIkasPickUp,
+      isShopifyPickUp,
+      item,
+    } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
     if (after) {
       let startUtc: Date;
@@ -320,14 +335,14 @@ export class OrderService {
       }
     });
 
-      if (isIkasPickUp) {
-        filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
-        filterQuery['ikasCustomer'] = { $exists: true };
-      }
-      if (isShopifyPickUp) {
-        filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
-        filterQuery['shopifyCustomer'] = { $exists: true };
-      }
+    if (isIkasPickUp) {
+      filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
+      filterQuery['ikasCustomer'] = { $exists: true };
+    }
+    if (isShopifyPickUp) {
+      filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
+      filterQuery['shopifyCustomer'] = { $exists: true };
+    }
 
     try {
       let itemIds = [];
@@ -1842,7 +1857,7 @@ export class OrderService {
       const order = await this.orderModel
         .findOne({ shopifyOrderLineItemId })
         .populate('item');
-      
+
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
@@ -1915,7 +1930,41 @@ export class OrderService {
         }
 
         await this.websocketGateway.emitOrderUpdated([order, cancelledOrder]);
-        
+
+        // Partially refund the order in Shopify (refund specific quantity)
+        try {
+          // Get the Shopify location ID for restocking
+          let shopifyLocationId: string | undefined;
+          if (order.stockLocation) {
+            const location = await this.locationService.findLocationById(
+              order.stockLocation,
+            );
+            shopifyLocationId = location?.shopifyId;
+          }
+
+          await this.shopifyService.partialRefundShopifyOrder(
+            order.shopifyOrderId,
+            [
+              {
+                lineItemId: shopifyOrderLineItemId,
+                quantity: quantity,
+                restockType: 'CANCEL',
+                locationId: shopifyLocationId,
+              },
+            ],
+            true, // notifyCustomer
+            `Order partially cancelled - ${quantity} out of ${
+              order.quantity + quantity
+            } items cancelled`,
+          );
+        } catch (shopifyError) {
+          this.logger.error(
+            'Failed to partially refund order in Shopify:',
+            shopifyError,
+          );
+          // Continue even if Shopify refund fails - order is already cancelled in our system
+        }
+
         // Return cancellation info for collection update
         return {
           order,
@@ -1959,7 +2008,21 @@ export class OrderService {
         }
 
         await this.websocketGateway.emitOrderUpdated([order]);
-        
+
+        // Cancel the order in Shopify
+        try {
+          await this.shopifyService.cancelShopifyOrderAtShopify(
+            order.shopifyOrderId,
+            true, // notifyCustomer
+            true, // restock
+            OrderCancelReason.CUSTOMER,
+            'Order fully cancelled',
+          );
+        } catch (shopifyError) {
+          this.logger.error('Failed to cancel order in Shopify:', shopifyError);
+          // Continue even if Shopify cancellation fails - order is already cancelled in our system
+        }
+
         // Return cancellation info for collection update
         return {
           order,
