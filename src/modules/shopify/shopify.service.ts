@@ -1411,7 +1411,12 @@ export class ShopifyService {
                 await this.notificationService.createNotification({
                   type: shopifyTakeawayEvent.type,
                   createdBy: shopifyTakeawayEvent.createdBy,
-                  selectedUsers: shopifyTakeawayEvent.selectedUsers,
+                  selectedUsers: [
+                    ...shopifyTakeawayEvent.selectedUsers,
+                    ...(uniqueVisitUsers.length > 0
+                      ? (uniqueVisitUsers as string[])
+                      : []),
+                  ],
                   selectedRoles: shopifyTakeawayEvent.selectedRoles,
                   selectedLocations: shopifyTakeawayEvent.selectedLocations,
                   seenBy: [],

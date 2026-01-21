@@ -11,7 +11,7 @@ export class Visit extends Document {
   _id: number;
 
   @Prop({ required: true, type: String, ref: User.name })
-  user: User;
+  user: string | User;
 
   @Prop({ required: true, type: Number, ref: Location.name })
   location: Location;
