@@ -7,12 +7,15 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { TableModule } from 'src/modules/table/table.module';
 import { ButtonCallModule } from '../buttonCall/buttonCall.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
+import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PointModule } from '../point/point.module';
 import { RedisModule } from '../redis/redis.module';
 import { RedisService } from '../redis/redis.service';
+import { ShopifyModule } from '../shopify/shopify.module';
 import { UserModule } from '../user/user.module';
 import { VisitModule } from '../visit/visit.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { BullModuleOptions } from './../../../node_modules/@nestjs/bull/dist/interfaces/bull-module-options.interface.d';
 import { DBConfig } from './../../app.module';
 import { AccountingModule } from './../accounting/accounting.module';
@@ -26,7 +29,6 @@ import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
 import { OrderNotes, OrderNotesSchema } from './orderNotes.schema';
-import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Order.name, OrderSchema),
@@ -46,10 +48,10 @@ const { host, port } = config.get<DBConfig>('redis');
     VisitModule,
     ButtonCallModule,
     GameplayModule,
+    LocationModule,
     NotificationModule,
     BullModule.forRootAsync({
-      imports: [
-    WebSocketModule,RedisModule],
+      imports: [WebSocketModule, RedisModule],
       inject: [RedisService],
       useFactory: (redisService: RedisService): BullModuleOptions =>
         ({
@@ -78,6 +80,7 @@ const { host, port } = config.get<DBConfig>('redis');
     forwardRef(() => MenuModule),
     forwardRef(() => UserModule),
     forwardRef(() => PointModule),
+    forwardRef(() => ShopifyModule),
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderConfirmationProcessor],

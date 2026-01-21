@@ -466,3 +466,11 @@ export class CancelIkasOrderDto {
   @IsNumber()
   quantity: number;
 }
+
+export class CancelShopifyOrderDto {
+  @IsString()
+  shopifyOrderLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
