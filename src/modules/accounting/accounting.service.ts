@@ -957,14 +957,14 @@ export class AccountingService {
       asc,
       date,
       search,
-      includeAllTotals,
+      includeAllRecords,
     } = filter;
-    const includeAllTotalsStr =
-      typeof includeAllTotals === 'boolean'
-        ? includeAllTotals.toString()
-        : includeAllTotals ?? 'false';
-    const shouldIncludeAllTotals =
-      includeAllTotalsStr === 'true' || includeAllTotalsStr === '1';
+    const includeAllRecordsStr =
+      typeof includeAllRecords === 'boolean'
+        ? includeAllRecords.toString()
+        : includeAllRecords ?? 'false';
+    const shouldIncludeAllRecords =
+      includeAllRecordsStr === 'true' || includeAllRecordsStr === '1';
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
     const paymentMethodArray = paymentMethod ? paymentMethod.split(',') : [];
@@ -1090,7 +1090,7 @@ export class AccountingService {
           page: '$metadata.page',
           limit: limitNum,
           generalTotalExpense: '$totalExpenseSum.generalTotalExpense',
-          ...(shouldIncludeAllTotals && {
+          ...(shouldIncludeAllRecords && {
             overallTotalExpense: '$totalExpenseSum.overallTotalExpense',
           }),
         },
@@ -1109,7 +1109,7 @@ export class AccountingService {
         page: pageNum,
         limit: limitNum,
         generalTotalExpense: 0,
-        ...(shouldIncludeAllTotals && { overallTotalExpense: 0 }),
+        ...(shouldIncludeAllRecords && { overallTotalExpense: 0 }),
       };
     }
 

@@ -278,7 +278,7 @@ export type ExpenseWithPaginateFilterType = {
   asc?: number;
   date?: string;
   search?: string;
-  includeAllTotals?: string | boolean;
+  includeAllRecords?: string | boolean;
 };
 export type ExpenseWithoutPaginateFilterType = {
   product?: string;
