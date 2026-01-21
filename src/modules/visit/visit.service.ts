@@ -243,8 +243,8 @@ export class VisitService {
     return visits.map((visit) => {
       return {
         ...visit,
-        role: visit.user.role,
-        user: visit.user._id,
+        role: (visit.user as User).role,
+        user: (visit.user as User)._id,
       };
     });
   }
@@ -611,7 +611,7 @@ export class VisitService {
       const managerMessage = {
         key: 'UnfinishedVisit',
         params: {
-          user: visit.user.name,
+          user: (visit.user as User).name,
           location: visit.location.name,
           date: visit.date,
           startHour: visit.startHour,
@@ -641,7 +641,7 @@ export class VisitService {
       await this.notificationService.createNotification({
         type: unfinishedVisitEvent.type,
         createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers: [visit.user._id],
+        selectedUsers: [(visit.user as User)._id],
         selectedRoles: unfinishedVisitEvent.selectedRoles,
         selectedLocations: unfinishedVisitEvent.selectedLocations,
         seenBy: [],
