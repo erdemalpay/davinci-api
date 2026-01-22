@@ -2865,6 +2865,216 @@ export class AccountingService {
     return results[0];
   }
 
+  async findAggregatedProductStockHistory(
+    page: number,
+    limit: number,
+    filter: StockHistoryFilter,
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const {
+      product,
+      expenseType,
+      category,
+      location,
+      status,
+      date,
+      before,
+      after,
+      sort,
+      asc,
+      vendor,
+      brand,
+      search,
+    } = filter;
+    const skip = (pageNum - 1) * limitNum;
+    const productArray = product ? (product as any).split(',') : [];
+    const statusArray = status ? (status as any).split(',') : [];
+    const categoryArray = category
+      ? (category as any).split(',').map(Number)
+      : [];
+    const sortObject = {};
+    const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
+
+    if (sort) {
+      sortObject[sort] = asc ? Number(asc) : -1;
+    } else {
+      sortObject['totalChange'] = -1;
+    }
+
+    let searchedLocationIds = [];
+    let searchedUserIds = [];
+    let searchedStatuses = [];
+    if (search) {
+      searchedLocationIds = await this.locationService.searchLocationIds(
+        search,
+      );
+      searchedUserIds = await this.userService.searchUserIds(search);
+
+      // Search in status enum values
+      const allStatuses = Object.values(StockHistoryStatusEnum);
+      searchedStatuses = allStatuses.filter((statusValue) =>
+        statusValue.toLowerCase().includes(search.toLowerCase()),
+      );
+    }
+
+    // Date filtering logic
+    const matchFilter: any = {};
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+      matchFilter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const end = this.parseLocalDate(before);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = end;
+      }
+      if (Object.keys(rangeFilter).length) {
+        matchFilter.createdAt = rangeFilter;
+      }
+    }
+
+    const pipeline: PipelineStage[] = [
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'product',
+          foreignField: '_id',
+          as: 'productDetails',
+        },
+      },
+      {
+        $unwind: '$productDetails',
+      },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: 'productDetails.matchedMenuItem',
+          foreignField: '_id',
+          as: 'matchedMenuItemDetails',
+        },
+      },
+      {
+        $match: {
+          ...(location && { location: Number(location) }),
+          ...(status && {
+            status: { $in: statusArray },
+          }),
+          ...(product && { product: { $in: productArray } }),
+          ...(expenseType && {
+            'productDetails.expenseType': { $in: [expenseType] },
+          }),
+          ...(vendor && {
+            'productDetails.vendor': { $in: [vendor] },
+          }),
+          ...(brand && {
+            'productDetails.brand': { $in: [brand] },
+          }),
+          ...(category &&
+            categoryArray.length > 0 && {
+              $or: [
+                { 'matchedMenuItemDetails.category': { $in: categoryArray } },
+                { 'productDetails.matchedMenuItem': { $exists: false } },
+              ],
+            }),
+          ...matchFilter,
+          ...(regexSearch
+            ? {
+                $or: [
+                  { product: { $regex: regexSearch } },
+                  { user: { $in: searchedUserIds } },
+                  { location: { $in: searchedLocationIds } },
+                  ...(searchedStatuses.length > 0
+                    ? [{ status: { $in: searchedStatuses } }]
+                    : []),
+                ],
+              }
+            : {}),
+        },
+      },
+      {
+        $group: {
+          _id: {
+            product: '$product',
+            location: '$location',
+          },
+          productDetails: { $first: '$productDetails' },
+          matchedMenuItemDetails: { $first: '$matchedMenuItemDetails' },
+          totalChange: { $sum: '$change' },
+          entryCount: { $sum: 1 },
+          firstEntry: { $min: '$createdAt' },
+          lastEntry: { $max: '$createdAt' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          product: '$_id.product',
+          location: '$_id.location',
+          productDetails: 1,
+          matchedMenuItemDetails: 1,
+          totalChange: 1,
+          entryCount: 1,
+          firstEntry: 1,
+          lastEntry: 1,
+        },
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    // Execute the aggregation pipeline
+    const results = await this.productStockHistoryModel.aggregate(pipeline);
+
+    // If results array is empty, handle it accordingly
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+      };
+    }
+
+    return results[0];
+  }
+
   async createProductStockHistory(
     user: User,
     createProductStockHistoryDto: CreateProductStockHistoryDto,
