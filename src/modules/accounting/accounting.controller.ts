@@ -590,6 +590,45 @@ export class AccountingController {
     });
   }
 
+  @Get('/product-stock-histories/aggregated')
+  getAggregatedProductStockHistory(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('product') product?: string[],
+    @Query('expenseType') expenseType?: string,
+    @Query('category') category?: string[],
+    @Query('location') location?: string,
+    @Query('status') status?: string,
+    @Query('date') date?: string,
+    @Query('before') before?: string,
+    @Query('after') after?: string,
+    @Query('sort') sort?: string,
+    @Query('asc') asc?: number,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.accountingService.findAggregatedProductStockHistory(
+      page,
+      limit,
+      {
+        product,
+        expenseType,
+        category,
+        location,
+        status,
+        date,
+        before,
+        after,
+        sort,
+        asc,
+        vendor,
+        brand,
+        search,
+      },
+    );
+  }
+
   @Post('/product-stock-histories')
   createProductStockHistory(
     @ReqUser() user: User,
