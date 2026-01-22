@@ -2693,8 +2693,10 @@ export class AccountingService {
     const {
       product,
       expenseType,
+      category,
       location,
       status,
+      date,
       before,
       after,
       sort,
@@ -2706,9 +2708,11 @@ export class AccountingService {
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? (product as any).split(',') : [];
     const statusArray = status ? (status as any).split(',') : [];
+    const categoryArray = category
+      ? (category as any).split(',').map(Number)
+      : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
-
     if (sort) {
       sortObject[sort] = asc ? Number(asc) : -1;
     } else {
@@ -2731,6 +2735,30 @@ export class AccountingService {
       );
     }
 
+    // Date filtering logic
+    const matchFilter: any = {};
+    if (date && dateRanges[date]) {
+      const { after: dAfter, before: dBefore } = dateRanges[date]();
+      const start = this.parseLocalDate(dAfter);
+      const end = this.parseLocalDate(dBefore);
+      end.setHours(23, 59, 59, 999);
+      matchFilter.createdAt = { $gte: start, $lte: end };
+    } else {
+      const rangeFilter: Record<string, any> = {};
+      if (after) {
+        const start = this.parseLocalDate(after);
+        rangeFilter.$gte = start;
+      }
+      if (before) {
+        const end = this.parseLocalDate(before);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.$lte = end;
+      }
+      if (Object.keys(rangeFilter).length) {
+        matchFilter.createdAt = rangeFilter;
+      }
+    }
+
     const pipeline: PipelineStage[] = [
       {
         $lookup: {
@@ -2742,6 +2770,14 @@ export class AccountingService {
       },
       {
         $unwind: '$productDetails',
+      },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: 'productDetails.matchedMenuItem',
+          foreignField: '_id',
+          as: 'matchedMenuItemDetails',
+        },
       },
       {
         $match: {
@@ -2759,12 +2795,14 @@ export class AccountingService {
           ...(brand && {
             'productDetails.brand': { $in: [brand] },
           }),
-          ...(after &&
-            before && {
-              createdAt: { $gte: new Date(after), $lte: new Date(before) },
+          ...(category &&
+            categoryArray.length > 0 && {
+              $or: [
+                { 'matchedMenuItemDetails.category': { $in: categoryArray } },
+                { 'productDetails.matchedMenuItem': { $exists: false } },
+              ],
             }),
-          ...(before && !after && { createdAt: { $lte: new Date(before) } }),
-          ...(after && !before && { createdAt: { $gte: new Date(after) } }),
+          ...matchFilter,
           ...(regexSearch
             ? {
                 $or: [
