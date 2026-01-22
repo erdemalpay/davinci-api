@@ -240,8 +240,10 @@ export enum StockHistoryStatusEnum {
 export type StockHistoryFilter = {
   product?: string[];
   expenseType?: string;
+  category?: string[];
   location?: string;
   status?: string;
+  date?: string;
   before?: string;
   after?: string;
   sort?: string;
