@@ -1372,64 +1372,6 @@ export class ShopifyService {
               menuItemName: foundMenuItem.name,
             });
             totalAmount += itemAmount;
-
-            // Sadece gel-al (mağazadan teslim) siparişleri için bildirim oluştur
-            // shipping_address YOKSA = gel-al, VARSA = kargo
-            if (!data?.shipping_address && foundLocation) {
-              const visits = await this.visitService.findByDateAndLocation(
-                format(order.createdAt, 'yyyy-MM-dd'),
-                2,
-              );
-              const uniqueVisitUsers =
-                visits
-                  ?.reduce(
-                    (
-                      acc: { unique: typeof visits; seenUsers: SeenUsers },
-                      visit,
-                    ) => {
-                      acc.seenUsers = acc.seenUsers || {};
-                      if (visit?.user && !acc.seenUsers[(visit as any).user]) {
-                        acc.seenUsers[(visit as any).user] = true;
-                        acc.unique.push(visit);
-                      }
-                      return acc;
-                    },
-                    { unique: [], seenUsers: {} },
-                  )
-                  ?.unique?.map((visit) => visit.user) ?? [];
-
-              const message = {
-                key: 'ShopifyPickupOrderArrived',
-                params: {
-                  product: foundMenuItem.name,
-                },
-              };
-              const notificationEvents =
-                await this.notificationService.findAllEventNotifications();
-
-              const shopifyTakeawayEvent = notificationEvents.find(
-                (notification) =>
-                  notification.event === NotificationEventType.SHOPIFYTAKEAWAY,
-              );
-
-              if (shopifyTakeawayEvent) {
-                await this.notificationService.createNotification({
-                  type: shopifyTakeawayEvent.type,
-                  createdBy: shopifyTakeawayEvent.createdBy,
-                  selectedUsers: [
-                    ...shopifyTakeawayEvent.selectedUsers,
-                    ...(uniqueVisitUsers.length > 0
-                      ? (uniqueVisitUsers as string[])
-                      : []),
-                  ],
-                  selectedRoles: shopifyTakeawayEvent.selectedRoles,
-                  selectedLocations: shopifyTakeawayEvent.selectedLocations,
-                  seenBy: [],
-                  event: NotificationEventType.SHOPIFYTAKEAWAY,
-                  message,
-                });
-              }
-            }
           } catch (orderError) {
             this.logError('Error creating order', orderError);
           }
