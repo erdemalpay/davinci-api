@@ -1265,6 +1265,7 @@ export class ShopifyService {
         order: number;
         paidQuantity: number;
         amount: number;
+        menuItemName?: string;
       }> = [];
       let totalAmount = 0;
 
@@ -1368,10 +1369,13 @@ export class ShopifyService {
               order: order._id,
               paidQuantity: quantity,
               amount: itemAmount,
+              menuItemName: foundMenuItem.name,
             });
             totalAmount += itemAmount;
 
-            if (data?.shipping_address && foundLocation) {
+            // Sadece gel-al (mağazadan teslim) siparişleri için bildirim oluştur
+            // shipping_address YOKSA = gel-al, VARSA = kargo
+            if (!data?.shipping_address && foundLocation) {
               const visits = await this.visitService.findByDateAndLocation(
                 format(order.createdAt, 'yyyy-MM-dd'),
                 2,
@@ -1473,36 +1477,45 @@ export class ShopifyService {
           );
           this.logger.log('Collection created:', collection);
 
-          // Send notification for new Shopify order
-          const notificationEvents =
-            await this.notificationService.findAllEventNotifications();
+          // Sadece gel-al (mağazadan teslim) siparişleri için collection bildirimi
+          // shipping_address YOKSA = gel-al, VARSA = kargo
+          if (!data?.shipping_address) {
+            const notificationEvents =
+              await this.notificationService.findAllEventNotifications();
 
-          const shopifyOrderEvent = notificationEvents.find(
-            (notification) =>
-              notification.event === NotificationEventType.SHOPIFYORDER,
-          );
+            const shopifyTakeawayEvent = notificationEvents.find(
+              (notification) =>
+                notification.event === NotificationEventType.SHOPIFYTAKEAWAY,
+            );
 
-          if (shopifyOrderEvent) {
-            const orderNumber = shopifyOrderNumber || data?.name || 'N/A';
-            const message = {
-              key: 'ShopifyOrderReceived',
-              params: {
-                orderNumber: orderNumber.toString(),
-                amount: totalAmount.toFixed(2),
-                itemCount: createdOrders.length,
-              },
-            };
+            if (shopifyTakeawayEvent) {
+              const orderNumber = shopifyOrderNumber || data?.name || 'N/A';
 
-            await this.notificationService.createNotification({
-              type: shopifyOrderEvent.type,
-              createdBy: shopifyOrderEvent.createdBy,
-              selectedUsers: shopifyOrderEvent.selectedUsers,
-              selectedRoles: shopifyOrderEvent.selectedRoles,
-              selectedLocations: shopifyOrderEvent.selectedLocations,
-              seenBy: [],
-              event: NotificationEventType.SHOPIFYORDER,
-              message,
-            });
+              const productNames = createdOrders.map(
+                ({ menuItemName }) => menuItemName || 'Bilinmeyen Ürün',
+              );
+
+              const message = {
+                key: 'ShopifyOrderReceived',
+                params: {
+                  orderNumber: orderNumber.toString(),
+                  amount: totalAmount.toFixed(2),
+                  itemCount: createdOrders.length,
+                  products: productNames.join(', '),
+                },
+              };
+
+              await this.notificationService.createNotification({
+                type: shopifyTakeawayEvent.type,
+                createdBy: shopifyTakeawayEvent.createdBy,
+                selectedUsers: shopifyTakeawayEvent.selectedUsers,
+                selectedRoles: shopifyTakeawayEvent.selectedRoles,
+                selectedLocations: shopifyTakeawayEvent.selectedLocations,
+                seenBy: [],
+                event: NotificationEventType.SHOPIFYTAKEAWAY,
+                message,
+              });
+            }
           }
         } catch (collectionError) {
           this.logError('Error creating collection', collectionError);
