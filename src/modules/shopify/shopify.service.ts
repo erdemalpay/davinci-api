@@ -1339,7 +1339,6 @@ export class ShopifyService {
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
             }),
-            isShopifyCustomerPicked: !data.shipping_address,
           };
 
           // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz.
