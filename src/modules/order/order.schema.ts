@@ -154,7 +154,7 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String })
   shopifyOrderId: string;
-  
+
   @Prop({ required: false, type: String })
   shopifyOrderLineItemId: string;
 
@@ -164,7 +164,7 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   shopifyOrderNumber: string;
 
-  @Prop({ required: false, type: Date })
+  @Prop({ required: true, type: Date })
   tableDate: Date;
 
   @Prop({ required: false, type: IkasCustomer })
