@@ -496,8 +496,9 @@ export class TableService {
     const deletedGameplay = await this.gameplayService.findById(gameplayId);
 
     table.gameplays = table.gameplays.filter(
-      (gameplay) => gameplay._id !== gameplayId,
+      (gp) => (typeof gp === 'object' ? gp._id : gp) !== gameplayId,
     );
+
     await table.save();
     this.websocketGateway.emitGameplayDeleted(user, deletedGameplay, table);
     return table;
