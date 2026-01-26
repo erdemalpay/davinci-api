@@ -496,7 +496,7 @@ export class TableService {
     const deletedGameplay = await this.gameplayService.findById(gameplayId);
 
     table.gameplays = table.gameplays.filter(
-      (gp) => (typeof gp === 'object' ? gp._id : gp) !== gameplayId,
+      (gp) => (gp?._id ?? gp) !== gameplayId,
     );
 
     await table.save();
