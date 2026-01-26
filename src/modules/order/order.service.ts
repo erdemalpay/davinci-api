@@ -1225,11 +1225,23 @@ export class OrderService {
         );
       }
     }
+
+    // Ensure tableDate is always set
+    let tableDate = createOrderDto?.tableDate;
+    if (!tableDate && createOrderDto.table) {
+      const table = await this.tableService.findById(createOrderDto.table);
+      tableDate = table?.date ? new Date(table.date) : new Date();
+    }
+    if (!tableDate) {
+      tableDate = new Date();
+    }
+
     const order = new this.orderModel({
       ...createOrderDto,
       status: createOrderDto?.status ?? 'pending',
       createdBy: createOrderDto?.createdBy ?? user._id,
       createdAt: new Date(),
+      tableDate: tableDate,
     });
     if (createOrderDto?.discount) {
       const discount = await this.discountModel.findById(
@@ -2915,6 +2927,7 @@ export class OrderService {
         isPaymentMade: oldOrder.paidQuantity > 0 ? true : false,
         quantity: orderItem.selectedQuantity,
         paidQuantity: 0,
+        tableDate: oldOrder.tableDate ?? new Date(),
       });
       try {
         await newOrder.save();
@@ -3047,6 +3060,7 @@ export class OrderService {
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
           discount: discount,
+          tableDate: oldOrder.tableDate ?? new Date(),
           ...(discountPercentage && {
             discountPercentage: discountPercentage,
             paidQuantity:
@@ -3186,6 +3200,7 @@ export class OrderService {
         discountPercentage: undefined,
         discountAmount: undefined,
         discountNote: undefined,
+        tableDate: order.tableDate ?? new Date(),
       });
       try {
         await newOrder.save();
@@ -3317,6 +3332,7 @@ export class OrderService {
             paidQuantity: 0,
             quantity: orderItem.selectedQuantity,
             table: transferredTableId,
+            tableDate: oldOrder.tableDate ?? new Date(),
           });
           await newOrder.save();
           const newTable = await this.tableService.getTableById(
@@ -3349,6 +3365,7 @@ export class OrderService {
         const newOrder = new this.orderModel({
           ...orderDataWithoutId,
           quantity: orderItem.selectedQuantity,
+          tableDate: oldOrder.tableDate ?? new Date(),
         });
         const newTable = await this.tableService.getTableById(
           transferredTableId,
