@@ -1,6 +1,6 @@
 import {
   WebSocketGateway as WSGateway,
-  WebSocketServer
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
@@ -347,19 +347,19 @@ export class AppWebSocketGateway {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableChanged', { table });
   }
-  async emitTableDeleted(table: Table) {
+  async emitTableDeleted(table: Table, user: User) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableDeleted', { table });
+    this.server.emit('tableDeleted', { table, user });
   }
 
-  async emitTableCreated(table: Table) {
+  async emitTableCreated(table: Table, user: User) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('tableCreated', { table });
+    this.server.emit('tableCreated', { table, user });
   }
-  async emitTableClosed(table: Table) {
+  async emitTableClosed(table: Table, user: User) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableClosed', { table });
+    this.server.emit('tableClosed', { table, user });
   }
 
   emitTaskTrackChanged() {

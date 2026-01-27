@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format, subDays } from 'date-fns';
@@ -34,7 +34,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableStatus,
-  TableTypes
+  TableTypes,
 } from './table.dto';
 import { Table } from './table.schema';
 
@@ -129,16 +129,15 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     }
-    this.websocketGateway.emitTableCreated(createdTable);
+    this.websocketGateway.emitTableCreated(createdTable, user);
 
     return createdTable;
   }
 
-  async update(user: User, id: number, tableDto: TableDto) {
+  async update(user: User, id: number, updates: TableDto) {
     const existingTable = await this.tableModel.findById(id);
-    
 
-    if (tableDto.status === TableStatus.CANCELLED) {
+    if (updates.status === TableStatus.CANCELLED) {
       if (existingTable?.gameplays && existingTable.gameplays.length > 0) {
         throw new HttpException(
           TableErrorMessages.GAMEPLAY_EXISTS,
@@ -146,8 +145,8 @@ export class TableService {
         );
       }
     }
-    
-    if (tableDto.finishHour && !existingTable?.finishHour) {
+
+    if (updates.finishHour && !existingTable?.finishHour) {
       const orders = await this.orderService.findGivenTableOrders(id);
 
       // Filter out cancelled orders
@@ -168,7 +167,7 @@ export class TableService {
         );
       }
     }
-    const updatedTable = await this.tableModel.findByIdAndUpdate(id, tableDto, {
+    const updatedTable = await this.tableModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
     this.activityService.addUpdateActivity(
@@ -177,13 +176,13 @@ export class TableService {
       existingTable,
       updatedTable,
     );
-    if (tableDto.finishHour) {
+    if (updates.finishHour) {
       this.websocketGateway.emitTableChanged(updatedTable);
-    } else if (tableDto.status === TableStatus.CANCELLED) {
-      this.websocketGateway.emitTableDeleted(updatedTable);
+    } else if (updates.status === TableStatus.CANCELLED) {
+      this.websocketGateway.emitTableDeleted(updatedTable, user);
     } else {
       this.websocketGateway.emitSingleTableChanged(
-        pickWith(updatedTable, ['_id', 'date', 'location'], tableDto),
+        pickWith(updatedTable, ['_id', 'date', 'location'], updates),
       );
     }
     return updatedTable;
@@ -198,7 +197,10 @@ export class TableService {
   async updateTableOrders(user: User, id: number, order: number | number[]) {
     const existingTable = await this.tableModel.findById(id);
     if (!existingTable) {
-      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        TableErrorMessages.TABLE_NOT_FOUND,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     try {
@@ -275,7 +277,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.websocketGateway.emitTableClosed(updatedTable);
+    this.websocketGateway.emitTableClosed(updatedTable, user);
     return updatedTable;
   }
 
@@ -436,7 +438,10 @@ export class TableService {
     const table = await this.tableModel.findById(id);
 
     if (!table) {
-      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        TableErrorMessages.TABLE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
     // Close the previous gameplay
     if (table.gameplays.length) {
@@ -478,11 +483,13 @@ export class TableService {
     const table = await this.tableModel.findById(tableId);
 
     if (!table) {
-      throw new HttpException(TableErrorMessages.TABLE_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        TableErrorMessages.TABLE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
     const gameplay = await this.gameplayService.findById(gameplayId);
 
-    
     await this.gameplayTimeService.deleteByGameplayId(gameplayId);
 
     await this.gameplayService.remove(user, gameplayId, tableId);
@@ -523,15 +530,14 @@ export class TableService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    
-   
+
     if (table.gameplays && table.gameplays.length > 0) {
       throw new HttpException(
         TableErrorMessages.GAMEPLAY_EXISTS,
         HttpStatus.BAD_REQUEST,
       );
     }
-    
+
     this.activityService.addActivity(user, ActivityType.DELETE_TABLE, table);
     await Promise.all(
       table.gameplays.map((gameplay) =>
@@ -539,7 +545,7 @@ export class TableService {
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(table);
+    this.websocketGateway.emitTableDeleted(table, user);
 
     return table;
   }
@@ -656,9 +662,9 @@ export class TableService {
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }
-  async removeTable(id: number) {
+  async removeTable(id: number, user: User) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(table);
+    this.websocketGateway.emitTableDeleted(table, user);
     return table;
   }
   async notifyUnclosedTables() {
