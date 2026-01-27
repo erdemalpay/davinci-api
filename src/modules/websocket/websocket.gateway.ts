@@ -212,12 +212,11 @@ export class AppWebSocketGateway {
     this.server.emit('kitchenChanged');
   }
 
-  async emitLocationChanged() {
-    await this.redisService.reset(RedisKeys.Locations);
+  async emitLocationChanged(user: User) {
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('locationChanged');
+    this.server.emit('locationChanged', user);
   }
 
   async emitMembershipChanged() {

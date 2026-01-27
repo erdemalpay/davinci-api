@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import { CreateStockLocationDto } from './dto/create-location.dto';
 import { Location } from './location.schema';
 import { LocationService } from './location.service';
+
 @Controller('location')
 export class LocationController {
   constructor(private readonly locationService: LocationService) {}
@@ -21,8 +24,11 @@ export class LocationController {
   }
 
   @Post()
-  createStockLocation(@Body() createStockLocation: CreateStockLocationDto) {
-    return this.locationService.createStockLocation(createStockLocation);
+  createStockLocation(
+    @Body() createStockLocation: CreateStockLocationDto,
+    @ReqUser() user: User,
+  ) {
+    return this.locationService.createStockLocation(user, createStockLocation);
   }
 
   @Get('/all')
@@ -42,7 +48,8 @@ export class LocationController {
   updateLocation(
     @Param('id') id: number,
     @Body() updates: UpdateQuery<Location>,
+    @ReqUser() user: User,
   ) {
-    return this.locationService.updateLocation(id, updates);
+    return this.locationService.updateLocation(user, id, updates);
   }
 }

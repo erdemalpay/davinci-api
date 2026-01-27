@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateStockLocationDto } from './dto/create-location.dto';
 import { Location } from './location.schema';
@@ -14,13 +15,11 @@ export class LocationService {
     @InjectModel(Location.name) private locationModel: Model<Location>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
-  ) {
-    this.checkDefaultLocations();
-  }
+  ) {}
 
-  create(createLocationDto: CreateStockLocationDto) {
+  create(user: User, createLocationDto: CreateStockLocationDto) {
     const location = this.locationModel.create(createLocationDto);
-    this.websocketGateway.emitLocationChanged();
+    this.websocketGateway.emitLocationChanged(user);
     return location;
   }
 
@@ -31,7 +30,10 @@ export class LocationService {
         return redisLocations;
       }
     } catch (error) {
-      this.logger.error('Failed to retrieve store locations from Redis:', error);
+      this.logger.error(
+        'Failed to retrieve store locations from Redis:',
+        error,
+      );
     }
 
     try {
@@ -44,7 +46,10 @@ export class LocationService {
       }
       return locations;
     } catch (error) {
-      this.logger.error('Failed to retrieve store locations from database:', error);
+      this.logger.error(
+        'Failed to retrieve store locations from database:',
+        error,
+      );
       throw new HttpException(
         'Could not retrieve store locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -59,7 +64,10 @@ export class LocationService {
         .exec();
       return locations;
     } catch (error) {
-      this.logger.error('Failed to retrieve orders summary locations from database:', error);
+      this.logger.error(
+        'Failed to retrieve orders summary locations from database:',
+        error,
+      );
       throw new HttpException(
         'Could not retrieve orders summary locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -92,7 +100,10 @@ export class LocationService {
       }
       return allLocations;
     } catch (error) {
-      this.logger.error('Failed to retrieve all locations from database:', error);
+      this.logger.error(
+        'Failed to retrieve all locations from database:',
+        error,
+      );
       throw new HttpException(
         'Could not retrieve all locations',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -118,22 +129,6 @@ export class LocationService {
     return location;
   }
 
-  async checkDefaultLocations() {
-    const locations = await this.findStoreLocations();
-    if (locations.length > 0) {
-      return;
-    }
-    const location1: CreateStockLocationDto = {
-      name: 'Bahçeli',
-    };
-    const location2: CreateStockLocationDto = {
-      name: 'Neorama',
-    };
-    await this.create(location1);
-    await this.create(location2);
-
-    this.logger.log('Created default locations.');
-  }
   async searchLocationIds(search: string) {
     const searchLocationIds = await this.locationModel
       .find({ name: { $regex: new RegExp(search, 'i') } })
@@ -142,7 +137,7 @@ export class LocationService {
     return searchLocationIds;
   }
 
-  async updateLocation(id: number, updates: UpdateQuery<Location>) {
+  async updateLocation(user: User, id: number, updates: UpdateQuery<Location>) {
     // in case if someone try to update from postman or something
     if (updates?.type) {
       delete updates.type;
@@ -150,17 +145,20 @@ export class LocationService {
     const location = await this.locationModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitLocationChanged();
+    this.websocketGateway.emitLocationChanged(user);
     return location;
   }
 
-  async createStockLocation(createStockLocationDto: CreateStockLocationDto) {
+  async createStockLocation(
+    user: User,
+    createStockLocationDto: CreateStockLocationDto,
+  ) {
     const location = await this.locationModel.create({
       ...createStockLocationDto,
       type: [2],
       active: true,
     });
-    this.websocketGateway.emitLocationChanged();
+    this.websocketGateway.emitLocationChanged(user);
     return location;
   }
 }
