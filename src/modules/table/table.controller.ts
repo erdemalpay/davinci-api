@@ -21,6 +21,7 @@ import {
   CreateFeedbackDto,
   TableDto,
   TableResponse,
+  TableStatus,
 } from './table.dto';
 import { TableService } from './table.service';
 
@@ -111,7 +112,9 @@ export class TableController {
   @Delete('/:id')
   @ApiResponse({ type: TableResponse })
   removeTable(@ReqUser() user: User, @Param('id') id: number) {
-    return this.tableService.removeTableAndGameplays(user, id);
+    return this.tableService.update(user, id, {
+      status: TableStatus.CANCELLED,
+    });
   }
 
   @Post('/:id/gameplay')
@@ -146,9 +149,9 @@ export class TableController {
   updateTable(
     @ReqUser() user: User,
     @Param('id') id: number,
-    @Body() tableDto: TableDto,
+    @Body() updates: TableDto,
   ) {
-    return this.tableService.update(user, id, tableDto);
+    return this.tableService.update(user, id, updates);
   }
 
   @Get('/:id')

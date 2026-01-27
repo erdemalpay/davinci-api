@@ -3431,7 +3431,7 @@ export class OrderService {
 
     try {
       await Promise.all([newTable.save()]);
-      await this.tableService.removeTable(oldTableId);
+      await this.tableService.removeTable(oldTableId, user);
       for (const order of orders) {
         this.websocketGateway.emitOrderUpdated(orders);
       }
@@ -3478,7 +3478,7 @@ export class OrderService {
 
     try {
       await Promise.all([newTable.save()]);
-      await this.tableService.removeTable(oldTableId);
+      await this.tableService.removeTable(oldTableId, user);
       this.websocketGateway.emitOrderUpdated(orders);
     } catch (error) {
       this.logger.error('Error in order operation:', error);
