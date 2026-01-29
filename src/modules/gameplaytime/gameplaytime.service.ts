@@ -77,7 +77,7 @@ export class GameplayTimeService {
       before,
       page = 1,
       limit = 10,
-      sort = 'createdAt',
+      sort,
       asc = -1,
     } = query;
 
@@ -103,7 +103,16 @@ export class GameplayTimeService {
     }
 
     const sortObject: Record<string, 1 | -1> = {};
-    sortObject.createdAt = -1;
+    if (sort && sort !== '') {
+      const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
+      if (sort === 'date') {
+        sortObject['createdAt'] = dir;
+      } else {
+        sortObject[sort] = dir;
+      }
+    } else {
+      sortObject.createdAt = -1;
+    }
 
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
