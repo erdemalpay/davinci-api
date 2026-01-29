@@ -159,34 +159,26 @@ export class AppWebSocketGateway {
     this.server.emit('gameChanged');
   }
 
-  async emitGameplayChanged(user: User, gameplay: Gameplay) {
+  async emitGameplayChanged() {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('gameplayChanged', { user, gameplay });
+    this.server.emit('gameplayChanged');
   }
 
-  async emitGameplayCreated(
-    user: User,
-    gameplay: Gameplay,
-    tableId: Table['id'],
-  ) {
+  async emitGameplayCreated(gameplay: Gameplay, tableId: Table['id']) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayCreated', { user, gameplay, tableId });
+    this.server.emit('gameplayCreated', { gameplay, tableId });
   }
 
-  async emitGameplayUpdated(user: User, gameplay: Gameplay) {
+  async emitGameplayUpdated(gameplay: Gameplay) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('gameplayUpdated', { user, gameplay });
+    this.server.emit('gameplayUpdated', { gameplay });
   }
 
-  async emitGameplayDeleted(
-    user: User,
-    gameplay: Gameplay,
-    tableId: Table['id'],
-  ) {
+  async emitGameplayDeleted(gameplay: Gameplay, tableId: Table['id']) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayDeleted', { user, gameplay, tableId });
+    this.server.emit('gameplayDeleted', { gameplay, tableId });
   }
 
   emitIkasProductStockChanged() {
@@ -212,11 +204,11 @@ export class AppWebSocketGateway {
     this.server.emit('kitchenChanged');
   }
 
-  async emitLocationChanged(user: User) {
+  async emitLocationChanged() {
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('locationChanged', user);
+    this.server.emit('locationChanged');
   }
 
   async emitMembershipChanged() {
@@ -346,19 +338,19 @@ export class AppWebSocketGateway {
     await this.redisService.reset(RedisKeys.Tables);
     this.server.emit('tableChanged', { table });
   }
-  async emitTableDeleted(table: Table, user: User) {
+  async emitTableDeleted(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableDeleted', { table, user });
+    this.server.emit('tableDeleted', { table });
   }
 
-  async emitTableCreated(table: Table, user: User) {
+  async emitTableCreated(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('tableCreated', { table, user });
+    this.server.emit('tableCreated', { table });
   }
-  async emitTableClosed(table: Table, user: User) {
+  async emitTableClosed(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableClosed', { table, user });
+    this.server.emit('tableClosed', { table });
   }
 
   emitTaskTrackChanged() {

@@ -19,7 +19,7 @@ export class LocationService {
 
   create(user: User, createLocationDto: CreateStockLocationDto) {
     const location = this.locationModel.create(createLocationDto);
-    this.websocketGateway.emitLocationChanged(user);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 
@@ -145,7 +145,7 @@ export class LocationService {
     const location = await this.locationModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
-    this.websocketGateway.emitLocationChanged(user);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 
@@ -158,7 +158,7 @@ export class LocationService {
       type: [2],
       active: true,
     });
-    this.websocketGateway.emitLocationChanged(user);
+    this.websocketGateway.emitLocationChanged();
     return location;
   }
 }
