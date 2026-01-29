@@ -129,7 +129,7 @@ export class TableService {
         await this.orderService.createMultipleOrder(user, orders, createdTable);
       }
     }
-    this.websocketGateway.emitTableCreated(createdTable, user);
+    this.websocketGateway.emitTableCreated(createdTable);
 
     return createdTable;
   }
@@ -179,7 +179,7 @@ export class TableService {
     if (updates.finishHour) {
       this.websocketGateway.emitTableChanged(updatedTable);
     } else if (updates.status === TableStatus.CANCELLED) {
-      this.websocketGateway.emitTableDeleted(updatedTable, user);
+      this.websocketGateway.emitTableDeleted(updatedTable);
     } else {
       this.websocketGateway.emitSingleTableChanged(
         pickWith(updatedTable, ['_id', 'date', 'location'], updates),
@@ -277,7 +277,7 @@ export class TableService {
       },
       { new: true },
     );
-    this.websocketGateway.emitTableClosed(updatedTable, user);
+    this.websocketGateway.emitTableClosed(updatedTable);
     return updatedTable;
   }
 
@@ -507,7 +507,7 @@ export class TableService {
     );
 
     await table.save();
-    this.websocketGateway.emitGameplayDeleted(user, deletedGameplay, table);
+    this.websocketGateway.emitGameplayDeleted(deletedGameplay, table);
     return table;
   }
 
@@ -545,7 +545,7 @@ export class TableService {
       ),
     );
     await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(table, user);
+    this.websocketGateway.emitTableDeleted(table);
 
     return table;
   }
@@ -664,7 +664,7 @@ export class TableService {
   }
   async removeTable(id: number, user: User) {
     const table = await this.tableModel.findByIdAndRemove(id);
-    this.websocketGateway.emitTableDeleted(table, user);
+    this.websocketGateway.emitTableDeleted(table);
     return table;
   }
   async notifyUnclosedTables() {

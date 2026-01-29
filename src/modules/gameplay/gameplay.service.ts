@@ -32,7 +32,7 @@ export class GameplayService {
       ...createGameplayDto,
       createdBy: user,
     });
-    this.websocketGateway.emitGameplayCreated(user, gameplay, tableId);
+    this.websocketGateway.emitGameplayCreated(gameplay, tableId);
     return gameplay;
   }
 
@@ -491,13 +491,13 @@ export class GameplayService {
       existingGameplay,
       updatedGameplay,
     );
-    this.websocketGateway.emitGameplayUpdated(user, updatedGameplay);
+    this.websocketGateway.emitGameplayUpdated(updatedGameplay);
     return updatedGameplay;
   }
 
   async remove(user: User, id: number, tableId: number) {
     const gameplay = await this.gameplayModel.findByIdAndDelete(id);
-    this.websocketGateway.emitGameplayDeleted(user, gameplay, tableId);
+    this.websocketGateway.emitGameplayDeleted(gameplay, tableId);
     return gameplay;
   }
 
@@ -509,7 +509,7 @@ export class GameplayService {
       },
       { new: true },
     );
-    this.websocketGateway.emitGameplayChanged(user, gameplay);
+    this.websocketGateway.emitGameplayChanged();
 
     return gameplay;
   }
