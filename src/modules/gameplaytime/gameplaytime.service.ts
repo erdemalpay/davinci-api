@@ -103,16 +103,7 @@ export class GameplayTimeService {
     }
 
     const sortObject: Record<string, 1 | -1> = {};
-    if (sort) {
-      const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
-      sortObject[sort] = dir;
-    } else {
-      sortObject.date = -1;
-    }
-    // Always sort by startHour as secondary sort to ensure proper ordering within the same date
-    if (sort !== 'startHour') {
-      sortObject.startHour = -1;
-    }
+    sortObject.createdAt = -1;
 
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
