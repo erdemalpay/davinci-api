@@ -167,9 +167,14 @@ export class TableService {
         );
       }
     }
-    const updatedTable = await this.tableModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
+    const updatedTable = await this.tableModel
+      .findByIdAndUpdate(id, updates, {
+        new: true,
+      })
+      .populate({
+        path: 'gameplays',
+        select: 'startHour game playerCount mentor date finishHour',
+      });
     this.activityService.addUpdateActivity(
       user,
       ActivityType.UPDATE_TABLE,
@@ -270,23 +275,29 @@ export class TableService {
         );
       }
     }
-    const updatedTable = await this.tableModel.findByIdAndUpdate(
-      id,
-      {
-        finishHour: tableDto.finishHour,
-      },
-      { new: true },
-    );
+    const updatedTable = await this.tableModel
+      .findByIdAndUpdate(
+        id,
+        {
+          finishHour: tableDto.finishHour,
+        },
+        { new: true },
+      )
+      .populate({
+        path: 'gameplays',
+        select: 'startHour game playerCount mentor date finishHour',
+      });
     this.websocketGateway.emitTableClosed(updatedTable);
     return updatedTable;
   }
 
   async reopen(user: User, id: number) {
-    const updatedTable = await this.tableModel.findByIdAndUpdate(
-      id,
-      { $unset: { finishHour: '' } },
-      { new: true },
-    );
+    const updatedTable = await this.tableModel
+      .findByIdAndUpdate(id, { $unset: { finishHour: '' } }, { new: true })
+      .populate({
+        path: 'gameplays',
+        select: 'startHour game playerCount mentor date finishHour',
+      });
 
     this.websocketGateway.emitTableChanged(updatedTable);
     return updatedTable;
