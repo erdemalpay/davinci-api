@@ -2274,16 +2274,22 @@ export class AccountingService {
         }
       }
 
-      this.updateIkasStock(
-        createStockDto.product,
-        createStockDto.location,
-        Number(oldQuantity) + Number(createStockDto.quantity),
-      );
-      this.updateShopifyStock(
-        createStockDto.product,
-        createStockDto.location,
-        Number(oldQuantity) + Number(createStockDto.quantity),
-      );
+      // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+        this.updateIkasStock(
+          createStockDto.product,
+          createStockDto.location,
+          Number(oldQuantity) + Number(createStockDto.quantity),
+        );
+      }
+      // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
+        this.updateShopifyStock(
+          createStockDto.product,
+          createStockDto.location,
+          Number(oldQuantity) + Number(createStockDto.quantity),
+        );
+      }
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2348,16 +2354,22 @@ export class AccountingService {
         }
       }
 
-      this.updateIkasStock(
-        createStockDto.product,
-        createStockDto.location,
-        createStockDto.quantity,
-      );
-      this.updateShopifyStock(
-        createStockDto.product,
-        createStockDto.location,
-        createStockDto.quantity,
-      );
+      // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+        this.updateIkasStock(
+          createStockDto.product,
+          createStockDto.location,
+          createStockDto.quantity,
+        );
+      }
+      // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
+        this.updateShopifyStock(
+          createStockDto.product,
+          createStockDto.location,
+          createStockDto.quantity,
+        );
+      }
     }
     this.websocketGateway.emitStockChanged();
   }
@@ -2490,8 +2502,14 @@ export class AccountingService {
         });
       }
       const deletedStock = await this.stockModel.findByIdAndRemove(id);
-      this.updateIkasStock(stock.product?._id, stock.location, 0);
-      this.updateShopifyStock(stock.product?._id, stock.location, 0);
+      // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+        this.updateIkasStock(stock.product?._id, stock.location, 0);
+      }
+      // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
+        this.updateShopifyStock(stock.product?._id, stock.location, 0);
+      }
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -2661,16 +2679,24 @@ export class AccountingService {
         stock,
         newStock,
       );
-      this.updateIkasStock(
-        consumptStockDto.product,
-        stock.location,
-        stock.quantity - consumptStockDto.quantity,
-      );
-      this.updateShopifyStock(
-        consumptStockDto.product,
-        stock.location,
-        stock.quantity - consumptStockDto.quantity,
-      );
+      const consumptStatus =
+        consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION;
+      // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (consumptStatus !== StockHistoryStatusEnum.IKASORDERCREATE) {
+        this.updateIkasStock(
+          consumptStockDto.product,
+          stock.location,
+          stock.quantity - consumptStockDto.quantity,
+        );
+      }
+      // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (consumptStatus !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
+        this.updateShopifyStock(
+          consumptStockDto.product,
+          stock.location,
+          stock.quantity - consumptStockDto.quantity,
+        );
+      }
       return stock;
     } else {
       const newStock = await this.createStock(user, {
