@@ -60,6 +60,8 @@ export class ShopifyService {
     'write_orders',
     'read_inventory',
     'write_inventory',
+    'read_publications',
+    'write_publications',
   ];
 
   constructor(
@@ -684,6 +686,145 @@ export class ShopifyService {
     }
   }
 
+  async getAllPublications() {
+    const query = `
+      query GetPublications {
+        publications(first: 250) {
+          edges {
+            node {
+              id
+              name
+              supportsFuturePublishing
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
+
+      this.handleGraphQLErrors(response);
+
+      return response.data.publications.edges.map((edge: any) => edge.node);
+    } catch (error) {
+      this.logError('Error fetching publications', error);
+      throw new HttpException(
+        'Unable to fetch publications from Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getOnlineStorePublicationId(): Promise<string | null> {
+    try {
+      const publications = await this.getAllPublications();
+      // Online Store genellikle "Online Store" veya benzer bir isimde olur
+      const onlineStore = publications.find(
+        (pub: any) =>
+          pub.name?.toLowerCase().includes('online store') ||
+          pub.name?.toLowerCase().includes('online-store'),
+      );
+
+      if (onlineStore) {
+        this.logger.log(
+          `Found Online Store publication with ID: ${onlineStore.id}`,
+        );
+        return onlineStore.id;
+      }
+
+      this.logger.warn('Online Store publication not found');
+      return null;
+    } catch (error) {
+      this.logError('Error getting Online Store publication ID', error);
+      return null;
+    }
+  }
+
+  async getAllPublicationIdsExceptPOS(): Promise<string[]> {
+    try {
+      const publications = await this.getAllPublications();
+      // POS (Point of Sale) dışındaki tüm kanalları al
+      const nonPOSPublications = publications.filter(
+        (pub: any) =>
+          !pub.name?.toLowerCase().includes('point of sale') &&
+          !pub.name?.toLowerCase().includes('pos'),
+      );
+
+      const publicationIds = nonPOSPublications.map((pub: any) => pub.id);
+
+      this.logger.log(
+        `Found ${publicationIds.length} non-POS publications:`,
+        nonPOSPublications.map((pub: any) => pub.name).join(', '),
+      );
+
+      return publicationIds;
+    } catch (error) {
+      this.logError('Error getting non-POS publication IDs', error);
+      return [];
+    }
+  }
+
+  async publishProductToOnlineStore(productId: string): Promise<boolean> {
+    try {
+      const publicationIds = await this.getAllPublicationIdsExceptPOS();
+
+      if (publicationIds.length === 0) {
+        this.logger.warn(
+          'Cannot publish product: No publications found (excluding POS)',
+        );
+        return false;
+      }
+
+      const formattedProductId = this.formatShopifyId('Product', productId);
+
+      const mutation = `
+        mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+          publishablePublish(id: $id, input: $input) {
+            publishable {
+              availablePublicationsCount {
+                count
+              }
+              resourcePublicationsCount {
+                count
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            id: formattedProductId,
+            input: publicationIds.map((publicationId) => ({ publicationId })),
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        response,
+        'data.publishablePublish.userErrors',
+      );
+
+      this.logger.log(
+        `Product ${productId} successfully published to ${publicationIds.length} channels (excluding POS)`,
+      );
+      return true;
+    } catch (error) {
+      this.logError('Error publishing product to channels', error);
+      return false;
+    }
+  }
+
   async createItemProduct(
     user: User,
     item: MenuItem,
@@ -815,6 +956,12 @@ export class ShopifyService {
         for (const collectionId of collectionIds) {
           await this.addProductToCollection(collectionId, productId);
         }
+      }
+
+      // Publish product to Online Store
+      if (product.id) {
+        const productId = product.id.split('/').pop();
+        await this.publishProductToOnlineStore(productId);
       }
 
       return product;
