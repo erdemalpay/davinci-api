@@ -744,13 +744,37 @@ export class ShopifyService {
     }
   }
 
+  async getAllPublicationIdsExceptPOS(): Promise<string[]> {
+    try {
+      const publications = await this.getAllPublications();
+      // POS (Point of Sale) dışındaki tüm kanalları al
+      const nonPOSPublications = publications.filter(
+        (pub: any) =>
+          !pub.name?.toLowerCase().includes('point of sale') &&
+          !pub.name?.toLowerCase().includes('pos'),
+      );
+
+      const publicationIds = nonPOSPublications.map((pub: any) => pub.id);
+
+      this.logger.log(
+        `Found ${publicationIds.length} non-POS publications:`,
+        nonPOSPublications.map((pub: any) => pub.name).join(', '),
+      );
+
+      return publicationIds;
+    } catch (error) {
+      this.logError('Error getting non-POS publication IDs', error);
+      return [];
+    }
+  }
+
   async publishProductToOnlineStore(productId: string): Promise<boolean> {
     try {
-      const publicationId = await this.getOnlineStorePublicationId();
+      const publicationIds = await this.getAllPublicationIdsExceptPOS();
 
-      if (!publicationId) {
+      if (publicationIds.length === 0) {
         this.logger.warn(
-          'Cannot publish product: Online Store publication not found',
+          'Cannot publish product: No publications found (excluding POS)',
         );
         return false;
       }
@@ -781,7 +805,7 @@ export class ShopifyService {
         return await client.request(mutation, {
           variables: {
             id: formattedProductId,
-            input: [{ publicationId }],
+            input: publicationIds.map((publicationId) => ({ publicationId })),
           },
         });
       });
@@ -792,11 +816,11 @@ export class ShopifyService {
       );
 
       this.logger.log(
-        `Product ${productId} successfully published to Online Store`,
+        `Product ${productId} successfully published to ${publicationIds.length} channels (excluding POS)`,
       );
       return true;
     } catch (error) {
-      this.logError('Error publishing product to Online Store', error);
+      this.logError('Error publishing product to channels', error);
       return false;
     }
   }
