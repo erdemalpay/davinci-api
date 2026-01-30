@@ -1475,7 +1475,7 @@ export class ShopifyService {
             unitPrice: parseFloat(price),
             paidQuantity: quantity,
             status: OrderStatus.AUTOSERVED,
-            stockLocation: foundLocation?._id || locationId,
+            stockLocation: 6, //TO-DO BURAYA 1444. SATIRDAKI BLOKTAN LOKASYON ID'SINI ALAMADIGIMIZ ICIN 6 GIRDIK, DAHA SONRA DUZELTILECEK
             createdAt: new Date(data?.created_at || new Date()),
             tableDate: new Date(),
             createdBy: constantUser?._id,
@@ -1498,7 +1498,7 @@ export class ShopifyService {
                 lastName: data?.customer?.last_name,
                 email: data?.customer?.email,
                 phone: data?.customer?.phone,
-                location: foundLocation?._id || locationId,
+                location: 6,
               },
             };
           }
