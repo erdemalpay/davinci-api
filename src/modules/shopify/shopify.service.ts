@@ -1441,7 +1441,7 @@ export class ShopifyService {
         // Don't throw, just log the error - price updates were successful
       }
     }
-    
+    // TODO maybe we should emit price changed event instead of stock changed event
     await this.websocketGateway.emitShopifyProductStockChanged();
   }
 
