@@ -5,12 +5,11 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
 import '@shopify/shopify-api/adapters/node';
-import { format } from 'date-fns';
 import { firstValueFrom } from 'rxjs';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
@@ -1271,6 +1270,179 @@ export class ShopifyService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private chunk<T>(arr: T[], size: number): T[][] {
+    const res: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      res.push(arr.slice(i, i + size));
+    }
+    return res;
+  }
+
+  async bulkUpdatePricesForProducts(
+    items: Array<{
+      productId: string;
+      variantId: string;
+      price: number | string;
+    }>,
+  ): Promise<void> {
+    // if (process.env.NODE_ENV !== 'production') return;
+
+    if (items.length === 0) {
+      this.logger.log('No products to update');
+      return;
+    }
+
+    const mutation = `
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
+            id
+            price
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    // Group items by productId since each mutation updates variants for a single product
+    const productMap = new Map<string, Array<{ variantId: string; price: number }>>();
+    
+    // Track variant IDs that need to be saved to DB (productId -> variantId mapping)
+    const variantIdsToSave = new Map<string, string>();
+    
+    // First, get all products to fetch variant IDs if needed
+    const allProducts = await this.getAllProducts();
+    const productCache = new Map<string, any>();
+    allProducts.forEach((product) => {
+      const productId = product.id.split('/').pop();
+      if (productId) {
+        productCache.set(productId, product);
+      }
+    });
+
+    for (const item of items) {
+      if (!item.productId || item.price == null) {
+        continue;
+      }
+
+      const price = Number(item.price);
+      if (isNaN(price)) {
+        this.logger.warn(
+          `Invalid price for product ${item.productId}: ${item.price}`,
+        );
+        continue;
+      }
+
+      // If variantId is not provided, get the first variant from the product
+      let variantId = item.variantId;
+      if (!variantId) {
+        const product = productCache.get(item.productId);
+        if (product?.variants?.edges?.[0]?.node?.id) {
+          variantId = product.variants.edges[0].node.id.split('/').pop();
+          // Track this variantId to save to DB later
+          variantIdsToSave.set(item.productId, variantId);
+        } else {
+          this.logger.warn(
+            `No variant found for product ${item.productId}, skipping`,
+          );
+          continue;
+        }
+      }
+
+      if (!productMap.has(item.productId)) {
+        productMap.set(item.productId, []);
+      }
+      productMap.get(item.productId)!.push({
+        variantId: variantId!,
+        price,
+      });
+    }
+
+    // Process in batches to avoid overwhelming the API
+    const batchSize = 50; // Process 50 products at a time
+    const productEntries = Array.from(productMap.entries());
+    const batches = this.chunk(productEntries, batchSize);
+
+    this.logger.log(
+      `Updating prices for ${productEntries.length} products in ${batches.length} batches`,
+    );
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      
+      // Process each product in the batch in parallel (but limit concurrency)
+      const updatePromises = batch.map(async ([productId, variants]) => {
+        try {
+          const formattedProductId = this.formatShopifyId('Product', productId);
+          const formattedVariants = variants.map((v) => ({
+            id: this.formatShopifyId('ProductVariant', v.variantId),
+            price: v.price.toString(),
+          }));
+
+          const response = await this.executeGraphQLRequest(async () => {
+            const client = await this.getGraphQLClient();
+            return await client.request(mutation, {
+              variables: {
+                productId: formattedProductId,
+                variants: formattedVariants,
+              },
+            });
+          });
+
+          try {
+            this.handleGraphQLErrors(
+              response,
+              'data.productVariantsBulkUpdate.userErrors',
+            );
+            this.logger.debug(
+              `Updated price for product ${productId} with ${variants.length} variant(s)`,
+            );
+            return true;
+          } catch (error) {
+            this.logError(
+              `Failed to update price for product ${productId}`,
+              error,
+            );
+            return false;
+          }
+        } catch (error) {
+          this.logError(
+            `Error updating price for product ${productId}`,
+            error,
+          );
+          return false;
+        }
+      });
+
+      // Wait for all products in this batch to complete
+      await Promise.all(updatePromises);
+      
+      this.logger.log(
+        `Batch ${batchIndex + 1}/${batches.length} completed`,
+      );
+    }
+
+    this.logger.log('Bulk price update completed');
+    
+    // Save variant IDs to DB if any were found (bulk update)
+    if (variantIdsToSave.size > 0) {
+      try {
+        await this.menuService.bulkUpdateShopifyVariantIds(variantIdsToSave);
+        this.logger.log(
+          `Saved ${variantIdsToSave.size} variant IDs to database`,
+        );
+      } catch (error) {
+        this.logError('Error saving variant IDs to database', error);
+        // Don't throw, just log the error - price updates were successful
+      }
+    }
+    
+    await this.websocketGateway.emitShopifyProductStockChanged();
   }
 
   async createProductImages(productId: string, imageArray: string[]) {

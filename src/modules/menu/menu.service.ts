@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -35,7 +35,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto,
+  CreateUpperCategoryDto
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -984,12 +984,11 @@ export class MenuService {
   }
 
   async syncAllShopifyPrices() {
-    if (process.env.NODE_ENV !== 'production') return;
+    // if (process.env.NODE_ENV !== 'production') return;
 
     const items = await this.itemModel.find(
       {
         shopifyId: { $exists: true, $ne: null },
-        shopifyVariantId: { $exists: true, $ne: null },
       },
       {
         shopifyId: 1,
@@ -999,15 +998,15 @@ export class MenuService {
       },
     );
 
-    for (const item of items) {
-      if (item.shopifyId && item.shopifyVariantId) {
-        await this.shopifyService.updateProductPrice(
-          item.shopifyId,
-          item.shopifyVariantId,
-          item.onlinePrice ?? item.price,
-        );
-      }
-    }
+    const payload = items
+      .filter((it) => it.shopifyId)
+      .map((it) => ({
+        productId: it.shopifyId,
+        variantId: it.shopifyVariantId,
+        price: it.price,
+      }));
+
+    await this.shopifyService.bulkUpdatePricesForProducts(payload);
   }
 
   async updateItemsOrder(id: number, newOrder: number) {
@@ -1202,6 +1201,33 @@ export class MenuService {
     await this.itemModel.updateMany({ _id: { $in: itemIds } }, updates);
     this.websocketGateway.emitItemChanged();
     return items;
+  }
+
+  async bulkUpdateShopifyVariantIds(
+    variantIdMap: Map<string, string>,
+  ): Promise<void> {
+    if (variantIdMap.size === 0) {
+      return;
+    }
+
+    try {
+      const bulkOps = Array.from(variantIdMap.entries()).map(
+        ([shopifyId, variantId]) => ({
+          updateMany: {
+            filter: { shopifyId: shopifyId },
+            update: { $set: { shopifyVariantId: variantId } },
+          },
+        }),
+      );
+
+      await this.itemModel.bulkWrite(bulkOps);
+      this.logger.log(
+        `Updated ${variantIdMap.size} shopify variant IDs in database`,
+      );
+    } catch (error) {
+      this.logger.error('Error bulk updating shopify variant IDs', error);
+      throw error;
+    }
   }
   // popular
   async findAllPopular() {
