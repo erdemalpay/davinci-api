@@ -353,44 +353,79 @@ export class ShopifyService {
   }
 
   /**
+   * Sleep/delay helper function
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
    * Execute GraphQL request with automatic token refresh on 401 errors
+   * and rate limit handling with exponential backoff
    * @param requestFn Function that executes the GraphQL request
+   * @param maxRetries Maximum number of retries for rate limiting (default: 3)
    * @returns Promise with the GraphQL response
    */
   private async executeGraphQLRequest<T>(
     requestFn: () => Promise<T>,
+    maxRetries: number = 3,
   ): Promise<T> {
-    try {
-      const response = await requestFn();
-      return response;
-    } catch (error: any) {
-      // Check if it's a 401 Unauthorized error
-      if (error?.response?.code === 401) {
-        this.logger.warn(
-          'Received 401 error, refreshing token and retrying request',
-        );
-        // Clear the token and shopify instance to force refresh
-        await this.redisService.reset(RedisKeys.ShopifyToken);
-        this.shopifyInstance = null;
-
-        // Get new token
-        await this.getToken();
-
-        // Retry the request once
-        try {
-          return await requestFn();
-        } catch (retryError: any) {
-          this.logger.error(
-            'Request failed again after token refresh',
-            retryError,
+    let retryCount = 0;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        const response = await requestFn();
+        return response;
+      } catch (error: any) {
+        // Check if it's a 401 Unauthorized error
+        if (error?.response?.code === 401) {
+          this.logger.warn(
+            'Received 401 error, refreshing token and retrying request',
           );
-          throw retryError;
-        }
-      }
+          // Clear the token and shopify instance to force refresh
+          await this.redisService.reset(RedisKeys.ShopifyToken);
+          this.shopifyInstance = null;
 
-      // If not a 401 error, throw the original error
-      throw error;
+          // Get new token
+          await this.getToken();
+
+          // Retry the request once
+          try {
+            return await requestFn();
+          } catch (retryError: any) {
+            this.logger.error(
+              'Request failed again after token refresh',
+              retryError,
+            );
+            throw retryError;
+          }
+        }
+
+        // Check if it's a rate limit / throttling error
+        const isThrottled = error?.message?.toLowerCase().includes('throttled');
+
+        if (isThrottled && retryCount < maxRetries) {
+          // Calculate exponential backoff: 2^retryCount seconds
+          const backoffMs = Math.pow(2, retryCount) * 1000;
+          // Add some jitter to avoid thundering herd
+          const jitter = Math.random() * 1000;
+          const waitTime = backoffMs + jitter;
+
+          this.logger.warn(
+            `Rate limited. Retrying in ${Math.round(waitTime)}ms (attempt ${retryCount + 1}/${maxRetries})`,
+          );
+
+          await this.sleep(waitTime);
+          retryCount++;
+          continue;
+        }
+
+        // If not a retryable error or max retries reached, throw the original error
+        throw error;
+      }
     }
+
+    throw new Error('Max retries exceeded for GraphQL request');
   }
 
   async getAllProducts() {
@@ -1325,6 +1360,7 @@ export class ShopifyService {
       }
     });
 
+    let skippedCount = 0;
     for (const item of items) {
       if (!item.productId || item.price == null) {
         continue;
@@ -1340,8 +1376,9 @@ export class ShopifyService {
 
       // If variantId is not provided, get the first variant from the product
       let variantId = item.variantId;
+      const product = productCache.get(item.productId);
+      
       if (!variantId) {
-        const product = productCache.get(item.productId);
         if (product?.variants?.edges?.[0]?.node?.id) {
           variantId = product.variants.edges[0].node.id.split('/').pop();
           // Track this variantId to save to DB later
@@ -1354,6 +1391,26 @@ export class ShopifyService {
         }
       }
 
+      // Check if price needs to be updated by comparing with current Shopify price
+      if (product?.variants?.edges) {
+        const variant = product.variants.edges.find(
+          (v: any) => v.node.id.split('/').pop() === variantId,
+        );
+        
+        if (variant?.node?.price) {
+          const currentPrice = parseFloat(variant.node.price);
+          // Compare prices with small tolerance for floating point comparison
+          if (Math.abs(currentPrice - price) < 0.01) {
+            // Price is the same (or very close), skip update
+            skippedCount++;
+            this.logger.debug(
+              `Price unchanged for product ${item.productId} (${currentPrice} = ${price}), skipping update`,
+            );
+            continue;
+          }
+        }
+      }
+
       if (!productMap.has(item.productId)) {
         productMap.set(item.productId, []);
       }
@@ -1363,20 +1420,28 @@ export class ShopifyService {
       });
     }
 
+    if (skippedCount > 0) {
+      this.logger.log(
+        `Skipped ${skippedCount} products with unchanged prices`,
+      );
+    }
+
     // Process in batches to avoid overwhelming the API
-    const batchSize = 50; // Process 50 products at a time
+    // Reduced batch size and added sequential processing with delays to avoid rate limiting
+    const batchSize = 50; // Reduced from 50 to 10 to avoid rate limiting
     const productEntries = Array.from(productMap.entries());
     const batches = this.chunk(productEntries, batchSize);
 
     this.logger.log(
-      `Updating prices for ${productEntries.length} products in ${batches.length} batches`,
+      `Updating prices for ${productEntries.length} products in ${batches.length} batches (${batchSize} per batch)`,
     );
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       
-      // Process each product in the batch in parallel (but limit concurrency)
-      const updatePromises = batch.map(async ([productId, variants]) => {
+      // Process products sequentially within each batch to avoid rate limiting
+      for (let i = 0; i < batch.length; i++) {
+        const [productId, variants] = batch[i];
         try {
           const formattedProductId = this.formatShopifyId('Product', productId);
           const formattedVariants = variants.map((v) => ({
@@ -1384,15 +1449,18 @@ export class ShopifyService {
             price: v.price.toString(),
           }));
 
-          const response = await this.executeGraphQLRequest(async () => {
-            const client = await this.getGraphQLClient();
-            return await client.request(mutation, {
-              variables: {
-                productId: formattedProductId,
-                variants: formattedVariants,
-              },
-            });
-          });
+          const response = await this.executeGraphQLRequest(
+            async () => {
+              const client = await this.getGraphQLClient();
+              return await client.request(mutation, {
+                variables: {
+                  productId: formattedProductId,
+                  variants: formattedVariants,
+                },
+              });
+            },
+            3, // max retries for rate limiting
+          );
 
           try {
             this.handleGraphQLErrors(
@@ -1402,25 +1470,19 @@ export class ShopifyService {
             this.logger.debug(
               `Updated price for product ${productId} with ${variants.length} variant(s)`,
             );
-            return true;
           } catch (error) {
             this.logError(
               `Failed to update price for product ${productId}`,
               error,
             );
-            return false;
           }
         } catch (error) {
           this.logError(
             `Error updating price for product ${productId}`,
             error,
           );
-          return false;
         }
-      });
-
-      // Wait for all products in this batch to complete
-      await Promise.all(updatePromises);
+      }
       
       this.logger.log(
         `Batch ${batchIndex + 1}/${batches.length} completed`,
