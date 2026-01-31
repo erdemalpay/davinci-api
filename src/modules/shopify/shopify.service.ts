@@ -389,15 +389,32 @@ export class ShopifyService {
           // Get new token
           await this.getToken();
 
-          // Retry the request once
+          // Retry the request once after token refresh
           try {
             return await requestFn();
           } catch (retryError: any) {
-            this.logger.error(
-              'Request failed again after token refresh',
-              retryError,
-            );
-            throw retryError;
+            // If retry after token refresh fails, check if it's a throttling error
+            // If so, continue with exponential backoff instead of throwing immediately
+            const isThrottledAfterRefresh =
+              retryError?.response?.code === 429 ||
+              retryError?.message?.toLowerCase().includes('throttled') ||
+              retryError?.status === 429 ||
+              retryError?.statusCode === 429;
+
+            if (isThrottledAfterRefresh && retryCount < maxRetries) {
+              this.logger.warn(
+                'Request failed after token refresh due to rate limiting, applying exponential backoff',
+              );
+              // Fall through to throttling handling below
+              error = retryError;
+            } else {
+              // If it's not a throttling error or max retries reached, throw
+              this.logger.error(
+                'Request failed again after token refresh',
+                retryError,
+              );
+              throw retryError;
+            }
           }
         }
 
@@ -1428,7 +1445,7 @@ export class ShopifyService {
 
     // Process in batches to avoid overwhelming the API
     // Reduced batch size and added sequential processing with delays to avoid rate limiting
-    const batchSize = 50; // Reduced from 50 to 10 to avoid rate limiting
+    const batchSize = 50;
     const productEntries = Array.from(productMap.entries());
     const batches = this.chunk(productEntries, batchSize);
 
