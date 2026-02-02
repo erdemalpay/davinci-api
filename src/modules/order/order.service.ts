@@ -1962,21 +1962,22 @@ export class OrderService {
             shopifyLocationId = location?.shopifyId;
           }
 
-          await this.shopifyService.partialRefundShopifyOrder(
-            order.shopifyOrderId,
-            [
-              {
-                lineItemId: shopifyOrderLineItemId,
-                quantity: quantity,
-                restockType: 'CANCEL',
-                locationId: shopifyLocationId,
-              },
-            ],
-            true, // notifyCustomer
-            `Order partially cancelled - ${quantity} out of ${
-              order.quantity + quantity
-            } items cancelled`,
-          );
+          // Shopify'a partial refund isteği gönderme işlemi kapatıldı
+          // await this.shopifyService.partialRefundShopifyOrder(
+          //   order.shopifyOrderId,
+          //   [
+          //     {
+          //       lineItemId: shopifyOrderLineItemId,
+          //       quantity: quantity,
+          //       restockType: 'CANCEL',
+          //       locationId: shopifyLocationId,
+          //     },
+          //   ],
+          //   true, // notifyCustomer
+          //   `Order partially cancelled - ${quantity} out of ${
+          //     order.quantity + quantity
+          //   } items cancelled`,
+          // );
 
           // Return cancellation info for collection update
           result = {
@@ -2020,14 +2021,14 @@ export class OrderService {
             }
           }
 
-          // Cancel the order in Shopify
-          await this.shopifyService.cancelShopifyOrderAtShopify(
-            order.shopifyOrderId,
-            true, // notifyCustomer
-            true, // restock
-            OrderCancelReason.CUSTOMER,
-            'Order fully cancelled',
-          );
+          // Shopify'a order cancel isteği gönderme işlemi kapatıldı
+          // await this.shopifyService.cancelShopifyOrderAtShopify(
+          //   order.shopifyOrderId,
+          //   true, // notifyCustomer
+          //   true, // restock
+          //   OrderCancelReason.CUSTOMER,
+          //   'Order fully cancelled',
+          // );
 
           // Return cancellation info for collection update
           result = {
