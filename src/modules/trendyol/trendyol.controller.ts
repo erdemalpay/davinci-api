@@ -75,6 +75,13 @@ export class TrendyolController {
   }
 
   @Public()
+  @Get('/order-create-webhook')
+  async orderCreateWebhookVerification() {
+    this.logger.log('Trendyol webhook verification (GET request)');
+    return { success: true, message: 'Webhook endpoint is ready' };
+  }
+
+  @Public()
   @Post('/order-create-webhook')
   async orderCreateWebhook(@Body() data?: any) {
     try {
