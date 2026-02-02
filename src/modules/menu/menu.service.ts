@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -35,7 +35,7 @@ import {
   CreateItemDto,
   CreateKitchenDto,
   CreatePopularDto,
-  CreateUpperCategoryDto
+  CreateUpperCategoryDto,
 } from './menu.dto';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
@@ -925,33 +925,6 @@ export class MenuService {
       updates.priceHistory = this.prunePriceHistory(updates.priceHistory);
     }
 
-    if ((priceChanged || onlinePriceChanged) && item?.ikasId) {
-      const ikasProducts = await this.IkasService.getAllProducts();
-
-      this.logger.log('Updating price in Ikas for item:', item._id);
-      try {
-        const basePrice = updates.hasOwnProperty('price')
-          ? updates.price
-          : item.price;
-        const onlinePrice = updates.hasOwnProperty('onlinePrice')
-          ? updates.onlinePrice
-          : item.onlinePrice ?? null;
-        await this.IkasService.updateVariantPrices(
-          ikasProducts,
-          item.ikasId,
-          basePrice,
-          onlinePrice,
-          updates.ikasDiscountedPrice ?? item.ikasDiscountedPrice ?? null,
-          null,
-          'TRY',
-        );
-      } catch (error) {
-        throw new HttpException(
-          'Failed to update price in Ikas',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-    }
     const updatedItem = await this.itemModel.findByIdAndUpdate(
       id,
       {
@@ -1211,7 +1184,14 @@ export class MenuService {
     this.websocketGateway.emitItemChanged();
     return items;
   }
-
+  async getAllTrendyolItems() {
+    return this.itemModel
+      .find({
+        trendyolSku: { $exists: true },
+        matchedProduct: { $exists: true },
+      })
+      .exec();
+  }
   async bulkUpdateShopifyVariantIds(
     variantIdMap: Map<string, string>,
   ): Promise<void> {

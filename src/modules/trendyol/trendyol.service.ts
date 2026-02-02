@@ -26,6 +26,7 @@ import {
   TrendyolOrderDto,
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
+  TrendyolProductDto,
   TrendyolProductsResponseDto,
 } from './trendyol.dto';
 
@@ -36,6 +37,7 @@ export class TrendyolService {
   private readonly sellerId = process.env.TRENDYOL_SELLER_ID!;
   private readonly apiKey = process.env.TRENDYOL_PRODUCTION_API_KEY!;
   private readonly apiSecret = process.env.TRENDYOL_PRODUCTION_API_SECRET!;
+  private readonly OnlineStoreLocation = 6;
 
   private get userAgent() {
     return `${this.sellerId} - ${process.env.TRENDYOL_USER_AGENT_SUFFIX}`;
@@ -260,6 +262,212 @@ export class TrendyolService {
         `Failed to fetch products: ${
           error?.response?.data?.message || error?.message || 'Unknown error'
         }`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Tüm Trendyol ürünlerini çeker (tüm sayfaları otomatik olarak getirir)
+   */
+  async getAllProductsComplete(
+    params: Omit<GetTrendyolProductsQueryDto, 'page' | 'size'> = {},
+  ): Promise<TrendyolProductDto[]> {
+    const allProducts: TrendyolProductDto[] = [];
+    let currentPage = 0;
+    let totalPages = 1;
+    const pageSize = 200; // Maksimum sayfa boyutu
+
+    try {
+      this.logger.log('Starting to fetch all Trendyol products...');
+
+      while (currentPage < totalPages) {
+        const response = await this.getAllProducts({
+          ...params,
+          page: currentPage,
+          size: pageSize,
+        });
+
+        allProducts.push(...response.content);
+        totalPages = response.totalPages;
+        currentPage++;
+
+        this.logger.log(
+          `Fetched page ${currentPage}/${totalPages} - Total products so far: ${allProducts.length}/${response.totalElements}`,
+        );
+      }
+
+      this.logger.log(`Completed fetching all ${allProducts.length} products`);
+      return allProducts;
+    } catch (error) {
+      this.logger.error('Error fetching all Trendyol products', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Trendyol ürünlerinin fiyat ve stok bilgilerini günceller
+   * items parametresi verilirse sadece o ürünleri günceller
+   * items parametresi verilmezse tüm ürünleri otomatik günceller
+   */
+  async updatePriceAndInventory(
+    items?: Array<{
+      barcode: string;
+      quantity: number;
+      salePrice: number;
+      listPrice: number;
+    }>,
+  ) {
+    try {
+      let updateItems: Array<{
+        barcode: string;
+        quantity: number;
+        salePrice: number;
+        listPrice: number;
+      }> = [];
+
+      // Eğer items verilmişse direkt kullan
+      if (items && items.length > 0) {
+        if (items.length > 1000) {
+          throw new HttpException(
+            'Maximum 1000 items can be updated at once',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        updateItems = items;
+        this.logger.log(`Updating ${items.length} specific items`);
+      } else {
+        // Items verilmemişse tüm ürünleri otomatik güncelle
+        this.logger.log(
+          'No items provided, updating all products automatically',
+        );
+
+        const trendyolProducts = await this.getAllProductsComplete();
+        const trendyolMenuItems = await this.menuService.getAllTrendyolItems();
+        console.log(trendyolMenuItems);
+
+        for (const menuItem of trendyolMenuItems) {
+          try {
+            const productStocks =
+              await this.accountingService.findProductStockByLocation(
+                menuItem.matchedProduct,
+                this.OnlineStoreLocation,
+              );
+            console.log(productStocks);
+            const trendyolProduct = trendyolProducts.find(
+              (p) => p.productMainId === menuItem.trendyolSku,
+            );
+
+            if (!trendyolProduct) {
+              this.logger.warn(
+                `Trendyol product not found for SKU: ${menuItem.trendyolSku}`,
+              );
+              continue;
+            }
+
+            const totalQuantity = productStocks.reduce(
+              (sum, stock) => sum + (stock.quantity || 0),
+              0,
+            );
+            console.log(totalQuantity);
+            const quantity = Math.min(totalQuantity, 20000);
+            console.log(quantity);
+            console.log(trendyolProduct);
+            console.log(trendyolProduct.quantity);
+            const salePrice = menuItem.onlinePrice || trendyolProduct.salePrice;
+            const listPrice = menuItem.onlinePrice || trendyolProduct.listPrice;
+
+            if (
+              quantity !== trendyolProduct.quantity ||
+              salePrice !== trendyolProduct.salePrice ||
+              listPrice !== trendyolProduct.listPrice
+            ) {
+              updateItems.push({
+                barcode: trendyolProduct.barcode,
+                quantity,
+                salePrice,
+                listPrice,
+              });
+            }
+          } catch (error) {
+            this.logger.error(
+              `Error processing menu item ${menuItem._id}:`,
+              error,
+            );
+          }
+        }
+      }
+
+      if (updateItems.length === 0) {
+        this.logger.log('No products need updating');
+        return {
+          success: true,
+          message: 'No products need updating',
+          updated: 0,
+        };
+      }
+
+      this.logger.log(`Updating ${updateItems.length} products`);
+
+      // Trendyol 1000 item limiti olduğu için batch'lere böl
+      const batches: (typeof updateItems)[] = [];
+      for (let i = 0; i < updateItems.length; i += 1000) {
+        batches.push(updateItems.slice(i, i + 1000));
+      }
+
+      const batchResults = [];
+      for (const [index, batch] of batches.entries()) {
+        this.logger.log(
+          `Processing batch ${index + 1}/${batches.length} with ${
+            batch.length
+          } items`,
+        );
+
+        const { data } = await firstValueFrom(
+          this.http.post(
+            `${this.baseUrl}/integration/inventory/sellers/${this.sellerId}/products/price-and-inventory`,
+            { items: batch },
+            {
+              auth: {
+                username: this.apiKey,
+                password: this.apiSecret,
+              },
+              headers: {
+                'User-Agent': this.userAgent,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+            },
+          ),
+        );
+
+        this.logger.log(
+          `Batch ${index + 1} update initiated. Batch ID: ${
+            data.batchRequestId
+          }`,
+        );
+        batchResults.push(data);
+      }
+
+      return {
+        success: true,
+        message: `Updated ${updateItems.length} products in ${batches.length} batch(es)`,
+        updated: updateItems.length,
+        batchIds: batchResults.map((r) => r.batchRequestId),
+      };
+    } catch (error) {
+      this.logger.error('Error updating price and inventory', error);
+      this.logger.error('Error response data:', error?.response?.data);
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        JSON.stringify(error?.response?.data) ||
+        error?.message ||
+        'Unknown error';
+
+      throw new HttpException(
+        `Failed to update price and inventory: ${errorMessage}`,
         error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

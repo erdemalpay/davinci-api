@@ -18,7 +18,7 @@ import {
 } from './trendyol.dto';
 import { TrendyolService } from './trendyol.service';
 
-@Controller('trendyoll')
+@Controller('trendy')
 export class TrendyolController {
   private readonly logger = new Logger(TrendyolController.name);
 
@@ -29,15 +29,27 @@ export class TrendyolController {
     return this.trendyolService.getAllOrders(query);
   }
 
+  @Public()
   @Get('/product')
   async getAllProducts(@Query() query: GetTrendyolProductsQueryDto) {
     try {
-      this.logger.log('Fetching Trendyol products');
-      return await this.trendyolService.getAllProducts(query);
+      this.logger.log('Fetching ALL Trendyol products (all pages)');
+      const products = await this.trendyolService.getAllProductsComplete(query);
+      return {
+        success: true,
+        total: products.length,
+        products,
+      };
     } catch (error) {
-      this.logger.error('Error fetching products:', error);
+      this.logger.error('Error fetching all products:', error);
       throw error;
     }
+  }
+
+  @Public()
+  @Post('/product/update-price-and-inventory')
+  async updatePriceAndInventory() {
+    return await this.trendyolService.updatePriceAndInventory();
   }
 
   @Public()
