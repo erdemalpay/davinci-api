@@ -48,6 +48,26 @@ export class ShopifyCustomer {
   location: number;
 }
 
+export class TrendyolCustomer {
+  @Prop({ required: true, type: String })
+  id: string;
+
+  @Prop({ required: false, type: String })
+  firstName: string;
+
+  @Prop({ required: false, type: String })
+  lastName: string;
+
+  @Prop({ required: false, type: String })
+  email: string;
+
+  @Prop({ required: false, type: String })
+  phone: string;
+
+  @Prop({ required: true, type: Number, ref: Location.name })
+  location: number;
+}
+
 @Schema({ _id: false })
 export class Order extends Document {
   @Prop({ type: Number })
@@ -178,6 +198,24 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Boolean })
   isShopifyCustomerPicked: boolean;
+
+  @Prop({ required: false, type: String })
+  trendyolOrderId: string;
+
+  @Prop({ required: false, type: String })
+  trendyolOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  trendyolShipmentPackageId: string;
+
+  @Prop({ required: false, type: String })
+  trendyolLineItemId: string;
+
+  @Prop({ required: false, type: TrendyolCustomer })
+  trendyolCustomer: TrendyolCustomer;
+
+  @Prop({ required: false, type: Boolean })
+  isTrendyolCustomerPicked: boolean;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
@@ -188,6 +226,14 @@ OrderSchema.index(
 OrderSchema.index(
   { shopifyId: 1 },
   { unique: true, partialFilterExpression: { shopifyId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { trendyolLineItemId: 1 },
+  { unique: true, partialFilterExpression: { trendyolLineItemId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { trendyolShipmentPackageId: 1 },
+  { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead

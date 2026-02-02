@@ -783,6 +783,13 @@ export class AccountingService {
     return paymentMethod;
   }
 
+  async findPaymentMethodByName(name: string) {
+    const paymentMethod = await this.paymentMethodModel.findOne({
+      name: name,
+    });
+    return paymentMethod;
+  }
+
   async createPaymentMethod(
     user: User,
     createPaymentMethodDto: CreatePaymentMethodDto,
