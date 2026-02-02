@@ -18,7 +18,7 @@ import {
 } from './trendyol.dto';
 import { TrendyolService } from './trendyol.service';
 
-@Controller('trendyoll')
+@Controller('trendy')
 export class TrendyolController {
   private readonly logger = new Logger(TrendyolController.name);
 
