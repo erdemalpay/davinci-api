@@ -102,6 +102,24 @@ export enum WebhookAuthenticationType {
   BASIC = 'BASIC_AUTHENTICATION',
 }
 
+// Webhook Status
+export enum WebhookStatus {
+  ACTIVE = 'ACTIVE',
+  PASSIVE = 'PASSIVE',
+}
+
+// Webhook Response DTO
+export interface TrendyolWebhookDto {
+  id: string;
+  createdDate: number;
+  lastModifiedDate: number | null;
+  url: string;
+  username: string;
+  authenticationType: WebhookAuthenticationType;
+  status: WebhookStatus;
+  subscribedStatuses: TrendyolOrderStatus[] | null;
+}
+
 // Create Webhook DTO
 export class CreateTrendyolWebhookDto {
   @IsString()

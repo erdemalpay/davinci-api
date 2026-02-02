@@ -113,6 +113,97 @@ export class TrendyolService {
   }
 
   /**
+   * Trendyol'da kayıtlı webhook'ları listeler
+   */
+  async getWebhooks() {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.get(
+          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
+          {
+            auth: {
+              username: this.apiKey,
+              password: this.apiSecret,
+            },
+            headers: {
+              'User-Agent': this.userAgent,
+              Accept: 'application/json',
+            },
+          },
+        ),
+      );
+
+      this.logger.log(`Found ${data?.length || 0} webhooks`);
+      return {
+        success: true,
+        data,
+      };
+    } catch (error) {
+      this.logger.error('Error fetching Trendyol webhooks', error);
+      this.logger.error('Error response data:', error?.response?.data);
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        JSON.stringify(error?.response?.data) ||
+        error?.message ||
+        'Unknown error';
+
+      throw new HttpException(
+        `Failed to fetch webhooks: ${errorMessage}`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Trendyol'da kayıtlı webhook'u siler
+   */
+  async deleteWebhook(webhookId: string) {
+    try {
+      this.logger.log(`Deleting webhook with ID: ${webhookId}`);
+
+      const { data } = await firstValueFrom(
+        this.http.delete(
+          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks/${webhookId}`,
+          {
+            auth: {
+              username: this.apiKey,
+              password: this.apiSecret,
+            },
+            headers: {
+              'User-Agent': this.userAgent,
+              Accept: 'application/json',
+            },
+          },
+        ),
+      );
+
+      this.logger.log(`Webhook deleted successfully: ${webhookId}`);
+      return {
+        success: true,
+        message: 'Webhook deleted successfully',
+        data,
+      };
+    } catch (error) {
+      this.logger.error('Error deleting Trendyol webhook', error);
+      this.logger.error('Error response data:', error?.response?.data);
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        JSON.stringify(error?.response?.data) ||
+        error?.message ||
+        'Unknown error';
+
+      throw new HttpException(
+        `Failed to delete webhook: ${errorMessage}`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Trendyol ürünlerini çeker
    */
   async getAllProducts(

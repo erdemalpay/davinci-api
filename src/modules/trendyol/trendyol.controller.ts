@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import {
   CreateTrendyolWebhookDto,
@@ -29,6 +38,19 @@ export class TrendyolController {
     }
   }
 
+  @Public()
+  @Get('/webhook')
+  async getWebhooks() {
+    try {
+      this.logger.log('Fetching Trendyol webhooks');
+      return await this.trendyolService.getWebhooks();
+    } catch (error) {
+      this.logger.error('Error fetching webhooks:', error);
+      throw error;
+    }
+  }
+
+  @Public()
   @Post('/webhook')
   async createWebhook(@Body() webhookData: CreateTrendyolWebhookDto) {
     try {
@@ -36,6 +58,18 @@ export class TrendyolController {
       return await this.trendyolService.createWebhook(webhookData);
     } catch (error) {
       this.logger.error('Error creating webhook:', error);
+      throw error;
+    }
+  }
+
+  @Public()
+  @Delete('/webhook/:id')
+  async deleteWebhook(@Param('id') id: string) {
+    try {
+      this.logger.log(`Deleting Trendyol webhook: ${id}`);
+      return await this.trendyolService.deleteWebhook(id);
+    } catch (error) {
+      this.logger.error('Error deleting webhook:', error);
       throw error;
     }
   }
