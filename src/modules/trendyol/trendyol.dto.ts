@@ -252,3 +252,29 @@ export interface TrendyolProductsResponseDto {
   size: number;
   content: TrendyolProductDto[];
 }
+
+// Update Price and Inventory Item
+export class UpdatePriceAndInventoryItemDto {
+  @IsString()
+  barcode: string;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsNumber()
+  salePrice: number;
+
+  @IsNumber()
+  listPrice: number;
+}
+
+// Update Price and Inventory Request
+export class UpdatePriceAndInventoryDto {
+  @IsArray()
+  items: UpdatePriceAndInventoryItemDto[];
+}
+
+// Batch Request Response
+export interface BatchRequestResponseDto {
+  batchRequestId: string;
+}
