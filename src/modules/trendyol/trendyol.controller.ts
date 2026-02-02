@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
-import { GetTrendyolOrdersQueryDto } from './trendyol.dto';
+import {
+  CreateTrendyolWebhookDto,
+  GetTrendyolOrdersQueryDto,
+  GetTrendyolProductsQueryDto,
+} from './trendyol.dto';
 import { TrendyolService } from './trendyol.service';
 
 @Controller('trendyol')
@@ -12,6 +16,28 @@ export class TrendyolController {
   @Get('/order')
   getAllOrders(@Query() query: GetTrendyolOrdersQueryDto) {
     return this.trendyolService.getAllOrders(query);
+  }
+
+  @Get('/product')
+  async getAllProducts(@Query() query: GetTrendyolProductsQueryDto) {
+    try {
+      this.logger.log('Fetching Trendyol products');
+      return await this.trendyolService.getAllProducts(query);
+    } catch (error) {
+      this.logger.error('Error fetching products:', error);
+      throw error;
+    }
+  }
+
+  @Post('/webhook')
+  async createWebhook(@Body() webhookData: CreateTrendyolWebhookDto) {
+    try {
+      this.logger.log('Creating Trendyol webhook');
+      return await this.trendyolService.createWebhook(webhookData);
+    } catch (error) {
+      this.logger.error('Error creating webhook:', error);
+      throw error;
+    }
   }
 
   @Public()

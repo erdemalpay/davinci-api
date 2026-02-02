@@ -14,17 +14,19 @@ import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { OrderService } from '../order/order.service';
-import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import {
+  CreateTrendyolWebhookDto,
   GetTrendyolOrdersQueryDto,
+  GetTrendyolProductsQueryDto,
   TrendyolOrderDto,
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
+  TrendyolProductsResponseDto,
 } from './trendyol.dto';
 
 @Injectable()
@@ -52,6 +54,125 @@ export class TrendyolService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
   ) {}
+
+  /**
+   * Trendyol'a webhook kaydı oluşturur
+   */
+  async createWebhook(webhookData: CreateTrendyolWebhookDto) {
+    try {
+      this.logger.log(
+        'Creating webhook with data:',
+        JSON.stringify(webhookData, null, 2),
+      );
+      this.logger.log(
+        'Target URL:',
+        `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
+      );
+
+      const { data } = await firstValueFrom(
+        this.http.post(
+          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
+          webhookData,
+          {
+            auth: {
+              username: this.apiKey,
+              password: this.apiSecret,
+            },
+            headers: {
+              'User-Agent': this.userAgent,
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+          },
+        ),
+      );
+
+      this.logger.log('Webhook created successfully:', data);
+      return {
+        success: true,
+        data,
+      };
+    } catch (error) {
+      this.logger.error('Error creating Trendyol webhook', error);
+      this.logger.error('Error response data:', error?.response?.data);
+      this.logger.error('Error response status:', error?.response?.status);
+      this.logger.error('Error response headers:', error?.response?.headers);
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        JSON.stringify(error?.response?.data) ||
+        error?.message ||
+        'Unknown error';
+
+      throw new HttpException(
+        `Failed to create webhook: ${errorMessage}`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Trendyol ürünlerini çeker
+   */
+  async getAllProducts(
+    params: GetTrendyolProductsQueryDto,
+  ): Promise<TrendyolProductsResponseDto> {
+    const {
+      page = 0,
+      size = 50,
+      approved,
+      barcode,
+      startDate,
+      endDate,
+      archived,
+      onsale,
+    } = params;
+
+    try {
+      const { data } = await firstValueFrom(
+        this.http.get(
+          `${this.baseUrl}/integration/product/sellers/${this.sellerId}/products`,
+          {
+            params: {
+              page,
+              size,
+              ...(approved && { approved }),
+              ...(barcode && { barcode }),
+              ...(startDate && { startDate }),
+              ...(endDate && { endDate }),
+              ...(archived && { archived }),
+              ...(onsale && { onsale }),
+            },
+            auth: {
+              username: this.apiKey,
+              password: this.apiSecret,
+            },
+            headers: {
+              'User-Agent': this.userAgent,
+              Accept: 'application/json',
+            },
+          },
+        ),
+      );
+
+      return {
+        totalElements: data.totalElements,
+        totalPages: data.totalPages,
+        page: data.page,
+        size: data.size,
+        content: data.content,
+      };
+    } catch (error) {
+      this.logger.error('Error fetching Trendyol products', error);
+      throw new HttpException(
+        `Failed to fetch products: ${
+          error?.response?.data?.message || error?.message || 'Unknown error'
+        }`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   /**
    * Trendyol siparişlerini çeker ve sadeleştirilmiş formatta döner
@@ -226,8 +347,9 @@ export class TrendyolService {
           }
 
           // Find menu item by SKU (merchantSku)
-          const foundMenuItem =
-            await this.menuService.findByTrendyolSku(merchantSku);
+          const foundMenuItem = await this.menuService.findByTrendyolSku(
+            merchantSku,
+          );
           if (!foundMenuItem?.matchedProduct) {
             this.logger.log(
               `Menu item not found for merchantSku: ${merchantSku}`,
