@@ -3668,6 +3668,10 @@ export class OrderService {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
   }
 
+  findByTrendyolLineItemId(trendyolLineItemId: string) {
+    return this.orderModel.findOne({ trendyolLineItemId }).exec();
+  }
+
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {
     return this.orderModel
       .findOne({ shopifyId: shopifyId, item: itemId })

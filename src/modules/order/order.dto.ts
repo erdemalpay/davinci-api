@@ -8,7 +8,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Order, ShopifyCustomer } from './order.schema';
+import { Order, ShopifyCustomer, TrendyolCustomer } from './order.schema';
 
 export class OrderCollectionItemDto {
   @IsNumber()
@@ -189,6 +189,29 @@ export class CreateOrderDto {
   isShopifyCustomerPicked?: boolean;
   ikasOrderNumber?: string;
   shopifyOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  trendyolOrderId?: string;
+
+  @IsOptional()
+  @IsString()
+  trendyolOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  trendyolShipmentPackageId?: string;
+
+  @IsOptional()
+  @IsString()
+  trendyolLineItemId?: string;
+
+  @IsOptional()
+  trendyolCustomer?: TrendyolCustomer;
+
+  @IsOptional()
+  @IsBoolean()
+  isTrendyolCustomerPicked?: boolean;
 }
 
 // TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
@@ -301,6 +324,14 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsNumber()
   pointConsumer?: number;
+
+  @IsOptional()
+  @IsString()
+  trendyolOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  trendyolShipmentPackageId?: string;
 }
 
 export class CreateDiscountDto {

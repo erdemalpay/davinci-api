@@ -33,6 +33,7 @@ import { RewardModule } from './modules/reward/reward.module';
 import { ShiftModule } from './modules/shift/shift.module';
 import { ShopifyModule } from './modules/shopify/shopify.module';
 import { TableModule } from './modules/table/table.module';
+import { TrendyolModule } from './modules/trendyol/trendyol.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
@@ -60,6 +61,7 @@ const modules = [
   BreakModule,
   IkasModule,
   ShopifyModule,
+  TrendyolModule,
   DbModule,
   ChecklistModule,
   GameModule,

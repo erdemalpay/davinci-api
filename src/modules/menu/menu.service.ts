@@ -461,6 +461,15 @@ export class MenuService {
     });
     return item;
   }
+
+  async findByTrendyolSku(sku: string) {
+    const item = await this.itemModel.findOne({
+      trendyolSku: sku,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
   async findItemById(id: number) {
     const item = await this.itemModel.findById({
       _id: id,
