@@ -363,11 +363,13 @@ export class TrendyolService {
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
 
     try {
-      if (!data) {
-        throw new HttpException(
-          'Invalid request: Missing data',
-          HttpStatus.BAD_REQUEST,
-        );
+      // If no data is provided, return success (webhook verification)
+      if (!data || Object.keys(data).length === 0) {
+        this.logger.log('Webhook verification request - no data provided');
+        return {
+          success: true,
+          message: 'Webhook endpoint is accessible',
+        };
       }
 
       const lineItems = data?.lines ?? [];
