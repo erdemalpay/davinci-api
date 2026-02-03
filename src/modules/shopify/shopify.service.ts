@@ -1893,10 +1893,11 @@ export class ShopifyService {
 
       if (
         data?.financial_status !== 'refunded' &&
+        data?.financial_status !== 'partially_refunded' &&
         data?.cancelled_at === null
       ) {
         this.logger.log(
-          `Skipping order as status is not 'refunded' or cancelled`,
+          `Skipping order as status is not 'refunded', 'partially_refunded', or cancelled`,
         );
         return;
       }
