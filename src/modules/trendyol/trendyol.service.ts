@@ -636,6 +636,8 @@ export class TrendyolService {
             contentId,
             amount,
             merchantSku,
+            barcode,
+            stockCode,
           } = lineItem;
 
           const finalLineItemId = (lineItemId || lineId)?.toString();
@@ -658,13 +660,14 @@ export class TrendyolService {
             continue;
           }
 
-          // Find menu item by SKU (merchantSku)
+          // Find menu item by barcode only
           const foundMenuItem = await this.menuService.findByTrendyolBarcode(
-            merchantSku,
+            barcode,
           );
+
           if (!foundMenuItem?.matchedProduct) {
             this.logger.log(
-              `Menu item not found for merchantSku: ${merchantSku}`,
+              `Menu item not found for barcode: ${barcode}`,
             );
             continue;
           }
