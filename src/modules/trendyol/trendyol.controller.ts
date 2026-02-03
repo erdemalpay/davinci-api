@@ -3,12 +3,9 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
-  Logger,
   Param,
   Post,
   Query,
-  Req,
 } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import {
@@ -20,8 +17,6 @@ import { TrendyolService } from './trendyol.service';
 
 @Controller('trendy')
 export class TrendyolController {
-  private readonly logger = new Logger(TrendyolController.name);
-
   constructor(private readonly trendyolService: TrendyolService) {}
 
   @Get('/order')
@@ -29,24 +24,16 @@ export class TrendyolController {
     return this.trendyolService.getAllOrders(query);
   }
 
-  @Public()
   @Get('/product')
   async getAllProducts(@Query() query: GetTrendyolProductsQueryDto) {
-    try {
-      this.logger.log('Fetching ALL Trendyol products (all pages)');
-      const products = await this.trendyolService.getAllProductsComplete(query);
-      return {
-        success: true,
-        total: products.length,
-        products,
-      };
-    } catch (error) {
-      this.logger.error('Error fetching all products:', error);
-      throw error;
-    }
+    const products = await this.trendyolService.getAllProductsComplete(query);
+    return {
+      success: true,
+      total: products.length,
+      products,
+    };
   }
 
-  @Public()
   @Post('/product/update-price-and-inventory')
   async updatePriceAndInventory() {
     return await this.trendyolService.updatePriceAndInventory();
@@ -54,77 +41,31 @@ export class TrendyolController {
 
   @Public()
   @Get('/webhook')
-  async getWebhooks() {
-    try {
-      this.logger.log('Fetching Trendyol webhooks');
-      return await this.trendyolService.getWebhooks();
-    } catch (error) {
-      this.logger.error('Error fetching webhooks:', error);
-      throw error;
-    }
+  getWebhooks() {
+    return this.trendyolService.getWebhooks();
   }
 
   @Public()
   @Post('/webhook')
-  async createWebhook(@Body() webhookData: CreateTrendyolWebhookDto) {
-    try {
-      this.logger.log('Creating Trendyol webhook');
-      return await this.trendyolService.createWebhook(webhookData);
-    } catch (error) {
-      this.logger.error('Error creating webhook:', error);
-      throw error;
-    }
+  createWebhook(@Body() webhookData: CreateTrendyolWebhookDto) {
+    return this.trendyolService.createWebhook(webhookData);
   }
 
   @Public()
   @Delete('/webhook/:id')
-  async deleteWebhook(@Param('id') id: string) {
-    try {
-      this.logger.log(`Deleting Trendyol webhook: ${id}`);
-      return await this.trendyolService.deleteWebhook(id);
-    } catch (error) {
-      this.logger.error('Error deleting webhook:', error);
-      throw error;
-    }
-  }
-
-  @Public()
-  @Get('/order-create-webhook')
-  async orderCreateWebhookVerification(
-    @Headers() headers: any,
-    @Query() query: any,
-    @Req() req: any,
-  ) {
-    this.logger.log('Trendyol webhook verification (GET request)');
-    this.logger.log('Headers:', JSON.stringify(headers, null, 2));
-    this.logger.log('Query params:', JSON.stringify(query, null, 2));
-    this.logger.log('Request URL:', req.url);
-    return { success: true, message: 'Webhook endpoint is ready' };
+  deleteWebhook(@Param('id') id: string) {
+    return this.trendyolService.deleteWebhook(id);
   }
 
   @Public()
   @Post('/order-create-webhook')
-  async orderCreateWebhook(@Body() data?: any, @Headers() headers?: any) {
-    try {
-      this.logger.log('Received Trendyol order create webhook (POST)');
-      this.logger.log('Headers:', JSON.stringify(headers, null, 2));
-      this.logger.log('Body:', JSON.stringify(data, null, 2));
-      return await this.trendyolService.orderCreateWebhook(data);
-    } catch (error) {
-      this.logger.error('Error in order-create-webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+  orderCreateWebhook(@Body() data?: any) {
+    return this.trendyolService.orderCreateWebhook(data);
   }
 
   @Public()
   @Post('/order-status-webhook')
-  async orderStatusWebhook(@Body() data?: any) {
-    try {
-      this.logger.log('Received Trendyol order status webhook');
-      return await this.trendyolService.orderStatusWebhook(data);
-    } catch (error) {
-      this.logger.error('Error in order-status-webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+  orderStatusWebhook(@Body() data?: any) {
+    return this.trendyolService.orderStatusWebhook(data);
   }
 }
