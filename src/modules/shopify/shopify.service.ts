@@ -1686,12 +1686,6 @@ export class ShopifyService {
             this.logger.log(`Menu item not found for productId: ${product_id}`);
             continue;
           }
-
-          const foundLocation = await this.locationService.findByShopifyId(
-            data?.location_id?.toString(),
-          );
-          const locationId = foundLocation?._id || 4;
-
           const foundPaymentMethod =
             await this.accountingService.findPaymentMethodByShopifyId(
               data?.payment_gateway_names?.[0],
