@@ -213,6 +213,7 @@ export interface TrendyolProductDto {
   gender?: string;
   brand: string;
   barcode: string;
+  trendyolBarcode: string;
   title: string;
   categoryName: string;
   productMainId: string;

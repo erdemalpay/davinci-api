@@ -344,7 +344,12 @@ export class TrendyolService {
 
         const trendyolProducts = await this.getAllProductsComplete();
         const trendyolMenuItems = await this.menuService.getAllTrendyolItems();
-        console.log(trendyolMenuItems);
+
+        // Debug: Log first Trendyol product to see structure
+        if (trendyolProducts.length > 0) {
+          this.logger.log('Sample Trendyol Product:');
+          this.logger.log(JSON.stringify(trendyolProducts[0], null, 2));
+        }
 
         for (const menuItem of trendyolMenuItems) {
           try {
@@ -353,27 +358,32 @@ export class TrendyolService {
                 menuItem.matchedProduct,
                 this.OnlineStoreLocation,
               );
-            console.log(productStocks);
+
+            // Try matching with both barcode and productMainId
             const trendyolProduct = trendyolProducts.find(
-              (p) => p.productMainId === menuItem.trendyolSku,
+              (p) =>
+                p.productMainId === menuItem.trendyolBarcode ||
+                p.barcode === menuItem.trendyolBarcode ||
+                p.stockCode === menuItem.trendyolBarcode
             );
 
             if (!trendyolProduct) {
               this.logger.warn(
-                `Trendyol product not found for SKU: ${menuItem.trendyolSku}`,
+                `Trendyol product not found for trendyolBarcode: ${menuItem.trendyolBarcode}`,
+              );
+              this.logger.warn(
+                `Tried matching: productMainId, barcode, stockCode`,
               );
               continue;
             }
+
+            this.logger.log(`Matched product: ${trendyolProduct.title} (barcode: ${trendyolProduct.barcode}, productMainId: ${trendyolProduct.productMainId})`);
 
             const totalQuantity = productStocks.reduce(
               (sum, stock) => sum + (stock.quantity || 0),
               0,
             );
-            console.log(totalQuantity);
             const quantity = Math.min(totalQuantity, 20000);
-            console.log(quantity);
-            console.log(trendyolProduct);
-            console.log(trendyolProduct.quantity);
             const salePrice = menuItem.onlinePrice || trendyolProduct.salePrice;
             const listPrice = menuItem.onlinePrice || trendyolProduct.listPrice;
 
@@ -648,7 +658,7 @@ export class TrendyolService {
           }
 
           // Find menu item by SKU (merchantSku)
-          const foundMenuItem = await this.menuService.findByTrendyolSku(
+          const foundMenuItem = await this.menuService.findByTrendyolBarcode(
             merchantSku,
           );
           if (!foundMenuItem?.matchedProduct) {

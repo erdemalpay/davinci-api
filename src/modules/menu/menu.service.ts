@@ -462,9 +462,9 @@ export class MenuService {
     return item;
   }
 
-  async findByTrendyolSku(sku: string) {
+  async findByTrendyolBarcode(trendyolBarcode: string) {
     const item = await this.itemModel.findOne({
-      trendyolSku: sku,
+      trendyolBarcode: trendyolBarcode,
       deleted: { $ne: true },
     });
     return item;
@@ -1187,7 +1187,7 @@ export class MenuService {
   async getAllTrendyolItems() {
     return this.itemModel
       .find({
-        trendyolSku: { $exists: true },
+        trendyolBarcode: { $exists: true },
         matchedProduct: { $exists: true },
       })
       .exec();

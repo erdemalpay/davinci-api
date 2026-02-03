@@ -100,6 +100,9 @@ export class MenuItem extends Document {
   shopifyVariantId: string;
 
   @Prop({ required: false, type: String })
+  trendyolBarcode: string;
+
+  @Prop({ required: false, type: String })
   trendyolSku: string;
 
   @Prop({ required: false, type: String })
