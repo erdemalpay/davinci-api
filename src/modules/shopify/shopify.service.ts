@@ -1864,14 +1864,9 @@ export class ShopifyService {
         );
       }
 
-      this.logger.log(
-        'Received Shopify cancel webhook data:',
-        JSON.stringify(data, null, 2),
-      );
+      this.logger.log('Received Shopify cancel webhook data:', data);
 
       const refunds = data?.refunds ?? [];
-      this.logger.log(`Processing ${refunds.length} refund(s)`);
-      this.logger.log('Refunds data:', JSON.stringify(refunds, null, 2));
 
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
@@ -1883,13 +1878,9 @@ export class ShopifyService {
       }
 
       if (refunds.length === 0) {
-        this.logger.log('No refunds to process - exiting');
+        this.logger.log('No refunds to process');
         return;
       }
-
-      this.logger.log(
-        `Financial status: ${data?.financial_status}, Cancelled at: ${data?.cancelled_at}`,
-      );
 
       if (
         data?.financial_status !== 'refunded' &&
@@ -1897,7 +1888,7 @@ export class ShopifyService {
         data?.cancelled_at === null
       ) {
         this.logger.log(
-          `Skipping order as status is not 'refunded', 'partially_refunded', or cancelled`,
+          `Skipping order as status is not 'refunded', 'partially_refunded' or cancelled`,
         );
         return;
       }
@@ -1913,37 +1904,18 @@ export class ShopifyService {
       }> = [];
 
       // Process each refund and its refund_line_items
-      for (let i = 0; i < refunds.length; i++) {
-        const refund = refunds[i];
-        this.logger.log(
-          `Processing refund ${i + 1}/${refunds.length}:`,
-          JSON.stringify(refund, null, 2),
-        );
-
+      for (const refund of refunds) {
         const refundLineItems = refund?.refund_line_items ?? [];
-        this.logger.log(
-          `Refund ${i + 1} has ${refundLineItems.length} line item(s)`,
-        );
 
         if (refundLineItems.length === 0) {
-          this.logger.log(`No refund line items in refund ${i + 1} - skipping`);
+          this.logger.log('No refund line items in this refund');
           continue;
         }
 
-        for (let j = 0; j < refundLineItems.length; j++) {
-          const refundLineItem = refundLineItems[j];
-          this.logger.log(
-            `Processing refund line item ${j + 1}/${refundLineItems.length}:`,
-            JSON.stringify(refundLineItem, null, 2),
-          );
-
+        for (const refundLineItem of refundLineItems) {
           try {
             const lineItemId = refundLineItem?.line_item_id?.toString();
             const quantity = refundLineItem?.quantity ?? 0;
-
-            this.logger.log(
-              `Line item ID: ${lineItemId}, Quantity to refund: ${quantity}`,
-            );
 
             if (!lineItemId) {
               this.logger.warn(
@@ -1960,10 +1932,6 @@ export class ShopifyService {
               continue;
             }
 
-            this.logger.log(
-              `Calling cancelShopifyOrder for line item ${lineItemId} with quantity ${quantity}`,
-            );
-
             const cancellationResult =
               await this.orderService.cancelShopifyOrder(
                 constantUser,
@@ -1971,54 +1939,22 @@ export class ShopifyService {
                 quantity,
               );
 
-            this.logger.log(
-              `Cancellation result for line item ${lineItemId}:`,
-              JSON.stringify(cancellationResult, null, 2),
-            );
-
             if (cancellationResult) {
               cancellationResults.push(cancellationResult);
-              this.logger.log(
-                `Added cancellation result. Total results: ${cancellationResults.length}`,
-              );
-            } else {
-              this.logger.warn(
-                `No cancellation result returned for line item ${lineItemId}`,
-              );
             }
           } catch (itemError) {
-            this.logger.error(
-              `Error processing refund line item ${j + 1}:`,
-              itemError,
-            );
             this.logError('Error processing refund line item', itemError);
           }
         }
       }
 
-      this.logger.log(
-        `Total cancellation results collected: ${cancellationResults.length}`,
-      );
-      this.logger.log(
-        'All cancellation results:',
-        JSON.stringify(cancellationResults, null, 2),
-      );
-
       // Group cancellations by collection and update collections
       const collectionMap = new Map();
-      this.logger.log('Starting to group cancellations by collection');
 
-      for (let i = 0; i < cancellationResults.length; i++) {
-        const result = cancellationResults[i];
+      for (const result of cancellationResults) {
         const collectionId = result.collection._id.toString();
-        this.logger.log(
-          `Processing cancellation result ${i + 1}/${
-            cancellationResults.length
-          } for collection ${collectionId}`,
-        );
 
         if (!collectionMap.has(collectionId)) {
-          this.logger.log(`Creating new collection entry for ${collectionId}`);
           collectionMap.set(collectionId, {
             collection: result.collection,
             cancellations: [],
@@ -2029,31 +1965,13 @@ export class ShopifyService {
         const collectionData = collectionMap.get(collectionId);
         collectionData.cancellations.push(result);
         collectionData.totalCancelledAmount += result.cancelledAmount;
-        this.logger.log(
-          `Collection ${collectionId} now has ${collectionData.cancellations.length} cancellation(s), total cancelled amount: ${collectionData.totalCancelledAmount}`,
-        );
       }
 
-      this.logger.log(`Grouped into ${collectionMap.size} collection(s)`);
-
       // Update each collection once
-      let collectionIndex = 0;
       for (const [collectionId, collectionData] of collectionMap.entries()) {
-        collectionIndex++;
-        this.logger.log(
-          `Updating collection ${collectionIndex}/${collectionMap.size} (ID: ${collectionId})`,
-        );
-
         try {
           const { collection, cancellations, totalCancelledAmount } =
             collectionData;
-
-          this.logger.log(
-            `Collection current amount: ${collection.amount}, total cancelled amount: ${totalCancelledAmount}`,
-          );
-          this.logger.log(
-            `Collection has ${collection.orders.length} order(s)`,
-          );
 
           // Build updated orders array
           const orderUpdateMap = new Map();
@@ -2065,55 +1983,29 @@ export class ShopifyService {
               paidQuantity: orderItem.paidQuantity,
             });
           }
-          this.logger.log(
-            `Initialized order map with ${orderUpdateMap.size} order(s)`,
-          );
 
           // Update based on cancellations
-          for (let i = 0; i < cancellations.length; i++) {
-            const cancellation = cancellations[i];
-            this.logger.log(
-              `Processing cancellation ${i + 1}/${
-                cancellations.length
-              } - isPartial: ${cancellation.isPartial}, order ID: ${
-                cancellation.order._id
-              }`,
-            );
-
+          for (const cancellation of cancellations) {
             if (cancellation.isPartial) {
               // Partial cancellation: update existing order's paidQuantity
-              this.logger.log(
-                `Partial cancellation - updating order ${cancellation.order._id} paidQuantity to ${cancellation.remainingQuantity}`,
-              );
               orderUpdateMap.set(cancellation.order._id.toString(), {
                 order: cancellation.order._id,
                 paidQuantity: cancellation.remainingQuantity,
               });
             } else {
               // Full cancellation: remove order from collection
-              this.logger.log(
-                `Full cancellation - removing order ${cancellation.order._id} from collection`,
-              );
               orderUpdateMap.delete(cancellation.order._id.toString());
             }
           }
 
           const updatedOrders = Array.from(orderUpdateMap.values());
           const newAmount = collection.amount - totalCancelledAmount;
-          this.logger.log(
-            `Updated orders count: ${updatedOrders.length}, new amount: ${newAmount}`,
-          );
 
           // Check if all orders in collection are cancelled
           const allOrderIds = updatedOrders.map((o) => o.order);
-          this.logger.log(
-            `Checking active status for ${allOrderIds.length} order(s)`,
-          );
-
           const activeOrders = await this.orderService.findActiveOrdersByIds(
             allOrderIds,
           );
-          this.logger.log(`Found ${activeOrders.length} active order(s)`);
 
           const updateData: any = {
             orders: updatedOrders,
@@ -2122,18 +2014,10 @@ export class ShopifyService {
 
           // If no active orders left or amount is 0, cancel the collection
           if (activeOrders.length === 0 || newAmount <= 0) {
-            this.logger.log(
-              `Cancelling collection ${collectionId} - active orders: ${activeOrders.length}, new amount: ${newAmount}`,
-            );
             updateData.status = OrderCollectionStatus.CANCELLED;
             updateData.cancelledAt = new Date();
             updateData.cancelledBy = constantUser._id;
           }
-
-          this.logger.log(
-            `Update data for collection ${collectionId}:`,
-            JSON.stringify(updateData, null, 2),
-          );
 
           // UpdateCollection already emits websocket events for collection
           // We only need to emit order updates here
@@ -2143,40 +2027,21 @@ export class ShopifyService {
             )
             .filter(Boolean); // Remove null/undefined values
 
-          this.logger.log(
-            `Will emit updates for ${allUpdatedOrders.length} order(s)`,
-          );
-
-          this.logger.log(
-            `Calling updateCollection for collection ${collectionId}`,
-          );
           await this.orderService.updateCollection(
             constantUser,
             collection._id,
             updateData,
           );
-          this.logger.log(`Collection ${collectionId} updated successfully`);
 
           // Emit order updates separately since updateCollection might emit different orders
           if (allUpdatedOrders.length > 0) {
-            this.logger.log(
-              `Emitting order updates for ${allUpdatedOrders.length} order(s)`,
-            );
             await this.websocketGateway.emitOrderUpdated(allUpdatedOrders);
           }
         } catch (collectionError) {
-          this.logger.error(
-            `Error updating collection ${collectionId}:`,
-            collectionError,
-          );
           this.logError('Error updating collection', collectionError);
         }
       }
-
-      this.logger.log('orderCancelWebHook processing completed successfully');
     } catch (error) {
-      this.logger.error('CRITICAL ERROR in orderCancelWebHook:', error);
-      this.logger.error('Error stack:', error?.stack);
       this.logError('Error in orderCancelWebHook', error);
     }
   }
