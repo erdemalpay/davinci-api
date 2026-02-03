@@ -1804,9 +1804,6 @@ export class ShopifyService {
             createdCollection,
           );
           this.logger.log('Collection created:', collection);
-
-          // Sadece gel-al (mağazadan teslim) siparişleri için collection bildirimi
-          // shipping_address YOKSA = gel-al, VARSA = kargo
           if (!data?.shipping_address) {
             const notificationEvents =
               await this.notificationService.findAllEventNotifications();
