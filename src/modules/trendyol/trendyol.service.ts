@@ -605,11 +605,12 @@ export class TrendyolService {
         return { success: true, message: 'No line items to process' };
       }
 
-      // Sadece CREATED statüsündeki siparişleri işle
+      // CREATED veya ReadyToShip statüsündeki siparişleri işle
       const packageStatus = data?.shipmentPackageStatus || data?.status;
-      if (packageStatus !== 'Created') {
+      const validStatuses = ['Created', 'ReadyToShip'];
+      if (!validStatuses.includes(packageStatus)) {
         this.logger.log(
-          `Skipping order as status is not 'Created': ${packageStatus}`,
+          `Skipping order as status is not in valid statuses (${validStatuses.join(', ')}): ${packageStatus}`,
         );
         return {
           success: true,
