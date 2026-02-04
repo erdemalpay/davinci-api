@@ -856,6 +856,7 @@ export class TrendyolService {
 
       switch (packageStatus) {
         case 'Created':
+        case 'ReadyToShip':
           // Sipariş oluşturma işlemi - orderCreateWebhook'a yönlendir
           this.logger.log(
             'Order creation detected - processing via orderCreateWebhook',
