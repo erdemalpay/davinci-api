@@ -936,7 +936,6 @@ export class TrendyolService {
       this.logger.log(`Found ${orders.length} orders to cancel`);
 
       let cancelledCount = 0;
-      const lineItems = data?.lines ?? [];
 
       for (const order of orders) {
         try {
@@ -946,13 +945,7 @@ export class TrendyolService {
             continue;
           }
 
-          // İlgili line item bilgisini bul (eğer varsa)
-          const lineItem = lineItems.find(
-            (line: any) =>
-              (line.lineId || line.id)?.toString() === order.trendyolLineItemId,
-          );
-
-          // Order'ı iptal et
+          // Order'ı iptal et (updateOrder içinde stok iadesi otomatik yapılıyor)
           await this.orderService.updateOrder(constantUser, order._id, {
             status: OrderStatus.CANCELLED,
             cancelledAt: new Date(),
@@ -962,25 +955,6 @@ export class TrendyolService {
 
           this.logger.log(`Order ${order._id} cancelled successfully`);
           cancelledCount++;
-
-          // Stok iade işlemi (eğer ürün üretimi varsa)
-          const orderItem = order.item as any;
-          if (orderItem?.itemProduction) {
-            for (const ingredient of orderItem.itemProduction) {
-              if (ingredient?.isDecrementStock) {
-                const incrementQuantity = ingredient.quantity * order.quantity;
-                await this.accountingService.createStock(constantUser, {
-                  product: ingredient.product,
-                  location: order.stockLocation,
-                  quantity: incrementQuantity,
-                  status: StockHistoryStatusEnum.TRENDYOLORDERCANCEL,
-                });
-                this.logger.log(
-                  `Stock restored for product ${ingredient.product}: +${incrementQuantity}`,
-                );
-              }
-            }
-          }
         } catch (orderError) {
           this.logger.error(`Error cancelling order ${order._id}:`, orderError);
         }
