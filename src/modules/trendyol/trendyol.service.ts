@@ -612,7 +612,9 @@ export class TrendyolService {
       const validStatuses = ['Created', 'ReadyToShip'];
       if (!validStatuses.includes(packageStatus)) {
         this.logger.log(
-          `Skipping order as status is not in valid statuses (${validStatuses.join(', ')}): ${packageStatus}`,
+          `Skipping order as status is not in valid statuses (${validStatuses.join(
+            ', ',
+          )}): ${packageStatus}`,
         );
         return {
           success: true,
@@ -668,9 +670,7 @@ export class TrendyolService {
           );
 
           if (!foundMenuItem?.matchedProduct) {
-            this.logger.log(
-              `Menu item not found for barcode: ${barcode}`,
-            );
+            this.logger.log(`Menu item not found for barcode: ${barcode}`);
             continue;
           }
 
@@ -933,8 +933,7 @@ export class TrendyolService {
       );
 
       // lines varsa ve en az bir iptal edilen satır varsa kısmi iptal; yoksa tam iptal
-      const isPartialCancel =
-        lineItems.length > 0 && cancelledLineIds.size > 0;
+      const isPartialCancel = lineItems.length > 0 && cancelledLineIds.size > 0;
 
       // shipmentPackageId ile tüm order'ları bul
       const orders = await this.orderService.findByTrendyolShipmentPackageId(
@@ -960,7 +959,9 @@ export class TrendyolService {
         : orders;
 
       this.logger.log(
-        `Found ${orders.length} orders in package; cancelling ${ordersToCancel.length} (${isPartialCancel ? 'partial' : 'full'} cancel)`,
+        `Found ${orders.length} orders in package; cancelling ${
+          ordersToCancel.length
+        } (${isPartialCancel ? 'partial' : 'full'} cancel)`,
       );
 
       let cancelledCount = 0;
@@ -986,7 +987,6 @@ export class TrendyolService {
         }
       }
 
-      // Collection'ı sadece paketteki tüm order'lar iptal olduysa iptal et
       try {
         const collection =
           await this.orderService.findCollectionByTrendyolShipmentPackageId(
@@ -1006,12 +1006,18 @@ export class TrendyolService {
             this.logger.log(
               `All orders in package cancelled - cancelling collection ${collection._id}`,
             );
-            await this.orderService.updateCollection(constantUser, collection._id, {
-              status: OrderCollectionStatus.CANCELLED,
-              cancelledAt: new Date(),
-              cancelledBy: constantUser._id,
-            });
-            this.logger.log(`Collection ${collection._id} cancelled successfully`);
+            await this.orderService.updateCollection(
+              constantUser,
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                cancelledAt: new Date(),
+                cancelledBy: constantUser._id,
+              },
+            );
+            this.logger.log(
+              `Collection ${collection._id} cancelled successfully`,
+            );
           } else {
             this.logger.log(
               `Partial cancel: collection ${collection._id} kept (not all orders cancelled)`,
