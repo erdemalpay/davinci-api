@@ -656,10 +656,30 @@ export class TrendyolService {
           const existingOrder =
             await this.orderService.findByTrendyolLineItemId(finalLineItemId);
           if (existingOrder) {
-            this.logger.log(
-              `Order already exists for Trendyol line item id: ${finalLineItemId}, skipping`,
-            );
-            continue;
+            // Eğer order iptal edilmişse ve bu "cancel" split işleminden geliyorsa, order'ı reaktive et
+            const isCancelSplit = data?.createdBy === 'cancel';
+            if (
+              existingOrder.status === OrderStatus.CANCELLED &&
+              isCancelSplit
+            ) {
+              this.logger.log(
+                `Order ${existingOrder._id} was cancelled but is being recreated in split package (createdBy: cancel) - reactivating`,
+              );
+              // Order'ı yeni package'a taşı ve reaktive et
+              const newShipmentPackageId = data?.shipmentPackageId || data?.id;
+              await this.orderService.updateOrder(constantUser, existingOrder._id, {
+                status: OrderStatus.READYTOSERVE,
+                trendyolShipmentPackageId: newShipmentPackageId?.toString(),
+                cancelledAt: null,
+                cancelledBy: null,
+              });
+              continue;
+            } else {
+              this.logger.log(
+                `Order already exists for Trendyol line item id: ${finalLineItemId}, skipping`,
+              );
+              continue;
+            }
           }
 
           // Find menu item by barcode only
