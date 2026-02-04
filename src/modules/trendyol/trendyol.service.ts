@@ -971,9 +971,15 @@ export class TrendyolService {
 
       // Kısmi iptalda sadece iptal edilen line'a ait order'ları, tam iptalda hepsini iptal et
       const ordersToCancel = isPartialCancel
-        ? orders.filter((order) =>
-          cancelledLineIds.has(String(order.trendyolLineItemId)),
-        )
+        ? orders.filter((order) => {
+            const lineItemId = String(order.trendyolLineItemId);
+            // Kısmi iptal sonrası yeniden oluşturulan order'lar için format: "lineId-packageId"
+            // Sadece lineId kısmını kontrol et
+            const baseLineItemId = lineItemId.includes('-')
+              ? lineItemId.split('-')[0]
+              : lineItemId;
+            return cancelledLineIds.has(baseLineItemId);
+          })
         : orders;
 
       this.logger.log(
