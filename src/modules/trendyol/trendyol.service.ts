@@ -856,6 +856,7 @@ export class TrendyolService {
 
       switch (packageStatus) {
         case 'Created':
+        case 'ReadyToShip':
           // Sipariş oluşturma işlemi - orderCreateWebhook'a yönlendir
           this.logger.log(
             'Order creation detected - processing via orderCreateWebhook',
@@ -900,6 +901,14 @@ export class TrendyolService {
     );
 
     try {
+      // shipmentPackageId kontrolü
+      if (!shipmentPackageId) {
+        throw new HttpException(
+          'Invalid request: Missing shipmentPackageId',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
       if (!constantUser) {
         throw new HttpException(
