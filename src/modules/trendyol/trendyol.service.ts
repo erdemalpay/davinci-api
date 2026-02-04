@@ -653,33 +653,25 @@ export class TrendyolService {
           }
 
           // Check if order already exists by trendyolLineItemId
+          // IMPORTANT: Kısmi iptal durumunda Trendyol yeni bir paket oluşturur (originPackageIds ile işaretli)
+          // Bu durumda aynı lineId ile yeni order oluşturulmasına izin veriyoruz
+          const originPackageIds = data?.originPackageIds;
+          const isPartialCancelRecreation =
+            originPackageIds && originPackageIds.length > 0;
+
           const existingOrder =
             await this.orderService.findByTrendyolLineItemId(finalLineItemId);
-          if (existingOrder) {
-            // Eğer order iptal edilmişse ve bu "cancel" split işleminden geliyorsa, order'ı reaktive et
-            const isCancelSplit = data?.createdBy === 'cancel';
-            if (
-              existingOrder.status === OrderStatus.CANCELLED &&
-              isCancelSplit
-            ) {
-              this.logger.log(
-                `Order ${existingOrder._id} was cancelled but is being recreated in split package (createdBy: cancel) - reactivating`,
-              );
-              // Order'ı yeni package'a taşı ve reaktive et
-              const newShipmentPackageId = data?.shipmentPackageId || data?.id;
-              await this.orderService.updateOrder(constantUser, existingOrder._id, {
-                status: OrderStatus.READYTOSERVE,
-                trendyolShipmentPackageId: newShipmentPackageId?.toString(),
-                cancelledAt: null,
-                cancelledBy: null,
-              });
-              continue;
-            } else {
-              this.logger.log(
-                `Order already exists for Trendyol line item id: ${finalLineItemId}, skipping`,
-              );
-              continue;
-            }
+          if (existingOrder && !isPartialCancelRecreation) {
+            this.logger.log(
+              `Order already exists for Trendyol line item id: ${finalLineItemId}, skipping`,
+            );
+            continue;
+          }
+
+          if (existingOrder && isPartialCancelRecreation) {
+            this.logger.log(
+              `Partial cancel detected (originPackageIds: ${originPackageIds.join(', ')}). Creating new order for existing lineId: ${finalLineItemId}`,
+            );
           }
 
           // Find menu item by barcode only
@@ -975,8 +967,8 @@ export class TrendyolService {
       // Kısmi iptalda sadece iptal edilen line'a ait order'ları, tam iptalda hepsini iptal et
       const ordersToCancel = isPartialCancel
         ? orders.filter((order) =>
-            cancelledLineIds.has(String(order.trendyolLineItemId)),
-          )
+          cancelledLineIds.has(String(order.trendyolLineItemId)),
+        )
         : orders;
 
       this.logger.log(
