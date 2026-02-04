@@ -319,19 +319,19 @@ export class CreateCollectionDto {
 
   @IsOptional()
   @IsString()
-  pointUser?: string;
-
-  @IsOptional()
-  @IsNumber()
-  pointConsumer?: number;
-
-  @IsOptional()
-  @IsString()
   trendyolOrderNumber?: string;
 
   @IsOptional()
   @IsString()
   trendyolShipmentPackageId?: string;
+
+  @IsOptional()
+  @IsString()
+  pointUser?: string;
+
+  @IsOptional()
+  @IsNumber()
+  pointConsumer?: number;
 }
 
 export class CreateDiscountDto {

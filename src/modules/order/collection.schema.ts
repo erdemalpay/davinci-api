@@ -75,6 +75,12 @@ export class Collection extends Document {
   @Prop({ required: false, type: Number })
   shopifyShippingAmount: number;
 
+  @Prop({ required: false, type: String })
+  trendyolOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  trendyolShipmentPackageId: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 }
@@ -90,5 +96,10 @@ CollectionSchema.index({ createdBy: 1, createdAt: -1 });
 CollectionSchema.index({ tableDate: 1, location: 1 });
 // For status queries
 CollectionSchema.index({ status: 1, location: 1 });
+// For Trendyol shipment package queries
+CollectionSchema.index(
+  { trendyolShipmentPackageId: 1 },
+  { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
+);
 
 purifySchema(CollectionSchema);
