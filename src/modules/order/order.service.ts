@@ -3676,6 +3676,14 @@ export class OrderService {
     return this.orderModel.find({ trendyolShipmentPackageId }).exec();
   }
 
+  findCollectionByTrendyolShipmentPackageId(
+    trendyolShipmentPackageId: string,
+  ) {
+    return this.collectionModel
+      .findOne({ trendyolShipmentPackageId })
+      .exec();
+  }
+
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {
     return this.orderModel
       .findOne({ shopifyId: shopifyId, item: itemId })

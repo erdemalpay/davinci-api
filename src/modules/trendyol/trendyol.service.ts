@@ -863,7 +863,7 @@ export class TrendyolService {
           return await this.orderCreateWebhook(data);
 
         case 'Cancelled':
-          return await this.handleOrderCancellation(data, shipmentPackageId);
+          return await this.orderCancelWebhook(data, shipmentPackageId);
 
         case 'Shipped':
           this.logger.log('Order shipment detected - status logged');
@@ -894,7 +894,7 @@ export class TrendyolService {
   /**
    * Trendyol sipariş iptal işlemini gerçekleştirir
    */
-  private async handleOrderCancellation(data: any, shipmentPackageId: string) {
+  private async orderCancelWebhook(data: any, shipmentPackageId: string) {
     this.logger.log(
       `Processing cancellation for package: ${shipmentPackageId}`,
     );
@@ -977,6 +977,35 @@ export class TrendyolService {
         }
       }
 
+      // Collection'ı bul ve iptal et
+      try {
+        const collection =
+          await this.orderService.findCollectionByTrendyolShipmentPackageId(
+            shipmentPackageId?.toString(),
+          );
+
+        if (collection) {
+          this.logger.log(
+            `Found collection ${collection._id} for package ${shipmentPackageId}`,
+          );
+
+          // Collection'ı iptal et
+          await this.orderService.updateCollection(constantUser, collection._id, {
+            status: OrderCollectionStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: constantUser._id,
+          });
+
+          this.logger.log(`Collection ${collection._id} cancelled successfully`);
+        } else {
+          this.logger.warn(
+            `No collection found for Trendyol shipment package: ${shipmentPackageId}`,
+          );
+        }
+      } catch (collectionError) {
+        this.logger.error('Error cancelling collection:', collectionError);
+      }
+
       // WebSocket ile bildirim gönder
       this.websocketGateway.emitOrderGroupChanged();
 
@@ -990,7 +1019,7 @@ export class TrendyolService {
         cancelled: cancelledCount,
       };
     } catch (error) {
-      this.logger.error('Error in handleOrderCancellation:', error);
+      this.logger.error('Error in orderCancelWebhook:', error);
       throw error;
     }
   }
