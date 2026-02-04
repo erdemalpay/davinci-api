@@ -693,6 +693,11 @@ export class TrendyolService {
           const trendyolOrderNumber = data?.orderNumber;
           const shipmentPackageId = data?.shipmentPackageId || data?.id;
 
+          // Kısmi iptal durumunda trendyolLineItemId'ye shipmentPackageId ekle (unique constraint için)
+          const uniqueLineItemId = isPartialCancelRecreation
+            ? `${finalLineItemId}-${shipmentPackageId}`
+            : finalLineItemId;
+
           const createOrderObject: CreateOrderDto = {
             item: foundMenuItem._id,
             quantity: quantity,
@@ -711,7 +716,7 @@ export class TrendyolService {
             stockNote: StockHistoryStatusEnum.TRENDYOLORDERCREATE,
             trendyolOrderId: data?.id?.toString(),
             trendyolShipmentPackageId: shipmentPackageId?.toString(),
-            trendyolLineItemId: finalLineItemId,
+            trendyolLineItemId: uniqueLineItemId,
             paymentMethod: 'trendyol',
             ...(trendyolOrderNumber && {
               trendyolOrderNumber: trendyolOrderNumber.toString(),
