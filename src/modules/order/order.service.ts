@@ -3673,7 +3673,10 @@ export class OrderService {
   }
 
   findByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
-    return this.orderModel.find({ trendyolShipmentPackageId }).exec();
+    return this.orderModel
+      .find({ trendyolShipmentPackageId })
+      .populate('item')
+      .exec();
   }
 
   findCollectionByTrendyolShipmentPackageId(
