@@ -893,7 +893,10 @@ export class TrendyolService {
   }
 
   /**
-   * Trendyol sipariş iptal işlemini gerçekleştirir
+   * Trendyol sipariş iptal işlemini gerçekleştirir.
+   * Kısmi iptal: Webhook'taki lines içinde sadece orderLineItemStatusName === "Cancelled" olan
+   * satırlara karşılık gelen order'lar iptal edilir. Tam iptal: Tüm satırlar iptal veya lines
+   * yoksa paketteki tüm order'lar iptal edilir.
    */
   private async orderCancelWebhook(data: any, shipmentPackageId: string) {
     this.logger.log(
@@ -917,6 +920,22 @@ export class TrendyolService {
         );
       }
 
+      // Webhook'ta iptal edilen satırların lineId'lerini topla (kısmi iptal için)
+      const lineItems = data?.lines ?? [];
+      const cancelledLineIds = new Set<string>(
+        lineItems
+          .filter(
+            (line: any) =>
+              (line.orderLineItemStatusName || line.status) === 'Cancelled',
+          )
+          .map((line: any) => (line.lineId ?? line.id)?.toString())
+          .filter(Boolean),
+      );
+
+      // lines varsa ve en az bir iptal edilen satır varsa kısmi iptal; yoksa tam iptal
+      const isPartialCancel =
+        lineItems.length > 0 && cancelledLineIds.size > 0;
+
       // shipmentPackageId ile tüm order'ları bul
       const orders = await this.orderService.findByTrendyolShipmentPackageId(
         shipmentPackageId?.toString(),
@@ -933,19 +952,26 @@ export class TrendyolService {
         };
       }
 
-      this.logger.log(`Found ${orders.length} orders to cancel`);
+      // Kısmi iptalda sadece iptal edilen line'a ait order'ları, tam iptalda hepsini iptal et
+      const ordersToCancel = isPartialCancel
+        ? orders.filter((order) =>
+            cancelledLineIds.has(String(order.trendyolLineItemId)),
+          )
+        : orders;
+
+      this.logger.log(
+        `Found ${orders.length} orders in package; cancelling ${ordersToCancel.length} (${isPartialCancel ? 'partial' : 'full'} cancel)`,
+      );
 
       let cancelledCount = 0;
 
-      for (const order of orders) {
+      for (const order of ordersToCancel) {
         try {
-          // Order zaten iptal edilmiş mi kontrol et
           if (order.status === OrderStatus.CANCELLED) {
             this.logger.log(`Order ${order._id} already cancelled, skipping`);
             continue;
           }
 
-          // Order'ı iptal et (updateOrder içinde stok iadesi otomatik yapılıyor)
           await this.orderService.updateOrder(constantUser, order._id, {
             status: OrderStatus.CANCELLED,
             cancelledAt: new Date(),
@@ -960,7 +986,7 @@ export class TrendyolService {
         }
       }
 
-      // Collection'ı bul ve iptal et
+      // Collection'ı sadece paketteki tüm order'lar iptal olduysa iptal et
       try {
         const collection =
           await this.orderService.findCollectionByTrendyolShipmentPackageId(
@@ -968,18 +994,29 @@ export class TrendyolService {
           );
 
         if (collection) {
-          this.logger.log(
-            `Found collection ${collection._id} for package ${shipmentPackageId}`,
-          );
+          const allOrdersInPackage =
+            await this.orderService.findByTrendyolShipmentPackageId(
+              shipmentPackageId?.toString(),
+            );
+          const allCancelled =
+            allOrdersInPackage?.length > 0 &&
+            allOrdersInPackage.every((o) => o.status === OrderStatus.CANCELLED);
 
-          // Collection'ı iptal et
-          await this.orderService.updateCollection(constantUser, collection._id, {
-            status: OrderCollectionStatus.CANCELLED,
-            cancelledAt: new Date(),
-            cancelledBy: constantUser._id,
-          });
-
-          this.logger.log(`Collection ${collection._id} cancelled successfully`);
+          if (allCancelled) {
+            this.logger.log(
+              `All orders in package cancelled - cancelling collection ${collection._id}`,
+            );
+            await this.orderService.updateCollection(constantUser, collection._id, {
+              status: OrderCollectionStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: constantUser._id,
+            });
+            this.logger.log(`Collection ${collection._id} cancelled successfully`);
+          } else {
+            this.logger.log(
+              `Partial cancel: collection ${collection._id} kept (not all orders cancelled)`,
+            );
+          }
         } else {
           this.logger.warn(
             `No collection found for Trendyol shipment package: ${shipmentPackageId}`,
@@ -989,7 +1026,6 @@ export class TrendyolService {
         this.logger.error('Error cancelling collection:', collectionError);
       }
 
-      // WebSocket ile bildirim gönder
       this.websocketGateway.emitOrderGroupChanged();
 
       this.logger.log(
