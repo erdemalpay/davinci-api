@@ -13,11 +13,15 @@ import {
   GetTrendyolOrdersQueryDto,
   GetTrendyolProductsQueryDto,
 } from './trendyol.dto';
+import { TrendyolCronService } from './trendyol.cron.service';
 import { TrendyolService } from './trendyol.service';
 
 @Controller('trendy')
 export class TrendyolController {
-  constructor(private readonly trendyolService: TrendyolService) {}
+  constructor(
+    private readonly trendyolService: TrendyolService,
+    private readonly trendyolCronService: TrendyolCronService,
+  ) {}
 
   @Get('/order')
   getAllOrders(@Query() query: GetTrendyolOrdersQueryDto) {
@@ -67,5 +71,10 @@ export class TrendyolController {
   @Post('/order-status-webhook')
   orderStatusWebhook(@Body() data?: any) {
     return this.trendyolService.orderStatusWebhook(data);
+  }
+
+  @Post('/process-accepted-claims')
+  async processAcceptedClaims() {
+    return await this.trendyolCronService.triggerManualClaimsProcessing();
   }
 }

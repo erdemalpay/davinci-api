@@ -279,3 +279,94 @@ export class UpdatePriceAndInventoryDto {
 export interface BatchRequestResponseDto {
   batchRequestId: string;
 }
+
+// Claims (İade Talepleri) için DTO'lar
+
+export interface TrendyolClaimItemReasonDto {
+  id: number;
+  name: string;
+  externalReasonId: number;
+  code: string;
+}
+
+export interface TrendyolClaimItemStatusDto {
+  name: string; // "Accepted", "Created", vb.
+}
+
+export interface TrendyolClaimItemDto {
+  id: string; // Unique claim item ID
+  orderLineItemId: number;
+  customerClaimItemReason: TrendyolClaimItemReasonDto;
+  trendyolClaimItemReason: TrendyolClaimItemReasonDto;
+  claimItemStatus: TrendyolClaimItemStatusDto;
+  autoApproveDate?: number;
+  note: string;
+  customerNote?: string;
+  resolved: boolean;
+  autoAccepted: boolean | null;
+  acceptedBySeller: boolean | null;
+  acceptDetail: string | null;
+}
+
+export interface TrendyolOrderLineWithClaimsDto {
+  orderLine: {
+    id: number;
+    productName: string;
+    barcode: string;
+    merchantSku: string;
+    productColor: string;
+    productSize: string;
+    price: number;
+    vatBaseAmount: number;
+    vatRate: number;
+    salesCampaignId: number;
+    productCategory: string;
+    lineItems: any | null;
+  };
+  claimItems: TrendyolClaimItemDto[];
+}
+
+export interface TrendyolClaimDto {
+  id: string; // Claim ID (claimId)
+  claimId: string;
+  orderNumber: string;
+  orderDate: number;
+  customerFirstName: string;
+  customerLastName: string;
+  claimDate: number;
+  cargoTrackingNumber?: number;
+  cargoProviderName?: string;
+  cargoSenderNumber?: string;
+  cargoTrackingLink?: string;
+  orderShipmentPackageId: number;
+  items: TrendyolOrderLineWithClaimsDto[];
+  lastModifiedDate: number;
+  orderOutboundPackageId: number;
+}
+
+// Query parametreleri için DTO
+export class GetTrendyolClaimsQueryDto {
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  size?: number;
+
+  @IsOptional()
+  @IsString()
+  orderNumber?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  startDate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  endDate?: number;
+}
