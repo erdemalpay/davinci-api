@@ -318,6 +318,10 @@ export class CreateCollectionDto {
   shopifyShippingAmount?: number;
 
   @IsOptional()
+  @IsNumber()
+  shopifyDiscountAmount?: number;
+
+  @IsOptional()
   @IsString()
   trendyolOrderNumber?: string;
 
