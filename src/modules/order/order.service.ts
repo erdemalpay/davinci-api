@@ -41,7 +41,6 @@ import { AccountingService } from './../accounting/accounting.service';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
 import { MenuService } from './../menu/menu.service';
-import { OrderCancelReason } from './../shopify/shopify.dto';
 import { ShopifyService } from './../shopify/shopify.service';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
@@ -3671,6 +3670,21 @@ export class OrderService {
 
   findByTrendyolLineItemId(trendyolLineItemId: string) {
     return this.orderModel.findOne({ trendyolLineItemId }).exec();
+  }
+
+  findByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
+    return this.orderModel
+      .find({ trendyolShipmentPackageId })
+      .populate('item')
+      .exec();
+  }
+
+  findCollectionByTrendyolShipmentPackageId(
+    trendyolShipmentPackageId: string,
+  ) {
+    return this.collectionModel
+      .findOne({ trendyolShipmentPackageId })
+      .exec();
   }
 
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {

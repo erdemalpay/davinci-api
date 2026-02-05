@@ -33,10 +33,10 @@ export class MenuController {
   getActiveCategories() {
     return this.menuService.findActiveCategories();
   }
-  @Get('/items/update-ikas-categories')
-  updateItemIkasCategories() {
-    return this.menuService.updateItemIkasCategories();
-  }
+  // @Get('/items/update-ikas-categories')
+  // updateItemIkasCategories() {
+  //   return this.menuService.updateItemIkasCategories();
+  // }
 
   @Get('/items/ikas')
   findItemsWithIkasId() {
@@ -48,10 +48,10 @@ export class MenuController {
     return this.menuService.updateIkasItemsIkasIdFields(sendItems);
   }
 
-  @Post('/items/update-ikas-variant-ids')
-  updateIkasVariantIds() {
-    return this.menuService.updateIkasVariantIds();
-  }
+  // @Post('/items/update-ikas-variant-ids')
+  // updateIkasVariantIds() {
+  //   return this.menuService.updateIkasVariantIds();
+  // }
 
   @Get('/items/remove-deleted-products')
   removeDeletedProducts() {
@@ -98,21 +98,21 @@ export class MenuController {
     return this.menuService.removeDublicatesPriceHistory();
   }
 
-  @Post('/items/slug')
-  updateItemsSlugs() {
-    return this.menuService.updateItemsSlugs();
-  }
+  // @Post('/items/slug')
+  // updateItemsSlugs() {
+  //   return this.menuService.updateItemsSlugs();
+  // }
 
-  @Post('/items/create-ikas-products')
-  createIkasProducts(
-    @ReqUser() user: User,
-    @Body()
-    payload: {
-      itemIds: Array<number>;
-    },
-  ) {
-    return this.menuService.createMultipleIkasProduct(user, payload.itemIds);
-  }
+  // @Post('/items/create-ikas-products')
+  // createIkasProducts(
+  //   @ReqUser() user: User,
+  //   @Body()
+  //   payload: {
+  //     itemIds: Array<number>;
+  //   },
+  // ) {
+  //   return this.menuService.createMultipleIkasProduct(user, payload.itemIds);
+  // }
 
   @Post('/items/create-shopify-products')
   createShopifyProducts(
@@ -130,10 +130,10 @@ export class MenuController {
     return this.menuService.migrateSuggestedDiscounts();
   }
 
-  @Post('/items/ikas/sync-all-prices')
-  syncAllIkasPrices() {
-    return this.menuService.syncAllIkasPrices();
-  }
+  // @Post('/items/ikas/sync-all-prices')
+  // syncAllIkasPrices() {
+  //   return this.menuService.syncAllIkasPrices();
+  // }
 
   @Post('/items/shopify/sync-all-prices')
   syncAllShopifyPrices() {
