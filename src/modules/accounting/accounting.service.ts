@@ -1464,7 +1464,7 @@ export class AccountingService {
     if (anySuccess) {
       this.websocketGateway.emitExpenseChanged();
       this.websocketGateway.emitProductChanged();
-      await this.ikasService.bulkUpdateAllProductStocks();
+      // await this.ikasService.bulkUpdateAllProductStocks();
     }
     return errorDatas;
   }
@@ -2067,21 +2067,21 @@ export class AccountingService {
       }
     }
   }
-  async updateIkasStock(productId: string, location: number, quantity: number) {
-    const menuItem = await this.menuService.findByMatchedProduct(productId);
-    if (!menuItem || !menuItem.ikasId) {
-      return;
-    }
-    const foundLocation = await this.locationService.findLocationById(location);
-    if (!foundLocation.ikasId) {
-      return;
-    }
-    await this.ikasService.updateProductStock(
-      menuItem.ikasId,
-      location,
-      quantity,
-    );
-  }
+  // async updateIkasStock(productId: string, location: number, quantity: number) {
+  //   const menuItem = await this.menuService.findByMatchedProduct(productId);
+  //   if (!menuItem || !menuItem.ikasId) {
+  //     return;
+  //   }
+  //   const foundLocation = await this.locationService.findLocationById(location);
+  //   if (!foundLocation.ikasId) {
+  //     return;
+  //   }
+  //   await this.ikasService.updateProductStock(
+  //     menuItem.ikasId,
+  //     location,
+  //     quantity,
+  //   );
+  // }
 
   async updateShopifyStock(
     productId: string,
@@ -2282,13 +2282,13 @@ export class AccountingService {
       }
 
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
-        this.updateIkasStock(
-          createStockDto.product,
-          createStockDto.location,
-          Number(oldQuantity) + Number(createStockDto.quantity),
-        );
-      }
+      // if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+      //   this.updateIkasStock(
+      //     createStockDto.product,
+      //     createStockDto.location,
+      //     Number(oldQuantity) + Number(createStockDto.quantity),
+      //   );
+      // }
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
@@ -2362,13 +2362,13 @@ export class AccountingService {
       }
 
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
-        this.updateIkasStock(
-          createStockDto.product,
-          createStockDto.location,
-          createStockDto.quantity,
-        );
-      }
+      // if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+      //   this.updateIkasStock(
+      //     createStockDto.product,
+      //     createStockDto.location,
+      //     createStockDto.quantity,
+      //   );
+      // }
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
@@ -2510,9 +2510,9 @@ export class AccountingService {
       }
       const deletedStock = await this.stockModel.findByIdAndRemove(id);
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
-        this.updateIkasStock(stock.product?._id, stock.location, 0);
-      }
+      // if (status !== StockHistoryStatusEnum.IKASORDERCREATE) {
+      //   this.updateIkasStock(stock.product?._id, stock.location, 0);
+      // }
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(stock.product?._id, stock.location, 0);
@@ -2689,13 +2689,13 @@ export class AccountingService {
       const consumptStatus =
         consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION;
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (consumptStatus !== StockHistoryStatusEnum.IKASORDERCREATE) {
-        this.updateIkasStock(
-          consumptStockDto.product,
-          stock.location,
-          stock.quantity - consumptStockDto.quantity,
-        );
-      }
+      // if (consumptStatus !== StockHistoryStatusEnum.IKASORDERCREATE) {
+      //   this.updateIkasStock(
+      //     consumptStockDto.product,
+      //     stock.location,
+      //     stock.quantity - consumptStockDto.quantity,
+      //   );
+      // }
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (consumptStatus !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
