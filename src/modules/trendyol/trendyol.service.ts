@@ -651,11 +651,30 @@ export class TrendyolService {
   }
 
   /**
-   * Tüm Trendyol ürünlerinde sadece fiyat günceller (stok dokunulmaz).
-   * Menü online fiyatını Trendyol'a yansıtır; stok Trendyol'daki mevcut değerle aynı kalır.
+   * Trendyol ürünlerinde sadece fiyat günceller (stok dokunulmaz).
+   * items verilirse sadece o ürün(ler)in fiyatı güncellenir; quantity Trendyol'da aynı kalır.
+   * items verilmezse tüm eşleşen ürünlerin fiyatı menü online fiyatına göre güncellenir.
    */
-  async updatePriceOnly() {
+  async updatePriceOnly(
+    items?: Array<{
+      barcode: string;
+      quantity: number;
+      salePrice: number;
+      listPrice: number;
+    }>,
+  ) {
     try {
+      if (items && items.length > 0) {
+        if (items.length > 1000) {
+          throw new HttpException(
+            'Maximum 1000 items can be updated at once',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        this.logger.log(`Updating price only for ${items.length} item(s)`);
+        return this.sendPriceAndInventoryBatches(items);
+      }
+
       this.logger.log('Updating Trendyol price only (all products)...');
 
       const trendyolProducts = await this.getAllProductsComplete();

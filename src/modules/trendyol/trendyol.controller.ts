@@ -12,6 +12,7 @@ import {
   CreateTrendyolWebhookDto,
   GetTrendyolOrdersQueryDto,
   GetTrendyolProductsQueryDto,
+  UpdatePriceAndInventoryItemDto,
 } from './trendyol.dto';
 import { TrendyolCronService } from './trendyol.cron.service';
 import { TrendyolService } from './trendyol.service';
@@ -49,8 +50,10 @@ export class TrendyolController {
   }
 
   @Post('/product/update-price')
-  async updatePriceOnly() {
-    return await this.trendyolService.updatePriceOnly();
+  async updatePriceOnly(
+    @Body() body?: { items?: UpdatePriceAndInventoryItemDto[] },
+  ) {
+    return await this.trendyolService.updatePriceOnly(body?.items);
   }
 
   @Public()
