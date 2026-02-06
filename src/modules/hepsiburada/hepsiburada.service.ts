@@ -5,10 +5,10 @@ import axios, { AxiosInstance } from 'axios';
 export class HepsiburadaService {
   private readonly logger = new Logger(HepsiburadaService.name);
   private readonly axiosInstance: AxiosInstance;
-  private readonly baseUrl = process.env.HEPSIBURADA_BASE_URL!;
-  private readonly merchantId = process.env.HEPSIBURADA_MERCHANT_ID!;
-  private readonly secretKey = process.env.HEPSIBURADA_SECRET_KEY!;
-  private readonly userAgent = process.env.HEPSIBURADA_USER_AGENT!;
+  private readonly baseUrl = process.env.HEPSIBURADA_STAGING_BASE_URL!;
+  private readonly merchantId = process.env.HEPSIBURADA_STAGING_MERCHANT_ID!;
+  private readonly secretKey = process.env.HEPSIBURADA_STAGING_SECRET_KEY!;
+  private readonly userAgent = process.env.HEPSIBURADA_STAGING_USER_AGENT!;
 
   constructor() {
     // Create Basic Auth token
