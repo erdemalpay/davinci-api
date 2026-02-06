@@ -66,6 +66,7 @@ export class HepsiburadaController {
     return this.hepsiburadaService.checkPriceUpdateStatus(batchId);
   }
 
+  @Public()
   @Get('/listings')
   getListings(@Query('page') page?: string, @Query('size') size?: string) {
     return this.hepsiburadaService.getListings(
@@ -86,5 +87,23 @@ export class HepsiburadaController {
   @Post('/update-all-prices')
   updateAllItemPrices() {
     return this.hepsiburadaService.updateAllItemPrices();
+  }
+
+  @Post('/update-inventory')
+  updateProductInventory(
+    @Body()
+    payload: Array<{
+      hepsiburadaSku?: string;
+      merchantSku: string;
+      availableStock: number;
+      price: number;
+    }>,
+  ) {
+    return this.hepsiburadaService.updateProductInventory(payload);
+  }
+
+  @Post('/update-all-stocks')
+  updateAllItemStocks() {
+    return this.hepsiburadaService.updateAllItemStocks();
   }
 }

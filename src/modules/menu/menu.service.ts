@@ -237,6 +237,7 @@ export class MenuService {
   async findItemsWithHepsiBuradaSku() {
     return this.itemModel.find({
       hepsiBuradaSku: { $nin: [null, ''] },
+      matchedProduct: { $nin: [null, ''] },
       deleted: { $ne: true },
     });
   }
