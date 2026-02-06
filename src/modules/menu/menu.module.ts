@@ -10,6 +10,7 @@ import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
 import { IkasModule } from './../ikas/ikas.module';
 import { ShopifyModule } from './../shopify/shopify.module';
+import { TrendyolModule } from './../trendyol/trendyol.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
 import { MenuCategory, MenuCategorySchema } from './category.schema';
 import { MenuItem, MenuItemSchema } from './item.schema';
@@ -42,6 +43,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => OrderModule),
     forwardRef(() => IkasModule),
     forwardRef(() => ShopifyModule),
+    forwardRef(() => TrendyolModule),
   ],
   providers: [MenuService],
   exports: [MenuService],

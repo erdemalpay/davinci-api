@@ -269,6 +269,14 @@ export class UpdatePriceAndInventoryItemDto {
   listPrice: number;
 }
 
+/** Serviste tekrar kullanılan fiyat/stok güncelleme öğesi tipi (SonarCloud duplicate azaltma) */
+export interface PriceAndInventoryItem {
+  barcode: string;
+  quantity: number;
+  salePrice: number;
+  listPrice: number;
+}
+
 // Update Price and Inventory Request
 export class UpdatePriceAndInventoryDto {
   @IsArray()

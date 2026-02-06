@@ -26,6 +26,7 @@ import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { ShopifyService } from './../shopify/shopify.service';
+import { TrendyolService } from './../trendyol/trendyol.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem, PriceHistory } from './item.schema';
 import { Kitchen } from './kitchen.schema';
@@ -62,6 +63,8 @@ export class MenuService {
     private readonly IkasService: IkasService,
     @Inject(forwardRef(() => ShopifyService))
     private readonly shopifyService: ShopifyService,
+    @Inject(forwardRef(() => TrendyolService))
+    private readonly trendyolService: TrendyolService,
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
@@ -942,6 +945,27 @@ export class MenuService {
       updatedItem,
     );
     this.websocketGateway.emitItemChanged();
+
+    // Menü online fiyatı değiştiyse ve ürün Trendyol ile eşleşiyorsa Trendyol fiyatını güncelle
+    if (
+      onlinePriceChanged &&
+      item.trendyolBarcode &&
+      typeof updates.onlinePrice === 'number'
+    ) {
+      try {
+        await this.trendyolService.updateProductPriceForMenuItem(
+          item.trendyolBarcode,
+          updates.onlinePrice,
+          updates.onlinePrice,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Trendyol price update failed for item ${id} (barcode: ${item.trendyolBarcode}):`,
+          err,
+        );
+      }
+    }
+
     return updatedItem;
   }
   // async syncAllIkasPrices(currency = 'TRY') {
@@ -1055,10 +1079,33 @@ export class MenuService {
           // foundItem.ikasId = item.ikasId;
           foundItem.sku = item?.sku;
           foundItem.barcode = item?.barcode;
+          const onlinePriceChanged =
+            item?.onlinePrice != null &&
+            (item.onlinePrice as any) !== '-' &&
+            foundItem.onlinePrice !== item.onlinePrice;
           if (item?.onlinePrice && (item.onlinePrice as any) !== '-') {
             foundItem.onlinePrice = item.onlinePrice;
           }
           await foundItem.save();
+
+          if (
+            onlinePriceChanged &&
+            foundItem.trendyolBarcode &&
+            typeof item.onlinePrice === 'number'
+          ) {
+            try {
+              await this.trendyolService.updateProductPriceForMenuItem(
+                foundItem.trendyolBarcode,
+                item.onlinePrice,
+                item.onlinePrice,
+              );
+            } catch (err) {
+              this.logger.warn(
+                `Trendyol price update failed for item ${foundItem._id}:`,
+                err,
+              );
+            }
+          }
         }),
       );
       // await this.syncAllIkasPrices('TRY');
