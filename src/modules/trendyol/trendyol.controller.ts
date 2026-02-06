@@ -43,6 +43,16 @@ export class TrendyolController {
     return await this.trendyolService.updatePriceAndInventory();
   }
 
+  @Post('/product/update-inventory')
+  async updateInventoryOnly() {
+    return await this.trendyolService.updateInventoryOnly();
+  }
+
+  @Post('/product/update-price')
+  async updatePriceOnly() {
+    return await this.trendyolService.updatePriceOnly();
+  }
+
   @Public()
   @Get('/webhook')
   getWebhooks() {
