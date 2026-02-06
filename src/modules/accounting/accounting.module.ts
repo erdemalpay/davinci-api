@@ -8,6 +8,7 @@ import { IkasModule } from '../ikas/ikas.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
 import { ShopifyModule } from '../shopify/shopify.module';
+import { TrendyolModule } from '../trendyol/trendyol.module';
 import { NotificationModule } from '../notification/notification.module';
 import { UserModule } from '../user/user.module';
 import { VisitModule } from '../visit/visit.module';
@@ -72,6 +73,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => LocationModule),
     forwardRef(() => IkasModule),
     forwardRef(() => ShopifyModule),
+    forwardRef(() => TrendyolModule),
     forwardRef(() => MenuModule),
   ],
   providers: [AccountingService],

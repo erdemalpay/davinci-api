@@ -22,6 +22,7 @@ import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { ShopifyService } from '../shopify/shopify.service';
+import { TrendyolService } from '../trendyol/trendyol.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
@@ -106,6 +107,8 @@ export class AccountingService {
     private readonly ikasService: IkasService,
     @Inject(forwardRef(() => ShopifyService))
     private readonly shopifyService: ShopifyService,
+    @Inject(forwardRef(() => TrendyolService))
+    private readonly trendyolService: TrendyolService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
@@ -2126,6 +2129,43 @@ export class AccountingService {
       );
     }
   }
+
+  async updateTrendyolStock(
+    productId: string,
+    location: number,
+    quantity: number,
+  ) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.trendyolBarcode) {
+        return;
+      }
+
+      const foundLocation = await this.locationService.findLocationById(
+        location,
+      );
+      if (!foundLocation) {
+        return;
+      }
+
+      // Trendyol için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      await this.trendyolService.updateProductStock(
+        menuItem.trendyolBarcode,
+        location,
+        quantity,
+      );
+    } catch (error) {
+      // Log error but don't throw - allow main flow to continue
+      this.logger.error(
+        `Error updating Trendyol stock for product ${productId}, location ${location}:`,
+        error,
+      );
+    }
+  }
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
@@ -2297,6 +2337,14 @@ export class AccountingService {
           Number(oldQuantity) + Number(createStockDto.quantity),
         );
       }
+      // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
+        this.updateTrendyolStock(
+          createStockDto.product,
+          createStockDto.location,
+          Number(oldQuantity) + Number(createStockDto.quantity),
+        );
+      }
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2372,6 +2420,14 @@ export class AccountingService {
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
+          createStockDto.product,
+          createStockDto.location,
+          createStockDto.quantity,
+        );
+      }
+      // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
+        this.updateTrendyolStock(
           createStockDto.product,
           createStockDto.location,
           createStockDto.quantity,
@@ -2516,6 +2572,10 @@ export class AccountingService {
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(stock.product?._id, stock.location, 0);
+      }
+      // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
+        this.updateTrendyolStock(stock.product?._id, stock.location, 0);
       }
       this.activityService.addActivity(
         user,
@@ -2699,6 +2759,14 @@ export class AccountingService {
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (consumptStatus !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
+          consumptStockDto.product,
+          stock.location,
+          stock.quantity - consumptStockDto.quantity,
+        );
+      }
+      // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (consumptStatus !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
+        this.updateTrendyolStock(
           consumptStockDto.product,
           stock.location,
           stock.quantity - consumptStockDto.quantity,
