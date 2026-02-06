@@ -64,7 +64,7 @@ export class TrendyolService {
   ) {}
 
   /**
-   * Trendyol'a webhook kaydı oluşturur
+   * Trendyol'a webhook kaydı oluşturur.
    */
   async createWebhook(webhookData: CreateTrendyolWebhookDto) {
     try {
