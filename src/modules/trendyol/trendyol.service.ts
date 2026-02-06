@@ -312,6 +312,75 @@ export class TrendyolService {
   }
 
   /**
+   * Tek bir ürünün Trendyol stok bilgisini günceller
+   * Sistem içindeki stok değiştiğinde otomatik olarak çağrılır
+   */
+  async updateProductStock(
+    barcode: string,
+    location: number,
+    quantity: number,
+  ): Promise<boolean> {
+    try {
+      // Online Store location kontrolü - sadece location 6 için Trendyol'u güncelle
+      if (location !== this.OnlineStoreLocation) {
+        return false;
+      }
+
+      // Trendyol'daki ürünü bul
+      const trendyolProducts = await this.getAllProductsComplete();
+
+      const trendyolProduct = trendyolProducts.find(
+        (p) =>
+          p.productMainId === barcode ||
+          p.barcode === barcode ||
+          p.stockCode === barcode,
+      );
+
+      if (!trendyolProduct) {
+        return false;
+      }
+
+      // Quantity 20000'den fazla olamaz (Trendyol limiti)
+      const finalQuantity = Math.min(quantity, 20000);
+
+      // Mevcut fiyatları kullan
+      const salePrice = trendyolProduct.salePrice;
+      const listPrice = trendyolProduct.listPrice;
+
+      // Sadece stok değişmişse güncelle
+      if (trendyolProduct.quantity === finalQuantity) {
+        return true;
+      }
+
+      this.logger.log(
+        `Updating Trendyol stock for product ${barcode}: ${trendyolProduct.quantity} -> ${finalQuantity}`,
+      );
+
+      // updatePriceAndInventory metodunu kullanarak güncelle
+      await this.updatePriceAndInventory([
+        {
+          barcode: trendyolProduct.barcode,
+          quantity: finalQuantity,
+          salePrice,
+          listPrice,
+        },
+      ]);
+
+      this.logger.log(
+        `Trendyol stock updated successfully for product ${barcode}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Error updating Trendyol stock for product ${barcode}, location ${location}:`,
+        error,
+      );
+      // Don't throw - allow main flow to continue
+      return false;
+    }
+  }
+
+  /**
    * Trendyol ürünlerinin fiyat ve stok bilgilerini günceller
    * items parametresi verilirse sadece o ürünleri günceller
    * items parametresi verilmezse tüm ürünleri otomatik günceller
