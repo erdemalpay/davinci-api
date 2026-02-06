@@ -234,6 +234,13 @@ export class MenuService {
     });
   }
 
+  async findItemsWithHepsiBuradaSku() {
+    return this.itemModel.find({
+      hepsiBuradaSku: { $nin: [null, ''] },
+      deleted: { $ne: true },
+    });
+  }
+
   async updateIkasItemsIkasIdFields(sendItems: MenuItem[]) {
     const items = await this.itemModel.find();
     Promise.all(

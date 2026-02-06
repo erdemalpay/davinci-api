@@ -103,6 +103,9 @@ export class MenuItem extends Document {
   trendyolBarcode: string;
 
   @Prop({ required: false, type: String })
+  hepsiBuradaSku: string;
+
+  @Prop({ required: false, type: String })
   trendyolSku: string;
 
   @Prop({ required: false, type: String })
