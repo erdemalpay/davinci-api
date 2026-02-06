@@ -946,7 +946,7 @@ export class MenuService {
     );
 
     // Update Shopify price if the price changed and item has shopifyId
-    if (priceChanged && updatedItem.shopifyId) {
+    if (priceChanged && updatedItem.shopifyId && updatedItem.shopifyVariantId) {
       await this.shopifyService.updateProductPrice(
         updatedItem.shopifyId,
         updatedItem.shopifyVariantId,
