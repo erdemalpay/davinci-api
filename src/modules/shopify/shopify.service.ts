@@ -1778,6 +1778,10 @@ export class ShopifyService {
           ? parseFloat(data.total_shipping_price_set.shop_money.amount)
           : 0;
 
+        const discountAmount = data?.current_total_discounts
+          ? parseFloat(data.current_total_discounts)
+          : 0;
+
         const createdCollection = {
           location: 4,
           paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
@@ -1795,6 +1799,9 @@ export class ShopifyService {
           }),
           ...(shippingAmount > 0 && {
             shopifyShippingAmount: shippingAmount,
+          }),
+          ...(discountAmount > 0 && {
+            shopifyDiscountAmount: discountAmount,
           }),
         };
 

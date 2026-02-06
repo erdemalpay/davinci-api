@@ -506,137 +506,137 @@ export class MenuService {
    * Skips items that already have ikasVariantId
    * @returns Object with success count, failed count, and details
    */
-  async updateIkasVariantIds() {
-    // Get only items that have ikasId but don't have ikasVariantId yet
-    const items = await this.itemModel.find({
-      ikasId: { $nin: [null, ''] },
-      $or: [
-        { ikasVariantId: { $exists: false } },
-        { ikasVariantId: null },
-        { ikasVariantId: '' },
-      ],
-      deleted: { $ne: true },
-    });
+  // async updateIkasVariantIds() {
+  //   // Get only items that have ikasId but don't have ikasVariantId yet
+  //   const items = await this.itemModel.find({
+  //     ikasId: { $nin: [null, ''] },
+  //     $or: [
+  //       { ikasVariantId: { $exists: false } },
+  //       { ikasVariantId: null },
+  //       { ikasVariantId: '' },
+  //     ],
+  //     deleted: { $ne: true },
+  //   });
 
-    const results = {
-      total: items.length,
-      skipped: 0,
-      success: 0,
-      failed: 0,
-      details: [] as Array<{
-        itemId: number;
-        itemName: string;
-        ikasId: string;
-        status: 'success' | 'failed' | 'skipped';
-        variantId?: string;
-        error?: string;
-      }>,
-    };
+  //   const results = {
+  //     total: items.length,
+  //     skipped: 0,
+  //     success: 0,
+  //     failed: 0,
+  //     details: [] as Array<{
+  //       itemId: number;
+  //       itemName: string;
+  //       ikasId: string;
+  //       status: 'success' | 'failed' | 'skipped';
+  //       variantId?: string;
+  //       error?: string;
+  //     }>,
+  //   };
 
-    if (items.length === 0) {
-      return {
-        ...results,
-        message: 'No items to update. All items already have ikasVariantId.',
-      };
-    }
+  //   if (items.length === 0) {
+  //     return {
+  //       ...results,
+  //       message: 'No items to update. All items already have ikasVariantId.',
+  //     };
+  //   }
 
-    // Fetch all products once from Ikas API
-    let allProducts: any[] = [];
-    try {
-      allProducts = await this.IkasService.getAllProducts();
-    } catch (error) {
-      // If getAllProducts fails, mark all items as failed
-      for (const item of items) {
-        results.details.push({
-          itemId: item._id,
-          itemName: item.name,
-          ikasId: item.ikasId || '',
-          status: 'failed',
-          error: `Failed to fetch products from Ikas: ${
-            error?.message || 'Unknown error'
-          }`,
-        });
-        results.failed++;
-      }
-      return results;
-    }
+  //   // Fetch all products once from Ikas API
+  //   let allProducts: any[] = [];
+  //   try {
+  //     allProducts = await this.IkasService.getAllProducts();
+  //   } catch (error) {
+  //     // If getAllProducts fails, mark all items as failed
+  //     for (const item of items) {
+  //       results.details.push({
+  //         itemId: item._id,
+  //         itemName: item.name,
+  //         ikasId: item.ikasId || '',
+  //         status: 'failed',
+  //         error: `Failed to fetch products from Ikas: ${
+  //           error?.message || 'Unknown error'
+  //         }`,
+  //       });
+  //       results.failed++;
+  //     }
+  //     return results;
+  //   }
 
-    // Process each item
-    for (const item of items) {
-      try {
-        if (!item.ikasId) {
-          results.details.push({
-            itemId: item._id,
-            itemName: item.name,
-            ikasId: item.ikasId || '',
-            status: 'failed',
-            error: 'No ikasId found',
-          });
-          results.failed++;
-          continue;
-        }
+  //   // Process each item
+  //   for (const item of items) {
+  //     try {
+  //       if (!item.ikasId) {
+  //         results.details.push({
+  //           itemId: item._id,
+  //           itemName: item.name,
+  //           ikasId: item.ikasId || '',
+  //           status: 'failed',
+  //           error: 'No ikasId found',
+  //         });
+  //         results.failed++;
+  //         continue;
+  //       }
 
-        // Skip if already has ikasVariantId (shouldn't happen due to query, but double-check)
-        if (item.ikasVariantId) {
-          results.details.push({
-            itemId: item._id,
-            itemName: item.name,
-            ikasId: item.ikasId,
-            status: 'skipped',
-            variantId: item.ikasVariantId,
-          });
-          results.skipped++;
-          continue;
-        }
+  //       // Skip if already has ikasVariantId (shouldn't happen due to query, but double-check)
+  //       if (item.ikasVariantId) {
+  //         results.details.push({
+  //           itemId: item._id,
+  //           itemName: item.name,
+  //           ikasId: item.ikasId,
+  //           status: 'skipped',
+  //           variantId: item.ikasVariantId,
+  //         });
+  //         results.skipped++;
+  //         continue;
+  //       }
 
-        // Find product in the fetched list
-        const product = allProducts.find((p) => p?.id === item.ikasId);
+  //       // Find product in the fetched list
+  //       const product = allProducts.find((p) => p?.id === item.ikasId);
 
-        if (!product || !product.variants || product.variants.length === 0) {
-          results.details.push({
-            itemId: item._id,
-            itemName: item.name,
-            ikasId: item.ikasId,
-            status: 'failed',
-            error: 'Product not found or has no variants',
-          });
-          results.failed++;
-          continue;
-        }
+  //       if (!product || !product.variants || product.variants.length === 0) {
+  //         results.details.push({
+  //           itemId: item._id,
+  //           itemName: item.name,
+  //           ikasId: item.ikasId,
+  //           status: 'failed',
+  //           error: 'Product not found or has no variants',
+  //         });
+  //         results.failed++;
+  //         continue;
+  //       }
 
-        const variantId = product.variants[0].id;
+  //       const variantId = product.variants[0].id;
 
-        // Update the item with variant ID
-        await this.itemModel.findByIdAndUpdate(item._id, {
-          ikasVariantId: variantId,
-        });
+  //       // Update the item with variant ID
+  //       await this.itemModel.findByIdAndUpdate(item._id, {
+  //         ikasVariantId: variantId,
+  //       });
 
-        results.details.push({
-          itemId: item._id,
-          itemName: item.name,
-          ikasId: item.ikasId,
-          status: 'success',
-          variantId: variantId,
-        });
-        results.success++;
-      } catch (error) {
-        results.details.push({
-          itemId: item._id,
-          itemName: item.name,
-          ikasId: item.ikasId || '',
-          status: 'failed',
-          error: error?.message || 'Unknown error',
-        });
-        results.failed++;
-        this.logger.error(
-          `Error updating variant ID for item ${item._id} (${item.name}):`,
-          error,
-        );
-      }
-    }
+  //       results.details.push({
+  //         itemId: item._id,
+  //         itemName: item.name,
+  //         ikasId: item.ikasId,
+  //         status: 'success',
+  //         variantId: variantId,
+  //       });
+  //       results.success++;
+  //     } catch (error) {
+  //       results.details.push({
+  //         itemId: item._id,
+  //         itemName: item.name,
+  //         ikasId: item.ikasId || '',
+  //         status: 'failed',
+  //         error: error?.message || 'Unknown error',
+  //       });
+  //       results.failed++;
+  //       this.logger.error(
+  //         `Error updating variant ID for item ${item._id} (${item.name}):`,
+  //         error,
+  //       );
+  //     }
+  //   }
 
-    return results;
-  }
+  //   return results;
+  // }
   async findByMatchedProduct(id: string) {
     const item = await this.itemModel.findOne({
       matchedProduct: id,
@@ -944,26 +944,26 @@ export class MenuService {
     this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
-  async syncAllIkasPrices(currency = 'TRY') {
-    if (process.env.NODE_ENV !== 'production') return;
+  // async syncAllIkasPrices(currency = 'TRY') {
+  //   if (process.env.NODE_ENV !== 'production') return;
 
-    const items = await this.itemModel.find(
-      { ikasId: { $exists: true, $ne: null } },
-      {
-        ikasId: 1,
-        price: 1,
-        onlinePrice: 1,
-        ikasDiscountedPrice: 1,
-      },
-    );
+  //   const items = await this.itemModel.find(
+  //     { ikasId: { $exists: true, $ne: null } },
+  //     {
+  //       ikasId: 1,
+  //       price: 1,
+  //       onlinePrice: 1,
+  //       ikasDiscountedPrice: 1,
+  //     },
+  //   );
 
-    const payload = items.map((it) => ({
-      productId: it.ikasId,
-      basePrice: it.price ?? null,
-      onlinePrice: it.onlinePrice ?? null,
-    }));
-    await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
-  }
+  //   const payload = items.map((it) => ({
+  //     productId: it.ikasId,
+  //     basePrice: it.price ?? null,
+  //     onlinePrice: it.onlinePrice ?? null,
+  //   }));
+  //   await this.IkasService.bulkUpdatePricesForProducts(payload, currency);
+  // }
 
   async syncAllShopifyPrices() {
     // if (process.env.NODE_ENV !== 'production') return;
@@ -1052,7 +1052,7 @@ export class MenuService {
           }
           foundItem.name = item.name;
           foundItem.price = item.price;
-          foundItem.ikasId = item.ikasId;
+          // foundItem.ikasId = item.ikasId;
           foundItem.sku = item?.sku;
           foundItem.barcode = item?.barcode;
           if (item?.onlinePrice && (item.onlinePrice as any) !== '-') {
@@ -1061,7 +1061,7 @@ export class MenuService {
           await foundItem.save();
         }),
       );
-      await this.syncAllIkasPrices('TRY');
+      // await this.syncAllIkasPrices('TRY');
 
       this.websocketGateway.emitItemChanged();
     } catch (error) {
@@ -1419,76 +1419,76 @@ export class MenuService {
   deleteMenuItem(id: number) {
     return this.itemModel.findByIdAndDelete(id);
   }
-  async updateItemIkasCategories() {
-    try {
-      const ikasProducts = await this.IkasService.getAllProducts();
-      const ikasItems = await this.getAllIkasItems();
-      const ikasCategories =
-        await this.accountingService.findAllProductCategory();
+  // async updateItemIkasCategories() {
+  //   try {
+  //     const ikasProducts = await this.IkasService.getAllProducts();
+  //     const ikasItems = await this.getAllIkasItems();
+  //     const ikasCategories =
+  //       await this.accountingService.findAllProductCategory();
 
-      for (const ikasItem of ikasItems) {
-        const ikasProduct = ikasProducts.find(
-          (product) => product.id === ikasItem.ikasId,
-        );
+  //     for (const ikasItem of ikasItems) {
+  //       const ikasProduct = ikasProducts.find(
+  //         (product) => product.id === ikasItem.ikasId,
+  //       );
 
-        if (!ikasProduct) {
-          this.logger.warn(
-            `No matching product found for IkasItem ID: ${ikasItem.ikasId}`,
-          );
-          continue; // Skip this iteration if no matching product is found
-        }
+  //       if (!ikasProduct) {
+  //         this.logger.warn(
+  //           `No matching product found for IkasItem ID: ${ikasItem.ikasId}`,
+  //         );
+  //         continue; // Skip this iteration if no matching product is found
+  //       }
 
-        const foundCategories = ikasCategories.filter((category) =>
-          ikasProduct.categoryIds.includes(category.ikasId),
-        );
+  //       const foundCategories = ikasCategories.filter((category) =>
+  //         ikasProduct.categoryIds.includes(category.ikasId),
+  //       );
 
-        if (foundCategories.length > 0) {
-          await this.itemModel.findByIdAndUpdate(
-            ikasItem._id,
-            {
-              productCategories: foundCategories.map(
-                (category) => category._id,
-              ),
-            },
-            { new: true },
-          );
-        }
-      }
+  //       if (foundCategories.length > 0) {
+  //         await this.itemModel.findByIdAndUpdate(
+  //           ikasItem._id,
+  //           {
+  //             productCategories: foundCategories.map(
+  //               (category) => category._id,
+  //             ),
+  //           },
+  //           { new: true },
+  //         );
+  //       }
+  //     }
 
-      this.websocketGateway.emitItemChanged();
-    } catch (error) {
-      this.logger.error('Failed to update Ikas categories:', error);
-      throw error;
-    }
-  }
+  //     this.websocketGateway.emitItemChanged();
+  //   } catch (error) {
+  //     this.logger.error('Failed to update Ikas categories:', error);
+  //     throw error;
+  //   }
+  // }
 
-  async createMultipleIkasProduct(user: User, itemIds: Array<number>) {
-    const items = await this.itemModel.find({
-      _id: { $in: itemIds },
-    });
-    let failedItems = [];
-    const ikasCategories =
-      await this.accountingService.findAllProductCategory();
-    for (const item of items) {
-      try {
-        const ikasCategoryIds = item?.productCategories
-          ?.map((catId) => ikasCategories.find((c) => c._id === catId)?.ikasId)
-          ?.filter((ikasId) => ikasId !== undefined); // Ensure undefined values are filtered out
-        item.productCategories = ikasCategoryIds;
-        await this.IkasService.createItemProduct(user, item);
-      } catch (error) {
-        this.logger.error(
-          'Failed to create Ikas product for item ID ' + item._id + ':',
-          error,
-        );
-        failedItems.push(item._id);
-      }
-    }
-    if (failedItems.length > 0) {
-      this.logger.warn('Items that failed to create:', failedItems);
-    }
-    return failedItems;
-  }
+  // async createMultipleIkasProduct(user: User, itemIds: Array<number>) {
+  //   const items = await this.itemModel.find({
+  //     _id: { $in: itemIds },
+  //   });
+  //   let failedItems = [];
+  //   const ikasCategories =
+  //     await this.accountingService.findAllProductCategory();
+  //   for (const item of items) {
+  //     try {
+  //       const ikasCategoryIds = item?.productCategories
+  //         ?.map((catId) => ikasCategories.find((c) => c._id === catId)?.ikasId)
+  //         ?.filter((ikasId) => ikasId !== undefined); // Ensure undefined values are filtered out
+  //       item.productCategories = ikasCategoryIds;
+  //       await this.IkasService.createItemProduct(user, item);
+  //     } catch (error) {
+  //       this.logger.error(
+  //         'Failed to create Ikas product for item ID ' + item._id + ':',
+  //         error,
+  //       );
+  //       failedItems.push(item._id);
+  //     }
+  //   }
+  //   if (failedItems.length > 0) {
+  //     this.logger.warn('Items that failed to create:', failedItems);
+  //   }
+  //   return failedItems;
+  // }
 
   async createMultipleShopifyProduct(user: User, itemIds: Array<number>) {
     const items = await this.itemModel.find({
@@ -1548,28 +1548,28 @@ export class MenuService {
     this.websocketGateway.emitItemChanged();
   }
 
-  async updateItemsSlugs() {
-    const items = await this.getAllIkasItems();
-    const ikasProducts = await this.IkasService.getAllProducts();
-    const updatePromises = items.map((item) => {
-      const ikasProduct = ikasProducts.find(
-        (product) => product.id === item.ikasId,
-      );
+  // async updateItemsSlugs() {
+  //   const items = await this.getAllIkasItems();
+  //   const ikasProducts = await this.IkasService.getAllProducts();
+  //   const updatePromises = items.map((item) => {
+  //     const ikasProduct = ikasProducts.find(
+  //       (product) => product.id === item.ikasId,
+  //     );
 
-      if (!ikasProduct) {
-        this.logger.log(
-          `No matching product found for IkasItem ID: ${item.ikasId}`,
-        );
-        return null;
-      }
-      return this.itemModel.findByIdAndUpdate(item._id, {
-        slug: ikasProduct.metaData.slug,
-      });
-    });
-    await Promise.all(updatePromises.filter(Boolean));
-    this.websocketGateway.emitItemChanged();
-    return items;
-  }
+  //     if (!ikasProduct) {
+  //       this.logger.log(
+  //         `No matching product found for IkasItem ID: ${item.ikasId}`,
+  //       );
+  //       return null;
+  //     }
+  //     return this.itemModel.findByIdAndUpdate(item._id, {
+  //       slug: ikasProduct.metaData.slug,
+  //     });
+  //   });
+  //   await Promise.all(updatePromises.filter(Boolean));
+  //   this.websocketGateway.emitItemChanged();
+  //   return items;
+  // }
   async setOrderCategoryOrders() {
     const categories = await this.categoryModel.find();
     let i = 1;
