@@ -58,12 +58,6 @@ export class TrendyolController {
   }
 
   @Public()
-  @Post('/order-create-webhook')
-  orderCreateWebhook(@Body() data?: any) {
-    return this.trendyolService.orderCreateWebhook(data);
-  }
-
-  @Public()
   @Post('/order-status-webhook')
   orderStatusWebhook(@Body() data?: any) {
     return this.trendyolService.orderStatusWebhook(data);
