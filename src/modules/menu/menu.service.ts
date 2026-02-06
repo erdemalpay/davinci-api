@@ -941,6 +941,16 @@ export class MenuService {
       item,
       updatedItem,
     );
+
+    // Update Shopify price if the price changed and item has shopifyId
+    if (priceChanged && updatedItem.shopifyId) {
+      await this.shopifyService.updateProductPrice(
+        updatedItem.shopifyId,
+        updatedItem.shopifyVariantId,
+        updates.price,
+      );
+    }
+
     this.websocketGateway.emitItemChanged();
     return updatedItem;
   }
