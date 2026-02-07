@@ -8,7 +8,6 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Public } from '../auth/public.decorator';
 import { HepsiburadaService } from './hepsiburada.service';
 
 @Controller('hepsiburada')
@@ -17,7 +16,6 @@ export class HepsiburadaController {
 
   constructor(private readonly hepsiburadaService: HepsiburadaService) {}
 
-  @Public()
   @Get('/products')
   getAllProducts(
     @Query('barcode') barcode?: string,
@@ -27,7 +25,6 @@ export class HepsiburadaController {
     return this.hepsiburadaService.getAllProducts(barcode, merchantSku, hbSku);
   }
 
-  @Public()
   @Get('/products-by-status')
   getProductsByStatus(
     @Query('productStatus') productStatus?: string,
@@ -66,7 +63,6 @@ export class HepsiburadaController {
     return this.hepsiburadaService.checkPriceUpdateStatus(batchId);
   }
 
-  @Public()
   @Get('/listings')
   getListings(@Query('page') page?: string, @Query('size') size?: string) {
     return this.hepsiburadaService.getListings(
