@@ -402,6 +402,43 @@ export class HepsiburadaService {
   }
 
   /**
+   * Update price for a single menu item by its Hepsiburada SKU
+   * @param hbSku Hepsiburada SKU of the item
+   * @param price New price to set
+   */
+  async updateSingleItemPrice(hbSku: string, price: number) {
+    try {
+      // Fetch the product to get merchantSku
+      const { products: hepsiburadaProducts } = await this.getAllProducts();
+      const product = hepsiburadaProducts.find((p) => p.hbSku === hbSku);
+
+      if (!product) {
+        throw new Error(`Product not found for hbSku: ${hbSku}`);
+      }
+
+      // Use batch API with single item
+      const response = await this.listingAxiosInstance.post(
+        `/listings/merchantid/${this.merchantId}/price-uploads`,
+        [
+          {
+            hepsiburadaSku: hbSku,
+            merchantSku: product.merchantSku,
+            price: price,
+          },
+        ],
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Error updating price for hbSku ${hbSku}:`,
+        error.message,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Update stocks for all menu items that have matching Hepsiburada products
    * Fetches actual stock quantities from accounting service like Shopify integration
    * Matches items by hbSku field (hepsiBuradaSku in item schema)

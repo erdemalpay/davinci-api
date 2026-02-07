@@ -6,12 +6,14 @@ import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
 import { RedisModule } from '../redis/redis.module';
 import { VisitModule } from '../visit/visit.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { HepsiburadaModule } from './../hepsiburada/hepsiburada.module';
 import { IkasModule } from './../ikas/ikas.module';
+import { PanelControlModule } from './../panelControl/panelControl.module';
 import { ShopifyModule } from './../shopify/shopify.module';
 import { TrendyolModule } from './../trendyol/trendyol.module';
-import { PanelControlModule } from './../panelControl/panelControl.module';
 import { MenuCategory, MenuCategorySchema } from './category.schema';
 import { MenuItem, MenuItemSchema } from './item.schema';
 import { Kitchen, KitchenSchema } from './kitchen.schema';
@@ -19,7 +21,6 @@ import { MenuController } from './menu.controller';
 import { MenuService } from './menu.service';
 import { Popular, PopularSchema } from './popular.schema';
 import { UpperCategory, UpperCategorySchema } from './upperCategory.schema';
-import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(MenuItem.name, MenuItemSchema),
@@ -44,6 +45,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => IkasModule),
     forwardRef(() => ShopifyModule),
     forwardRef(() => TrendyolModule),
+    forwardRef(() => HepsiburadaModule),
   ],
   providers: [MenuService],
   exports: [MenuService],

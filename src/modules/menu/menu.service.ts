@@ -22,6 +22,7 @@ import { User } from '../user/user.schema';
 import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
+import { HepsiburadaService } from './../hepsiburada/hepsiburada.service';
 import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
@@ -65,6 +66,8 @@ export class MenuService {
     private readonly shopifyService: ShopifyService,
     @Inject(forwardRef(() => TrendyolService))
     private readonly trendyolService: TrendyolService,
+    @Inject(forwardRef(() => HepsiburadaService))
+    private readonly hepsiburadaService: HepsiburadaService,
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
@@ -979,6 +982,25 @@ export class MenuService {
       } catch (err) {
         this.logger.warn(
           `Trendyol price update failed for item ${id} (barcode: ${item.trendyolBarcode}):`,
+          err,
+        );
+      }
+    }
+
+    // Menü online fiyatı değiştiyse ve ürün Hepsiburada ile eşleşiyorsa Hepsiburada fiyatını güncelle
+    if (
+      onlinePriceChanged &&
+      item.hepsiBuradaSku &&
+      typeof updates.onlinePrice === 'number'
+    ) {
+      try {
+        await this.hepsiburadaService.updateSingleItemPrice(
+          item.hepsiBuradaSku,
+          updates.onlinePrice,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Hepsiburada price update failed for item ${id} (sku: ${item.hepsiBuradaSku}):`,
           err,
         );
       }
