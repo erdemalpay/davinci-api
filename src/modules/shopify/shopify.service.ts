@@ -1953,16 +1953,12 @@ export class ShopifyService {
         );
       }
 
-      // Log webhook request in background
-      this.webhookLogService.logWebhookRequest(
+      // Log webhook request - await to ensure it's saved before processing
+      webhookLog = await this.webhookLogService.logWebhookRequest(
         WebhookSource.SHOPIFY,
         'order-create-webhook',
         data,
-      ).then((log) => {
-        webhookLog = log;
-      }).catch((error) => {
-        this.logger.error('Error logging webhook request:', error);
-      });
+      );
 
       this.logger.log('Received Shopify order webhook data:', data);
 
@@ -1985,7 +1981,7 @@ export class ShopifyService {
           orderIds: [],
         };
         
-        // Update webhook log in background
+        // Update webhook log (fire-and-forget)
         if (webhookLog) {
           this.webhookLogService.updateWebhookResponse(
             webhookLog._id,
@@ -2062,7 +2058,7 @@ export class ShopifyService {
           orderIds: [],
         };
         
-        // Update webhook log in background
+        // Update webhook log (fire-and-forget)
         if (webhookLog) {
           this.webhookLogService.updateWebhookResponse(
             webhookLog._id,
@@ -2317,7 +2313,7 @@ export class ShopifyService {
         orderIds,
       };
 
-      // Update webhook log in background (don't await)
+      // Update webhook log (fire-and-forget)
       if (webhookLog) {
         this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
@@ -2337,7 +2333,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error in orderCreateWebHook', error);
       
-      // Update webhook log with error response in background
+      // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
         this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
@@ -2557,14 +2553,14 @@ export class ShopifyService {
         }
       }
 
-      // Update webhook log with success response
+      // Update webhook log with success response (fire-and-forget)
       const response = {
         success: true,
         cancellationsProcessed: cancellationResults.length,
       };
 
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           response,
           HttpStatus.OK,
@@ -2573,16 +2569,18 @@ export class ShopifyService {
           undefined,
           data?.id?.toString(),
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       return response;
     } catch (error) {
       this.logError('Error in orderCancelWebHook', error);
       
-      // Update webhook log with error response
+      // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           { error: error?.message || 'Unknown error' },
           error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -2591,7 +2589,9 @@ export class ShopifyService {
           undefined,
           undefined,
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       throw new HttpException(
