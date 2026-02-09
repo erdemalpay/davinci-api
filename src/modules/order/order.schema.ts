@@ -187,6 +187,9 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   shopifyFulfillmentOrderId: string;
 
+  @Prop({ required: false, type: String })
+  shopifyFulfillmentId: string;
+
   @Prop({ required: true, type: Date })
   tableDate: Date;
 

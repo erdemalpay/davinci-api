@@ -1753,6 +1753,63 @@ export class ShopifyService {
   }
 
   /**
+   * Cancel an existing fulfillment to make the order fulfillable again
+   */
+  async cancelFulfillment(fulfillmentId: string): Promise<any> {
+    const mutation = `
+      mutation CancelFulfillment($id: ID!) {
+        fulfillmentCancel(id: $id) {
+          fulfillment {
+            id
+            status
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const formattedFulfillmentId = fulfillmentId.includes('gid://')
+        ? fulfillmentId
+        : `gid://shopify/Fulfillment/${fulfillmentId}`;
+
+      this.logger.log(
+        `Cancelling fulfillment ${formattedFulfillmentId}`,
+      );
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            id: formattedFulfillmentId,
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        response,
+        'data.fulfillmentCancel.userErrors',
+      );
+
+      this.logger.log(
+        'Fulfillment cancelled successfully:',
+        response.data.fulfillmentCancel.fulfillment,
+      );
+
+      return response.data.fulfillmentCancel.fulfillment;
+    } catch (error) {
+      this.logError('Error cancelling fulfillment', error);
+      throw new HttpException(
+        'Unable to cancel fulfillment in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Create a fulfillment for a pickup order using the Shopify Order ID
    * Automatically fetches the first fulfillment order and creates fulfillment
    * Then marks it as picked up
@@ -1789,12 +1846,12 @@ export class ShopifyService {
         notifyCustomer,
       );
 
-      // Mark as picked up by creating a fulfillment event
+      // Mark as delivered by creating a fulfillment event
       if (fulfillment?.id) {
         try {
           await this.createFulfillmentEvent(fulfillment.id, 'DELIVERED');
           this.logger.log(
-            `Marked fulfillment ${fulfillment.id} as PICKED_UP`,
+            `Marked fulfillment ${fulfillment.id} as DELIVERED`,
           );
         } catch (eventError) {
           this.logger.error(
