@@ -1717,45 +1717,24 @@ export class OrderService {
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
       if (
         updates.isShopifyCustomerPicked === true &&
-        order.shopifyCustomer
+        order.shopifyCustomer &&
+        order.shopifyOrderId
       ) {
-        // If we don't have the fulfillment order ID yet, try to fetch it
-        if (!order.shopifyFulfillmentOrderId && order.shopifyOrderLineItemId) {
+        try {
+          // Create fulfillment using the shopifyOrderId - the service will fetch the fulfillment order ID automatically
+          await this.shopifyService.createFulfillmentForPickupOrder(
+            order.shopifyOrderId,
+            false, // Don't notify customer by default
+          );
           this.logger.log(
-            `Order ${id} doesn't have fulfillment order ID, attempting to fetch it...`,
+            `Shopify fulfillment created for order ${id} (Shopify Order: ${order.shopifyOrderId})`,
           );
-          await this.shopifyService.updateOrderWithFulfillmentOrderId(
-            order.shopifyOrderLineItemId,
+        } catch (fulfillmentError) {
+          this.logger.error(
+            `Failed to create Shopify fulfillment for order ${id}:`,
+            fulfillmentError,
           );
-          // Refetch the order to get the updated fulfillment order ID
-          const updatedOrder = await this.orderModel.findById(id);
-          if (updatedOrder?.shopifyFulfillmentOrderId) {
-            order.shopifyFulfillmentOrderId =
-              updatedOrder.shopifyFulfillmentOrderId;
-          }
-        }
-
-        // Now create the fulfillment if we have the ID
-        if (order.shopifyFulfillmentOrderId) {
-          try {
-            await this.shopifyService.createFulfillmentForPickup(
-              order.shopifyFulfillmentOrderId,
-              false, // Don't notify customer by default
-            );
-            this.logger.log(
-              `Shopify fulfillment created for order ${id} with fulfillment order ID ${order.shopifyFulfillmentOrderId}`,
-            );
-          } catch (fulfillmentError) {
-            this.logger.error(
-              `Failed to create Shopify fulfillment for order ${id}:`,
-              fulfillmentError,
-            );
-            // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
-          }
-        } else {
-          this.logger.warn(
-            `Cannot create Shopify fulfillment for order ${id}: No fulfillment order ID found`,
-          );
+          // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
         }
       }
 

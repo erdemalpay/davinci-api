@@ -1688,7 +1688,52 @@ export class ShopifyService {
   }
 
   /**
-   * Create a fulfillment for a pickup order
+   * Create a fulfillment for a pickup order using the Shopify Order ID
+   * Automatically fetches the first fulfillment order and creates fulfillment
+   * This is simpler than requiring the fulfillment order ID upfront
+   */
+  async createFulfillmentForPickupOrder(
+    shopifyOrderId: string,
+    notifyCustomer: boolean = false,
+  ): Promise<any> {
+    try {
+      // First, get the fulfillment orders for this order
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        shopifyOrderId,
+      );
+
+      if (fulfillmentOrders.length === 0) {
+        throw new HttpException(
+          `No fulfillment orders found for Shopify order ${shopifyOrderId}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // For pickup orders, there's typically only one fulfillment order
+      // Take the first one (or you could filter by delivery method if needed)
+      const fulfillmentOrder = fulfillmentOrders[0];
+      const fulfillmentOrderId = fulfillmentOrder.id;
+
+      this.logger.log(
+        `Found fulfillment order ${fulfillmentOrderId} for Shopify order ${shopifyOrderId}`,
+      );
+
+      // Create the fulfillment
+      return await this.createFulfillmentForPickup(
+        fulfillmentOrderId,
+        notifyCustomer,
+      );
+    } catch (error) {
+      this.logError(
+        `Error creating fulfillment for pickup order ${shopifyOrderId}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Create a fulfillment for a pickup order using fulfillment order ID
    * Marks the order as "fulfilled" in Shopify
    */
   async createFulfillmentForPickup(
