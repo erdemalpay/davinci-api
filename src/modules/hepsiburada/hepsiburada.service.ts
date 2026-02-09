@@ -555,7 +555,8 @@ export class HepsiburadaService {
         };
       }
 
-      const lineItems = data?.LineItems ?? [];
+      // Hepsiburada webhook format: items (küçük harf) veya LineItems (büyük harf)
+      const lineItems = data?.items ?? data?.LineItems ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
       if (!constantUser) {
@@ -580,47 +581,70 @@ export class HepsiburadaService {
 
       for (const lineItem of lineItems) {
         try {
-          const {
-            Sku,
-            MerchantId,
-            Quantity,
-            Price,
-            TotalPrice,
-          } = lineItem;
+          // Hepsiburada webhook format - hem büyük hem küçük harfli field'lari destekle
+          const sku = lineItem.sku || lineItem.Sku;
+          const quantity = lineItem.quantity || lineItem.Quantity;
+          const unitPrice = lineItem.unitPrice || lineItem.Price;
+          const totalPrice = lineItem.totalPrice || lineItem.TotalPrice;
+          const orderNumber = lineItem.orderNumber || data?.orderNumber || data?.OrderNumber;
+          const orderDate = lineItem.orderDate || data?.orderDate || data?.OrderDate;
 
-          if (!Sku || !Quantity) {
+          if (!sku || !quantity) {
             this.logger.warn(
-              'Invalid line item data - missing Sku or Quantity',
+              'Invalid line item data - missing sku or quantity',
             );
+            this.logger.debug('Line item:', lineItem);
             continue;
           }
 
           // Find menu item by Hepsiburada SKU
-          const foundMenuItem = await this.menuService.findByHepsiBuradaSku(Sku);
+          const foundMenuItem = await this.menuService.findByHepsiBuradaSku(sku);
 
           if (!foundMenuItem) {
             this.logger.warn(
-              `No menu item found with Hepsiburada SKU: ${Sku}`,
+              `No menu item found with Hepsiburada SKU: ${sku}`,
             );
             continue;
           }
 
-          const itemAmount = TotalPrice?.Amount || (Price?.Amount * Quantity) || 0;
+          // Calculate amounts - handle both formats
+          let itemAmount = 0;
+          let pricePerUnit = 0;
+
+          if (totalPrice?.amount !== undefined) {
+            // Format: { amount: 100, currency: "TRY" }
+            itemAmount = totalPrice.amount;
+            pricePerUnit = unitPrice?.amount || (itemAmount / quantity);
+          } else if (totalPrice?.Amount !== undefined) {
+            // Format: { Amount: 100, Currency: "TRY" }
+            itemAmount = totalPrice.Amount;
+            pricePerUnit = unitPrice?.Amount || (itemAmount / quantity);
+          } else if (unitPrice?.amount !== undefined) {
+            pricePerUnit = unitPrice.amount;
+            itemAmount = pricePerUnit * quantity;
+          } else if (unitPrice?.Amount !== undefined) {
+            pricePerUnit = unitPrice.Amount;
+            itemAmount = pricePerUnit * quantity;
+          }
+
+          this.logger.log(
+            `Processing order item: SKU=${sku}, Quantity=${quantity}, UnitPrice=${pricePerUnit}, Total=${itemAmount}`,
+          );
 
           // Create order
           const order = await this.orderService.createOrder(constantUser, {
             location: this.OnlineStoreLocation,
             item: foundMenuItem._id,
-            quantity: Quantity,
+            quantity: quantity,
             status: OrderStatus.READYTOSERVE,
-            unitPrice: Price?.Amount || 0,
-            paidQuantity: Quantity,
-            createdAt: new Date(data?.OrderDate || Date.now()),
+            unitPrice: pricePerUnit,
+            paidQuantity: quantity,
+            createdAt: new Date(orderDate || Date.now()),
             createdBy: constantUser._id,
             paymentMethod: 'hepsiburada',
             tableDate: new Date(),
-            hepsiburadaOrderNumber: data?.OrderNumber,
-            hepsiburadaLineItemSku: Sku,
+            hepsiburadaOrderNumber: orderNumber,
+            hepsiburadaLineItemSku: sku,
           });
 
           this.logger.log('Order created:', order._id);
@@ -639,7 +663,7 @@ export class HepsiburadaService {
 
       // Create a single collection for all orders from this Hepsiburada order
       if (createdOrders.length > 0) {
-        const hepsiburadaOrderNumber = data?.OrderNumber;
+        const hepsiburadaOrderNumber = data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
 
         const createdCollection = {
           location: this.OnlineStoreLocation,
