@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
@@ -21,6 +21,8 @@ import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
+import { WebhookSource, WebhookStatus } from '../webhook-log/webhook-log.schema';
+import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
@@ -78,6 +80,7 @@ export class ShopifyService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
+    private readonly webhookLogService: WebhookLogService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -1937,8 +1940,11 @@ export class ShopifyService {
   }
 
   async orderCreateWebHook(data?: any) {
+    const startTime = Date.now();
     this.logger.log('Processing Shopify order webhook...');
     this.logger.debug('Webhook data:', data);
+    
+    let webhookLog: any = null;
     try {
       if (!data) {
         throw new HttpException(
@@ -1946,6 +1952,17 @@ export class ShopifyService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // Log webhook request in background
+      this.webhookLogService.logWebhookRequest(
+        WebhookSource.SHOPIFY,
+        'order-create-webhook',
+        data,
+      ).then((log) => {
+        webhookLog = log;
+      }).catch((error) => {
+        this.logger.error('Error logging webhook request:', error);
+      });
 
       this.logger.log('Received Shopify order webhook data:', data);
 
@@ -1961,7 +1978,30 @@ export class ShopifyService {
 
       if (lineItems.length === 0) {
         this.logger.log('No line items to process');
-        return;
+        const response = {
+          success: false,
+          message: 'No line items to process',
+          ordersCreated: 0,
+          orderIds: [],
+        };
+        
+        // Update webhook log in background
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            'No line items to process',
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
+        return response;
       }
 
       // Get fulfillment orders for this order to map line items to fulfillment orders
@@ -2015,8 +2055,37 @@ export class ShopifyService {
         this.logger.log(
           `Skipping order as financial status is not 'paid' or 'pending'`,
         );
-        return;
+        const response = {
+          success: false,
+          message: `Skipping order as financial status is not 'paid' or 'pending'`,
+          ordersCreated: 0,
+          orderIds: [],
+        };
+        
+        // Update webhook log in background
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            `Financial status: ${data?.financial_status}`,
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
+        return response;
       }
+
+      // Get payment method once (outside the loop)
+      const foundPaymentMethod =
+        await this.accountingService.findPaymentMethodByShopifyId(
+          data?.payment_gateway_names?.[0],
+        );
 
       const createdOrders: Array<{
         order: number;
@@ -2026,8 +2095,24 @@ export class ShopifyService {
       }> = [];
       let totalAmount = 0;
 
-      for (const lineItem of lineItems) {
+      // Pre-fetch menu items and check existing orders in parallel
+      const menuItemPromises = lineItems.map((lineItem) =>
+        this.menuService.findByShopifyId(lineItem.product_id?.toString()),
+      );
+      const existingOrderPromises = lineItems.map((lineItem) =>
+        this.orderService.findByShopifyOrderLineItemId(
+          lineItem.id?.toString(),
+        ),
+      );
+
+      const [menuItems, existingOrders] = await Promise.all([
+        Promise.all(menuItemPromises),
+        Promise.all(existingOrderPromises),
+      ]);
+
+      for (let i = 0; i < lineItems.length; i++) {
         try {
+          const lineItem = lineItems[i];
           const {
             id: lineItemId,
             quantity,
@@ -2037,29 +2122,18 @@ export class ShopifyService {
           } = lineItem;
 
           if (!product_id || !quantity) {
-            throw new HttpException(
-              'Invalid line item data',
-              HttpStatus.BAD_REQUEST,
-            );
+            this.logger.warn(`Invalid line item data: ${JSON.stringify(lineItem)}`);
+            continue;
           }
 
-          const foundMenuItem = await this.menuService.findByShopifyId(
-            product_id.toString(),
-          );
+          const foundMenuItem = menuItems[i];
           if (!foundMenuItem?.matchedProduct) {
             this.logger.log(`Menu item not found for productId: ${product_id}`);
             continue;
           }
-          const foundPaymentMethod =
-            await this.accountingService.findPaymentMethodByShopifyId(
-              data?.payment_gateway_names?.[0],
-            );
 
           // Check if this specific line item order already exists
-          const foundShopifyOrder =
-            await this.orderService.findByShopifyOrderLineItemId(
-              lineItemId?.toString(),
-            );
+          const foundShopifyOrder = existingOrders[i];
           if (foundShopifyOrder) {
             this.logger.log(
               `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,
@@ -2122,9 +2196,15 @@ export class ShopifyService {
             );
             this.logger.log('Order created:', order);
 
+            const orderId = order?._id || order?.id;
+            if (!orderId) {
+              this.logger.error('Order created but _id is missing:', order);
+              continue;
+            }
+
             const itemAmount = parseFloat(price) * quantity;
             createdOrders.push({
-              order: order._id,
+              order: orderId,
               paidQuantity: quantity,
               amount: itemAmount,
               menuItemName: foundMenuItem.name,
@@ -2140,10 +2220,6 @@ export class ShopifyService {
 
       // Create a single collection for all orders from this Shopify order
       if (createdOrders.length > 0) {
-        const foundPaymentMethod =
-          await this.accountingService.findPaymentMethodByShopifyId(
-            data?.payment_gateway_names?.[0],
-          );
         const shopifyOrderNumber = data?.order_number;
         const shippingAmount = data?.total_shipping_price_set?.shop_money
           ?.amount
@@ -2225,16 +2301,69 @@ export class ShopifyService {
           this.logError('Error creating collection', collectionError);
         }
       }
+
+      // Update webhook log with response in background
+      const orderIds = createdOrders.map((o) => o.order).filter((id) => id != null);
+      const status = orderIds.length > 0 ? WebhookStatus.SUCCESS : WebhookStatus.ORDER_NOT_CREATED;
+      
+      this.logger.log(
+        `Webhook processing completed. Created orders: ${createdOrders.length}, Order IDs: ${JSON.stringify(orderIds)}`,
+      );
+      
+      const response = {
+        success: orderIds.length > 0,
+        ordersCreated: orderIds.length,
+        totalAmount,
+        orderIds,
+      };
+
+      // Update webhook log in background (don't await)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          status,
+          orderIds.length === 0 ? 'No orders were created' : undefined,
+          orderIds.length > 0 ? orderIds : undefined,
+          data?.id?.toString(),
+          startTime,
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
+      }
+
+      return response;
     } catch (error) {
       this.logError('Error in orderCreateWebHook', error);
+      
+      // Update webhook log with error response in background
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        ).catch((logError) => {
+          this.logger.error('Error updating webhook log:', logError);
+        });
+      }
+
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   async orderCancelWebHook(data?: any) {
+    const startTime = Date.now();
+    let webhookLog: any = null;
+    
     try {
       if (!data) {
         throw new HttpException(
@@ -2242,6 +2371,13 @@ export class ShopifyService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // Log webhook request
+      webhookLog = await this.webhookLogService.logWebhookRequest(
+        WebhookSource.SHOPIFY,
+        'order-cancel-webhook',
+        data,
+      );
 
       this.logger.log('Received Shopify cancel webhook data:', data);
 
@@ -2420,8 +2556,48 @@ export class ShopifyService {
           this.logError('Error updating collection', collectionError);
         }
       }
+
+      // Update webhook log with success response
+      const response = {
+        success: true,
+        cancellationsProcessed: cancellationResults.length,
+      };
+
+      if (webhookLog) {
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          data?.id?.toString(),
+          startTime,
+        );
+      }
+
+      return response;
     } catch (error) {
       this.logError('Error in orderCancelWebHook', error);
+      
+      // Update webhook log with error response
+      if (webhookLog) {
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        );
+      }
+
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
