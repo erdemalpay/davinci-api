@@ -1722,10 +1722,17 @@ export class OrderService {
       ) {
         try {
           // Create fulfillment using the shopifyOrderId - the service will fetch the fulfillment order ID automatically
-          await this.shopifyService.createFulfillmentForPickupOrder(
-            order.shopifyOrderId,
-            false, // Don't notify customer by default
-          );
+          const fulfillment =
+            await this.shopifyService.createFulfillmentForPickupOrder(
+              order.shopifyOrderId,
+              false, // Don't notify customer by default
+            );
+          if (fulfillment?.id) {
+            await this.orderModel.findByIdAndUpdate(order._id, {
+              shopifyFulfillmentId: fulfillment.id,
+            });
+            order.shopifyFulfillmentId = fulfillment.id;
+          }
           this.logger.log(
             `Shopify fulfillment created for order ${id} (Shopify Order: ${order.shopifyOrderId})`,
           );
@@ -1735,6 +1742,27 @@ export class OrderService {
             fulfillmentError,
           );
           // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
+        }
+      } else if (
+        updates.isShopifyCustomerPicked === false &&
+        order.shopifyFulfillmentId
+      ) {
+        try {
+          const fulfillmentId = order.shopifyFulfillmentId;
+          await this.shopifyService.cancelFulfillment(fulfillmentId);
+          await this.orderModel.findByIdAndUpdate(order._id, {
+            $unset: { shopifyFulfillmentId: '' },
+          });
+          order.shopifyFulfillmentId = undefined;
+          this.logger.log(
+            `Shopify fulfillment cancelled for order ${id} (Shopify Fulfillment: ${fulfillmentId})`,
+          );
+        } catch (cancelError) {
+          this.logger.error(
+            `Failed to cancel Shopify fulfillment for order ${id}:`,
+            cancelError,
+          );
+          // Don't throw - allow the order update to succeed even if Shopify cancel fails
         }
       }
 

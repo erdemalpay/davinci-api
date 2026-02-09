@@ -172,6 +172,10 @@ export class CreateOrderDto {
   @IsString()
   shopifyFulfillmentOrderId?: string;
 
+  @IsOptional()
+  @IsString()
+  shopifyFulfillmentId?: string;
+
   activityTableName?: string;
 
   @IsOptional()
