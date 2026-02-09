@@ -4,6 +4,7 @@ import { MenuModule } from '../menu/menu.module';
 import { OrderModule } from '../order/order.module';
 import { UserModule } from '../user/user.module';
 import { HepsiburadaController } from './hepsiburada.controller';
+import { HepsiburadaWebhookController } from './hepsiburada-webhook.controller';
 import { HepsiburadaService } from './hepsiburada.service';
 
 @Module({
@@ -13,7 +14,7 @@ import { HepsiburadaService } from './hepsiburada.service';
     forwardRef(() => OrderModule),
     forwardRef(() => UserModule),
   ],
-  controllers: [HepsiburadaController],
+  controllers: [HepsiburadaController, HepsiburadaWebhookController],
   providers: [HepsiburadaService],
   exports: [HepsiburadaService],
 })
