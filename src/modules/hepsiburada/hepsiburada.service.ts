@@ -758,8 +758,10 @@ export class HepsiburadaService {
         }
 
         // Update order status to CANCELLED
+        // Note: location is required for stock validation during cancellation
         await this.orderService.updateOrder(constantUser, order._id, {
           status: OrderStatus.CANCELLED,
+          location: order.location, // Include location for stock update
         });
 
         this.logger.log(`Order ${order._id} cancelled successfully`);
