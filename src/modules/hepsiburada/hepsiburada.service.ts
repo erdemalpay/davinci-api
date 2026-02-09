@@ -651,7 +651,7 @@ export class HepsiburadaService {
 
           createdOrders.push({
             order: order._id,
-            paidQuantity: Quantity,
+            paidQuantity: quantity,
             amount: itemAmount,
             menuItemName: foundMenuItem.name,
           });
