@@ -328,6 +328,9 @@ export class OrderService {
     if (item !== undefined) {
       filterQuery['item'] = Number(item);
     }
+    if (query.hepsiburadaOrderNumber) {
+      filterQuery['hepsiburadaOrderNumber'] = query.hepsiburadaOrderNumber;
+    }
     filterKeys.forEach((key) => {
       if (query[key]) {
         filterQuery[key] = query[key];
