@@ -1,12 +1,12 @@
-import { Controller, Get, Param, Query, ParseIntPipe } from '@nestjs/common';
-import { WebhookLogService } from './webhook-log.service';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { GetWebhookLogsQueryDto } from './webhook-log.dto';
+import { WebhookLogService } from './webhook-log.service';
 
 @Controller('webhook-log')
 export class WebhookLogController {
   constructor(private readonly webhookLogService: WebhookLogService) {}
 
-  @Get()
+  @Get('/query')
   async getAllWebhookLogs(@Query() query: GetWebhookLogsQueryDto) {
     const filters: any = {};
 
