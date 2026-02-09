@@ -8,6 +8,7 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
+import { BackInStockModule } from './modules/back-in-stock/back-in-stock.module';
 import { BreakModule } from './modules/break/break.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
@@ -60,6 +61,7 @@ const modules = [
   AuthModule,
   AssetModule,
   AuthorizationModule,
+  BackInStockModule,
   BreakModule,
   IkasModule,
   ShopifyModule,
