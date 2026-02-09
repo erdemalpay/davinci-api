@@ -476,6 +476,14 @@ export class MenuService {
     return item;
   }
 
+  async findByShopifyVariantId(variantId: string) {
+    const item = await this.itemModel.findOne({
+      shopifyVariantId: variantId,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
   async findByTrendyolBarcode(trendyolBarcode: string) {
     const item = await this.itemModel.findOne({
       trendyolBarcode: trendyolBarcode,
