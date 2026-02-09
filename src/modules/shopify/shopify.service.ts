@@ -1688,9 +1688,74 @@ export class ShopifyService {
   }
 
   /**
+   * Create a fulfillment event to mark as picked up / delivered
+   */
+  async createFulfillmentEvent(
+    fulfillmentId: string,
+    status: 'PICKED_UP' | 'DELIVERED' = 'PICKED_UP',
+  ): Promise<any> {
+    const mutation = `
+      mutation CreateFulfillmentEvent($fulfillmentEvent: FulfillmentEventInput!) {
+        fulfillmentEventCreate(fulfillmentEvent: $fulfillmentEvent) {
+          fulfillmentEvent {
+            id
+            status
+            happenedAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const formattedFulfillmentId = fulfillmentId.includes('gid://')
+        ? fulfillmentId
+        : `gid://shopify/Fulfillment/${fulfillmentId}`;
+
+      this.logger.log(
+        `Creating fulfillment event (${status}) for fulfillment ${formattedFulfillmentId}`,
+      );
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            fulfillmentEvent: {
+              fulfillmentId: formattedFulfillmentId,
+              status: status,
+              happenedAt: new Date().toISOString(),
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        response,
+        'data.fulfillmentEventCreate.userErrors',
+      );
+
+      this.logger.log(
+        'Fulfillment event created successfully:',
+        response.data.fulfillmentEventCreate.fulfillmentEvent,
+      );
+
+      return response.data.fulfillmentEventCreate.fulfillmentEvent;
+    } catch (error) {
+      this.logError('Error creating fulfillment event', error);
+      throw new HttpException(
+        'Unable to create fulfillment event in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Create a fulfillment for a pickup order using the Shopify Order ID
    * Automatically fetches the first fulfillment order and creates fulfillment
-   * This is simpler than requiring the fulfillment order ID upfront
+   * Then marks it as picked up
    */
   async createFulfillmentForPickupOrder(
     shopifyOrderId: string,
@@ -1719,10 +1784,28 @@ export class ShopifyService {
       );
 
       // Create the fulfillment
-      return await this.createFulfillmentForPickup(
+      const fulfillment = await this.createFulfillmentForPickup(
         fulfillmentOrderId,
         notifyCustomer,
       );
+
+      // Mark as picked up by creating a fulfillment event
+      if (fulfillment?.id) {
+        try {
+          await this.createFulfillmentEvent(fulfillment.id, 'PICKED_UP');
+          this.logger.log(
+            `Marked fulfillment ${fulfillment.id} as PICKED_UP`,
+          );
+        } catch (eventError) {
+          this.logger.error(
+            'Failed to create fulfillment event, but fulfillment was created successfully',
+            eventError,
+          );
+          // Don't throw - fulfillment was created successfully
+        }
+      }
+
+      return fulfillment;
     } catch (error) {
       this.logError(
         `Error creating fulfillment for pickup order ${shopifyOrderId}`,
