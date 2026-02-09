@@ -636,7 +636,7 @@ export class HepsiburadaService {
             location: this.OnlineStoreLocation,
             item: foundMenuItem._id,
             quantity: quantity,
-            status: OrderStatus.READYTOSERVE,
+            status: OrderStatus.AUTOSERVED,
             unitPrice: pricePerUnit,
             paidQuantity: quantity,
             createdAt: new Date(orderDate || Date.now()),
@@ -707,6 +707,99 @@ export class HepsiburadaService {
       this.logger.error('Error in orderWebhook', error);
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Handle order cancellation from Hepsiburada
+   */
+  async handleCancelOrder(data?: any) {
+    this.logger.log('Processing Hepsiburada order cancellation...');
+    this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
+
+    try {
+      const constantUser = await this.userService.findByIdWithoutPopulate('dv');
+      if (!constantUser) {
+        throw new HttpException(
+          'Constant user not found',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Extract order number from webhook data
+      const orderNumber = data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
+      if (!orderNumber) {
+        this.logger.warn('No order number provided in cancel webhook');
+        return { success: false, message: 'No order number provided' };
+      }
+
+      this.logger.log(`Cancelling Hepsiburada order: ${orderNumber}`);
+
+      // Find all orders with this Hepsiburada order number
+      const orders = await this.orderService.findQueryOrders({
+        hepsiburadaOrderNumber: orderNumber,
+      });
+
+      if (!orders || orders.length === 0) {
+        this.logger.warn(`No orders found with Hepsiburada order number: ${orderNumber}`);
+        return { success: false, message: 'No orders found to cancel' };
+      }
+
+      this.logger.log(`Found ${orders.length} orders to cancel`);
+
+      // Cancel each order
+      for (const order of orders) {
+        // Skip if already cancelled
+        if (order.status === OrderStatus.CANCELLED) {
+          this.logger.log(`Order ${order._id} is already cancelled, skipping`);
+          continue;
+        }
+
+        // Update order status to CANCELLED
+        await this.orderService.updateOrder(constantUser, order._id, {
+          status: OrderStatus.CANCELLED,
+        });
+
+        this.logger.log(`Order ${order._id} cancelled successfully`);
+      }
+
+      // Find and cancel the associated collection
+      const collections = await this.orderService.findQueryCollections({
+        hepsiburadaOrderNumber: orderNumber,
+      });
+
+      if (collections && collections.length > 0) {
+        for (const collection of collections) {
+          // Skip if already cancelled
+          if (collection.status === OrderCollectionStatus.CANCELLED) {
+            this.logger.log(`Collection ${collection._id} is already cancelled, skipping`);
+            continue;
+          }
+
+          // Update collection status to CANCELLED
+          await this.orderService.updateCollection(
+            constantUser,
+            collection._id,
+            {
+              status: OrderCollectionStatus.CANCELLED,
+            },
+          );
+
+          this.logger.log(`Collection ${collection._id} cancelled successfully`);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Order(s) cancelled successfully',
+        ordersCancelled: orders.length,
+      };
+    } catch (error) {
+      this.logger.error('Error in handleCancelOrder', error);
+      throw new HttpException(
+        `Error cancelling order: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

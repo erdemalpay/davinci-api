@@ -215,19 +215,19 @@ export class CreateOrderDto {
   trendyolLineItemId?: string;
 
   @IsOptional()
-  trendyolCustomer?: TrendyolCustomer;
-
-  @IsOptional()
-  @IsBoolean()
-  isTrendyolCustomerPicked?: boolean;
-
-  @IsOptional()
   @IsString()
   hepsiburadaOrderNumber?: string;
 
   @IsOptional()
   @IsString()
   hepsiburadaLineItemSku?: string;
+
+  @IsOptional()
+  trendyolCustomer?: TrendyolCustomer;
+
+  @IsOptional()
+  @IsBoolean()
+  isTrendyolCustomerPicked?: boolean;
 }
 
 // TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
@@ -344,6 +344,10 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsString()
   trendyolShipmentPackageId?: string;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaOrderNumber?: string;
 
   @IsOptional()
   @IsString()
@@ -466,6 +470,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsNumber()
   item?: number;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaOrderNumber?: string;
 }
 
 export class CollectionQueryDto {
@@ -480,6 +488,10 @@ export class CollectionQueryDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaOrderNumber?: string;
 }
 export class SummaryCollectionQueryDto {
   @IsOptional()
