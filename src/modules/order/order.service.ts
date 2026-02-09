@@ -1717,16 +1717,17 @@ export class OrderService {
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
       if (
         updates.isShopifyCustomerPicked === true &&
-        order.shopifyFulfillmentOrderId &&
-        order.shopifyCustomer
+        order.shopifyCustomer &&
+        order.shopifyOrderId
       ) {
         try {
-          await this.shopifyService.createFulfillmentForPickup(
-            order.shopifyFulfillmentOrderId,
+          // Create fulfillment using the shopifyOrderId - the service will fetch the fulfillment order ID automatically
+          await this.shopifyService.createFulfillmentForPickupOrder(
+            order.shopifyOrderId,
             false, // Don't notify customer by default
           );
           this.logger.log(
-            `Shopify fulfillment created for order ${id} with fulfillment order ID ${order.shopifyFulfillmentOrderId}`,
+            `Shopify fulfillment created for order ${id} (Shopify Order: ${order.shopifyOrderId})`,
           );
         } catch (fulfillmentError) {
           this.logger.error(
@@ -3690,6 +3691,24 @@ export class OrderService {
 
   findByShopifyOrderLineItemId(shopifyOrderLineItemId: string) {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
+  }
+
+  /**
+   * Update order by ID without triggering additional side effects
+   * Used internally to avoid circular dependencies
+   */
+  async updateOrderByIdDirect(
+    id: number,
+    updates: Partial<Order>,
+  ): Promise<Order> {
+    const order = await this.orderModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitOrderUpdated([order]);
+    return order;
   }
 
   findByTrendyolLineItemId(trendyolLineItemId: string) {

@@ -1617,7 +1617,123 @@ export class ShopifyService {
   }
 
   /**
-   * Create a fulfillment for a pickup order
+   * Update order with fulfillment order ID
+   * Used when the initial webhook didn't have the fulfillment order ID yet
+   */
+  async updateOrderWithFulfillmentOrderId(
+    shopifyOrderLineItemId: string,
+  ): Promise<boolean> {
+    try {
+      // Find the order by line item ID
+      const order = await this.orderService.findByShopifyOrderLineItemId(
+        shopifyOrderLineItemId,
+      );
+
+      if (!order) {
+        this.logger.warn(
+          `Order not found for line item ID: ${shopifyOrderLineItemId}`,
+        );
+        return false;
+      }
+
+      // If already has fulfillment order ID, no need to update
+      if (order.shopifyFulfillmentOrderId) {
+        this.logger.log(
+          `Order ${order._id} already has fulfillment order ID: ${order.shopifyFulfillmentOrderId}`,
+        );
+        return true;
+      }
+
+      // Get fulfillment orders
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        order.shopifyOrderId,
+      );
+
+      if (fulfillmentOrders.length === 0) {
+        this.logger.warn(
+          `No fulfillment orders found for Shopify order ${order.shopifyOrderId}`,
+        );
+        return false;
+      }
+
+      // Find the matching fulfillment order for this line item
+      for (const fulfillmentOrder of fulfillmentOrders) {
+        for (const lineItemEdge of fulfillmentOrder.lineItems?.edges || []) {
+          const lineItemId = lineItemEdge.node.lineItem.id.split('/').pop();
+          if (lineItemId === shopifyOrderLineItemId) {
+            const fulfillmentOrderId = fulfillmentOrder.id.split('/').pop();
+            // Update the order directly without triggering side effects
+            await this.orderService.updateOrderByIdDirect(order._id, {
+              shopifyFulfillmentOrderId: fulfillmentOrderId,
+            });
+            this.logger.log(
+              `Updated order ${order._id} with fulfillment order ID: ${fulfillmentOrderId}`,
+            );
+            return true;
+          }
+        }
+      }
+
+      this.logger.warn(
+        `No matching fulfillment order found for line item ${shopifyOrderLineItemId}`,
+      );
+      return false;
+    } catch (error) {
+      this.logError(
+        'Error updating order with fulfillment order ID',
+        error,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Create a fulfillment for a pickup order using the Shopify Order ID
+   * Automatically fetches the first fulfillment order and creates fulfillment
+   * This is simpler than requiring the fulfillment order ID upfront
+   */
+  async createFulfillmentForPickupOrder(
+    shopifyOrderId: string,
+    notifyCustomer: boolean = false,
+  ): Promise<any> {
+    try {
+      // First, get the fulfillment orders for this order
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        shopifyOrderId,
+      );
+
+      if (fulfillmentOrders.length === 0) {
+        throw new HttpException(
+          `No fulfillment orders found for Shopify order ${shopifyOrderId}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // For pickup orders, there's typically only one fulfillment order
+      // Take the first one (or you could filter by delivery method if needed)
+      const fulfillmentOrder = fulfillmentOrders[0];
+      const fulfillmentOrderId = fulfillmentOrder.id;
+
+      this.logger.log(
+        `Found fulfillment order ${fulfillmentOrderId} for Shopify order ${shopifyOrderId}`,
+      );
+
+      // Create the fulfillment
+      return await this.createFulfillmentForPickup(
+        fulfillmentOrderId,
+        notifyCustomer,
+      );
+    } catch (error) {
+      this.logError(
+        `Error creating fulfillment for pickup order ${shopifyOrderId}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Create a fulfillment for a pickup order using fulfillment order ID
    * Marks the order as "fulfilled" in Shopify
    */
   async createFulfillmentForPickup(
@@ -1766,10 +1882,36 @@ export class ShopifyService {
       }
 
       // Get fulfillment orders for this order to map line items to fulfillment orders
-      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
-        data?.admin_graphql_api_id || data?.id?.toString(),
-      );
-      this.logger.log('Fetched fulfillment orders:', fulfillmentOrders);
+      // Retry a few times because Shopify creates fulfillment orders asynchronously
+      let fulfillmentOrders = [];
+      const maxRetries = 3;
+      const retryDelay = 2000; // 2 seconds
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+          data?.admin_graphql_api_id || data?.id?.toString(),
+        );
+
+        if (fulfillmentOrders.length > 0) {
+          this.logger.log(
+            `Fetched ${fulfillmentOrders.length} fulfillment orders on attempt ${attempt + 1}`,
+          );
+          break;
+        }
+
+        if (attempt < maxRetries - 1) {
+          this.logger.log(
+            `No fulfillment orders found, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await this.sleep(retryDelay);
+        }
+      }
+
+      if (fulfillmentOrders.length === 0) {
+        this.logger.warn(
+          'No fulfillment orders found after retries. Order will be created without fulfillment order ID.',
+        );
+      }
 
       // Create a mapping of line item ID to fulfillment order ID
       const lineItemToFulfillmentOrderMap = new Map<string, string>();
