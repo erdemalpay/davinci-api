@@ -1692,7 +1692,7 @@ export class ShopifyService {
    */
   async createFulfillmentEvent(
     fulfillmentId: string,
-    status: 'PICKED_UP' | 'DELIVERED' = 'PICKED_UP',
+    status: 'DELIVERED' = 'DELIVERED',
   ): Promise<any> {
     const mutation = `
       mutation CreateFulfillmentEvent($fulfillmentEvent: FulfillmentEventInput!) {
@@ -1792,7 +1792,7 @@ export class ShopifyService {
       // Mark as picked up by creating a fulfillment event
       if (fulfillment?.id) {
         try {
-          await this.createFulfillmentEvent(fulfillment.id, 'PICKED_UP');
+          await this.createFulfillmentEvent(fulfillment.id, 'DELIVERED');
           this.logger.log(
             `Marked fulfillment ${fulfillment.id} as PICKED_UP`,
           );
