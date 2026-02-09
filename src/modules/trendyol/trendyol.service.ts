@@ -877,7 +877,7 @@ export class TrendyolService {
         };
         
         if (webhookLog) {
-          await this.webhookLogService.updateWebhookResponse(
+          this.webhookLogService.updateWebhookResponse(
             webhookLog._id,
             response,
             HttpStatus.OK,
@@ -886,7 +886,9 @@ export class TrendyolService {
             undefined,
             data?.id?.toString(),
             startTime,
-          );
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
         }
         
         return response;
@@ -907,7 +909,7 @@ export class TrendyolService {
         };
         
         if (webhookLog) {
-          await this.webhookLogService.updateWebhookResponse(
+          this.webhookLogService.updateWebhookResponse(
             webhookLog._id,
             response,
             HttpStatus.OK,
@@ -916,7 +918,9 @@ export class TrendyolService {
             undefined,
             data?.id?.toString(),
             startTime,
-          );
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
         }
         
         return response;
@@ -1144,10 +1148,10 @@ export class TrendyolService {
             orderIds,
           };
 
-          // Update webhook log with response
+          // Update webhook log with response (fire-and-forget)
           if (webhookLog) {
             const status = orderIds.length > 0 ? WebhookStatus.SUCCESS : WebhookStatus.ORDER_NOT_CREATED;
-            await this.webhookLogService.updateWebhookResponse(
+            this.webhookLogService.updateWebhookResponse(
               webhookLog._id,
               response,
               HttpStatus.OK,
@@ -1156,7 +1160,9 @@ export class TrendyolService {
               orderIds.length > 0 ? orderIds : undefined,
               data?.id?.toString(),
               startTime,
-            );
+            ).catch((error) => {
+              this.logger.error('Error updating webhook log:', error);
+            });
           }
 
           return response;
@@ -1173,9 +1179,9 @@ export class TrendyolService {
         orderIds: [],
       };
 
-      // Update webhook log with response
+      // Update webhook log with response (fire-and-forget)
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           response,
           HttpStatus.OK,
@@ -1184,16 +1190,18 @@ export class TrendyolService {
           undefined,
           data?.id?.toString(),
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       return response;
     } catch (error) {
       this.logger.error('Error in orderCreateWebhook', error);
       
-      // Update webhook log with error response
+      // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           { error: error?.message || 'Unknown error' },
           error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1202,7 +1210,9 @@ export class TrendyolService {
           undefined,
           undefined,
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       throw new HttpException(
@@ -1274,9 +1284,9 @@ export class TrendyolService {
         status: packageStatus,
       };
 
-      // Update webhook log with response
+      // Update webhook log with response (fire-and-forget)
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           response,
           HttpStatus.OK,
@@ -1285,16 +1295,18 @@ export class TrendyolService {
           undefined,
           data?.id?.toString(),
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       return response;
     } catch (error) {
       this.logger.error('Error in orderStatusWebhook', error);
       
-      // Update webhook log with error response
+      // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
-        await this.webhookLogService.updateWebhookResponse(
+        this.webhookLogService.updateWebhookResponse(
           webhookLog._id,
           { error: error?.message || 'Unknown error' },
           error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1303,7 +1315,9 @@ export class TrendyolService {
           undefined,
           undefined,
           startTime,
-        );
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
       }
 
       throw new HttpException(
