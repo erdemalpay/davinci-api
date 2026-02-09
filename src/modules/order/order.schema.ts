@@ -222,6 +222,12 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Boolean })
   isTrendyolCustomerPicked: boolean;
+
+  @Prop({ required: false, type: String })
+  hepsiburadaOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  hepsiburadaLineItemSku: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
@@ -240,6 +246,10 @@ OrderSchema.index(
 OrderSchema.index(
   { trendyolShipmentPackageId: 1 },
   { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { hepsiburadaOrderNumber: 1 },
+  { partialFilterExpression: { hepsiburadaOrderNumber: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead

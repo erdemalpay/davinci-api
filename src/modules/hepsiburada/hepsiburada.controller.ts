@@ -8,6 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Public } from '../auth/public.decorator';
 import { HepsiburadaService } from './hepsiburada.service';
 
 @Controller('hepsiburada')
@@ -101,5 +102,18 @@ export class HepsiburadaController {
   @Post('/update-all-stocks')
   updateAllItemStocks() {
     return this.hepsiburadaService.updateAllItemStocks();
+  }
+
+  @Public()
+  @Post('/order-webhook')
+  async orderWebhook(@Body() data?: any) {
+    try {
+      this.logger.log('Received Hepsiburada order webhook');
+      this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
+      return await this.hepsiburadaService.orderWebhook(data);
+    } catch (error) {
+      this.logger.error('Error in order-webhook controller:', error);
+      return { success: false, error: error?.message || 'Unknown error' };
+    }
   }
 }

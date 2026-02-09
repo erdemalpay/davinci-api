@@ -484,6 +484,14 @@ export class MenuService {
     return item;
   }
 
+  async findByHepsiBuradaSku(hepsiBuradaSku: string) {
+    const item = await this.itemModel.findOne({
+      hepsiBuradaSku: hepsiBuradaSku,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
   async findItemById(id: number) {
     const item = await this.itemModel.findById({
       _id: id,

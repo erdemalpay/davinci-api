@@ -1,7 +1,17 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { AccountingService } from '../accounting/accounting.service';
 import { MenuService } from '../menu/menu.service';
+import { OrderService } from '../order/order.service';
+import { UserService } from '../user/user.service';
+import { OrderStatus, OrderCollectionStatus } from '../order/order.dto';
 
 @Injectable()
 export class HepsiburadaService {
@@ -14,12 +24,16 @@ export class HepsiburadaService {
   private readonly merchantId = process.env.HEPSIBURADA_STAGING_MERCHANT_ID!;
   private readonly secretKey = process.env.HEPSIBURADA_STAGING_SECRET_KEY!;
   private readonly userAgent = process.env.HEPSIBURADA_STAGING_USER_AGENT!;
+  private readonly OnlineStoreLocation = 4; // Location ID for online store
 
   constructor(
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
+    private readonly userService: UserService,
   ) {
     // Create Basic Auth token
     const authToken = Buffer.from(
@@ -521,6 +535,156 @@ export class HepsiburadaService {
     } catch (error) {
       this.logger.error('Error in updateAllItemStocks:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Hepsiburada webhook'tan gelen yeni sipariş bildirimini işler
+   */
+  async orderWebhook(data?: any) {
+    this.logger.log('Processing Hepsiburada order webhook...');
+    this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
+
+    try {
+      // If no data is provided, return success (webhook verification)
+      if (!data || Object.keys(data).length === 0) {
+        this.logger.log('Webhook verification request - no data provided');
+        return {
+          success: true,
+          message: 'Webhook endpoint is accessible',
+        };
+      }
+
+      const lineItems = data?.LineItems ?? [];
+      const constantUser = await this.userService.findByIdWithoutPopulate('dv');
+
+      if (!constantUser) {
+        throw new HttpException(
+          'Constant user not found',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (lineItems.length === 0) {
+        this.logger.log('No line items to process');
+        return { success: true, message: 'No line items to process' };
+      }
+
+      const createdOrders: Array<{
+        order: number;
+        paidQuantity: number;
+        amount: number;
+        menuItemName?: string;
+      }> = [];
+      let totalAmount = 0;
+
+      for (const lineItem of lineItems) {
+        try {
+          const {
+            Sku,
+            MerchantId,
+            Quantity,
+            Price,
+            TotalPrice,
+          } = lineItem;
+
+          if (!Sku || !Quantity) {
+            this.logger.warn(
+              'Invalid line item data - missing Sku or Quantity',
+            );
+            continue;
+          }
+
+          // Find menu item by Hepsiburada SKU
+          const foundMenuItem = await this.menuService.findByHepsiBuradaSku(Sku);
+
+          if (!foundMenuItem) {
+            this.logger.warn(
+              `No menu item found with Hepsiburada SKU: ${Sku}`,
+            );
+            continue;
+          }
+
+          const itemAmount = TotalPrice?.Amount || (Price?.Amount * Quantity) || 0;
+
+          // Create order
+          const order = await this.orderService.createOrder(constantUser, {
+            location: this.OnlineStoreLocation,
+            item: foundMenuItem._id,
+            quantity: Quantity,
+            status: OrderStatus.READYTOSERVE,
+            unitPrice: Price?.Amount || 0,
+            paidQuantity: Quantity,
+            createdAt: new Date(data?.OrderDate || Date.now()),
+            createdBy: constantUser._id,
+            paymentMethod: 'hepsiburada',
+            tableDate: new Date(),
+            hepsiburadaOrderNumber: data?.OrderNumber,
+            hepsiburadaLineItemSku: Sku,
+          });
+
+          this.logger.log('Order created:', order._id);
+
+          createdOrders.push({
+            order: order._id,
+            paidQuantity: Quantity,
+            amount: itemAmount,
+            menuItemName: foundMenuItem.name,
+          });
+          totalAmount += itemAmount;
+        } catch (itemError) {
+          this.logger.error('Error processing line item', itemError);
+        }
+      }
+
+      // Create a single collection for all orders from this Hepsiburada order
+      if (createdOrders.length > 0) {
+        const hepsiburadaOrderNumber = data?.OrderNumber;
+
+        const createdCollection = {
+          location: this.OnlineStoreLocation,
+          paymentMethod: 'hepsiburada',
+          amount: totalAmount,
+          status: OrderCollectionStatus.PAID,
+          orders: createdOrders.map(({ order, paidQuantity }) => ({
+            order,
+            paidQuantity,
+          })),
+          createdBy: constantUser._id,
+          tableDate: new Date(),
+          ...(hepsiburadaOrderNumber && {
+            hepsiburadaOrderNumber: hepsiburadaOrderNumber.toString(),
+          }),
+        };
+
+        try {
+          const collection = await this.orderService.createCollection(
+            constantUser,
+            createdCollection,
+          );
+          this.logger.log('Collection created:', collection._id);
+
+          return {
+            success: true,
+            message: 'Orders processed successfully',
+            ordersCreated: createdOrders.length,
+          };
+        } catch (collectionError) {
+          this.logger.error('Error creating collection', collectionError);
+          throw collectionError;
+        }
+      }
+
+      return {
+        success: true,
+        message: 'No valid orders to create',
+      };
+    } catch (error) {
+      this.logger.error('Error in orderWebhook', error);
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

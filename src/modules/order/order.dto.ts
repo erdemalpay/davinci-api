@@ -220,6 +220,14 @@ export class CreateOrderDto {
   @IsOptional()
   @IsBoolean()
   isTrendyolCustomerPicked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaLineItemSku?: string;
 }
 
 // TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
