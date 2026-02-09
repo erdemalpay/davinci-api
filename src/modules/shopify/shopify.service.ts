@@ -1616,6 +1616,127 @@ export class ShopifyService {
     }
   }
 
+  /**
+   * Create a fulfillment for a pickup order
+   * Marks the order as "fulfilled" in Shopify
+   */
+  async createFulfillmentForPickup(
+    fulfillmentOrderId: string,
+    notifyCustomer: boolean = false,
+  ): Promise<any> {
+    const mutation = `
+      mutation FulfillPickupOrder($fulfillmentOrderId: ID!, $notifyCustomer: Boolean!) {
+        fulfillmentCreate(
+          fulfillment: {
+            notifyCustomer: $notifyCustomer
+            lineItemsByFulfillmentOrder: [
+              {
+                fulfillmentOrderId: $fulfillmentOrderId
+              }
+            ]
+          }
+        ) {
+          fulfillment {
+            id
+            status
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const formattedFulfillmentOrderId = fulfillmentOrderId.includes('gid://')
+        ? fulfillmentOrderId
+        : `gid://shopify/FulfillmentOrder/${fulfillmentOrderId}`;
+
+      this.logger.log(
+        `Creating fulfillment for pickup order with fulfillment order ID: ${formattedFulfillmentOrderId}`,
+      );
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            fulfillmentOrderId: formattedFulfillmentOrderId,
+            notifyCustomer: notifyCustomer,
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.fulfillmentCreate.userErrors');
+
+      this.logger.log(
+        'Fulfillment created successfully:',
+        response.data.fulfillmentCreate.fulfillment,
+      );
+
+      return response.data.fulfillmentCreate.fulfillment;
+    } catch (error) {
+      this.logError('Error creating fulfillment', error);
+      throw new HttpException(
+        'Unable to create fulfillment in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get fulfillment order IDs for a given Shopify order
+   */
+  async getFulfillmentOrdersForOrder(orderId: string): Promise<any[]> {
+    const query = `
+      query GetFulfillmentOrders($orderId: ID!) {
+        order(id: $orderId) {
+          id
+          fulfillmentOrders(first: 10) {
+            edges {
+              node {
+                id
+                status
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      id
+                      lineItem {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const formattedOrderId = orderId.includes('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query, {
+          variables: { orderId: formattedOrderId },
+        });
+      });
+
+      this.handleGraphQLErrors(response);
+
+      return response.data.order.fulfillmentOrders.edges.map(
+        (edge: any) => edge.node,
+      );
+    } catch (error) {
+      this.logError('Error fetching fulfillment orders', error);
+      return [];
+    }
+  }
+
   async orderCreateWebHook(data?: any) {
     this.logger.log('Processing Shopify order webhook...');
     this.logger.debug('Webhook data:', data);
@@ -1642,6 +1763,24 @@ export class ShopifyService {
       if (lineItems.length === 0) {
         this.logger.log('No line items to process');
         return;
+      }
+
+      // Get fulfillment orders for this order to map line items to fulfillment orders
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        data?.admin_graphql_api_id || data?.id?.toString(),
+      );
+      this.logger.log('Fetched fulfillment orders:', fulfillmentOrders);
+
+      // Create a mapping of line item ID to fulfillment order ID
+      const lineItemToFulfillmentOrderMap = new Map<string, string>();
+      for (const fulfillmentOrder of fulfillmentOrders) {
+        for (const lineItemEdge of fulfillmentOrder.lineItems?.edges || []) {
+          const lineItemId = lineItemEdge.node.lineItem.id.split('/').pop();
+          lineItemToFulfillmentOrderMap.set(
+            lineItemId,
+            fulfillmentOrder.id.split('/').pop(),
+          );
+        }
       }
 
       if (
@@ -1704,6 +1843,11 @@ export class ShopifyService {
           }
 
           const shopifyOrderNumber = data?.order_number;
+          // Get fulfillment order ID for this line item
+          const fulfillmentOrderId = lineItemToFulfillmentOrderMap.get(
+            lineItemId?.toString(),
+          );
+
           let createOrderObject: CreateOrderDto = {
             item: foundMenuItem._id,
             quantity: quantity,
@@ -1725,6 +1869,9 @@ export class ShopifyService {
             paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
+            }),
+            ...(fulfillmentOrderId && {
+              shopifyFulfillmentOrderId: fulfillmentOrderId,
             }),
           };
 

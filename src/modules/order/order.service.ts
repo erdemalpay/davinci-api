@@ -1713,6 +1713,30 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+
+      // If this is a Shopify pickup order being marked as picked up, create fulfillment
+      if (
+        updates.isShopifyCustomerPicked === true &&
+        order.shopifyFulfillmentOrderId &&
+        order.shopifyCustomer
+      ) {
+        try {
+          await this.shopifyService.createFulfillmentForPickup(
+            order.shopifyFulfillmentOrderId,
+            false, // Don't notify customer by default
+          );
+          this.logger.log(
+            `Shopify fulfillment created for order ${id} with fulfillment order ID ${order.shopifyFulfillmentOrderId}`,
+          );
+        } catch (fulfillmentError) {
+          this.logger.error(
+            `Failed to create Shopify fulfillment for order ${id}:`,
+            fulfillmentError,
+          );
+          // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
+        }
+      }
+
       this.websocketGateway.emitOrderUpdated([order]);
       return order;
     } catch (error) {
