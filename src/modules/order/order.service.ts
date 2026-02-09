@@ -1717,23 +1717,45 @@ export class OrderService {
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
       if (
         updates.isShopifyCustomerPicked === true &&
-        order.shopifyFulfillmentOrderId &&
         order.shopifyCustomer
       ) {
-        try {
-          await this.shopifyService.createFulfillmentForPickup(
-            order.shopifyFulfillmentOrderId,
-            false, // Don't notify customer by default
-          );
+        // If we don't have the fulfillment order ID yet, try to fetch it
+        if (!order.shopifyFulfillmentOrderId && order.shopifyOrderLineItemId) {
           this.logger.log(
-            `Shopify fulfillment created for order ${id} with fulfillment order ID ${order.shopifyFulfillmentOrderId}`,
+            `Order ${id} doesn't have fulfillment order ID, attempting to fetch it...`,
           );
-        } catch (fulfillmentError) {
-          this.logger.error(
-            `Failed to create Shopify fulfillment for order ${id}:`,
-            fulfillmentError,
+          await this.shopifyService.updateOrderWithFulfillmentOrderId(
+            order.shopifyOrderLineItemId,
           );
-          // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
+          // Refetch the order to get the updated fulfillment order ID
+          const updatedOrder = await this.orderModel.findById(id);
+          if (updatedOrder?.shopifyFulfillmentOrderId) {
+            order.shopifyFulfillmentOrderId =
+              updatedOrder.shopifyFulfillmentOrderId;
+          }
+        }
+
+        // Now create the fulfillment if we have the ID
+        if (order.shopifyFulfillmentOrderId) {
+          try {
+            await this.shopifyService.createFulfillmentForPickup(
+              order.shopifyFulfillmentOrderId,
+              false, // Don't notify customer by default
+            );
+            this.logger.log(
+              `Shopify fulfillment created for order ${id} with fulfillment order ID ${order.shopifyFulfillmentOrderId}`,
+            );
+          } catch (fulfillmentError) {
+            this.logger.error(
+              `Failed to create Shopify fulfillment for order ${id}:`,
+              fulfillmentError,
+            );
+            // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
+          }
+        } else {
+          this.logger.warn(
+            `Cannot create Shopify fulfillment for order ${id}: No fulfillment order ID found`,
+          );
         }
       }
 
@@ -3690,6 +3712,24 @@ export class OrderService {
 
   findByShopifyOrderLineItemId(shopifyOrderLineItemId: string) {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
+  }
+
+  /**
+   * Update order by ID without triggering additional side effects
+   * Used internally to avoid circular dependencies
+   */
+  async updateOrderByIdDirect(
+    id: number,
+    updates: Partial<Order>,
+  ): Promise<Order> {
+    const order = await this.orderModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitOrderUpdated([order]);
+    return order;
   }
 
   findByTrendyolLineItemId(trendyolLineItemId: string) {

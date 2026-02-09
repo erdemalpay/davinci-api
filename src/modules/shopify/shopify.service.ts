@@ -1617,6 +1617,77 @@ export class ShopifyService {
   }
 
   /**
+   * Update order with fulfillment order ID
+   * Used when the initial webhook didn't have the fulfillment order ID yet
+   */
+  async updateOrderWithFulfillmentOrderId(
+    shopifyOrderLineItemId: string,
+  ): Promise<boolean> {
+    try {
+      // Find the order by line item ID
+      const order = await this.orderService.findByShopifyOrderLineItemId(
+        shopifyOrderLineItemId,
+      );
+
+      if (!order) {
+        this.logger.warn(
+          `Order not found for line item ID: ${shopifyOrderLineItemId}`,
+        );
+        return false;
+      }
+
+      // If already has fulfillment order ID, no need to update
+      if (order.shopifyFulfillmentOrderId) {
+        this.logger.log(
+          `Order ${order._id} already has fulfillment order ID: ${order.shopifyFulfillmentOrderId}`,
+        );
+        return true;
+      }
+
+      // Get fulfillment orders
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        order.shopifyOrderId,
+      );
+
+      if (fulfillmentOrders.length === 0) {
+        this.logger.warn(
+          `No fulfillment orders found for Shopify order ${order.shopifyOrderId}`,
+        );
+        return false;
+      }
+
+      // Find the matching fulfillment order for this line item
+      for (const fulfillmentOrder of fulfillmentOrders) {
+        for (const lineItemEdge of fulfillmentOrder.lineItems?.edges || []) {
+          const lineItemId = lineItemEdge.node.lineItem.id.split('/').pop();
+          if (lineItemId === shopifyOrderLineItemId) {
+            const fulfillmentOrderId = fulfillmentOrder.id.split('/').pop();
+            // Update the order directly without triggering side effects
+            await this.orderService.updateOrderByIdDirect(order._id, {
+              shopifyFulfillmentOrderId: fulfillmentOrderId,
+            });
+            this.logger.log(
+              `Updated order ${order._id} with fulfillment order ID: ${fulfillmentOrderId}`,
+            );
+            return true;
+          }
+        }
+      }
+
+      this.logger.warn(
+        `No matching fulfillment order found for line item ${shopifyOrderLineItemId}`,
+      );
+      return false;
+    } catch (error) {
+      this.logError(
+        'Error updating order with fulfillment order ID',
+        error,
+      );
+      return false;
+    }
+  }
+
+  /**
    * Create a fulfillment for a pickup order
    * Marks the order as "fulfilled" in Shopify
    */
@@ -1766,10 +1837,36 @@ export class ShopifyService {
       }
 
       // Get fulfillment orders for this order to map line items to fulfillment orders
-      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
-        data?.admin_graphql_api_id || data?.id?.toString(),
-      );
-      this.logger.log('Fetched fulfillment orders:', fulfillmentOrders);
+      // Retry a few times because Shopify creates fulfillment orders asynchronously
+      let fulfillmentOrders = [];
+      const maxRetries = 3;
+      const retryDelay = 2000; // 2 seconds
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+          data?.admin_graphql_api_id || data?.id?.toString(),
+        );
+
+        if (fulfillmentOrders.length > 0) {
+          this.logger.log(
+            `Fetched ${fulfillmentOrders.length} fulfillment orders on attempt ${attempt + 1}`,
+          );
+          break;
+        }
+
+        if (attempt < maxRetries - 1) {
+          this.logger.log(
+            `No fulfillment orders found, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await this.sleep(retryDelay);
+        }
+      }
+
+      if (fulfillmentOrders.length === 0) {
+        this.logger.warn(
+          'No fulfillment orders found after retries. Order will be created without fulfillment order ID.',
+        );
+      }
 
       // Create a mapping of line item ID to fulfillment order ID
       const lineItemToFulfillmentOrderMap = new Map<string, string>();
