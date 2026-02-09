@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -16,7 +16,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery,
+  UpdateQuery
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -53,7 +53,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto,
+  SummaryCollectionQueryDto
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1194,7 +1194,15 @@ export class OrderService {
     return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
-    const users = await this.userService.findAllUsers();
+    // Lazy load users only when needed for activity logging
+    let users: User[] | null = null;
+    const getUsers = async () => {
+      if (!users) {
+        users = await this.userService.findAllUsers();
+      }
+      return users;
+    };
+
     if (createOrderDto.quantity <= 0) {
       throw new HttpException(
         'Quantity must be greater than 0',
@@ -1308,25 +1316,32 @@ export class OrderService {
           }
         }
       }
-      try {
-        await this.activityService.addActivity(
-          users.find((user) => user._id === order.createdBy),
-          ActivityType.CREATE_ORDER,
-          order,
-        );
-      } catch (error) {
-        this.logger.error('Error adding create order activity:', error);
-      }
-      if (order.discount) {
+      // Activity logging - fire and forget (non-blocking)
+      (async () => {
         try {
+          const allUsers = await getUsers();
           await this.activityService.addActivity(
-            user,
-            ActivityType.ORDER_DISCOUNT,
+            allUsers.find((u) => u._id === order.createdBy),
+            ActivityType.CREATE_ORDER,
             order,
           );
         } catch (error) {
-          this.logger.error('Error adding order discount activity:', error);
+          this.logger.error('Error adding create order activity:', error);
         }
+      })();
+      
+      if (order.discount) {
+        (async () => {
+          try {
+            await this.activityService.addActivity(
+              user,
+              ActivityType.ORDER_DISCOUNT,
+              order,
+            );
+          } catch (error) {
+            this.logger.error('Error adding order discount activity:', error);
+          }
+        })();
       }
       if (order?.table) {
         try {

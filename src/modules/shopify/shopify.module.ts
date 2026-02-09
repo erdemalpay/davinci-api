@@ -5,6 +5,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
 import { RedisModule } from '../redis/redis.module';
 import { VisitModule } from '../visit/visit.module';
+import { WebhookLogModule } from '../webhook-log/webhook-log.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { LocationModule } from './../location/location.module';
@@ -21,6 +22,7 @@ import { ShopifyService } from './shopify.service';
     LocationModule,
     NotificationModule,
     VisitModule,
+    WebhookLogModule,
     forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),

@@ -5,12 +5,11 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
-import { ProcessedClaimItem } from './processed-claim-item.schema';
 import { LocationService } from '../location/location.service';
 import { MenuService } from '../menu/menu.service';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -18,10 +17,13 @@ import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
+import { WebhookSource, WebhookStatus } from '../webhook-log/webhook-log.schema';
+import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
 import { OrderCollectionStatus } from './../order/order.dto';
+import { ProcessedClaimItem } from './processed-claim-item.schema';
 import {
   CreateTrendyolWebhookDto,
   GetTrendyolClaimsQueryDto,
@@ -32,7 +34,7 @@ import {
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
   TrendyolProductDto,
-  TrendyolProductsResponseDto,
+  TrendyolProductsResponseDto
 } from './trendyol.dto';
 
 @Injectable()
@@ -60,6 +62,7 @@ export class TrendyolService {
     private readonly locationService: LocationService,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
+    private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)
     private readonly processedClaimItemModel: Model<ProcessedClaimItem>,
   ) {}
@@ -832,9 +835,11 @@ export class TrendyolService {
    * Trendyol webhook'tan gelen yeni sipariş bildirimini işler
    */
   async orderCreateWebhook(data?: any) {
+    const startTime = Date.now();
     this.logger.log('Processing Trendyol order create webhook...');
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
 
+    let webhookLog: any = null;
     try {
       // If no data is provided, return success (webhook verification)
       if (!data || Object.keys(data).length === 0) {
@@ -844,6 +849,13 @@ export class TrendyolService {
           message: 'Webhook endpoint is accessible',
         };
       }
+
+      // Log webhook request
+      webhookLog = await this.webhookLogService.logWebhookRequest(
+        WebhookSource.TRENDYOL,
+        'order-status-webhook',
+        data,
+      );
 
       const lineItems = data?.lines ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
@@ -857,7 +869,29 @@ export class TrendyolService {
 
       if (lineItems.length === 0) {
         this.logger.log('No line items to process');
-        return { success: true, message: 'No line items to process' };
+        const response = {
+          success: false,
+          message: 'No line items to process',
+          ordersCreated: 0,
+          orderIds: [],
+        };
+        
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            'No line items to process',
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
+        return response;
       }
 
       // CREATED veya ReadyToShip statüsündeki siparişleri işle
@@ -867,10 +901,29 @@ export class TrendyolService {
         this.logger.log(
           `Skipping order as status is not in valid statuses (${validStatuses.join(', ')}): ${packageStatus}`,
         );
-        return {
-          success: true,
+        const response = {
+          success: false,
           message: `Skipped - status: ${packageStatus}`,
+          ordersCreated: 0,
+          orderIds: [],
         };
+        
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            `Package status: ${packageStatus} is not in valid statuses`,
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
+        return response;
       }
 
       const createdOrders: Array<{
@@ -995,9 +1048,15 @@ export class TrendyolService {
             );
             this.logger.log('Order created:', order._id);
 
+            const orderId = order?._id || order?.id;
+            if (!orderId) {
+              this.logger.error('Order created but _id is missing:', order);
+              continue;
+            }
+
             const itemAmount = parseFloat(amount) * quantity;
             createdOrders.push({
-              order: order._id,
+              order: orderId,
               paidQuantity: quantity,
               amount: itemAmount,
               menuItemName: foundMenuItem.name,
@@ -1077,26 +1136,88 @@ export class TrendyolService {
             });
           }
 
-          return {
-            success: true,
-            message: 'Orders processed successfully',
-            ordersCreated: createdOrders.length,
+          const orderIds = createdOrders.map((o) => o.order).filter((id) => id != null);
+          this.logger.log(
+            `Webhook processing completed. Created orders: ${createdOrders.length}, Order IDs: ${JSON.stringify(orderIds)}`,
+          );
+          
+          const response = {
+            success: orderIds.length > 0,
+            message: orderIds.length > 0 ? 'Orders processed successfully' : 'No orders were created',
+            ordersCreated: orderIds.length,
+            orderIds,
           };
+
+          // Update webhook log with response (fire-and-forget)
+          if (webhookLog) {
+            const status = orderIds.length > 0 ? WebhookStatus.SUCCESS : WebhookStatus.ORDER_NOT_CREATED;
+            this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              response,
+              HttpStatus.OK,
+              status,
+              orderIds.length === 0 ? 'No orders were created' : undefined,
+              orderIds.length > 0 ? orderIds : undefined,
+              data?.id?.toString(),
+              startTime,
+            ).catch((error) => {
+              this.logger.error('Error updating webhook log:', error);
+            });
+          }
+
+          return response;
         } catch (collectionError) {
           this.logger.error('Error creating collection', collectionError);
           throw collectionError;
         }
       }
 
-      return {
-        success: true,
+      const response = {
+        success: false,
         message: 'No valid orders to create',
+        ordersCreated: 0,
+        orderIds: [],
       };
+
+      // Update webhook log with response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          WebhookStatus.ORDER_NOT_CREATED,
+          'No valid orders to create',
+          undefined,
+          data?.id?.toString(),
+          startTime,
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
+      }
+
+      return response;
     } catch (error) {
       this.logger.error('Error in orderCreateWebhook', error);
+      
+      // Update webhook log with error response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
+      }
+
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -1106,9 +1227,11 @@ export class TrendyolService {
    * (Cancelled, Shipped, Delivered, vb.)
    */
   async orderStatusWebhook(data?: any) {
+    const startTime = Date.now();
     this.logger.log('Processing Trendyol order status webhook...');
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
 
+    let webhookLog: any = null;
     try {
       if (!data) {
         throw new HttpException(
@@ -1116,6 +1239,13 @@ export class TrendyolService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // Log webhook request
+      webhookLog = await this.webhookLogService.logWebhookRequest(
+        WebhookSource.TRENDYOL,
+        'order-status-webhook',
+        data,
+      );
 
       const packageStatus = data?.shipmentPackageStatus || data?.status;
       const shipmentPackageId = data?.shipmentPackageId || data?.id;
@@ -1148,16 +1278,51 @@ export class TrendyolService {
           this.logger.log(`Unhandled status: ${packageStatus}`);
       }
 
-      return {
+      const response = {
         success: true,
         message: `Status ${packageStatus} received`,
         status: packageStatus,
       };
+
+      // Update webhook log with response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          data?.id?.toString(),
+          startTime,
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
+      }
+
+      return response;
     } catch (error) {
       this.logger.error('Error in orderStatusWebhook', error);
+      
+      // Update webhook log with error response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        ).catch((error) => {
+          this.logger.error('Error updating webhook log:', error);
+        });
+      }
+
       throw new HttpException(
         `Error processing status webhook: ${error?.message || 'Unknown error'}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -16,7 +16,7 @@ import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType,
+  NotificationEventType
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -57,7 +57,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct,
+  UpdateMultipleProduct
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -2740,12 +2740,15 @@ export class AccountingService {
         });
       }
       this.websocketGateway.emitStockChanged();
-      await this.activityService.addUpdateActivity(
+      // Activity logging - fire and forget (non-blocking)
+      this.activityService.addUpdateActivity(
         user,
         ActivityType.UPDATE_STOCK,
         stock,
         newStock,
-      );
+      ).catch((error) => {
+        this.logger.error('Error adding update stock activity:', error);
+      });
       const consumptStatus =
         consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION;
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
@@ -2757,12 +2760,17 @@ export class AccountingService {
       //   );
       // }
       // Eğer order Shopify'dan geliyorsa, Shopify zaten kendi stoğunu düşürüyor, tekrar update yapma
+      // Update Shopify stock in background (fire and forget) to avoid blocking
       if (consumptStatus !== StockHistoryStatusEnum.SHOPIFYORDERCREATE) {
         this.updateShopifyStock(
           consumptStockDto.product,
           stock.location,
           stock.quantity - consumptStockDto.quantity,
-        );
+        ).catch((error) => {
+          this.logger.error(
+            `Error updating Shopify stock in background: ${error?.message}`,
+          );
+        });
       }
       // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (consumptStatus !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
