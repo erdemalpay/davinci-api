@@ -14,14 +14,9 @@ export class HepsiburadaWebhookController {
   @Public()
   @Post('/orders')
   async orders(@Body() data?: any) {
-    try {
-      this.logger.log('Received Hepsiburada order webhook via /orders');
-      this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
-      return await this.hepsiburadaService.orderWebhook(data);
-    } catch (error) {
-      this.logger.error('Error in orders webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+    this.logger.log('Received Hepsiburada order webhook via /orders');
+    this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
+    return await this.hepsiburadaService.orderWebhook(data);
   }
 
   // Hepsiburada'nın beklediği "/lineitems/{lineitemid}/cancel" endpoint'i
@@ -33,15 +28,10 @@ export class HepsiburadaWebhookController {
     @Param('lineitemid') lineitemid: string,
     @Body() data?: any,
   ) {
-    try {
-      this.logger.log(
-        `Received Hepsiburada cancel webhook for line item: ${lineitemid}`,
-      );
-      this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
-      return await this.hepsiburadaService.handleCancelOrder(data);
-    } catch (error) {
-      this.logger.error('Error in cancel webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+    this.logger.log(
+      `Received Hepsiburada cancel webhook for line item: ${lineitemid}`,
+    );
+    this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
+    return await this.hepsiburadaService.handleCancelOrder(data);
   }
 }

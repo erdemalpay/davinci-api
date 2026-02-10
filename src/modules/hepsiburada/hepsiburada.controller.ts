@@ -107,13 +107,8 @@ export class HepsiburadaController {
   @Public()
   @Post('/order-webhook')
   async orderWebhook(@Body() data?: any) {
-    try {
-      this.logger.log('Received Hepsiburada order webhook');
-      this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
-      return await this.hepsiburadaService.orderWebhook(data);
-    } catch (error) {
-      this.logger.error('Error in order-webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+    this.logger.log('Received Hepsiburada order webhook');
+    this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
+    return await this.hepsiburadaService.orderWebhook(data);
   }
 }
