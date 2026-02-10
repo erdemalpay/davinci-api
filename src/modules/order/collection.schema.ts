@@ -83,6 +83,9 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   trendyolShipmentPackageId: string;
 
+  @Prop({ required: false, type: String })
+  hepsiburadaOrderNumber: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 }
@@ -102,6 +105,11 @@ CollectionSchema.index({ status: 1, location: 1 });
 CollectionSchema.index(
   { trendyolShipmentPackageId: 1 },
   { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
+);
+// For Hepsiburada order number queries
+CollectionSchema.index(
+  { hepsiburadaOrderNumber: 1 },
+  { partialFilterExpression: { hepsiburadaOrderNumber: { $type: 'string' } } },
 );
 
 purifySchema(CollectionSchema);
