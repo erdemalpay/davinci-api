@@ -2382,14 +2382,12 @@ export class AccountingService {
           Number(oldQuantity) + Number(createStockDto.quantity),
         );
       }
-      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
-        this.updateHepsiburadaStock(
-          createStockDto.product,
-          createStockDto.location,
-          Number(oldQuantity) + Number(createStockDto.quantity),
-        );
-      }
+      // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
+      this.updateHepsiburadaStock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2478,14 +2476,12 @@ export class AccountingService {
           createStockDto.quantity,
         );
       }
-      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
-        this.updateHepsiburadaStock(
-          createStockDto.product,
-          createStockDto.location,
-          createStockDto.quantity,
-        );
-      }
+      // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
+      this.updateHepsiburadaStock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
     }
     this.websocketGateway.emitStockChanged();
   }
@@ -2636,10 +2632,8 @@ export class AccountingService {
       if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
         this.updateTrendyolStock(stock.product?._id, stock.location, 0);
       }
-      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
-        this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
-      }
+      // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
+      this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -2843,14 +2837,12 @@ export class AccountingService {
           stock.quantity - consumptStockDto.quantity,
         );
       }
-      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
-      if (consumptStatus !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
-        this.updateHepsiburadaStock(
-          consumptStockDto.product,
-          stock.location,
-          stock.quantity - consumptStockDto.quantity,
-        );
-      }
+      // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
+      this.updateHepsiburadaStock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
       return stock;
     } else {
       const newStock = await this.createStock(user, {
