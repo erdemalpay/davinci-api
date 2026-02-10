@@ -2519,6 +2519,9 @@ export class OrderService {
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
     }
+    if (query.hepsiburadaOrderNumber) {
+      filterQuery['hepsiburadaOrderNumber'] = query.hepsiburadaOrderNumber;
+    }
     try {
       const collections = await this.collectionModel
         .find(filterQuery)
