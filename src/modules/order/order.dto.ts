@@ -474,6 +474,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsString()
   hepsiburadaOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaLineItemSku?: string;
 }
 
 export class CollectionQueryDto {

@@ -84,6 +84,6 @@ const { host, port } = config.get<DBConfig>('redis');
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderConfirmationProcessor],
-  exports: [OrderService],
+  exports: [OrderService, mongooseModule],
 })
 export class OrderModule {}

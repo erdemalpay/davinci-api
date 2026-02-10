@@ -6,13 +6,29 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import axios, { AxiosInstance } from 'axios';
+import { Model } from 'mongoose';
 import { AccountingService } from '../accounting/accounting.service';
 import { MenuService } from '../menu/menu.service';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
 import { OrderStatus, OrderCollectionStatus } from '../order/order.dto';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
+import { Order } from '../order/order.schema';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+
+interface PopulatedMenuItem {
+  itemProduction?: Array<{
+    isDecrementStock?: boolean;
+    quantity?: number;
+    product?: any;
+  }>;
+}
+
+function isPopulatedMenuItem(item: unknown): item is PopulatedMenuItem {
+  return typeof item === 'object' && item !== null && 'itemProduction' in item;
+}
 
 @Injectable()
 export class HepsiburadaService {
@@ -35,7 +51,9 @@ export class HepsiburadaService {
     private readonly accountingService: AccountingService,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     private readonly userService: UserService,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {
     // Create Basic Auth token
     const authToken = Buffer.from(
@@ -770,76 +788,313 @@ export class HepsiburadaService {
         );
       }
 
-      // Extract order number from webhook data
-      const orderNumber = data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
+      const lineItemId = data?.id?.toString?.() ?? data?.id;
+      const cancelQuantity = Number(data?.quantity ?? 0);
+      const orderNumber =
+        data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
+      const orderNumberString =
+        orderNumber?.toString?.() ?? orderNumber;
+
       if (!orderNumber) {
         this.logger.warn('No order number provided in cancel webhook');
         return { success: false, message: 'No order number provided' };
       }
 
-      this.logger.log(`Cancelling Hepsiburada order: ${orderNumber}`);
+      this.logger.log(`Cancelling Hepsiburada order: ${orderNumberString}`);
 
-      // Find all orders with this Hepsiburada order number
+      const restoreStock = async (order: Order, quantity: number) => {
+        if (!quantity || quantity <= 0) return;
+        if (isPopulatedMenuItem(order?.item)) {
+          for (const ingredient of order.item.itemProduction ?? []) {
+            if (ingredient?.isDecrementStock) {
+              const incrementQuantity = (ingredient?.quantity ?? 0) * quantity;
+              if (incrementQuantity > 0) {
+                await this.accountingService.createStock(constantUser, {
+                  product: ingredient?.product,
+                  location: order?.stockLocation ?? order?.location,
+                  quantity: incrementQuantity,
+                  status: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+                });
+              }
+            }
+          }
+        }
+      };
+
+      if (lineItemId) {
+        if (!cancelQuantity || cancelQuantity <= 0) {
+          this.logger.warn(
+            `Invalid cancel quantity for line item ${lineItemId}: ${cancelQuantity}`,
+          );
+          return { success: false, message: 'Invalid cancel quantity' };
+        }
+
+        const orders = await this.orderService.findQueryOrders({
+          hepsiburadaLineItemSku: lineItemId,
+        });
+
+        if (!orders || orders.length === 0) {
+          this.logger.warn(
+            `No order found with Hepsiburada line item SKU: ${lineItemId}`,
+          );
+          return { success: false, message: 'No order found to cancel' };
+        }
+
+        if (orders.length > 1) {
+          this.logger.warn(
+            `Multiple orders found for line item ${lineItemId}, using an active order`,
+          );
+        }
+
+        const targetOrder =
+          orders.find((order) => order.status !== OrderStatus.CANCELLED) ??
+          orders[0];
+
+        const baseOrder = await this.orderModel
+          .findById(targetOrder._id)
+          .populate('item');
+
+        if (!baseOrder) {
+          this.logger.warn(
+            `Order ${targetOrder._id} not found for cancellation`,
+          );
+          return { success: false, message: 'Order not found to cancel' };
+        }
+
+        if (baseOrder.status === OrderStatus.CANCELLED) {
+          this.logger.log(`Order ${baseOrder._id} is already cancelled`);
+          return { success: true, message: 'Order already cancelled' };
+        }
+
+        if (cancelQuantity > baseOrder.quantity) {
+          this.logger.warn(
+            `Cancel quantity exceeds order quantity for ${baseOrder._id}`,
+          );
+          return { success: false, message: 'Invalid cancel quantity' };
+        }
+
+        const cancelledAmount = baseOrder.unitPrice * cancelQuantity;
+        let updatedOrder: Order | null = null;
+        let cancelledOrder: Order | null = null;
+        let remainingQuantity = 0;
+
+        if (baseOrder.quantity !== cancelQuantity) {
+          remainingQuantity = baseOrder.quantity - cancelQuantity;
+
+          const orderWithoutId = baseOrder.toObject();
+          delete orderWithoutId._id;
+
+          const [createdCancelledOrder] = await this.orderModel.create([
+            {
+              ...orderWithoutId,
+              quantity: cancelQuantity,
+              paidQuantity: cancelQuantity,
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: constantUser._id,
+              stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+            },
+          ]);
+          cancelledOrder = createdCancelledOrder;
+
+          updatedOrder = await this.orderModel.findByIdAndUpdate(
+            baseOrder._id,
+            {
+              $set: {
+                quantity: remainingQuantity,
+                paidQuantity: remainingQuantity,
+              },
+            },
+            { new: true },
+          );
+
+          await restoreStock(baseOrder, cancelQuantity);
+        } else {
+          updatedOrder = await this.orderModel.findByIdAndUpdate(
+            baseOrder._id,
+            {
+              $set: {
+                status: OrderStatus.CANCELLED,
+                cancelledAt: new Date(),
+                cancelledBy: constantUser._id,
+                stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+              },
+            },
+            { new: true },
+          );
+
+          await restoreStock(baseOrder, baseOrder.quantity);
+        }
+
+        const collections = await this.orderService.findQueryCollections({
+          hepsiburadaOrderNumber: orderNumberString,
+        });
+
+        if (collections && collections.length > 0) {
+          for (const collection of collections) {
+            if (collection.status === OrderCollectionStatus.CANCELLED) {
+              this.logger.log(
+                `Collection ${collection._id} is already cancelled, skipping`,
+              );
+              continue;
+            }
+
+            const orderUpdateMap = new Map<
+              string,
+              { order: number; paidQuantity: number }
+            >();
+            for (const orderItem of collection.orders ?? []) {
+              orderUpdateMap.set(orderItem.order.toString(), {
+                order: orderItem.order,
+                paidQuantity: orderItem.paidQuantity,
+              });
+            }
+
+            if (baseOrder.quantity !== cancelQuantity) {
+              orderUpdateMap.set(baseOrder._id.toString(), {
+                order: baseOrder._id,
+                paidQuantity: remainingQuantity,
+              });
+            } else {
+              orderUpdateMap.delete(baseOrder._id.toString());
+            }
+
+            const updatedOrders = Array.from(orderUpdateMap.values());
+            const newAmount = Math.max(
+              0,
+              (collection.amount ?? 0) - cancelledAmount,
+            );
+
+            const activeOrders = await this.orderService.findActiveOrdersByIds(
+              updatedOrders.map((o) => o.order),
+            );
+
+            const updateData: any = {
+              orders: updatedOrders,
+              amount: newAmount,
+            };
+
+            if (activeOrders.length === 0 || newAmount <= 0) {
+              updateData.status = OrderCollectionStatus.CANCELLED;
+              updateData.cancelledAt = new Date();
+              updateData.cancelledBy = constantUser._id;
+            }
+
+            await this.orderService.updateCollection(
+              constantUser,
+              collection._id,
+              updateData,
+            );
+          }
+        } else {
+          this.logger.warn(
+            `No collection found for Hepsiburada order number: ${orderNumberString}`,
+          );
+        }
+
+        const ordersToEmit = [updatedOrder, cancelledOrder].filter(
+          Boolean,
+        ) as Order[];
+        if (ordersToEmit.length > 0) {
+          await this.websocketGateway.emitOrderUpdated(ordersToEmit);
+        }
+        this.websocketGateway.emitOrderGroupChanged();
+
+        return {
+          success: true,
+          message: 'Order cancellation processed',
+          cancelledQuantity: cancelQuantity,
+          isPartial: baseOrder.quantity !== cancelQuantity,
+        };
+      }
+
+      // Fallback: cancel all orders by order number
       const orders = await this.orderService.findQueryOrders({
-        hepsiburadaOrderNumber: orderNumber,
+        hepsiburadaOrderNumber: orderNumberString,
       });
 
       if (!orders || orders.length === 0) {
-        this.logger.warn(`No orders found with Hepsiburada order number: ${orderNumber}`);
+        this.logger.warn(
+          `No orders found with Hepsiburada order number: ${orderNumberString}`,
+        );
         return { success: false, message: 'No orders found to cancel' };
       }
 
       this.logger.log(`Found ${orders.length} orders to cancel`);
 
-      // Cancel each order
+      let cancelledCount = 0;
+      const updatedOrdersToEmit: Order[] = [];
+
       for (const order of orders) {
-        // Skip if already cancelled
         if (order.status === OrderStatus.CANCELLED) {
           this.logger.log(`Order ${order._id} is already cancelled, skipping`);
           continue;
         }
 
-        // Update order status to CANCELLED
-        // Note: location is required for stock validation during cancellation
-        await this.orderService.updateOrder(constantUser, order._id, {
-          status: OrderStatus.CANCELLED,
-          location: order.location, // Include location for stock update
-          stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
-        });
+        const orderWithItem = await this.orderModel
+          .findById(order._id)
+          .populate('item');
 
-        this.logger.log(`Order ${order._id} cancelled successfully`);
+        if (!orderWithItem) {
+          this.logger.warn(`Order ${order._id} not found for cancellation`);
+          continue;
+        }
+
+        const updatedOrder = await this.orderModel.findByIdAndUpdate(
+          orderWithItem._id,
+          {
+            $set: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: constantUser._id,
+              stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+            },
+          },
+          { new: true },
+        );
+
+        await restoreStock(orderWithItem, orderWithItem.quantity);
+        if (updatedOrder) {
+          updatedOrdersToEmit.push(updatedOrder);
+        }
+        cancelledCount++;
       }
 
-      // Find and cancel the associated collection
       const collections = await this.orderService.findQueryCollections({
-        hepsiburadaOrderNumber: orderNumber,
+        hepsiburadaOrderNumber: orderNumberString,
       });
 
       if (collections && collections.length > 0) {
         for (const collection of collections) {
-          // Skip if already cancelled
           if (collection.status === OrderCollectionStatus.CANCELLED) {
-            this.logger.log(`Collection ${collection._id} is already cancelled, skipping`);
+            this.logger.log(
+              `Collection ${collection._id} is already cancelled, skipping`,
+            );
             continue;
           }
 
-          // Update collection status to CANCELLED
           await this.orderService.updateCollection(
             constantUser,
             collection._id,
             {
               status: OrderCollectionStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledBy: constantUser._id,
             },
           );
-
           this.logger.log(`Collection ${collection._id} cancelled successfully`);
         }
       }
 
+      if (updatedOrdersToEmit.length > 0) {
+        await this.websocketGateway.emitOrderUpdated(updatedOrdersToEmit);
+      }
+      this.websocketGateway.emitOrderGroupChanged();
+
       return {
         success: true,
         message: 'Order(s) cancelled successfully',
-        ordersCancelled: orders.length,
+        ordersCancelled: cancelledCount,
       };
     } catch (error) {
       this.logger.error('Error in handleCancelOrder', error);
