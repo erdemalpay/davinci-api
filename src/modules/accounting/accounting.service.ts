@@ -2186,19 +2186,20 @@ export class AccountingService {
         return;
       }
 
-      await this.hepsiburadaService.updateProductInventory([
-        {
-          hepsiburadaSku: menuItem.hepsiBuradaSku,
-          merchantSku: menuItem.hepsiBuradaSku,
-          availableStock: quantity,
-          price: menuItem.onlinePrice || menuItem.price,
-        },
-      ]);
+      await this.hepsiburadaService.updateStockByHbSku(
+        menuItem.hepsiBuradaSku,
+        quantity,
+        menuItem.onlinePrice || menuItem.price || 0,
+      );
     } catch (error) {
       this.logger.error(
-        `Error updating Hepsiburada stock for product ${productId}, location ${location}:`,
-        error,
+        `[HB] Error updating Hepsiburada stock for product ${productId}, location ${location}: ${error?.message}`,
       );
+      if (error?.response?.data) {
+        this.logger.error(
+          `[HB] Hepsiburada API response: ${JSON.stringify(error.response.data)}`,
+        );
+      }
     }
   }
 
@@ -2518,6 +2519,12 @@ export class AccountingService {
         status: StockHistoryStatusEnum.STOCKUPDATEENTRY,
       });
     }
+    // Hepsiburada'ya final stok değerini direkt gönder
+    this.updateHepsiburadaStock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
     this.websocketGateway.emitStockChanged();
   }
 

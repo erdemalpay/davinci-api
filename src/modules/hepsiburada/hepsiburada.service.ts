@@ -267,6 +267,44 @@ export class HepsiburadaService {
   }
 
   /**
+   * Update stock for a single product by its Hepsiburada SKU (hbSku).
+   * Fetches the current listing to resolve merchantSku automatically.
+   * @param hbSku Hepsiburada SKU stored on MenuItem (hepsiBuradaSku)
+   * @param availableStock New stock quantity
+   * @param price Price to send alongside the stock update
+   */
+  async updateStockByHbSku(
+    hbSku: string,
+    availableStock: number,
+    price: number,
+  ) {
+    // Fetch current listings to resolve merchantSku
+    const listingsResponse = await this.getListings();
+    const listings: Array<{ hepsiburadaSku: string; merchantSku: string }> =
+      listingsResponse?.listings ?? listingsResponse ?? [];
+
+    const listing = listings.find(
+      (l) => l.hepsiburadaSku === hbSku || l.merchantSku === hbSku,
+    );
+
+    if (!listing) {
+      this.logger.warn(
+        `[HB] No listing found for hbSku ${hbSku}, skipping stock update`,
+      );
+      return;
+    }
+
+    return this.updateProductInventory([
+      {
+        hepsiburadaSku: listing.hepsiburadaSku,
+        merchantSku: listing.merchantSku,
+        availableStock,
+        price,
+      },
+    ]);
+  }
+
+  /**
    * Update inventory (stock) for a single product or batch of products
    * @param inventoryUpdates Array of inventory updates
    */
