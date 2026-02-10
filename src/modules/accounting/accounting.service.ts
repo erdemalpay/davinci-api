@@ -21,6 +21,7 @@ import {
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { ShopifyService } from '../shopify/shopify.service';
 import { TrendyolService } from '../trendyol/trendyol.service';
 import { User } from '../user/user.schema';
@@ -109,6 +110,8 @@ export class AccountingService {
     private readonly shopifyService: ShopifyService,
     @Inject(forwardRef(() => TrendyolService))
     private readonly trendyolService: TrendyolService,
+    @Inject(forwardRef(() => HepsiburadaService))
+    private readonly hepsiburadaService: HepsiburadaService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     private readonly notificationService: NotificationService,
@@ -2166,6 +2169,39 @@ export class AccountingService {
       );
     }
   }
+
+  async updateHepsiburadaStock(
+    productId: string,
+    location: number,
+    quantity: number,
+  ) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.hepsiBuradaSku) {
+        return;
+      }
+
+      // Hepsiburada için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      await this.hepsiburadaService.updateProductInventory([
+        {
+          hepsiburadaSku: menuItem.hepsiBuradaSku,
+          merchantSku: menuItem.hepsiBuradaSku,
+          availableStock: quantity,
+          price: menuItem.onlinePrice || menuItem.price,
+        },
+      ]);
+    } catch (error) {
+      this.logger.error(
+        `Error updating Hepsiburada stock for product ${productId}, location ${location}:`,
+        error,
+      );
+    }
+  }
+
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
@@ -2345,6 +2381,14 @@ export class AccountingService {
           Number(oldQuantity) + Number(createStockDto.quantity),
         );
       }
+      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
+        this.updateHepsiburadaStock(
+          createStockDto.product,
+          createStockDto.location,
+          Number(oldQuantity) + Number(createStockDto.quantity),
+        );
+      }
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2428,6 +2472,14 @@ export class AccountingService {
       // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
         this.updateTrendyolStock(
+          createStockDto.product,
+          createStockDto.location,
+          createStockDto.quantity,
+        );
+      }
+      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
+        this.updateHepsiburadaStock(
           createStockDto.product,
           createStockDto.location,
           createStockDto.quantity,
@@ -2576,6 +2628,10 @@ export class AccountingService {
       // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (status !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
         this.updateTrendyolStock(stock.product?._id, stock.location, 0);
+      }
+      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (status !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
+        this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
       }
       this.activityService.addActivity(
         user,
@@ -2775,6 +2831,14 @@ export class AccountingService {
       // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
       if (consumptStatus !== StockHistoryStatusEnum.TRENDYOLORDERCREATE) {
         this.updateTrendyolStock(
+          consumptStockDto.product,
+          stock.location,
+          stock.quantity - consumptStockDto.quantity,
+        );
+      }
+      // Eğer order Hepsiburada'dan geliyorsa, Hepsiburada zaten kendi stoğunu düşürüyor, tekrar update yapma
+      if (consumptStatus !== StockHistoryStatusEnum.HEPSIBURADAORDERCREATE) {
+        this.updateHepsiburadaStock(
           consumptStockDto.product,
           stock.location,
           stock.quantity - consumptStockDto.quantity,
