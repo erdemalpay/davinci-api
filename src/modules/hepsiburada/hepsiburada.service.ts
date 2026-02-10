@@ -641,6 +641,11 @@ export class HepsiburadaService {
         try {
           // Hepsiburada webhook format - hem büyük hem küçük harfli field'lari destekle
           const sku = lineItem.sku || lineItem.Sku;
+          const lineItemId =
+            lineItem.id ||
+            lineItem.Id ||
+            lineItem.lineItemId ||
+            lineItem.LineItemId;
           const quantity = lineItem.quantity || lineItem.Quantity;
           const unitPrice = lineItem.unitPrice || lineItem.Price;
           const totalPrice = lineItem.totalPrice || lineItem.TotalPrice;
@@ -703,6 +708,7 @@ export class HepsiburadaService {
             paymentMethod: 'hepsiburada',
             tableDate: new Date(),
             hepsiburadaOrderNumber: orderNumber,
+            hepsiburadaLineItemId: lineItemId,
             hepsiburadaLineItemSku: sku,
             stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCREATE,
           });
@@ -829,13 +835,19 @@ export class HepsiburadaService {
           return { success: false, message: 'Invalid cancel quantity' };
         }
 
-        const orders = await this.orderService.findQueryOrders({
-          hepsiburadaLineItemSku: lineItemId,
+        let orders = await this.orderService.findQueryOrders({
+          hepsiburadaLineItemId: lineItemId,
         });
 
         if (!orders || orders.length === 0) {
+          orders = await this.orderService.findQueryOrders({
+            hepsiburadaLineItemSku: lineItemId,
+          });
+        }
+
+        if (!orders || orders.length === 0) {
           this.logger.warn(
-            `No order found with Hepsiburada line item SKU: ${lineItemId}`,
+            `No order found with Hepsiburada line item id or SKU: ${lineItemId}`,
           );
           return { success: false, message: 'No order found to cancel' };
         }

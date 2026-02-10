@@ -227,6 +227,9 @@ export class Order extends Document {
   hepsiburadaOrderNumber: string;
 
   @Prop({ required: false, type: String })
+  hepsiburadaLineItemId: string;
+
+  @Prop({ required: false, type: String })
   hepsiburadaLineItemSku: string;
 }
 
@@ -250,6 +253,10 @@ OrderSchema.index(
 OrderSchema.index(
   { hepsiburadaOrderNumber: 1 },
   { partialFilterExpression: { hepsiburadaOrderNumber: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { hepsiburadaLineItemId: 1 },
+  { partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead
