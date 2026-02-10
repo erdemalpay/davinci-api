@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { GameModule } from 'src/modules/game/game.module';
 import { ActivityModule } from '../activity/activity.module';
 import { AssetModule } from '../asset/asset.module';
+import { HepsiburadaModule } from '../hepsiburada/hepsiburada.module';
 import { IkasModule } from '../ikas/ikas.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MenuModule } from '../menu/menu.module';
@@ -74,6 +75,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => IkasModule),
     forwardRef(() => ShopifyModule),
     forwardRef(() => TrendyolModule),
+    forwardRef(() => HepsiburadaModule),
     forwardRef(() => MenuModule),
   ],
   providers: [AccountingService],
