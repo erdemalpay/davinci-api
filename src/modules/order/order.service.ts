@@ -331,6 +331,9 @@ export class OrderService {
     if (query.hepsiburadaOrderNumber) {
       filterQuery['hepsiburadaOrderNumber'] = query.hepsiburadaOrderNumber;
     }
+    if (query.hepsiburadaLineItemId) {
+      filterQuery['hepsiburadaLineItemId'] = query.hepsiburadaLineItemId;
+    }
     if (query.hepsiburadaLineItemSku) {
       filterQuery['hepsiburadaLineItemSku'] = query.hepsiburadaLineItemSku;
     }

@@ -220,6 +220,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  hepsiburadaLineItemId?: string;
+
+  @IsOptional()
+  @IsString()
   hepsiburadaLineItemSku?: string;
 
   @IsOptional()
@@ -474,6 +478,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsString()
   hepsiburadaOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  hepsiburadaLineItemId?: string;
 
   @IsOptional()
   @IsString()
