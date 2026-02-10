@@ -12,6 +12,7 @@ import { MenuService } from '../menu/menu.service';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
 import { OrderStatus, OrderCollectionStatus } from '../order/order.dto';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 
 @Injectable()
 export class HepsiburadaService {
@@ -647,6 +648,7 @@ export class HepsiburadaService {
             tableDate: new Date(),
             hepsiburadaOrderNumber: orderNumber,
             hepsiburadaLineItemSku: sku,
+            stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCREATE,
           });
 
           this.logger.log('Order created:', order._id);
@@ -764,6 +766,7 @@ export class HepsiburadaService {
         await this.orderService.updateOrder(constantUser, order._id, {
           status: OrderStatus.CANCELLED,
           location: order.location, // Include location for stock update
+          stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
         });
 
         this.logger.log(`Order ${order._id} cancelled successfully`);
