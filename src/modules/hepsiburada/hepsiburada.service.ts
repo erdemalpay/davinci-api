@@ -24,7 +24,8 @@ export class HepsiburadaService {
   private readonly merchantId = process.env.HEPSIBURADA_STAGING_MERCHANT_ID!;
   private readonly secretKey = process.env.HEPSIBURADA_STAGING_SECRET_KEY!;
   private readonly userAgent = process.env.HEPSIBURADA_STAGING_USER_AGENT!;
-  private readonly OnlineStoreLocation = 4; // Location ID for online store
+  private readonly OnlineStoreLocation = 4; // Location ID for online store (UI)
+  private readonly OnlineStoreStockLocation = 6; // Location ID for stock management
 
   constructor(
     @Inject(forwardRef(() => MenuService))
@@ -634,6 +635,7 @@ export class HepsiburadaService {
           // Create order
           const order = await this.orderService.createOrder(constantUser, {
             location: this.OnlineStoreLocation,
+            stockLocation: this.OnlineStoreStockLocation,
             item: foundMenuItem._id,
             quantity: quantity,
             status: OrderStatus.AUTOSERVED,
