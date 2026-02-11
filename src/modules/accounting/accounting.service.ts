@@ -1360,6 +1360,12 @@ export class AccountingService {
               this.websocketGateway.emitProductStockHistoryChanged();
             }
 
+            this.updateExternalStocks(
+              expense.product,
+              expense.location,
+              newStock.quantity,
+            );
+
             await this.activityService.addUpdateActivity(
               user,
               ActivityType.UPDATE_STOCK as any,
@@ -1395,6 +1401,12 @@ export class AccountingService {
               rollback.stockHistoryId = stockHist._id;
               this.websocketGateway.emitProductStockHistoryChanged();
             }
+
+            this.updateExternalStocks(
+              expense.product,
+              expense.location,
+              rollback.stockDelta,
+            );
           }
         }
 
@@ -2170,6 +2182,12 @@ export class AccountingService {
     }
   }
 
+  updateExternalStocks(productId: string, location: number, quantity: number) {
+    this.updateShopifyStock(productId, location, quantity);
+    this.updateTrendyolStock(productId, location, quantity);
+    this.updateHepsiburadaStock(productId, location, quantity);
+  }
+
   async updateHepsiburadaStock(
     productId: string,
     location: number,
@@ -2516,6 +2534,7 @@ export class AccountingService {
       });
     }
     // Hepsiburada'ya final stok değerini direkt gönder
+    // TO-DO STAGING-HEPSIBURADA'DA SİPARİŞ OLUŞTURDUĞUMDA HB'nin stoğunun düşmediğini gördüm o yüzden bunu koydum, canlıya çıkınca, sipariş oluşturulduğunda HB'de gerçekleşen stok değişimini tekrar incelememiz gerekiyor.
     this.updateHepsiburadaStock(
       updates?.product,
       updates?.location,
