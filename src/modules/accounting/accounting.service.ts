@@ -1360,17 +1360,7 @@ export class AccountingService {
               this.websocketGateway.emitProductStockHistoryChanged();
             }
 
-            this.updateShopifyStock(
-              expense.product,
-              expense.location,
-              newStock.quantity,
-            );
-            this.updateTrendyolStock(
-              expense.product,
-              expense.location,
-              newStock.quantity,
-            );
-            this.updateHepsiburadaStock(
+            this.updateExternalStocks(
               expense.product,
               expense.location,
               newStock.quantity,
@@ -1412,17 +1402,7 @@ export class AccountingService {
               this.websocketGateway.emitProductStockHistoryChanged();
             }
 
-            this.updateShopifyStock(
-              expense.product,
-              expense.location,
-              rollback.stockDelta,
-            );
-            this.updateTrendyolStock(
-              expense.product,
-              expense.location,
-              rollback.stockDelta,
-            );
-            this.updateHepsiburadaStock(
+            this.updateExternalStocks(
               expense.product,
               expense.location,
               rollback.stockDelta,
@@ -2200,6 +2180,12 @@ export class AccountingService {
         error,
       );
     }
+  }
+
+  updateExternalStocks(productId: string, location: number, quantity: number) {
+    this.updateShopifyStock(productId, location, quantity);
+    this.updateTrendyolStock(productId, location, quantity);
+    this.updateHepsiburadaStock(productId, location, quantity);
   }
 
   async updateHepsiburadaStock(
