@@ -40,10 +40,10 @@ import {
 @Injectable()
 export class TrendyolService {
   private readonly logger = new Logger(TrendyolService.name);
-  private readonly baseUrl = process.env.TRENDYOL_BASE_URL!;
-  private readonly sellerId = process.env.TRENDYOL_SELLER_ID!;
-  private readonly apiKey = process.env.TRENDYOL_PRODUCTION_API_KEY!;
-  private readonly apiSecret = process.env.TRENDYOL_PRODUCTION_API_SECRET!;
+  private readonly baseUrl: string;
+  private readonly sellerId: string;
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
   private readonly OnlineStoreLocation = 6;
 
   private get userAgent() {
@@ -65,7 +65,27 @@ export class TrendyolService {
     private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)
     private readonly processedClaimItemModel: Model<ProcessedClaimItem>,
-  ) {}
+  ) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const getEnv = (prodKey: string, stageKey: string): string => {
+      const key = isProduction ? prodKey : stageKey;
+      const value = process.env[key];
+      if (!value) {
+        throw new Error(`Ortam değişkeni bulunamadı: ${key}`);
+      }
+      return value;
+    };
+
+    this.baseUrl = getEnv('TRENDYOL_BASE_URL', 'TRENDYOL_STAGING_BASE_URL');
+    this.sellerId = getEnv('TRENDYOL_SELLER_ID', 'TRENDYOL_STAGING_SELLER_ID');
+    this.apiKey = getEnv('TRENDYOL_PRODUCTION_API_KEY', 'TRENDYOL_STAGING_API_KEY');
+    this.apiSecret = getEnv('TRENDYOL_PRODUCTION_API_SECRET', 'TRENDYOL_STAGING_API_SECRET');
+
+    this.logger.log(
+      `Trendyol initialized in ${isProduction ? 'production' : 'staging'} mode`,
+    );
+  }
 
   /**
    * Trendyol'a webhook kaydı oluşturur.
