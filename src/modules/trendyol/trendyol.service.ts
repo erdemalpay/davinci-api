@@ -68,21 +68,19 @@ export class TrendyolService {
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
-    this.baseUrl = isProduction
-      ? process.env.TRENDYOL_BASE_URL!
-      : process.env.TRENDYOL_STAGING_BASE_URL!;
+    const getEnv = (prodKey: string, stageKey: string): string => {
+      const key = isProduction ? prodKey : stageKey;
+      const value = process.env[key];
+      if (!value) {
+        throw new Error(`Ortam değişkeni bulunamadı: ${key}`);
+      }
+      return value;
+    };
 
-    this.sellerId = isProduction
-      ? process.env.TRENDYOL_SELLER_ID!
-      : process.env.TRENDYOL_STAGING_SELLER_ID!;
-
-    this.apiKey = isProduction
-      ? process.env.TRENDYOL_PRODUCTION_API_KEY!
-      : process.env.TRENDYOL_STAGING_API_KEY!;
-
-    this.apiSecret = isProduction
-      ? process.env.TRENDYOL_PRODUCTION_API_SECRET!
-      : process.env.TRENDYOL_STAGING_API_SECRET!;
+    this.baseUrl = getEnv('TRENDYOL_BASE_URL', 'TRENDYOL_STAGING_BASE_URL');
+    this.sellerId = getEnv('TRENDYOL_SELLER_ID', 'TRENDYOL_STAGING_SELLER_ID');
+    this.apiKey = getEnv('TRENDYOL_PRODUCTION_API_KEY', 'TRENDYOL_STAGING_API_KEY');
+    this.apiSecret = getEnv('TRENDYOL_PRODUCTION_API_SECRET', 'TRENDYOL_STAGING_API_SECRET');
 
     this.logger.log(
       `Trendyol initialized in ${isProduction ? 'production' : 'staging'} mode`,
