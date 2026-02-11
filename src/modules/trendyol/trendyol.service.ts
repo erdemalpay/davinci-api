@@ -5,8 +5,9 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
@@ -17,7 +18,10 @@ import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
-import { WebhookSource, WebhookStatus } from '../webhook-log/webhook-log.schema';
+import {
+  WebhookSource,
+  WebhookStatus,
+} from '../webhook-log/webhook-log.schema';
 import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
@@ -34,7 +38,7 @@ import {
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
   TrendyolProductDto,
-  TrendyolProductsResponseDto
+  TrendyolProductsResponseDto,
 } from './trendyol.dto';
 
 @Injectable()
@@ -51,6 +55,7 @@ export class TrendyolService {
   }
 
   constructor(
+    private readonly configService: ConfigService,
     private readonly http: HttpService,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
@@ -68,19 +73,24 @@ export class TrendyolService {
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
-    const getEnv = (prodKey: string, stageKey: string): string => {
-      const key = isProduction ? prodKey : stageKey;
-      const value = process.env[key];
-      if (!value) {
-        throw new Error(`Ortam değişkeni bulunamadı: ${key}`);
-      }
-      return value;
-    };
-
-    this.baseUrl = getEnv('TRENDYOL_BASE_URL', 'TRENDYOL_STAGING_BASE_URL');
-    this.sellerId = getEnv('TRENDYOL_SELLER_ID', 'TRENDYOL_STAGING_SELLER_ID');
-    this.apiKey = getEnv('TRENDYOL_PRODUCTION_API_KEY', 'TRENDYOL_STAGING_API_KEY');
-    this.apiSecret = getEnv('TRENDYOL_PRODUCTION_API_SECRET', 'TRENDYOL_STAGING_API_SECRET');
+    this.baseUrl = this.configService.get<string>(
+      isProduction ? 'TRENDYOL_BASE_URL' : 'TRENDYOL_STAGING_BASE_URL',
+    );
+    this.sellerId = this.configService.get<string>(
+      isProduction ? 'TRENDYOL_SELLER_ID' : 'TRENDYOL_STAGING_SELLER_ID',
+    );
+    this.apiKey =
+      this.configService.get<string>(
+        isProduction
+          ? 'TRENDYOL_PRODUCTION_API_KEY'
+          : 'TRENDYOL_STAGING_API_KEY',
+      ) || '';
+    this.apiSecret =
+      this.configService.get<string>(
+        isProduction
+          ? 'TRENDYOL_PRODUCTION_API_SECRET'
+          : 'TRENDYOL_STAGING_API_SECRET',
+      ) || '';
 
     this.logger.log(
       `Trendyol initialized in ${isProduction ? 'production' : 'staging'} mode`,
@@ -597,7 +607,9 @@ export class TrendyolService {
     const batchResults = [];
     for (const [index, batch] of batches.entries()) {
       this.logger.log(
-        `Processing batch ${index + 1}/${batches.length} with ${batch.length} items`,
+        `Processing batch ${index + 1}/${batches.length} with ${
+          batch.length
+        } items`,
       );
 
       const { data } = await firstValueFrom(
@@ -895,22 +907,24 @@ export class TrendyolService {
           ordersCreated: 0,
           orderIds: [],
         };
-        
+
         if (webhookLog) {
-          this.webhookLogService.updateWebhookResponse(
-            webhookLog._id,
-            response,
-            HttpStatus.OK,
-            WebhookStatus.ORDER_NOT_CREATED,
-            'No line items to process',
-            undefined,
-            data?.id?.toString(),
-            startTime,
-          ).catch((error) => {
-            this.logger.error('Error updating webhook log:', error);
-          });
+          this.webhookLogService
+            .updateWebhookResponse(
+              webhookLog._id,
+              response,
+              HttpStatus.OK,
+              WebhookStatus.ORDER_NOT_CREATED,
+              'No line items to process',
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            )
+            .catch((error) => {
+              this.logger.error('Error updating webhook log:', error);
+            });
         }
-        
+
         return response;
       }
 
@@ -919,7 +933,9 @@ export class TrendyolService {
       const validStatuses = ['Created', 'ReadyToShip'];
       if (!validStatuses.includes(packageStatus)) {
         this.logger.log(
-          `Skipping order as status is not in valid statuses (${validStatuses.join(', ')}): ${packageStatus}`,
+          `Skipping order as status is not in valid statuses (${validStatuses.join(
+            ', ',
+          )}): ${packageStatus}`,
         );
         const response = {
           success: false,
@@ -927,22 +943,24 @@ export class TrendyolService {
           ordersCreated: 0,
           orderIds: [],
         };
-        
+
         if (webhookLog) {
-          this.webhookLogService.updateWebhookResponse(
-            webhookLog._id,
-            response,
-            HttpStatus.OK,
-            WebhookStatus.ORDER_NOT_CREATED,
-            `Package status: ${packageStatus} is not in valid statuses`,
-            undefined,
-            data?.id?.toString(),
-            startTime,
-          ).catch((error) => {
-            this.logger.error('Error updating webhook log:', error);
-          });
+          this.webhookLogService
+            .updateWebhookResponse(
+              webhookLog._id,
+              response,
+              HttpStatus.OK,
+              WebhookStatus.ORDER_NOT_CREATED,
+              `Package status: ${packageStatus} is not in valid statuses`,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            )
+            .catch((error) => {
+              this.logger.error('Error updating webhook log:', error);
+            });
         }
-        
+
         return response;
       }
 
@@ -996,7 +1014,9 @@ export class TrendyolService {
 
           if (existingOrder && isPartialCancelRecreation) {
             this.logger.log(
-              `Partial cancel detected (originPackageIds: ${originPackageIds.join(', ')}). Creating new order for existing lineId: ${finalLineItemId}`,
+              `Partial cancel detected (originPackageIds: ${originPackageIds.join(
+                ', ',
+              )}). Creating new order for existing lineId: ${finalLineItemId}`,
             );
           }
 
@@ -1006,9 +1026,7 @@ export class TrendyolService {
           );
 
           if (!foundMenuItem?.matchedProduct) {
-            this.logger.log(
-              `Menu item not found for barcode: ${barcode}`,
-            );
+            this.logger.log(`Menu item not found for barcode: ${barcode}`);
             continue;
           }
 
@@ -1156,33 +1174,45 @@ export class TrendyolService {
             });
           }
 
-          const orderIds = createdOrders.map((o) => o.order).filter((id) => id != null);
+          const orderIds = createdOrders
+            .map((o) => o.order)
+            .filter((id) => id != null);
           this.logger.log(
-            `Webhook processing completed. Created orders: ${createdOrders.length}, Order IDs: ${JSON.stringify(orderIds)}`,
+            `Webhook processing completed. Created orders: ${
+              createdOrders.length
+            }, Order IDs: ${JSON.stringify(orderIds)}`,
           );
-          
+
           const response = {
             success: orderIds.length > 0,
-            message: orderIds.length > 0 ? 'Orders processed successfully' : 'No orders were created',
+            message:
+              orderIds.length > 0
+                ? 'Orders processed successfully'
+                : 'No orders were created',
             ordersCreated: orderIds.length,
             orderIds,
           };
 
           // Update webhook log with response (fire-and-forget)
           if (webhookLog) {
-            const status = orderIds.length > 0 ? WebhookStatus.SUCCESS : WebhookStatus.ORDER_NOT_CREATED;
-            this.webhookLogService.updateWebhookResponse(
-              webhookLog._id,
-              response,
-              HttpStatus.OK,
-              status,
-              orderIds.length === 0 ? 'No orders were created' : undefined,
-              orderIds.length > 0 ? orderIds : undefined,
-              data?.id?.toString(),
-              startTime,
-            ).catch((error) => {
-              this.logger.error('Error updating webhook log:', error);
-            });
+            const status =
+              orderIds.length > 0
+                ? WebhookStatus.SUCCESS
+                : WebhookStatus.ORDER_NOT_CREATED;
+            this.webhookLogService
+              .updateWebhookResponse(
+                webhookLog._id,
+                response,
+                HttpStatus.OK,
+                status,
+                orderIds.length === 0 ? 'No orders were created' : undefined,
+                orderIds.length > 0 ? orderIds : undefined,
+                data?.id?.toString(),
+                startTime,
+              )
+              .catch((error) => {
+                this.logger.error('Error updating webhook log:', error);
+              });
           }
 
           return response;
@@ -1201,38 +1231,42 @@ export class TrendyolService {
 
       // Update webhook log with response (fire-and-forget)
       if (webhookLog) {
-        this.webhookLogService.updateWebhookResponse(
-          webhookLog._id,
-          response,
-          HttpStatus.OK,
-          WebhookStatus.ORDER_NOT_CREATED,
-          'No valid orders to create',
-          undefined,
-          data?.id?.toString(),
-          startTime,
-        ).catch((error) => {
-          this.logger.error('Error updating webhook log:', error);
-        });
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            'No valid orders to create',
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
       }
 
       return response;
     } catch (error) {
       this.logger.error('Error in orderCreateWebhook', error);
-      
+
       // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
-        this.webhookLogService.updateWebhookResponse(
-          webhookLog._id,
-          { error: error?.message || 'Unknown error' },
-          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-          WebhookStatus.ERROR,
-          error?.message || 'Unknown error',
-          undefined,
-          undefined,
-          startTime,
-        ).catch((error) => {
-          this.logger.error('Error updating webhook log:', error);
-        });
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            { error: error?.message || 'Unknown error' },
+            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            WebhookStatus.ERROR,
+            error?.message || 'Unknown error',
+            undefined,
+            undefined,
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
       }
 
       throw new HttpException(
@@ -1306,38 +1340,42 @@ export class TrendyolService {
 
       // Update webhook log with response (fire-and-forget)
       if (webhookLog) {
-        this.webhookLogService.updateWebhookResponse(
-          webhookLog._id,
-          response,
-          HttpStatus.OK,
-          WebhookStatus.SUCCESS,
-          undefined,
-          undefined,
-          data?.id?.toString(),
-          startTime,
-        ).catch((error) => {
-          this.logger.error('Error updating webhook log:', error);
-        });
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.SUCCESS,
+            undefined,
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
       }
 
       return response;
     } catch (error) {
       this.logger.error('Error in orderStatusWebhook', error);
-      
+
       // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
-        this.webhookLogService.updateWebhookResponse(
-          webhookLog._id,
-          { error: error?.message || 'Unknown error' },
-          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-          WebhookStatus.ERROR,
-          error?.message || 'Unknown error',
-          undefined,
-          undefined,
-          startTime,
-        ).catch((error) => {
-          this.logger.error('Error updating webhook log:', error);
-        });
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            { error: error?.message || 'Unknown error' },
+            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            WebhookStatus.ERROR,
+            error?.message || 'Unknown error',
+            undefined,
+            undefined,
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
       }
 
       throw new HttpException(
@@ -1388,8 +1426,7 @@ export class TrendyolService {
       );
 
       // lines varsa ve en az bir iptal edilen satır varsa kısmi iptal; yoksa tam iptal
-      const isPartialCancel =
-        lineItems.length > 0 && cancelledLineIds.size > 0;
+      const isPartialCancel = lineItems.length > 0 && cancelledLineIds.size > 0;
 
       // shipmentPackageId ile tüm order'ları bul
       const orders = await this.orderService.findByTrendyolShipmentPackageId(
@@ -1421,7 +1458,9 @@ export class TrendyolService {
         : orders;
 
       this.logger.log(
-        `Found ${orders.length} orders in package; cancelling ${ordersToCancel.length} (${isPartialCancel ? 'partial' : 'full'} cancel)`,
+        `Found ${orders.length} orders in package; cancelling ${
+          ordersToCancel.length
+        } (${isPartialCancel ? 'partial' : 'full'} cancel)`,
       );
 
       let cancelledCount = 0;
@@ -1467,12 +1506,18 @@ export class TrendyolService {
             this.logger.log(
               `All orders in package cancelled - cancelling collection ${collection._id}`,
             );
-            await this.orderService.updateCollection(constantUser, collection._id, {
-              status: OrderCollectionStatus.CANCELLED,
-              cancelledAt: new Date(),
-              cancelledBy: constantUser._id,
-            });
-            this.logger.log(`Collection ${collection._id} cancelled successfully`);
+            await this.orderService.updateCollection(
+              constantUser,
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                cancelledAt: new Date(),
+                cancelledBy: constantUser._id,
+              },
+            );
+            this.logger.log(
+              `Collection ${collection._id} cancelled successfully`,
+            );
           } else {
             this.logger.log(
               `Partial cancel: collection ${collection._id} kept (not all orders cancelled)`,
@@ -1587,7 +1632,11 @@ export class TrendyolService {
         startDate: oneMonthAgo,
       });
       this.logger.log(
-        `Fetched ${allClaims.length} claims from last 30 days (startDate: ${new Date(oneMonthAgo).toISOString()})`,
+        `Fetched ${
+          allClaims.length
+        } claims from last 30 days (startDate: ${new Date(
+          oneMonthAgo,
+        ).toISOString()})`,
       );
 
       let processedCount = 0;
@@ -1609,7 +1658,8 @@ export class TrendyolService {
           // Bu claim'de en az bir "Accepted" item var mı kontrol et
           const hasAcceptedItems = items.some((itemGroup: any) =>
             itemGroup.claimItems.some(
-              (claimItem: any) => claimItem.claimItemStatus?.name === 'Accepted',
+              (claimItem: any) =>
+                claimItem.claimItemStatus?.name === 'Accepted',
             ),
           );
 
@@ -1718,7 +1768,9 @@ export class TrendyolService {
           cancelledCount += result?.cancelled ?? 0;
 
           this.logger.log(
-            `Claim ${claimId} processed successfully. Cancelled ${result?.cancelled ?? 0} orders`,
+            `Claim ${claimId} processed successfully. Cancelled ${
+              result?.cancelled ?? 0
+            } orders`,
           );
         } catch (claimError) {
           this.logger.error(
@@ -1742,7 +1794,9 @@ export class TrendyolService {
       };
 
       this.logger.log(
-        `Accepted claims processing completed: ${JSON.stringify(summary.stats)}`,
+        `Accepted claims processing completed: ${JSON.stringify(
+          summary.stats,
+        )}`,
       );
 
       return summary;
