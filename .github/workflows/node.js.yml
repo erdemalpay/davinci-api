@@ -47,11 +47,13 @@ jobs:
           echo SHOPIFY_STAGING_STORE_URL=${{secrets.SHOPIFY_STAGING_STORE_URL}} >> .env
           echo SHOPIFY_STAGING_HOST_URL=${{secrets.SHOPIFY_STAGING_HOST_URL}} >> .env
           echo TRENDYOL_BASE_URL=${{secrets.TRENDYOL_BASE_URL}} >> .env
+          echo TRENDYOL_STAGING_BASE_URL=${{secrets.TRENDYOL_STAGING_BASE_URL}} >> .env
           echo TRENDYOL_SELLER_ID=${{secrets.TRENDYOL_SELLER_ID}} >> .env
           echo TRENDYOL_PRODUCTION_API_KEY=${{secrets.TRENDYOL_PRODUCTION_API_KEY}} >> .env
           echo TRENDYOL_PRODUCTION_API_SECRET=${{secrets.TRENDYOL_PRODUCTION_API_SECRET}} >> .env
           echo TRENDYOL_STAGING_API_KEY=${{secrets.TRENDYOL_STAGING_API_KEY}} >> .env
           echo TRENDYOL_STAGING_API_SECRET=${{secrets.TRENDYOL_STAGING_API_SECRET}} >> .env
+          echo TRENDYOL_STAGING_SELLER_ID=${{secrets.TRENDYOL_STAGING_SELLER_ID}} >> .env
           echo TRENDYOL_USER_AGENT_SUFFIX=${{secrets.TRENDYOL_USER_AGENT_SUFFIX}} >> .env
           echo HEPSIBURADA_STAGING_BASE_URL=${{secrets.HEPSIBURADA_STAGING_BASE_URL}} >> .env
           echo HEPSIBURADA_STAGING_MERCHANT_ID=${{secrets.HEPSIBURADA_STAGING_MERCHANT_ID}} >> .env
