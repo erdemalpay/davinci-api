@@ -40,10 +40,10 @@ import {
 @Injectable()
 export class TrendyolService {
   private readonly logger = new Logger(TrendyolService.name);
-  private readonly baseUrl = process.env.TRENDYOL_BASE_URL!;
-  private readonly sellerId = process.env.TRENDYOL_SELLER_ID!;
-  private readonly apiKey = process.env.TRENDYOL_PRODUCTION_API_KEY!;
-  private readonly apiSecret = process.env.TRENDYOL_PRODUCTION_API_SECRET!;
+  private readonly baseUrl: string;
+  private readonly sellerId: string;
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
   private readonly OnlineStoreLocation = 6;
 
   private get userAgent() {
@@ -65,7 +65,29 @@ export class TrendyolService {
     private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)
     private readonly processedClaimItemModel: Model<ProcessedClaimItem>,
-  ) {}
+  ) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    this.baseUrl = isProduction
+      ? process.env.TRENDYOL_BASE_URL!
+      : process.env.TRENDYOL_STAGING_BASE_URL!;
+
+    this.sellerId = isProduction
+      ? process.env.TRENDYOL_SELLER_ID!
+      : process.env.TRENDYOL_STAGING_SELLER_ID!;
+
+    this.apiKey = isProduction
+      ? process.env.TRENDYOL_PRODUCTION_API_KEY!
+      : process.env.TRENDYOL_STAGING_API_KEY!;
+
+    this.apiSecret = isProduction
+      ? process.env.TRENDYOL_PRODUCTION_API_SECRET!
+      : process.env.TRENDYOL_STAGING_API_SECRET!;
+
+    this.logger.log(
+      `Trendyol initialized in ${isProduction ? 'production' : 'staging'} mode`,
+    );
+  }
 
   /**
    * Trendyol'a webhook kaydı oluşturur.
