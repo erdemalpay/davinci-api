@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { WebSocketModule } from '../websocket/websocket.module';
@@ -16,6 +17,7 @@ import { BreakService } from './break.service';
     WebSocketModule,
     LocationModule,
     UserModule,
+    ActivityModule,
   ],
   controllers: [BreakController],
   providers: [BreakService],

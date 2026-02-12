@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { LocationService } from '../location/location.service';
 import { TableService } from '../table/table.service';
@@ -27,6 +29,7 @@ export class GameplayTimeService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
     private readonly userService: UserService,
+    private readonly activityService: ActivityService,
     private readonly gameplayService: GameplayService,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
@@ -54,6 +57,23 @@ export class GameplayTimeService {
       const gameplayTimeRecord = await this.gameplayTimeModel.create(
         createGameplayTimeDto,
       );
+      try {
+        const user = await this.userService.findById(createGameplayTimeDto.user);
+        if (user) {
+          await this.activityService.addActivity(
+            user,
+            ActivityType.START_GAMEPLAY_TIME,
+            (gameplayTimeRecord.toObject
+              ? gameplayTimeRecord.toObject()
+              : gameplayTimeRecord) as GameplayTime,
+          );
+        }
+      } catch (activityError) {
+        console.error(
+          'Failed to add start gameplay time activity:',
+          activityError,
+        );
+      }
       this.websocketGateway.emitGameplayTimeChanged();
       return gameplayTimeRecord;
     } catch (error) {
@@ -239,6 +259,32 @@ export class GameplayTimeService {
           'Gameplay time record not found',
           HttpStatus.NOT_FOUND,
         );
+      }
+
+      if (updateGameplayTimeDto.finishHour) {
+        try {
+          const userId = String(
+            typeof updatedGameplayTime.user === 'object' &&
+              updatedGameplayTime.user?._id
+              ? updatedGameplayTime.user._id
+              : updatedGameplayTime.user,
+          );
+          const user = await this.userService.findById(userId);
+          if (user) {
+            await this.activityService.addActivity(
+              user,
+              ActivityType.FINISH_GAMEPLAY_TIME,
+              (updatedGameplayTime.toObject
+                ? updatedGameplayTime.toObject()
+                : updatedGameplayTime) as GameplayTime,
+            );
+          }
+        } catch (activityError) {
+          console.error(
+            'Failed to add finish gameplay time activity:',
+            activityError,
+          );
+        }
       }
 
       this.websocketGateway.emitGameplayTimeChanged();

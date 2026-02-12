@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { LocationModule } from '../location/location.module';
 import { TableModule } from '../table/table.module';
@@ -18,6 +19,7 @@ import { GameplayTimeService } from './gameplaytime.service';
     WebSocketModule,
     LocationModule,
     UserModule,
+    ActivityModule,
     GameplayModule,
     forwardRef(() => TableModule),
   ],
