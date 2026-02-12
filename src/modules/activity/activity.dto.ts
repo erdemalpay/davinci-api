@@ -5,7 +5,9 @@ import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Product } from '../accounting/product.schema';
 import { Stock } from '../accounting/stock.schema';
 import { Authorization } from '../authorization/authorization.schema';
+import { Break } from '../break/break.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
 import { Reservation } from '../reservation/reservation.schema';
@@ -79,6 +81,10 @@ export enum ActivityType {
   DELETE_VISIT = 'DELETE_VISIT',
   CREATE_VISIT = 'CREATE_VISIT',
   FINISH_VISIT = 'FINISH_VISIT',
+  START_BREAK = 'START_BREAK',
+  FINISH_BREAK = 'FINISH_BREAK',
+  START_GAMEPLAY_TIME = 'START_GAMEPLAY_TIME',
+  FINISH_GAMEPLAY_TIME = 'FINISH_GAMEPLAY_TIME',
 }
 
 export type ActivityTypePayload = {
@@ -167,6 +173,10 @@ export type ActivityTypePayload = {
   [ActivityType.DELETE_VISIT]: Visit;
   [ActivityType.CREATE_VISIT]: Visit;
   [ActivityType.FINISH_VISIT]: Visit;
+  [ActivityType.START_BREAK]: Break;
+  [ActivityType.FINISH_BREAK]: Break;
+  [ActivityType.START_GAMEPLAY_TIME]: GameplayTime;
+  [ActivityType.FINISH_GAMEPLAY_TIME]: GameplayTime;
 };
 
 export class ActivityQueryDto {

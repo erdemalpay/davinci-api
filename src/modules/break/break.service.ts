@@ -2,6 +2,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -15,6 +17,7 @@ export class BreakService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
     private readonly userService: UserService,
+    private readonly activityService: ActivityService,
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
@@ -35,6 +38,18 @@ export class BreakService {
       }
 
       const breakRecord = await this.breakModel.create(createBreakDto);
+      try {
+        const user = await this.userService.findById(createBreakDto.user);
+        if (user) {
+          await this.activityService.addActivity(
+            user,
+            ActivityType.START_BREAK,
+            (breakRecord.toObject ? breakRecord.toObject() : breakRecord) as Break,
+          );
+        }
+      } catch (activityError) {
+        console.error('Failed to add start break activity:', activityError);
+      }
       this.websocketGateway.emitBreakChanged();
       return breakRecord;
     } catch (error) {
@@ -228,6 +243,26 @@ export class BreakService {
 
       if (!updatedBreak) {
         throw new HttpException('Break record not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (updateBreakDto.finishHour) {
+        try {
+          const userId = String(
+            typeof updatedBreak.user === 'object' && updatedBreak.user?._id
+              ? updatedBreak.user._id
+              : updatedBreak.user,
+          );
+          const user = await this.userService.findById(userId);
+          if (user) {
+            await this.activityService.addActivity(
+              user,
+              ActivityType.FINISH_BREAK,
+              (updatedBreak.toObject ? updatedBreak.toObject() : updatedBreak) as Break,
+            );
+          }
+        } catch (activityError) {
+          console.error('Failed to add finish break activity:', activityError);
+        }
       }
 
       this.websocketGateway.emitBreakChanged();
