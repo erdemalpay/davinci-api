@@ -629,10 +629,22 @@ export class HepsiburadaService {
 
       try {
         const response = await this.getProducts(item.barcode);
-        const products: any[] = response?.data ?? [];
-        const match = products.find(
-          (p) => p.barcode === item.barcode || p.hbSku,
-        );
+        let products: any[] = response?.data ?? [];
+        let match = products.find((p) => p.barcode === item.barcode);
+
+        // Leading zero sorunu: Hepsiburada barkodu sayıya çevirmiş olabilir
+        // Örn: "0000002013947" → "2013947"
+        if (!match) {
+          const trimmedBarcode = item.barcode.replace(/^0+/, '');
+          const response2 = await this.getProducts(trimmedBarcode);
+          products = response2?.data ?? [];
+          match = products.find(
+            (p) =>
+              p.barcode === trimmedBarcode ||
+              p.barcode === item.barcode ||
+              p.barcode?.replace(/^0+/, '') === trimmedBarcode,
+          );
+        }
 
         if (!match) {
           results.push({
