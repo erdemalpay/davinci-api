@@ -104,6 +104,16 @@ export class HepsiburadaController {
     return this.hepsiburadaService.updateAllItemStocks();
   }
 
+  @Post('/match-items-by-barcode')
+  matchItemsByBarcode(
+    @Body()
+    payload: {
+      itemIds: number[];
+    },
+  ) {
+    return this.hepsiburadaService.matchItemsByBarcode(payload.itemIds);
+  }
+
   @Public()
   @Post('/order-webhook')
   async orderWebhook(@Body() data?: any) {
