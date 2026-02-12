@@ -597,6 +597,107 @@ export class HepsiburadaService {
   }
 
   /**
+   * Match menu items with Hepsiburada products by barcode.
+   * For each provided itemId, finds the item's barcode, searches Hepsiburada
+   * for a matching product, and updates the item's hepsiBuradaSku field.
+   * @param itemIds Array of menu item IDs to match
+   */
+  async matchItemsByBarcode(itemIds: number[]) {
+    const results: Array<{
+      itemId: number;
+      itemName: string;
+      barcode?: string;
+      hbSku?: string;
+      status: 'matched' | 'not_found' | 'no_barcode' | 'error';
+      error?: string;
+    }> = [];
+
+    const allItems = await this.menuService.findAllItems();
+    const targetItems = allItems.filter((item) =>
+      itemIds.includes(item._id as number),
+    );
+
+    for (const item of targetItems) {
+      if (!item.barcode) {
+        results.push({
+          itemId: item._id as number,
+          itemName: item.name,
+          status: 'no_barcode',
+        });
+        continue;
+      }
+
+      try {
+        const response = await this.getProducts(item.barcode);
+        let products: any[] = response?.data ?? [];
+        let match = products.find((p) => p.barcode === item.barcode);
+
+        // Leading zero sorunu: Hepsiburada barkodu sayıya çevirmiş olabilir
+        // Örn: "0000002013947" → "2013947"
+        if (!match) {
+          const trimmedBarcode = item.barcode.replace(/^0+/, '');
+          const response2 = await this.getProducts(trimmedBarcode);
+          products = response2?.data ?? [];
+          match = products.find(
+            (p) =>
+              p.barcode === trimmedBarcode ||
+              p.barcode === item.barcode ||
+              p.barcode?.replace(/^0+/, '') === trimmedBarcode,
+          );
+        }
+
+        if (!match) {
+          results.push({
+            itemId: item._id as number,
+            itemName: item.name,
+            barcode: item.barcode,
+            status: 'not_found',
+          });
+          continue;
+        }
+
+        await this.menuService.updateItemField(item._id as number, {
+          hepsiBuradaSku: match.hbSku,
+        });
+
+        results.push({
+          itemId: item._id as number,
+          itemName: item.name,
+          barcode: item.barcode,
+          hbSku: match.hbSku,
+          status: 'matched',
+        });
+      } catch (error) {
+        this.logger.error(
+          `Error matching item ${item.name} (barcode: ${item.barcode}):`,
+          error.message,
+        );
+        results.push({
+          itemId: item._id as number,
+          itemName: item.name,
+          barcode: item.barcode,
+          status: 'error',
+          error: error.message,
+        });
+      }
+    }
+
+    const matched = results.filter((r) => r.status === 'matched').length;
+    const notFound = results.filter((r) => r.status === 'not_found').length;
+    const noBarcode = results.filter((r) => r.status === 'no_barcode').length;
+    const errors = results.filter((r) => r.status === 'error').length;
+
+    return {
+      total: targetItems.length,
+      matched,
+      notFound,
+      noBarcode,
+      errors,
+      results,
+    };
+  }
+
+  /**
    * Hepsiburada webhook'tan gelen yeni sipariş bildirimini işler
    */
   async orderWebhook(data?: any) {

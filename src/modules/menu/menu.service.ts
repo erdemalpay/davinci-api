@@ -245,6 +245,10 @@ export class MenuService {
     });
   }
 
+  async updateItemField(id: number, fields: Partial<MenuItem>) {
+    return this.itemModel.findByIdAndUpdate(id, { $set: fields }, { new: true });
+  }
+
   async updateIkasItemsIkasIdFields(sendItems: MenuItem[]) {
     const items = await this.itemModel.find();
     Promise.all(
