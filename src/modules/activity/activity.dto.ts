@@ -31,6 +31,8 @@ export enum ActivityType {
   CREATE_TABLE = 'CREATE_TABLE',
   UPDATE_TABLE = 'UPDATE_TABLE',
   DELETE_TABLE = 'DELETE_TABLE',
+  CLOSED_TABLE = 'CLOSED_TABLE',
+  REOPENED_TABLE = 'REOPENED_TABLE',
   CREATE_GAMEPLAY = 'CREATE_GAMEPLAY',
   UPDATE_GAMEPLAY = 'UPDATE_GAMEPLAY',
   DELETE_GAMEPLAY = 'DELETE_GAMEPLAY',
@@ -86,6 +88,8 @@ export type ActivityTypePayload = {
   [ActivityType.CREATE_TABLE]: Table;
   [ActivityType.UPDATE_TABLE]: { currentTable: Table; newTable: Table };
   [ActivityType.DELETE_TABLE]: Table;
+  [ActivityType.CLOSED_TABLE]: Table;
+  [ActivityType.REOPENED_TABLE]: Table;
   [ActivityType.CREATE_GAMEPLAY]: { tableId: number; gameplay: Gameplay };
   [ActivityType.UPDATE_GAMEPLAY]: {
     currentGameplay: GameplayDto;
