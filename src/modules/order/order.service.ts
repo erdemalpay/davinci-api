@@ -1489,82 +1489,58 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const {
-        preparedAt,
-        preparedBy,
-        deliveredAt,
-        deliveredBy,
-        cancelledAt,
-        cancelledBy,
-        table,
-        ...orderWithoutUnwantedFields
-      } = order;
-      // Create the return order
-      const returnOrder = await this.orderModel.create({
-        ...orderWithoutUnwantedFields,
-        status: OrderStatus.RETURNED,
-        quantity: returnQuantity,
-        paidQuantity: returnQuantity,
-        createdAt: new Date(),
-        createdBy: orderWithoutUnwantedFields?.createdBy ?? user._id,
-        unitPrice: -order.unitPrice,
+      // Find the collection associated with this order
+
+      const collection = await this.collectionModel.findOne({
+        'orders.order': id,
       });
 
-      const returnOrderDiscountTotal = returnOrder?.discountAmount
-        ? returnOrder?.discountAmount
-        : (returnOrder.unitPrice *
-            returnOrder.quantity *
-            (returnOrder?.discountPercentage ?? 0)) /
-          100;
+      // Return the original order
+      const cancelledOrder = await this.orderModel.findByIdAndUpdate(
+        id,
+        {
+          status: OrderStatus.RETURNED,
+          cancelledAt: new Date(),
+          cancelledBy: user._id,
+        },
+        { new: true },
+      );
 
-      const returnOrderTotalAmount =
-        returnOrder.unitPrice * returnOrder.quantity - returnOrderDiscountTotal;
-      //create collection for return order
-      await this.collectionModel.create({
-        location: order.location,
-        amount: returnOrderTotalAmount,
-        status: OrderCollectionStatus.RETURNED,
-        paymentMethod: paymentMethod,
-        createdAt: new Date(),
-        createdBy: orderWithoutUnwantedFields?.createdBy ?? user._id,
-        orders: [
+      // Return the associated collection if found
+      if (collection) {
+        await this.collectionModel.findByIdAndUpdate(
+          collection._id,
           {
-            order: returnOrder._id,
-            paidQuantity: returnOrder.quantity,
+            status: OrderCollectionStatus.RETURNED,
+            cancelledAt: new Date(),
+            cancelledBy: user._id,
           },
-        ],
-      });
+          { new: true },
+        );
+      }
+
       // increment the stock
-      const populatedReturnOrder = await this.orderModel
-        .findById(returnOrder._id)
+      const populatedOrder = await this.orderModel
+        .findById(id)
         .populate('item');
-      if (isPopulatedMenuItem(populatedReturnOrder?.item)) {
-        for (const ingredient of populatedReturnOrder.item.itemProduction) {
+      if (isPopulatedMenuItem(populatedOrder?.item)) {
+        for (const ingredient of populatedOrder.item.itemProduction) {
           if (ingredient?.isDecrementStock) {
             const incrementQuantity =
-              ingredient?.quantity * populatedReturnOrder?.quantity;
+              ingredient?.quantity * returnQuantity;
             await this.accountingService.createStock(user, {
               product: ingredient?.product,
-              location: populatedReturnOrder?.stockLocation,
+              location: populatedOrder?.stockLocation,
               quantity: incrementQuantity,
               status: StockHistoryStatusEnum.ORDERRETURN,
             });
           }
         }
       }
-      //update the original order status
-      await this.orderModel.findByIdAndUpdate(
-        id,
-        {
-          isReturned: true,
-        },
-        {
-          new: true,
-        },
-      );
-      //emit the return order create
-      this.websocketGateway.emitOrderCreated(returnOrder);
-      return returnOrder;
+
+      //emit the updated order
+      this.websocketGateway.emitOrderUpdated([cancelledOrder]);
+      return cancelledOrder;
     } catch (error) {
       this.logger.error('Error in returnOrder:', error);
       throw new HttpException(
