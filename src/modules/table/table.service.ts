@@ -288,13 +288,13 @@ export class TableService {
         select: 'startHour game playerCount mentor date finishHour',
       });
     try {
-      this.activityService.addActivity(
-        user,
-        ActivityType.CLOSED_TABLE,
-        (updatedTable as any).toObject
-          ? (updatedTable as any).toObject()
-          : (updatedTable as Table),
-      );
+      if (updatedTable) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CLOSED_TABLE,
+          updatedTable.toObject() as Table,
+        );
+      }
     } catch (activityError) {
       this.logger.warn('Failed to add CLOSED_TABLE activity', activityError);
     }
@@ -311,13 +311,13 @@ export class TableService {
       });
 
     try {
-      this.activityService.addActivity(
-        user,
-        ActivityType.REOPENED_TABLE,
-        (updatedTable as any).toObject
-          ? (updatedTable as any).toObject()
-          : (updatedTable as Table),
-      );
+      if (updatedTable) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.REOPENED_TABLE,
+          updatedTable.toObject() as Table,
+        );
+      }
     } catch (activityError) {
       this.logger.warn('Failed to add REOPENED_TABLE activity', activityError);
     }
