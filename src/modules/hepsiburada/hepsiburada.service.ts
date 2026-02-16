@@ -6,6 +6,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
@@ -35,16 +36,16 @@ export class HepsiburadaService {
   private readonly logger = new Logger(HepsiburadaService.name);
   private readonly axiosInstance: AxiosInstance;
   private readonly listingAxiosInstance: AxiosInstance;
-  private readonly baseUrl = process.env.HEPSIBURADA_STAGING_BASE_URL!;
-  private readonly listingBaseUrl =
-    'https://listing-external-sit.hepsiburada.com';
-  private readonly merchantId = process.env.HEPSIBURADA_STAGING_MERCHANT_ID!;
-  private readonly secretKey = process.env.HEPSIBURADA_STAGING_SECRET_KEY!;
-  private readonly userAgent = process.env.HEPSIBURADA_STAGING_USER_AGENT!;
+  private readonly baseUrl: string;
+  private readonly listingBaseUrl: string;
+  private readonly merchantId: string;
+  private readonly secretKey: string;
+  private readonly userAgent: string;
   private readonly OnlineStoreLocation = 4; // Location ID for online store (UI)
   private readonly OnlineStoreStockLocation = 6; // Location ID for stock management
 
   constructor(
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingService))
@@ -55,6 +56,32 @@ export class HepsiburadaService {
     private readonly userService: UserService,
     private readonly websocketGateway: AppWebSocketGateway,
   ) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    this.baseUrl = this.configService.get<string>(
+      isProduction
+        ? 'HEPSIBURADA_PRODUCTION_BASE_URL'
+        : 'HEPSIBURADA_STAGING_BASE_URL',
+    );
+    this.listingBaseUrl = isProduction
+      ? 'https://listing-external.hepsiburada.com'
+      : 'https://listing-external-sit.hepsiburada.com';
+    this.merchantId = this.configService.get<string>(
+      isProduction
+        ? 'HEPSIBURADA_PRODUCTION_MERCHANT_ID'
+        : 'HEPSIBURADA_STAGING_MERCHANT_ID',
+    );
+    this.secretKey = this.configService.get<string>(
+      isProduction
+        ? 'HEPSIBURADA_PRODUCTION_SECRET_KEY'
+        : 'HEPSIBURADA_STAGING_SECRET_KEY',
+    );
+    this.userAgent = this.configService.get<string>(
+      isProduction
+        ? 'HEPSIBURADA_PRODUCTION_USER_AGENT'
+        : 'HEPSIBURADA_STAGING_USER_AGENT',
+    );
+
     // Create Basic Auth token
     const authToken = Buffer.from(
       `${this.merchantId}:${this.secretKey}`,
