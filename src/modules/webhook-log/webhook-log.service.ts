@@ -18,7 +18,7 @@ export class WebhookLogService {
 
   /**
    * Logs webhook request
-   * All requests are logged
+   * All requests are logged - each request creates a new log entry
    */
   async logWebhookRequest(
     source: WebhookSource,
@@ -26,11 +26,13 @@ export class WebhookLogService {
     requestBody: any,
   ): Promise<WebhookLog> {
     // Create new log entry (each request is saved separately)
+    const externalOrderId = requestBody?.id?.toString();
     const webhookLog = new this.webhookLogModel({
       source,
       endpoint,
       requestBody,
       status: WebhookStatus.PENDING,
+      externalOrderId,
     });
 
     return await webhookLog.save();
@@ -72,9 +74,57 @@ export class WebhookLogService {
       updateData.processingTimeMs = Date.now() - startTime;
     }
 
-    return await this.webhookLogModel.findByIdAndUpdate(logId, updateData, {
-      new: true,
-    });
+    try {
+      const updated = await this.webhookLogModel.findByIdAndUpdate(logId, updateData, {
+        new: true,
+      });
+
+      if (!updated) {
+        this.logger.warn(`Webhook log ${logId} not found for update`);
+        throw new Error(`Webhook log ${logId} not found`);
+      }
+
+      return updated;
+    } catch (error) {
+      // If update fails, mark as failed
+      this.logger.error(`Failed to update webhook log ${logId}:`, error);
+      try {
+        await this.webhookLogModel.findByIdAndUpdate(logId, {
+          status: WebhookStatus.FAILED,
+          errorMessage: `Update failed: ${error?.message || 'Unknown error'}`,
+          processedAt: new Date(),
+        });
+      } catch (markFailedError) {
+        this.logger.error(`Failed to mark webhook log ${logId} as failed:`, markFailedError);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Marks pending webhook logs as failed if they're older than the timeout
+   * This handles cases where updateWebhookResponse was called but failed silently
+   */
+  async markStalePendingLogsAsFailed(timeoutMs: number = 60000): Promise<void> {
+    const timeoutDate = new Date(Date.now() - timeoutMs);
+    
+    const result = await this.webhookLogModel.updateMany(
+      {
+        status: WebhookStatus.PENDING,
+        createdAt: { $lt: timeoutDate },
+      },
+      {
+        $set: {
+          status: WebhookStatus.FAILED,
+          errorMessage: 'Webhook processing timeout - no response received',
+          processedAt: new Date(),
+        },
+      },
+    );
+
+    if (result.modifiedCount > 0) {
+      this.logger.log(`Marked ${result.modifiedCount} stale pending webhook logs as failed`);
+    }
   }
 
 

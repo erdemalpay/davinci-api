@@ -11,6 +11,7 @@ export enum WebhookStatus {
   PENDING = 'pending',
   SUCCESS = 'success',
   ERROR = 'error',
+  FAILED = 'failed',
   ORDER_NOT_CREATED = 'order_not_created',
 }
 
