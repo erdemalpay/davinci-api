@@ -677,7 +677,7 @@ export class TableService {
   ): Promise<string[]> {
     const dates = await this.tableModel
       .distinct('date', {
-        location: Number(location),
+        location,
         date: { $gte: dateFrom, $lte: dateTo },
         finishHour: { $exists: false },
         status: { $ne: TableStatus.CANCELLED },
