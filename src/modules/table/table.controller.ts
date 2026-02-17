@@ -72,6 +72,7 @@ export class TableController {
     return this.tableService.getYerVarmiByLocation(location, date);
   }
 
+  @ApiResponse({ type: [String] })
   @Get('/open-dates')
   getOpenTableDatesByRange(
     @Query('location') location: number,
