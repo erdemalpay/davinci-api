@@ -670,6 +670,22 @@ export class TableService {
 
     return sortedResults;
   }
+  async getOpenTableDatesByRange(
+    location: number,
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<string[]> {
+    const dates = await this.tableModel
+      .distinct('date', {
+        location: Number(location),
+        date: { $gte: dateFrom, $lte: dateTo },
+        finishHour: { $exists: false },
+        status: { $ne: TableStatus.CANCELLED },
+      })
+      .exec();
+    return dates;
+  }
+
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }

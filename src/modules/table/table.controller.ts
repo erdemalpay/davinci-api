@@ -72,6 +72,15 @@ export class TableController {
     return this.tableService.getYerVarmiByLocation(location, date);
   }
 
+  @Get('/open-dates')
+  getOpenTableDatesByRange(
+    @Query('location') location: number,
+    @Query('dateFrom') dateFrom: string,
+    @Query('dateTo') dateTo: string,
+  ) {
+    return this.tableService.getOpenTableDatesByRange(location, dateFrom, dateTo);
+  }
+
   @Public()
   @Get('/count')
   @ApiResponse({ type: AggregatedPlayerCountResponse })
