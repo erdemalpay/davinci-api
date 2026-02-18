@@ -64,7 +64,7 @@ export class HepsiburadaService {
       isProduction
         ? 'HEPSIBURADA_PRODUCTION_BASE_URL'
         : 'HEPSIBURADA_STAGING_BASE_URL',
-    );
+    );//deneme
     this.listingBaseUrl = isProduction
       ? 'https://listing-external.hepsiburada.com'
       : 'https://listing-external-sit.hepsiburada.com';
