@@ -37,7 +37,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Post('/packages')
-  async createPackages(@Body() data?: any) {
+  createPackages(@Body() data?: any) {
     this.logger.log('Received Hepsiburada create packages webhook via /packages');
     this.logger.debug('Packages data:', JSON.stringify(data, null, 2));
     return { success: true };
@@ -45,7 +45,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/packages/:packagenumber/unpack')
-  async unpackPackage(
+  unpackPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
@@ -56,7 +56,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/packages/:packagenumber/intransit')
-  async intransitPackage(
+  intransitPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
@@ -67,7 +67,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/packages/:packagenumber/deliver')
-  async deliverPackage(
+  deliverPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
@@ -78,7 +78,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/packages/:packagenumber/undeliver')
-  async undeliverPackage(
+  undeliverPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
@@ -89,7 +89,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/orders/:ordersnumber/shippingaddress')
-  async changeShippingAddress(
+  changeShippingAddress(
     @Param('ordersnumber') ordersnumber: string,
     @Body() data?: any,
   ) {
@@ -100,7 +100,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/claims/awaitingaction')
-  async claimsAwaitingAction(@Body() data?: any) {
+  claimsAwaitingAction(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims awaiting action webhook via /claims/awaitingaction');
     this.logger.debug('Claims awaiting action data:', JSON.stringify(data, null, 2));
     return { success: true };
@@ -108,7 +108,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/claims/accept')
-  async claimsAccept(@Body() data?: any) {
+  claimsAccept(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims accept webhook via /claims/accept');
     this.logger.debug('Claims accept data:', JSON.stringify(data, null, 2));
     return { success: true };
@@ -116,7 +116,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Put('/claims/reject')
-  async claimsReject(@Body() data?: any) {
+  claimsReject(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims reject webhook via /claims/reject');
     this.logger.debug('Claims reject data:', JSON.stringify(data, null, 2));
     return { success: true };
@@ -124,7 +124,7 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Post('/claims/packages')
-  async claimsPackages(@Body() data?: any) {
+  claimsPackages(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims packages webhook via /claims/packages');
     this.logger.debug('Claims packages data:', JSON.stringify(data, null, 2));
     return { success: true };
