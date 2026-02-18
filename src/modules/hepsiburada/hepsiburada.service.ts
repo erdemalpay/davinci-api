@@ -36,8 +36,10 @@ export class HepsiburadaService {
   private readonly logger = new Logger(HepsiburadaService.name);
   private readonly axiosInstance: AxiosInstance;
   private readonly listingAxiosInstance: AxiosInstance;
+  private readonly catalogAxiosInstance: AxiosInstance;
   private readonly baseUrl: string;
   private readonly listingBaseUrl: string;
+  private readonly catalogBaseUrl: string;
   private readonly merchantId: string;
   private readonly secretKey: string;
   private readonly userAgent: string;
@@ -66,6 +68,9 @@ export class HepsiburadaService {
     this.listingBaseUrl = isProduction
       ? 'https://listing-external.hepsiburada.com'
       : 'https://listing-external-sit.hepsiburada.com';
+    this.catalogBaseUrl = isProduction
+      ? 'https://mpop.hepsiburada.com'
+      : 'https://mpop-sit.hepsiburada.com';
     this.merchantId = this.configService.get<string>(
       isProduction
         ? 'HEPSIBURADA_PRODUCTION_MERCHANT_ID'
@@ -105,6 +110,16 @@ export class HepsiburadaService {
         'Content-Type': 'application/json',
       },
     });
+
+    // Create axios instance for catalog API (mpop)
+    this.catalogAxiosInstance = axios.create({
+      baseURL: this.catalogBaseUrl,
+      headers: {
+        Authorization: `Basic ${authToken}`,
+        'User-Agent': this.userAgent,
+        'Content-Type': 'application/json',
+      },
+    });
   }
 
   /**
@@ -128,7 +143,7 @@ export class HepsiburadaService {
       if (merchantSku) params.merchantSku = merchantSku;
       if (hbSku) params.hbSku = hbSku;
 
-      const response = await this.axiosInstance.get(
+      const response = await this.catalogAxiosInstance.get(
         `/product/api/products/all-products-of-merchant/${this.merchantId}`,
         { params },
       );
@@ -164,7 +179,7 @@ export class HepsiburadaService {
       };
       if (taskStatus !== undefined) params.taskStatus = taskStatus;
 
-      const response = await this.axiosInstance.get(
+      const response = await this.catalogAxiosInstance.get(
         `/product/api/products/products-by-merchant-and-status`,
         { params },
       );
