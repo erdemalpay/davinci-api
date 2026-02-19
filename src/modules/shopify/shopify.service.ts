@@ -2135,10 +2135,17 @@ export class ShopifyService {
       }
 
       // Get payment method once (outside the loop)
-      const foundPaymentMethod =
-        await this.accountingService.findPaymentMethodByShopifyId(
-          data?.payment_gateway_names?.[0],
-        );
+      // If order has payment_terms (e.g. "Due on receipt" / "Daha sonra ödenecek"),
+      // payment_gateway_names will be empty - use 'bank_transfer' in that case.
+      const hasPaymentTerms = !!data?.payment_terms;
+      const foundPaymentMethod = hasPaymentTerms
+        ? null
+        : await this.accountingService.findPaymentMethodByShopifyId(
+            data?.payment_gateway_names?.[0],
+          );
+      const resolvedPaymentMethod = hasPaymentTerms
+        ? 'bank_transfer'
+        : foundPaymentMethod?._id ?? 'kutuoyunual';
 
       const createdOrders: Array<{
         order: number;
@@ -2218,7 +2225,7 @@ export class ShopifyService {
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
             shopifyOrderId: data?.id?.toString(),
             shopifyOrderLineItemId: lineItemId?.toString(),
-            paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
+            paymentMethod: resolvedPaymentMethod,
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
             }),
@@ -2285,7 +2292,7 @@ export class ShopifyService {
 
         const createdCollection = {
           location: 4,
-          paymentMethod: foundPaymentMethod?._id ?? 'kutuoyunual',
+          paymentMethod: resolvedPaymentMethod,
           amount: totalAmount,
           status: OrderCollectionStatus.PAID,
           orders: createdOrders.map(({ order, paidQuantity }) => ({
