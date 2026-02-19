@@ -1495,12 +1495,14 @@ export class OrderService {
         'orders.order': id,
       });
 
+      const cancelledAt = new Date();
+
       // Return the original order
       const cancelledOrder = await this.orderModel.findByIdAndUpdate(
         id,
         {
           status: OrderStatus.RETURNED,
-          cancelledAt: new Date(),
+          cancelledAt,
           cancelledBy: user._id,
         },
         { new: true },
@@ -1512,7 +1514,7 @@ export class OrderService {
           collection._id,
           {
             status: OrderCollectionStatus.RETURNED,
-            cancelledAt: new Date(),
+            cancelledAt,
             cancelledBy: user._id,
           },
           { new: true },
