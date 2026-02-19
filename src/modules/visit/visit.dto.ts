@@ -27,6 +27,7 @@ export class CafeActivityDto {
   groupName: string;
   price?: number;
   complimentary?: string;
+  contact: string;
   isCompleted?: boolean;
 }
 

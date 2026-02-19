@@ -794,11 +794,15 @@ export class MenuService {
       }
       const objectItem = item.toObject();
       // Deleting old item images
+      delete objectItem._id;
       delete objectItem.imageUrl;
       delete objectItem.productImages;
       delete objectItem.itemProduction;
       delete objectItem.ikasId;
       delete objectItem.priceHistory;
+      delete objectItem.shopifyId;
+      delete objectItem.trendyolBarcode;
+      delete objectItem.hepsiBuradaSku;
       // Creating a new item
       const newItemData = {
         ...objectItem,

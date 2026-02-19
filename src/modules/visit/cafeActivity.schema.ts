@@ -31,6 +31,9 @@ export class CafeActivity extends Document {
 
   @Prop({ required: false, type: String })
   complimentary: string;
+
+  @Prop({ required: true, type: String })
+  contact: string;
 }
 
 export const CafeActivitySchema = SchemaFactory.createForClass(CafeActivity);

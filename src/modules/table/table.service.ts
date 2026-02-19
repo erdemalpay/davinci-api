@@ -287,6 +287,17 @@ export class TableService {
         path: 'gameplays',
         select: 'startHour game playerCount mentor date finishHour',
       });
+    try {
+      if (updatedTable) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CLOSED_TABLE,
+          updatedTable.toObject() as Table,
+        );
+      }
+    } catch (activityError) {
+      this.logger.warn('Failed to add CLOSED_TABLE activity', activityError);
+    }
     this.websocketGateway.emitTableClosed(updatedTable);
     return updatedTable;
   }
@@ -299,6 +310,17 @@ export class TableService {
         select: 'startHour game playerCount mentor date finishHour',
       });
 
+    try {
+      if (updatedTable) {
+        await this.activityService.addActivity(
+          user,
+          ActivityType.REOPENED_TABLE,
+          updatedTable.toObject() as Table,
+        );
+      }
+    } catch (activityError) {
+      this.logger.warn('Failed to add REOPENED_TABLE activity', activityError);
+    }
     this.websocketGateway.emitTableChanged(updatedTable);
     return updatedTable;
   }
@@ -670,6 +692,22 @@ export class TableService {
 
     return sortedResults;
   }
+  async getOpenTableDatesByRange(
+    location: number,
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<string[]> {
+    const dates = await this.tableModel
+      .distinct('date', {
+        location,
+        date: { $gte: dateFrom, $lte: dateTo },
+        finishHour: { $exists: false },
+        status: { $ne: TableStatus.CANCELLED },
+      })
+      .exec();
+    return dates;
+  }
+
   getTableById(id: number) {
     return this.tableModel.findById(id);
   }
