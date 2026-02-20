@@ -39,6 +39,7 @@
     "@nestjs/swagger": "^5.1.5",
     "@nestjs/websockets": "9.1.6",
     "@shopify/shopify-api": "^12.2.0",
+    "aws-sdk": "^2.1693.0",
     "bcrypt": "^5.1.0",
     "bgg": "^1.0.1",
     "bgg-xml-api-client": "^0.1.10",
@@ -69,6 +70,7 @@
     "socket.io-client": "^4.7.5",
     "streamifier": "^0.1.1",
     "swagger-ui-express": "^4.3.0",
+    "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
