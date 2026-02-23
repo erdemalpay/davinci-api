@@ -427,33 +427,59 @@ export class PanelControlService implements OnApplicationBootstrap {
   }
 
   async createReleaseNote(createDto: CreateReleaseNoteDto) {
-    const items =
-      createDto.items?.map((i) => ({
-        title: i.title ?? '',
-        description: i.description ?? '',
-      })) ?? [];
-    const doc = await this.releaseNoteModel.create({
-      releaseId: createDto.releaseId,
-      title: createDto.title,
-      date: createDto.date,
-      items,
-      isPublished: createDto.isPublished ?? false,
-    });
-    this.websocketGateway.emitReleaseNoteChanged();
-    return doc;
+    try {
+      const items =
+        createDto.items?.map((i) => ({
+          title: i.title ?? '',
+          description: i.description ?? '',
+        })) ?? [];
+      const doc = await this.releaseNoteModel.create({
+        releaseId: createDto.releaseId,
+        title: createDto.title,
+        date: createDto.date,
+        items,
+        isPublished: createDto.isPublished ?? false,
+      });
+      this.websocketGateway.emitReleaseNoteChanged();
+      return doc;
+    } catch (error) {
+      this.logger.error('Failed to create release note:', error);
+      throw new HttpException(
+        'Could not create release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   async updateReleaseNote(id: number, updates: UpdateQuery<ReleaseNote>) {
-    const updated = await this.releaseNoteModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-    this.websocketGateway.emitReleaseNoteChanged();
-    return updated;
+    try {
+      const updated = await this.releaseNoteModel.findByIdAndUpdate(
+        id,
+        updates,
+        { new: true },
+      );
+      this.websocketGateway.emitReleaseNoteChanged();
+      return updated;
+    } catch (error) {
+      this.logger.error('Failed to update release note:', error);
+      throw new HttpException(
+        'Could not update release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   async removeReleaseNote(id: number) {
-    const doc = await this.releaseNoteModel.findByIdAndRemove(id);
-    this.websocketGateway.emitReleaseNoteChanged();
-    return doc;
+    try {
+      const doc = await this.releaseNoteModel.findByIdAndRemove(id);
+      this.websocketGateway.emitReleaseNoteChanged();
+      return doc;
+    } catch (error) {
+      this.logger.error('Failed to remove release note:', error);
+      throw new HttpException(
+        'Could not remove release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }
