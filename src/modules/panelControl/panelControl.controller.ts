@@ -18,9 +18,11 @@ import {
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
+  CreateReleaseNoteDto,
   CreateTaskTrackDto,
 } from './panelControl.dto';
 import { PanelControlService } from './panelControl.service';
+import { ReleaseNote } from './releaseNote.schema';
 import { TaskTrack } from './taskTrack.schema';
 
 @Controller('panel-control')
@@ -153,5 +155,29 @@ export class PanelControlController {
   @Delete('/task-tracks/:id')
   deleteTaskTrack(@Param('id') id: number) {
     return this.panelControlService.removeTaskTrack(id);
+  }
+
+  // release notes (onboarding)
+  @Get('/release-notes')
+  getReleaseNotes() {
+    return this.panelControlService.findAllReleaseNotes();
+  }
+
+  @Post('/release-notes')
+  createReleaseNote(@Body() createReleaseNoteDto: CreateReleaseNoteDto) {
+    return this.panelControlService.createReleaseNote(createReleaseNoteDto);
+  }
+
+  @Patch('/release-notes/:id')
+  updateReleaseNote(
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<ReleaseNote>,
+  ) {
+    return this.panelControlService.updateReleaseNote(id, updates);
+  }
+
+  @Delete('/release-notes/:id')
+  deleteReleaseNote(@Param('id') id: number) {
+    return this.panelControlService.removeReleaseNote(id);
   }
 }

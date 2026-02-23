@@ -14,6 +14,7 @@ import { Page, PageSchema } from './page.schema';
 import { PanelControlController } from './panelControl.controller';
 import { PanelControlService } from './panelControl.service';
 import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
+import { ReleaseNote, ReleaseNoteSchema } from './releaseNote.schema';
 import { TaskTrack, TaskTrackSchema } from './taskTrack.schema';
 import { WebSocketModule } from '../websocket/websocket.module';
 
@@ -23,6 +24,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Action.name, useFactory: () => ActionSchema },
   createAutoIncrementConfig(PanelSettings.name, PanelSettingsSchema),
   createAutoIncrementConfig(TaskTrack.name, TaskTrackSchema),
+  createAutoIncrementConfig(ReleaseNote.name, ReleaseNoteSchema),
 ]);
 
 @Module({

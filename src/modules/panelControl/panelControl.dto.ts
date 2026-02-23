@@ -29,3 +29,16 @@ export class CreateTaskTrackDto {
   type: string[];
   createdAt: string;
 }
+
+export class ReleaseNoteItemDto {
+  title?: string;
+  description?: string;
+}
+
+export class CreateReleaseNoteDto {
+  releaseId: string;
+  title: string;
+  date: string;
+  items?: ReleaseNoteItemDto[];
+  isPublished?: boolean;
+}
