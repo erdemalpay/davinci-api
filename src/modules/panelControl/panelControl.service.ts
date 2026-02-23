@@ -25,9 +25,11 @@ import {
   CreateDisabledConditionDto,
   CreatePageDto,
   CreatePanelSettingsDto,
+  CreateReleaseNoteDto,
   CreateTaskTrackDto,
 } from './panelControl.dto';
 import { PanelSettings } from './panelSettings.schema';
+import { ReleaseNote } from './releaseNote.schema';
 import { TaskTrack } from './taskTrack.schema';
 
 @Injectable()
@@ -38,6 +40,7 @@ export class PanelControlService implements OnApplicationBootstrap {
     @InjectModel(Page.name) private pageModel: Model<Page>,
     @InjectModel(Action.name) private actionModel: Model<Action>,
     @InjectModel(TaskTrack.name) private taskTrackModel: Model<TaskTrack>,
+    @InjectModel(ReleaseNote.name) private releaseNoteModel: Model<ReleaseNote>,
     @InjectModel(DisabledCondition.name)
     private disabledConditionModel: Model<DisabledCondition>,
     @InjectModel(PanelSettings.name)
@@ -404,5 +407,79 @@ export class PanelControlService implements OnApplicationBootstrap {
     const taskTrack = await this.taskTrackModel.findByIdAndRemove(id);
     this.websocketGateway.emitTaskTrackChanged();
     return taskTrack;
+  }
+
+  // release notes
+  async findAllReleaseNotes() {
+    try {
+      const list = await this.releaseNoteModel.find().sort({ _id: -1 });
+      return list;
+    } catch (error) {
+      this.logger.error(
+        'Failed to retrieve release notes from database:',
+        error,
+      );
+      throw new HttpException(
+        'Could not retrieve release notes',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  async createReleaseNote(createDto: CreateReleaseNoteDto) {
+    try {
+      const items =
+        createDto.items?.map((i) => ({
+          title: i.title ?? '',
+          description: i.description ?? '',
+        })) ?? [];
+      const doc = await this.releaseNoteModel.create({
+        releaseId: createDto.releaseId,
+        title: createDto.title,
+        date: createDto.date,
+        items,
+        isPublished: createDto.isPublished ?? false,
+      });
+      this.websocketGateway.emitReleaseNoteChanged();
+      return doc;
+    } catch (error) {
+      this.logger.error('Failed to create release note:', error);
+      throw new HttpException(
+        'Could not create release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async updateReleaseNote(id: number, updates: UpdateQuery<ReleaseNote>) {
+    try {
+      const updated = await this.releaseNoteModel.findByIdAndUpdate(
+        id,
+        updates,
+        { new: true },
+      );
+      this.websocketGateway.emitReleaseNoteChanged();
+      return updated;
+    } catch (error) {
+      this.logger.error('Failed to update release note:', error);
+      throw new HttpException(
+        'Could not update release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async removeReleaseNote(id: number) {
+    try {
+      const doc = await this.releaseNoteModel.findByIdAndRemove(id);
+      this.websocketGateway.emitReleaseNoteChanged();
+      return doc;
+    } catch (error) {
+      this.logger.error('Failed to remove release note:', error);
+      throw new HttpException(
+        'Could not remove release note',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

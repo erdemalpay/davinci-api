@@ -357,6 +357,10 @@ export class AppWebSocketGateway {
     this.server.emit('taskTrackChanged');
   }
 
+  emitReleaseNoteChanged() {
+    this.server.emit('releaseNoteChanged');
+  }
+
   emitUpperCategoryChanged() {
     this.server.emit('upperCategoryChanged');
   }
