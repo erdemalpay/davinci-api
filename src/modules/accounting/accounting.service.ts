@@ -12,6 +12,7 @@ import { FilterQuery, Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
+import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { IkasService } from '../ikas/ikas.service';
 import { LocationService } from '../location/location.service';
 import {
@@ -21,7 +22,6 @@ import {
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
-import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { ShopifyService } from '../shopify/shopify.service';
 import { TrendyolService } from '../trendyol/trendyol.service';
 import { User } from '../user/user.schema';
@@ -2988,10 +2988,7 @@ export class AccountingService {
           }),
           ...(category &&
             categoryArray.length > 0 && {
-              $or: [
-                { 'matchedMenuItemDetails.category': { $in: categoryArray } },
-                { 'productDetails.matchedMenuItem': { $exists: false } },
-              ],
+                'matchedMenuItemDetails.category': { $in: categoryArray }
             }),
           ...matchFilter,
           ...(regexSearch
@@ -3171,10 +3168,7 @@ export class AccountingService {
           }),
           ...(category &&
             categoryArray.length > 0 && {
-              $or: [
-                { 'matchedMenuItemDetails.category': { $in: categoryArray } },
-                { 'productDetails.matchedMenuItem': { $exists: false } },
-              ],
+                'matchedMenuItemDetails.category': { $in: categoryArray },
             }),
           ...matchFilter,
           ...(regexSearch
