@@ -15,6 +15,7 @@ export enum MailType {
   GAME_NIGHT = 'game_night',
   SPECIAL_OFFER = 'special_offer',
   MEMBERSHIP_UPDATE = 'membership_update',
+  BACK_IN_STOCK = 'back_in_stock',
 }
 
 export enum SubscriptionStatus {
