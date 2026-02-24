@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as AWS from 'aws-sdk';
+import { randomUUID } from 'crypto';
 import { Model } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
@@ -87,7 +87,7 @@ export class MailService {
     }
 
     // Create new subscription
-    const unsubscribeToken = uuidv4();
+    const unsubscribeToken = randomUUID();
     subscription = new this.mailSubscriptionModel({
       email,
       name,
