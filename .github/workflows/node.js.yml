@@ -63,6 +63,10 @@ jobs:
           echo HEPSIBURADA_PRODUCTION_MERCHANT_ID=${{secrets.HEPSIBURADA_PRODUCTION_MERCHANT_ID}} >> .env
           echo HEPSIBURADA_PRODUCTION_SECRET_KEY=${{secrets.HEPSIBURADA_PRODUCTION_SECRET_KEY}} >> .env
           echo HEPSIBURADA_PRODUCTION_USER_AGENT=${{secrets.HEPSIBURADA_PRODUCTION_USER_AGENT}} >> .env
+          echo AWS_REGION=${{secrets.AWS_REGION}} >> .env
+          echo AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}} >> .env
+          echo AWS_SECRET_ACCESS_KEY=${{secrets.AWS_SECRET_ACCESS_KEY}} >> .env
+          echo DEFAULT_FROM_EMAIL=${{secrets.DEFAULT_FROM_EMAIL}} >> .env
 
       - name: Create ssh folder
         run: mkdir -p ~/.ssh
