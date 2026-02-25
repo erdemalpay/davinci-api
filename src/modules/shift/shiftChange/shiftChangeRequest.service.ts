@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ActivityType } from '../../activity/activity.dto';
+import { ActivityService } from '../../activity/activity.service';
 import { LocationService } from '../../location/location.service';
 import { NotificationEventType } from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
@@ -32,6 +34,7 @@ export class ShiftChangeRequestService {
     private readonly userService: UserService,
     private readonly locationService: LocationService,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly activityService: ActivityService,
   ) {}
 
   private async getUserNames(
@@ -557,6 +560,19 @@ export class ShiftChangeRequestService {
         });
       }
 
+      try {
+        const managerUser = await this.userService.findById(managerId);
+        if (managerUser) {
+          await this.activityService.addActivity(
+            managerUser,
+            ActivityType.SHIFT_CHANGE_APPROVED,
+            (request.toObject ? request.toObject() : request) as ShiftChangeRequest,
+          );
+        }
+      } catch (activityError) {
+        console.error('Failed to add SHIFT_CHANGE_APPROVED activity:', activityError);
+      }
+
       this.websocketGateway.emitShiftChangeRequestChanged();
     } else {
       const shiftChangeRequestedEvent = notificationEvents.find(
@@ -735,6 +751,19 @@ export class ShiftChangeRequestService {
         });
       }
 
+      try {
+        const targetUser = await this.userService.findById(targetUserId);
+        if (targetUser) {
+          await this.activityService.addActivity(
+            targetUser,
+            ActivityType.SHIFT_CHANGE_APPROVED,
+            (request.toObject ? request.toObject() : request) as ShiftChangeRequest,
+          );
+        }
+      } catch (activityError) {
+        console.error('Failed to add SHIFT_CHANGE_APPROVED activity:', activityError);
+      }
+
       this.websocketGateway.emitShiftChangeRequestChanged();
     } else {
       await request.save();
@@ -860,6 +889,19 @@ export class ShiftChangeRequestService {
       });
     }
 
+    try {
+      const managerUser = await this.userService.findById(managerId);
+      if (managerUser) {
+        await this.activityService.addActivity(
+          managerUser,
+          ActivityType.SHIFT_CHANGE_REJECTED,
+          (request.toObject ? request.toObject() : request) as ShiftChangeRequest,
+        );
+      }
+    } catch (activityError) {
+      console.error('Failed to add SHIFT_CHANGE_REJECTED activity:', activityError);
+    }
+
     this.websocketGateway.emitShiftChangeRequestChanged();
     return request;
   }
@@ -922,6 +964,19 @@ export class ShiftChangeRequestService {
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREJECTED,
       });
+    }
+
+    try {
+      const targetUser = await this.userService.findById(targetUserId);
+      if (targetUser) {
+        await this.activityService.addActivity(
+          targetUser,
+          ActivityType.SHIFT_CHANGE_REJECTED,
+          (request.toObject ? request.toObject() : request) as ShiftChangeRequest,
+        );
+      }
+    } catch (activityError) {
+      console.error('Failed to add SHIFT_CHANGE_REJECTED activity:', activityError);
     }
 
     this.websocketGateway.emitShiftChangeRequestChanged();
