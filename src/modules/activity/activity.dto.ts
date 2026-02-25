@@ -8,6 +8,7 @@ import { Authorization } from '../authorization/authorization.schema';
 import { Break } from '../break/break.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
+import { ShiftChangeRequest } from '../shift/shiftChange/shiftChangeRequest.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
 import { Reservation } from '../reservation/reservation.schema';
@@ -87,6 +88,8 @@ export enum ActivityType {
   FINISH_BREAK = 'FINISH_BREAK',
   START_GAMEPLAY_TIME = 'START_GAMEPLAY_TIME',
   FINISH_GAMEPLAY_TIME = 'FINISH_GAMEPLAY_TIME',
+  SHIFT_CHANGE_APPROVED = 'SHIFT_CHANGE_APPROVED',
+  SHIFT_CHANGE_REJECTED = 'SHIFT_CHANGE_REJECTED',
 }
 
 export type ActivityTypePayload = {
@@ -181,6 +184,8 @@ export type ActivityTypePayload = {
   [ActivityType.FINISH_BREAK]: Break;
   [ActivityType.START_GAMEPLAY_TIME]: GameplayTime;
   [ActivityType.FINISH_GAMEPLAY_TIME]: GameplayTime;
+  [ActivityType.SHIFT_CHANGE_APPROVED]: ShiftChangeRequest;
+  [ActivityType.SHIFT_CHANGE_REJECTED]: ShiftChangeRequest;
 };
 
 export class ActivityQueryDto {

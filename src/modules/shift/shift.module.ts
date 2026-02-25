@@ -14,6 +14,7 @@ import {
   ShiftChangeRequestSchema,
 } from './shiftChange/shiftChangeRequest.schema';
 import { ShiftChangeRequestService } from './shiftChange/shiftChangeRequest.service';
+import { ActivityModule } from '../activity/activity.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
@@ -32,6 +33,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     NotificationModule,
     UserModule,
     LocationModule,
+    ActivityModule,
   ],
   providers: [ShiftService, ShiftChangeRequestService],
   exports: [ShiftService, ShiftChangeRequestService],
