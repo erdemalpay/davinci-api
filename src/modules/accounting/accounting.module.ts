@@ -4,15 +4,18 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { GameModule } from 'src/modules/game/game.module';
 import { ActivityModule } from '../activity/activity.module';
 import { AssetModule } from '../asset/asset.module';
+import { BackInStockModule } from '../back-in-stock/back-in-stock.module';
 import { HepsiburadaModule } from '../hepsiburada/hepsiburada.module';
 import { IkasModule } from '../ikas/ikas.module';
 import { Location, LocationSchema } from '../location/location.schema';
+import { MailModule } from '../mail/mail.module';
 import { MenuModule } from '../menu/menu.module';
+import { NotificationModule } from '../notification/notification.module';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { TrendyolModule } from '../trendyol/trendyol.module';
-import { NotificationModule } from '../notification/notification.module';
 import { UserModule } from '../user/user.module';
 import { VisitModule } from '../visit/visit.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { CheckoutModule } from './../checkout/checkout.module';
 import { LocationModule } from './../location/location.module';
 import { RedisModule } from './../redis/redis.module';
@@ -37,7 +40,6 @@ import {
 import { Service, ServiceSchema } from './service.schema';
 import { Stock, StockSchema } from './stock.schema';
 import { Vendor, VendorSchema } from './vendor.schema';
-import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   { name: Product.name, useFactory: () => ProductSchema },
@@ -71,6 +73,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     NotificationModule,
     UserModule,
     VisitModule,
+    MailModule,
+    forwardRef(() => BackInStockModule),
     forwardRef(() => LocationModule),
     forwardRef(() => IkasModule),
     forwardRef(() => ShopifyModule),

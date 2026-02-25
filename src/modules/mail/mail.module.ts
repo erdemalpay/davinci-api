@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { MailController } from './mail.controller';
 import {
   MailLog,
@@ -12,16 +13,16 @@ import {
 import { MailSeeder } from './mail.seeder';
 import { MailService } from './mail.service';
 
+const mongooseModule = MongooseModule.forFeatureAsync([
+  createAutoIncrementConfig(MailSubscription.name, MailSubscriptionSchema),
+  createAutoIncrementConfig(MailLog.name, MailLogSchema),
+  createAutoIncrementConfig(MailTemplate.name, MailTemplateSchema),
+]);
+
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: MailSubscription.name, schema: MailSubscriptionSchema },
-      { name: MailLog.name, schema: MailLogSchema },
-      { name: MailTemplate.name, schema: MailTemplateSchema },
-    ]),
-  ],
+  imports: [mongooseModule],
   controllers: [MailController],
   providers: [MailService, MailSeeder],
-  exports: [MailService],
+  exports: [MailService, MongooseModule],
 })
 export class MailModule {}
