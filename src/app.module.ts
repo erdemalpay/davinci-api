@@ -22,6 +22,7 @@ import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { HepsiburadaModule } from './modules/hepsiburada/hepsiburada.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { LocationModule } from './modules/location/location.module';
+import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -61,7 +62,6 @@ const modules = [
   AuthModule,
   AssetModule,
   AuthorizationModule,
-  BackInStockModule,
   BreakModule,
   IkasModule,
   ShopifyModule,
@@ -72,6 +72,8 @@ const modules = [
   GameModule,
   GameplayModule,
   LocationModule,
+  MailModule,
+  BackInStockModule,
   MembershipModule,
   RewardModule,
   EducationModule,

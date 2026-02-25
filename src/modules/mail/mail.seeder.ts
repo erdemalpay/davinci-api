@@ -18,6 +18,7 @@ export class MailSeeder {
 
     const templates = [
       {
+        _id: 1,
         name: 'back-in-stock-tr',
         mailType: MailType.BACK_IN_STOCK,
         subject: 'Ürün Stoklara Geldi! - {{productName}}',
@@ -38,7 +39,7 @@ export class MailSeeder {
     for (const template of templates) {
       try {
         await this.mailTemplateModel.updateOne(
-          { name: template.name },
+          { _id: template._id },
           { $set: template },
           { upsert: true },
         );

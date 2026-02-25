@@ -4,3 +4,5 @@ export class CreateStockLocationDto {
   phoneNumber?: string;
   googleMapsUrl?: string;
 }
+
+export const ONlINESTORELOCATIONID = 6;

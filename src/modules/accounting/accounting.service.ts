@@ -4,7 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
@@ -14,10 +14,11 @@ import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { IkasService } from '../ikas/ikas.service';
+import { ONlINESTORELOCATIONID } from '../location/dto/create-location.dto';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
-  NotificationEventType
+  NotificationEventType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -31,6 +32,9 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { dateRanges } from './../../utils/dateRanges';
 import { ActivityService } from './../activity/activity.service';
 import { AssetService } from './../asset/asset.service';
+import { BackInStockService } from './../back-in-stock/back-in-stock.service';
+import { MailType } from './../mail/mail.schema';
+import { MailService } from './../mail/mail.service';
 import { MenuService } from './../menu/menu.service';
 import {
   AddMultipleProductAndMenuItemDto,
@@ -58,7 +62,7 @@ import {
   StockHistoryFilter,
   StockHistoryStatusEnum,
   StockQueryDto,
-  UpdateMultipleProduct
+  UpdateMultipleProduct,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
 import { Count } from './count.schema';
@@ -117,6 +121,10 @@ export class AccountingService {
     private readonly notificationService: NotificationService,
     private readonly userService: UserService,
     private readonly visitService: VisitService,
+    @Inject(forwardRef(() => BackInStockService))
+    private readonly backInStockService: BackInStockService,
+    @Inject(forwardRef(() => MailService))
+    private readonly mailService: MailService,
   ) {}
   //   Products
   async findAllProducts() {
@@ -2215,13 +2223,95 @@ export class AccountingService {
       );
       if (error?.response?.data) {
         this.logger.error(
-          `[HB] Hepsiburada API response: ${JSON.stringify(error.response.data)}`,
+          `[HB] Hepsiburada API response: ${JSON.stringify(
+            error.response.data,
+          )}`,
         );
       }
     }
   }
 
+  private async notifyBackInStockSubscribers(
+    productId: string,
+    oldQuantity: number,
+    newQuantity: number,
+  ) {
+    this.logger.log(
+      `Stock went from ${oldQuantity} to ${newQuantity}, checking for back-in-stock notifications...`,
+    );
+
+    try {
+      const product = await this.findProductById(productId);
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+
+      if (!menuItem?.shopifyId) {
+        return;
+      }
+
+      const shopifyProduct = await this.shopifyService.getProductById(
+        menuItem.shopifyId,
+      );
+      const variantId = shopifyProduct?.variants?.edges?.[0]?.node?.id
+        ?.split('/')
+        .pop();
+
+      if (!variantId) {
+        return;
+      }
+
+      const subscriptions =
+        await this.backInStockService.getActiveSubscriptionsByVariant(
+          variantId,
+        );
+
+      this.logger.log(
+        `Found ${subscriptions.length} back-in-stock subscriptions for variant ${variantId}`,
+      );
+
+      for (const subscription of subscriptions) {
+        try {
+          await this.mailService.sendMail({
+            to: subscription.email,
+            mailType: MailType.BACK_IN_STOCK,
+            variables: {
+              productName: product?.name || 'Ürün',
+              email: subscription.email,
+              productUrl: `${
+                process.env.FRONTEND_URL || 'https://davinciboardgame.com'
+              }/products/${menuItem.shopifyId}`,
+              supportEmail:
+                process.env.DEFAULT_FROM_EMAIL || 'info@davinciboardgame.com',
+              variantTitle: shopifyProduct?.variants?.edges?.[0]?.node?.title,
+              price: menuItem?.onlinePrice
+                ? `${menuItem.onlinePrice} TL`
+                : undefined,
+              productImage: menuItem?.imageUrl || menuItem?.imageUrl,
+            },
+            locale: 'tr',
+          });
+
+          await this.backInStockService.markAsNotified(subscription._id);
+
+          this.logger.log(
+            `Sent back-in-stock notification to ${subscription.email} for product ${menuItem?.name}`,
+          );
+        } catch (emailError) {
+          this.logger.error(
+            `Failed to send back-in-stock email to ${subscription.email}:`,
+            emailError,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error processing back-in-stock notifications for product ${productId}:`,
+        error,
+      );
+    }
+  }
+
   async createStock(user: User, createStockDto: CreateStockDto) {
+    console.log('Creating stock with DTO:', createStockDto);
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
     );
@@ -2234,6 +2324,7 @@ export class AccountingService {
         { $inc: { quantity: Number(createStockDto.quantity) } },
         { new: true },
       );
+
       this.websocketGateway.emitStockChanged();
 
       if (createStockDto.quantity !== 0) {
@@ -2257,6 +2348,19 @@ export class AccountingService {
         createStockDto.product,
         createStockDto.location,
       );
+
+      // Back-in-stock email notifications for online store
+      if (
+        createStockDto.location === ONlINESTORELOCATIONID &&
+        oldQuantity <= 0 &&
+        newStock.quantity > 0
+      ) {
+        await this.notifyBackInStockSubscribers(
+          createStockDto.product,
+          oldQuantity,
+          newStock.quantity,
+        );
+      }
 
       if (oldQuantity <= 0 && newStock.quantity > 0) {
         const notificationEvents =
@@ -2427,6 +2531,18 @@ export class AccountingService {
           status,
           currentAmount: 0,
         });
+      }
+
+      // Back-in-stock email notifications for new stock in online store
+      if (
+        createStockDto.location === ONlINESTORELOCATIONID &&
+        createStockDto.quantity > 0
+      ) {
+        await this.notifyBackInStockSubscribers(
+          createStockDto.product,
+          0,
+          createStockDto.quantity,
+        );
       }
 
       if (createStockDto.quantity > 0) {
@@ -2817,14 +2933,11 @@ export class AccountingService {
       }
       this.websocketGateway.emitStockChanged();
       // Activity logging - fire and forget (non-blocking)
-      this.activityService.addUpdateActivity(
-        user,
-        ActivityType.UPDATE_STOCK,
-        stock,
-        newStock,
-      ).catch((error) => {
-        this.logger.error('Error adding update stock activity:', error);
-      });
+      this.activityService
+        .addUpdateActivity(user, ActivityType.UPDATE_STOCK, stock, newStock)
+        .catch((error) => {
+          this.logger.error('Error adding update stock activity:', error);
+        });
       const consumptStatus =
         consumptStockDto?.status ?? StockHistoryStatusEnum.CONSUMPTION;
       // Eğer order IKAS'tan geliyorsa, IKAS zaten kendi stoğunu düşürüyor, tekrar update yapma
@@ -2988,7 +3101,7 @@ export class AccountingService {
           }),
           ...(category &&
             categoryArray.length > 0 && {
-                'matchedMenuItemDetails.category': { $in: categoryArray }
+              'matchedMenuItemDetails.category': { $in: categoryArray },
             }),
           ...matchFilter,
           ...(regexSearch
@@ -3168,7 +3281,7 @@ export class AccountingService {
           }),
           ...(category &&
             categoryArray.length > 0 && {
-                'matchedMenuItemDetails.category': { $in: categoryArray },
+              'matchedMenuItemDetails.category': { $in: categoryArray },
             }),
           ...matchFilter,
           ...(regexSearch

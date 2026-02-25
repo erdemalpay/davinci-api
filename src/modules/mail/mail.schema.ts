@@ -25,8 +25,11 @@ export enum SubscriptionStatus {
   COMPLAINED = 'complained',
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, _id: false })
 export class MailSubscription extends Document {
+  @Prop({ type: Number })
+  _id: number;
+
   @Prop({ type: String, required: true, unique: true, lowercase: true })
   email: string;
 
@@ -66,8 +69,11 @@ export class MailSubscription extends Document {
   locale: string;
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, _id: false })
 export class MailLog extends Document {
+  @Prop({ type: Number })
+  _id: number;
+
   @Prop({ type: String, required: true })
   email: string;
 
@@ -105,8 +111,11 @@ export class MailLog extends Document {
   clickedAt: Date;
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, _id: false })
 export class MailTemplate extends Document {
+  @Prop({ type: Number })
+  _id: number;
+
   @Prop({ type: String, required: true, unique: true })
   name: string;
 
@@ -135,14 +144,12 @@ export class MailTemplate extends Document {
   metadata: Record<string, any>;
 }
 
-export const MailSubscriptionSchema = purifySchema(
-  SchemaFactory.createForClass(MailSubscription),
-);
+export const MailSubscriptionSchema =
+  SchemaFactory.createForClass(MailSubscription);
+purifySchema(MailSubscriptionSchema);
 
-export const MailLogSchema = purifySchema(
-  SchemaFactory.createForClass(MailLog),
-);
+export const MailLogSchema = SchemaFactory.createForClass(MailLog);
+purifySchema(MailLogSchema);
 
-export const MailTemplateSchema = purifySchema(
-  SchemaFactory.createForClass(MailTemplate),
-);
+export const MailTemplateSchema = SchemaFactory.createForClass(MailTemplate);
+purifySchema(MailTemplateSchema);
