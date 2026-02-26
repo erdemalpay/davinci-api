@@ -251,24 +251,6 @@ export class MailService {
       `;
     }
 
-    // Add unsubscribe link for back-in-stock emails (different flow)
-    if (mailType === MailType.BACK_IN_STOCK) {
-      const hostUrl =
-        process.env.NODE_ENV === 'production'
-          ? process.env.PRODUCTION_HOST_URL
-          : process.env.STAGING_HOST_URL;
-      const backInStockUnsubscribeLink = `${hostUrl}/back-in-stock/unsubscribe?email=${encodeURIComponent(
-        to,
-      )}`;
-      finalHtmlContent += `
-        <br/><br/>
-        <div style="text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p>Bu bildirimi, ${to} adresine stok bildirimi kaydı oluşturduğunuz için aldınız.</p>
-          <p>Eğer bu ürün için stok bildirimi almak istemiyorsanız, <a href="${backInStockUnsubscribeLink}" style="color: #888; text-decoration: underline;">buradan aboneliğinizi iptal edebilirsiniz</a>.</p>
-        </div>
-      `;
-    }
-
     // Create mail log
     const mailLog = new this.mailLogModel({
       email: to,
