@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Res,
+} from '@nestjs/common';
+import { Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import {
   CreateTemplateDto,
@@ -26,6 +36,22 @@ export class MailController {
   @Post('unsubscribe')
   async unsubscribe(@Body() unsubscribeDto: UnsubscribeDto) {
     return this.mailService.unsubscribe(unsubscribeDto);
+  }
+
+  @Public()
+  @Get('unsubscribe')
+  async unsubscribeViaLink(
+    @Query() query: UnsubscribeDto,
+    @Res() res: Response,
+  ) {
+    try {
+      await this.mailService.unsubscribe(query);
+      const html = this.mailService.generateUnsubscribeSuccessPage(query.email);
+      return res.send(html);
+    } catch (error) {
+      const html = this.mailService.generateUnsubscribeErrorPage(error.message);
+      return res.send(html);
+    }
   }
 
   @Get('subscription/:email')
