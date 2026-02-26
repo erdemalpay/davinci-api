@@ -2885,7 +2885,16 @@ export class OrderService {
       await this.updateOrders(user, newOrders, { deferEmit: false });
     }
 
-    // Consume points if pointUser is provided
+    try {
+      await collection.save();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create collection',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    // Consume points if pointUser is provided (collection._id is now assigned)
     if (createCollectionDto.pointUser) {
       await this.pointService.consumePoint(
         createCollectionDto.pointUser,
@@ -2906,27 +2915,20 @@ export class OrderService {
     }
 
     try {
-      await collection.save();
-      try {
-        this.websocketGateway.emitCollectionChanged(collection);
-      } catch (error) {
-        this.logger.error('Error emitting collection changed:', error);
-      }
-      try {
-        await this.activityService.addActivity(
-          user,
-          ActivityType.TAKE_PAYMENT,
-          collection,
-        );
-      } catch (error) {
-        this.logger.error('Error adding take payment activity:', error);
-      }
+      this.websocketGateway.emitCollectionChanged(collection);
     } catch (error) {
-      throw new HttpException(
-        'Failed to create collection',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.error('Error emitting collection changed:', error);
     }
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.TAKE_PAYMENT,
+        collection,
+      );
+    } catch (error) {
+      this.logger.error('Error adding take payment activity:', error);
+    }
+
     return collection;
   }
   async updateCollection(
