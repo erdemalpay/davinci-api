@@ -61,10 +61,6 @@ export const backInStockTemplate = `
                             <div style="text-align: center; margin: 30px 0;">
                                 <a href="{{productUrl}}" style="display: inline-block; padding: 18px 50px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: #ffffff; text-decoration: none; border-radius: 50px; font-size: 18px; font-weight: 700; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);">Şimdi Satın Al</a>
                             </div>
-                            
-                            <p style="margin: 25px 0 0; color: #999999; font-size: 13px; line-height: 1.6; text-align: center;">
-                                Bu bildirimi, {{email}} adresine stok bildirimi kaydı oluşturduğunuz için aldınız.
-                            </p>
                         </td>
                     </tr>
                     

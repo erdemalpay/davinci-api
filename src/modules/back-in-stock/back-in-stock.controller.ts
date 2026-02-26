@@ -12,6 +12,7 @@ import { Public } from '../auth/public.decorator';
 import {
   BackInStockQueryDto,
   CreateBackInStockSubscriptionDto,
+  UnsubscribeByEmailDto,
   UpdateSubscriptionStatusDto,
 } from './back-in-stock.dto';
 import { BackInStockService } from './back-in-stock.service';
@@ -61,5 +62,11 @@ export class BackInStockController {
   @Patch('/:id/notify')
   async markAsNotified(@Param('id') id: number) {
     return this.backInStockService.markAsNotified(id);
+  }
+
+  @Public()
+  @Post('/unsubscribe')
+  async unsubscribeByEmail(@Body() dto: UnsubscribeByEmailDto) {
+    return this.backInStockService.unsubscribeByEmail(dto.email, dto.variantId);
   }
 }

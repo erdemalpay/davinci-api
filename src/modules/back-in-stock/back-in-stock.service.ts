@@ -226,4 +226,48 @@ export class BackInStockService {
       status: SubscriptionStatus.NOTIFIED,
     });
   }
+
+  async unsubscribeByEmail(
+    email: string,
+    variantId?: string,
+  ): Promise<{ cancelled: number; subscriptions: BackInStockSubscription[] }> {
+    const query: any = {
+      email,
+      status: SubscriptionStatus.ACTIVE,
+    };
+
+    if (variantId) {
+      query.variantId = variantId;
+    }
+
+    const subscriptions = await this.backInStockModel.find(query).exec();
+
+    if (subscriptions.length === 0) {
+      this.logger.log(
+        `No active subscriptions found for ${email}${
+          variantId ? ` - variant ${variantId}` : ''
+        }`,
+      );
+      return { cancelled: 0, subscriptions: [] };
+    }
+
+    // Update all found subscriptions
+    const updateResult = await this.backInStockModel.updateMany(query, {
+      $set: {
+        status: SubscriptionStatus.CANCELLED,
+        cancelledAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `Cancelled ${updateResult.modifiedCount} subscription(s) for ${email}${
+        variantId ? ` - variant ${variantId}` : ''
+      }`,
+    );
+
+    return {
+      cancelled: updateResult.modifiedCount,
+      subscriptions,
+    };
+  }
 }

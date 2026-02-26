@@ -2274,17 +2274,13 @@ export class AccountingService {
             to: subscription.email,
             mailType: MailType.BACK_IN_STOCK,
             variables: {
-              productName: product?.name || 'Ürün',
+              productName: subscription.productTitle || product?.name || 'Ürün',
               email: subscription.email,
-              productUrl: `${
-                process.env.FRONTEND_URL || 'https://davinciboardgame.com'
-              }/products/${menuItem.shopifyId}`,
+              productUrl: `https://${subscription.shop}${subscription.productUrl}`,
               supportEmail:
                 process.env.DEFAULT_FROM_EMAIL || 'info@davinciboardgame.com',
-              variantTitle: shopifyProduct?.variants?.edges?.[0]?.node?.title,
-              price: menuItem?.onlinePrice
-                ? `${menuItem.onlinePrice} TL`
-                : undefined,
+              variantTitle: subscription.variantTitle,
+              price: subscription.variantPrice,
               productImage: menuItem?.imageUrl || menuItem?.imageUrl,
             },
             locale: 'tr',
