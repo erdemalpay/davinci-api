@@ -56,8 +56,8 @@ export class AccountingController {
   }
 
   @Get('/all-products')
-  getAllProducts() {
-    return this.accountingService.findAllProducts();
+  getAllProducts(@ReqUser() user: User) {
+    return this.accountingService.findAllProducts(user);
   }
 
   @Post('/products')
@@ -150,8 +150,8 @@ export class AccountingController {
 
   // Services
   @Get('/services')
-  getServices() {
-    return this.accountingService.findAllServices();
+  getServices(@ReqUser() user: User) {
+    return this.accountingService.findAllServices(user);
   }
 
   @Post('/services')
