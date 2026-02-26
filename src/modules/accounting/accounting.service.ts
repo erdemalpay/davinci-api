@@ -960,6 +960,7 @@ export class AccountingService {
     page: number,
     limit: number,
     filter: ExpenseWithPaginateFilterType,
+    user?: User,
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
@@ -1028,13 +1029,41 @@ export class AccountingService {
       .find({ isPaymentMade: false })
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
+    // Role-based expense type filtering
+    const rawRole = user?.role as any;
+    const userRoleId: number | null = user
+      ? typeof rawRole === 'object' && rawRole !== null
+        ? (rawRole._id as number)
+        : (rawRole as number)
+      : null;
+    const restrictedExpenseTypes = await this.expenseTypeModel.find({
+      isRoleRestricted: true,
+    });
+    const forbiddenExpenseTypeIds = restrictedExpenseTypes
+      .filter(
+        (et) =>
+          userRoleId === null || !et.allowedRoles?.includes(userRoleId),
+      )
+      .map((et) => et._id);
+    // Combine user-requested expenseType filter and role-based restriction
+    const expenseTypeMatchCondition: Record<string, any> = (() => {
+      if (expenseType && forbiddenExpenseTypeIds.length > 0) {
+        return forbiddenExpenseTypeIds.includes(expenseType)
+          ? { expenseType: { $in: [] } }
+          : { expenseType };
+      }
+      if (expenseType) return { expenseType };
+      if (forbiddenExpenseTypeIds.length > 0)
+        return { expenseType: { $nin: forbiddenExpenseTypeIds } };
+      return {};
+    })();
     const pipeline: PipelineStage[] = [
       {
         $match: {
           ...(location && { location: Number(location) }),
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
-          ...(expenseType && { expenseType: expenseType }),
+          ...expenseTypeMatchCondition,
           ...(paymentMethod && { paymentMethod: { $in: paymentMethodArray } }),
           ...(brand && { brand: brand }),
           ...(type && { type: type }),
