@@ -39,11 +39,6 @@ export const backInStockTemplate = `
                             
                             <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin-bottom: 30px; border-left: 4px solid #27ae60;">
                                 <h2 style="margin: 0 0 15px; color: #2c3e50; font-size: 20px; font-weight: 600;">{{productName}}</h2>
-                                {{#if variantTitle}}
-                                <p style="margin: 0 0 10px; color: #666666; font-size: 15px;">
-                                    <strong>Varyant:</strong> {{variantTitle}}
-                                </p>
-                                {{/if}}
                                 {{#if price}}
                                 <p style="margin: 0; color: #27ae60; font-size: 24px; font-weight: 700;">
                                     {{price}}

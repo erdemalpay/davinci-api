@@ -236,11 +236,13 @@ export class MailService {
     // Add unsubscribe link for non-transactional emails
     let finalHtmlContent = htmlContent;
     if (subscription && !this.isTransactional(mailType)) {
-      const unsubscribeLink = `${
-        process.env.FRONTEND_URL || 'http://localhost:3000'
-      }/unsubscribe?email=${encodeURIComponent(to)}&token=${
-        subscription.unsubscribeToken
-      }`;
+      const hostUrl =
+        process.env.NODE_ENV === 'production'
+          ? process.env.PRODUCTION_HOST_URL
+          : process.env.STAGING_HOST_URL;
+      const unsubscribeLink = `${hostUrl}/unsubscribe?email=${encodeURIComponent(
+        to,
+      )}&token=${subscription.unsubscribeToken}`;
       finalHtmlContent += `
         <br/><br/>
         <div style="text-align: center; color: #888; font-size: 12px; margin-top: 30px;">
@@ -251,9 +253,13 @@ export class MailService {
 
     // Add unsubscribe link for back-in-stock emails (different flow)
     if (mailType === MailType.BACK_IN_STOCK) {
-      const backInStockUnsubscribeLink = `${
-        process.env.FRONTEND_URL || 'http://localhost:3000'
-      }/back-in-stock/unsubscribe?email=${encodeURIComponent(to)}`;
+      const hostUrl =
+        process.env.NODE_ENV === 'production'
+          ? process.env.PRODUCTION_HOST_URL
+          : process.env.STAGING_HOST_URL;
+      const backInStockUnsubscribeLink = `${hostUrl}/back-in-stock/unsubscribe?email=${encodeURIComponent(
+        to,
+      )}`;
       finalHtmlContent += `
         <br/><br/>
         <div style="text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px;">
