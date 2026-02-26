@@ -1030,12 +1030,13 @@ export class AccountingService {
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
     // Role-based expense type filtering
-    const rawRole = user?.role as any;
-    const userRoleId: number | null = user
-      ? typeof rawRole === 'object' && rawRole !== null
-        ? (rawRole._id as number)
-        : (rawRole as number)
-      : null;
+    const role = user?.role;
+    const userRoleId: number | null =
+      user && role
+        ? typeof role === 'object' && role !== null
+          ? (role as any)._id
+          : (role as unknown as number)
+        : null;
     const restrictedExpenseTypes = await this.expenseTypeModel.find({
       isRoleRestricted: true,
     });
@@ -1046,17 +1047,10 @@ export class AccountingService {
       )
       .map((et) => et._id);
     // Combine user-requested expenseType filter and role-based restriction
-    const expenseTypeMatchCondition: Record<string, any> = (() => {
-      if (expenseType && forbiddenExpenseTypeIds.length > 0) {
-        return forbiddenExpenseTypeIds.includes(expenseType)
-          ? { expenseType: { $in: [] } }
-          : { expenseType };
-      }
-      if (expenseType) return { expenseType };
-      if (forbiddenExpenseTypeIds.length > 0)
-        return { expenseType: { $nin: forbiddenExpenseTypeIds } };
-      return {};
-    })();
+    const expenseTypeMatchCondition = this.buildExpenseTypeMatchCondition(
+      expenseType,
+      forbiddenExpenseTypeIds,
+    );
     const pipeline: PipelineStage[] = [
       {
         $match: {
@@ -4269,5 +4263,20 @@ export class AccountingService {
     );
     await this.websocketGateway.emitProductChanged();
     await this.websocketGateway.emitStockChanged();
+  }
+
+  private buildExpenseTypeMatchCondition(
+    expenseType: string | undefined,
+    forbiddenExpenseTypeIds: string[],
+  ): Record<string, any> {
+    if (expenseType && forbiddenExpenseTypeIds.length > 0) {
+      return forbiddenExpenseTypeIds.includes(expenseType)
+        ? { expenseType: { $in: [] } }
+        : { expenseType };
+    }
+    if (expenseType) return { expenseType };
+    if (forbiddenExpenseTypeIds.length > 0)
+      return { expenseType: { $nin: forbiddenExpenseTypeIds } };
+    return {};
   }
 }
