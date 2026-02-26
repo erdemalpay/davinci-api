@@ -67,6 +67,8 @@ jobs:
           echo AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}} >> .env
           echo AWS_SECRET_ACCESS_KEY=${{secrets.AWS_SECRET_ACCESS_KEY}} >> .env
           echo DEFAULT_FROM_EMAIL=${{secrets.DEFAULT_FROM_EMAIL}} >> .env
+          echo STAGING_HOST_URL=${{secrets.STAGING_HOST_URL}} >> .env
+          echo PRODUCTION_HOST_URL=${{secrets.PRODUCTION_HOST_URL}} >> .env
 
       - name: Create ssh folder
         run: mkdir -p ~/.ssh
