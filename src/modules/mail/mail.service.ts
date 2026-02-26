@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import * as AWS from 'aws-sdk';
 import { randomUUID } from 'crypto';
+import * as Handlebars from 'handlebars';
 import { Model } from 'mongoose';
 import {
   CreateTemplateDto,
@@ -248,6 +249,20 @@ export class MailService {
       `;
     }
 
+    // Add unsubscribe link for back-in-stock emails (different flow)
+    if (mailType === MailType.BACK_IN_STOCK) {
+      const backInStockUnsubscribeLink = `${
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+      }/back-in-stock/unsubscribe?email=${encodeURIComponent(to)}`;
+      finalHtmlContent += `
+        <br/><br/>
+        <div style="text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p>Bu bildirimi, ${to} adresine stok bildirimi kaydı oluşturduğunuz için aldınız.</p>
+          <p>Eğer bu ürün için stok bildirimi almak istemiyorsanız, <a href="${backInStockUnsubscribeLink}" style="color: #888; text-decoration: underline;">buradan aboneliğinizi iptal edebilirsiniz</a>.</p>
+        </div>
+      `;
+    }
+
     // Create mail log
     const mailLog = new this.mailLogModel({
       email: to,
@@ -438,13 +453,9 @@ export class MailService {
   ): string {
     if (!variables) return template;
 
-    let result = template;
-    Object.keys(variables).forEach((key) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, variables[key] || '');
-    });
-
-    return result;
+    // Compile the template using Handlebars
+    const compiledTemplate = Handlebars.compile(template);
+    return compiledTemplate(variables);
   }
 
   /**
