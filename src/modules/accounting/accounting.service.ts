@@ -1100,10 +1100,11 @@ export class AccountingService {
     const restrictedExpenseTypes = await this.expenseTypeModel.find({
       isRoleRestricted: true,
     });
+    const expensePageKey = vendor ? 'vendor-expense' : 'expense';
     const forbiddenExpenseTypeIds = restrictedExpenseTypes
       .filter((et) => {
         const pagePerm = (et.pagePermissions ?? []).find(
-          (p) => p.page === 'expense',
+          (p) => p.page === expensePageKey,
         );
         if (!pagePerm) return false; // no restriction for this page
         return userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId);
