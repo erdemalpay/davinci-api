@@ -202,3 +202,36 @@ export class GetSubscriptionsDto {
   @IsOptional()
   search?: string;
 }
+
+export class GetMailLogsWithPaginationDto {
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsEnum(MailType)
+  @IsOptional()
+  mailType?: MailType;
+
+  @IsString()
+  @IsOptional()
+  after?: string;
+
+  @IsString()
+  @IsOptional()
+  before?: string;
+
+  @IsString()
+  @IsOptional()
+  sort?: string;
+
+  @IsOptional()
+  asc?: number;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+}

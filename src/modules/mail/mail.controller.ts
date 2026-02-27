@@ -13,6 +13,7 @@ import { Public } from '../auth/public.decorator';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
+  GetMailLogsWithPaginationDto,
   GetSubscriptionsDto,
   SendBulkMailDto,
   SendMailDto,
@@ -114,6 +115,15 @@ export class MailController {
   @Get('logs')
   async getMailLogs(@Query() filters: GetMailLogsDto) {
     return this.mailService.getMailLogs(filters);
+  }
+
+  @Get('logs-paginated')
+  async getMailLogsWithPagination(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query() filter: GetMailLogsWithPaginationDto,
+  ) {
+    return this.mailService.getMailLogsWithPagination(page, limit, filter);
   }
 
   // ==================== Webhook Endpoints ====================
