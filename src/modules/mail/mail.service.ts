@@ -665,6 +665,109 @@ export class MailService {
   }
 
   /**
+   * Get mail logs with pagination and filtering
+   */
+  async getMailLogsWithPagination(
+    page: number,
+    limit: number,
+    filter: {
+      email?: string;
+      status?: string;
+      mailType?: MailType;
+      after?: string;
+      before?: string;
+      sort?: string;
+      asc?: number;
+      search?: string;
+    },
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const { email, status, mailType, before, after, sort, asc, search } =
+      filter;
+    const skip = (pageNum - 1) * limitNum;
+    const statusArray = status ? (status as any).split(',') : [];
+    const sortObject: Record<string, 1 | -1> = {};
+
+    if (sort) {
+      sortObject[sort] = asc === 1 ? 1 : -1;
+    } else {
+      sortObject['sentAt'] = -1;
+    }
+
+    const matchStage: Record<string, any> = {
+      ...(after &&
+        before && {
+          sentAt: { $gte: new Date(after), $lte: new Date(before) },
+        }),
+      ...(before && !after && { sentAt: { $lte: new Date(before) } }),
+      ...(after && !before && { sentAt: { $gte: new Date(after) } }),
+    };
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      matchStage.$or = [
+        { email: { $regex: searchRegex } },
+        { subject: { $regex: searchRegex } },
+        { messageId: { $regex: searchRegex } },
+      ];
+    } else {
+      if (email) matchStage.email = { $regex: new RegExp(email, 'i') };
+      if (status) matchStage.status = { $in: statusArray };
+      if (mailType) matchStage.mailType = mailType;
+    }
+
+    const pipeline = [
+      {
+        $match: matchStage,
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    const results = await this.mailLogModel.aggregate(pipeline);
+
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+      };
+    }
+
+    return results[0];
+  }
+
+  /**
    * Replace template variables
    */
   private replaceVariables(
