@@ -166,25 +166,11 @@ export class AccountingService {
     user: User | undefined,
     page: string,
   ): Promise<any[]> {
-    const role = user?.role;
-    const userRoleId: number | null =
-      user && role
-        ? typeof role === 'object' && role !== null
-          ? (role as any)._id
-          : (role as unknown as number)
-        : null;
-    const restrictedExpenseTypes = await this.expenseTypeModel.find({
-      isRoleRestricted: true,
-    });
-    const forbiddenExpenseTypeIds = restrictedExpenseTypes
-      .filter((et) => {
-        const pagePerm = (et.pagePermissions ?? []).find(
-          (p) => p.page === page,
-        );
-        if (!pagePerm) return false;
-        return userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId);
-      })
-      .map((et) => et._id as string);
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      page,
+    );
     if (forbiddenExpenseTypeIds.length === 0) return products;
     return products.filter(
       (p) =>
@@ -551,25 +537,11 @@ export class AccountingService {
 
   // Services
   async findAllServices(user?: User) {
-    const role = user?.role;
-    const userRoleId: number | null =
-      user && role
-        ? typeof role === 'object' && role !== null
-          ? (role as any)._id
-          : (role as unknown as number)
-        : null;
-    const restrictedExpenseTypes = await this.expenseTypeModel.find({
-      isRoleRestricted: true,
-    });
-    const forbiddenExpenseTypeIds = restrictedExpenseTypes
-      .filter((et) => {
-        const pagePerm = (et.pagePermissions ?? []).find(
-          (p) => p.page === 'service',
-        );
-        if (!pagePerm) return false; // no restriction for this page
-        return userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId);
-      })
-      .map((et) => et._id);
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      'service',
+    );
     if (forbiddenExpenseTypeIds.length === 0) {
       return this.serviceModel.find();
     }
@@ -1090,26 +1062,12 @@ export class AccountingService {
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
     // Role-based expense type filtering
-    const role = user?.role;
-    const userRoleId: number | null =
-      user && role
-        ? typeof role === 'object' && role !== null
-          ? (role as any)._id
-          : (role as unknown as number)
-        : null;
-    const restrictedExpenseTypes = await this.expenseTypeModel.find({
-      isRoleRestricted: true,
-    });
     const expensePageKey = vendor ? 'vendor-expense' : 'expense';
-    const forbiddenExpenseTypeIds = restrictedExpenseTypes
-      .filter((et) => {
-        const pagePerm = (et.pagePermissions ?? []).find(
-          (p) => p.page === expensePageKey,
-        );
-        if (!pagePerm) return false; // no restriction for this page
-        return userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId);
-      })
-      .map((et) => et._id);
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      expensePageKey,
+    );
     // Combine user-requested expenseType filter and role-based restriction
     const expenseTypeMatchCondition = this.buildExpenseTypeMatchCondition(
       expenseType,
@@ -4338,5 +4296,33 @@ export class AccountingService {
     if (forbiddenExpenseTypeIds.length > 0)
       return { expenseType: { $nin: forbiddenExpenseTypeIds } };
     return {};
+  }
+
+  private extractUserRoleId(user?: User): number | null {
+    const role = user?.role;
+    if (!user || !role) return null;
+    return typeof role === 'object' && role !== null
+      ? (role as any)._id
+      : (role as unknown as number);
+  }
+
+  private async getForbiddenExpenseTypeIds(
+    userRoleId: number | null,
+    page: string,
+  ): Promise<any[]> {
+    const restrictedExpenseTypes = await this.expenseTypeModel.find({
+      isRoleRestricted: true,
+    });
+    return restrictedExpenseTypes
+      .filter((et) => {
+        const pagePerm = (et.pagePermissions ?? []).find(
+          (p) => p.page === page,
+        );
+        if (!pagePerm) return false;
+        return (
+          userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId)
+        );
+      })
+      .map((et) => et._id);
   }
 }
