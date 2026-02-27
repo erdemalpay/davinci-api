@@ -3,18 +3,6 @@ import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 
 export enum MailType {
-  WELCOME = 'welcome',
-  NEWSLETTER = 'newsletter',
-  PROMOTIONAL = 'promotional',
-  TRANSACTIONAL = 'transactional',
-  ORDER_CONFIRMATION = 'order_confirmation',
-  ORDER_UPDATE = 'order_update',
-  PASSWORD_RESET = 'password_reset',
-  ACCOUNT_VERIFICATION = 'account_verification',
-  RESERVATION_CONFIRMATION = 'reservation_confirmation',
-  GAME_NIGHT = 'game_night',
-  SPECIAL_OFFER = 'special_offer',
-  MEMBERSHIP_UPDATE = 'membership_update',
   BACK_IN_STOCK = 'back_in_stock',
 }
 
@@ -39,7 +27,6 @@ export class MailSubscription extends Document {
   @Prop({
     type: [String],
     enum: Object.values(MailType),
-    default: [MailType.NEWSLETTER, MailType.PROMOTIONAL],
   })
   subscribedTypes: MailType[];
 

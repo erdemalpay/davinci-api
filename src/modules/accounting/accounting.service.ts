@@ -14,7 +14,6 @@ import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { IkasService } from '../ikas/ikas.service';
-import { ONlINESTORELOCATIONID } from '../location/dto/create-location.dto';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
@@ -2231,18 +2230,12 @@ export class AccountingService {
     }
   }
 
-  private async notifyBackInStockSubscribers(
-    productId: string,
-    oldQuantity: number,
-    newQuantity: number,
-  ) {
-    this.logger.log(
-      `Stock went from ${oldQuantity} to ${newQuantity}, checking for back-in-stock notifications...`,
-    );
-
+  async notifyBackInStockSubscribers(menuItemId: number) {
     try {
-      const product = await this.findProductById(productId);
-      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      console.log(
+        `Checking back-in-stock subscriptions for menu item ${menuItemId}...`,
+      );
+      const menuItem = await this.menuService.findItemById(menuItemId);
 
       if (!menuItem?.shopifyId) {
         return;
@@ -2274,7 +2267,8 @@ export class AccountingService {
             to: subscription.email,
             mailType: MailType.BACK_IN_STOCK,
             variables: {
-              productName: subscription.productTitle || product?.name || 'Ürün',
+              productName:
+                subscription.productTitle || menuItem?.name || 'Ürün',
               email: subscription.email,
               productUrl: `https://${subscription.shop}${subscription.productUrl}`,
               supportEmail:
@@ -2300,14 +2294,13 @@ export class AccountingService {
       }
     } catch (error) {
       this.logger.error(
-        `Error processing back-in-stock notifications for product ${productId}:`,
+        `Error processing back-in-stock notifications for menuitem ${menuItemId}:`,
         error,
       );
     }
   }
 
   async createStock(user: User, createStockDto: CreateStockDto) {
-    console.log('Creating stock with DTO:', createStockDto);
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
     );
@@ -2345,18 +2338,14 @@ export class AccountingService {
         createStockDto.location,
       );
 
-      // Back-in-stock email notifications for online store
-      if (
-        createStockDto.location === ONlINESTORELOCATIONID &&
-        oldQuantity <= 0 &&
-        newStock.quantity > 0
-      ) {
-        await this.notifyBackInStockSubscribers(
-          createStockDto.product,
-          oldQuantity,
-          newStock.quantity,
-        );
-      }
+      // // Back-in-stock email notifications for online store
+      // if (
+      //   createStockDto.location === ONlINESTORELOCATIONID &&
+      //   oldQuantity <= 0 &&
+      //   newStock.quantity > 0
+      // ) {
+      //   await this.notifyBackInStockSubscribers(createStockDto.product);
+      // }
 
       if (oldQuantity <= 0 && newStock.quantity > 0) {
         const notificationEvents =
@@ -2529,17 +2518,13 @@ export class AccountingService {
         });
       }
 
-      // Back-in-stock email notifications for new stock in online store
-      if (
-        createStockDto.location === ONlINESTORELOCATIONID &&
-        createStockDto.quantity > 0
-      ) {
-        await this.notifyBackInStockSubscribers(
-          createStockDto.product,
-          0,
-          createStockDto.quantity,
-        );
-      }
+      // // Back-in-stock email notifications for new stock in online store
+      // if (
+      //   createStockDto.location === ONlINESTORELOCATIONID &&
+      //   createStockDto.quantity > 0
+      // ) {
+      //   await this.notifyBackInStockSubscribers(createStockDto.product);
+      // }
 
       if (createStockDto.quantity > 0) {
         const notificationEvents =
