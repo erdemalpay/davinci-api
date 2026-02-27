@@ -13,6 +13,7 @@ import { Public } from '../auth/public.decorator';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
+  GetSubscriptionsDto,
   SendBulkMailDto,
   SendMailDto,
   SubscribeDto,
@@ -57,6 +58,15 @@ export class MailController {
   @Get('subscription/:email')
   async getSubscription(@Param('email') email: string) {
     return this.mailService.getSubscription(email);
+  }
+
+  @Get('subscriptions')
+  async getSubscriptions(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query() filter: GetSubscriptionsDto,
+  ) {
+    return this.mailService.getSubscriptionsWithPagination(page, limit, filter);
   }
 
   @Put('subscription/:email')

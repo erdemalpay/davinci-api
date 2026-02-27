@@ -554,6 +554,14 @@ export class AccountingController {
   ) {
     return this.accountingService.consumptStock(user, consumptStockDto);
   }
+
+  @Post('/stocks/notify-back-in-stock')
+  notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
+    return this.accountingService.notifyBackInStockSubscribers(
+      payload.menuItemId,
+    );
+  }
+
   // Product Stock History
   @Get('/product-stock-histories')
   getProductStockHistories(
