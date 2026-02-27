@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { MailType } from '../mail/mail.schema';
+import { MailService } from '../mail/mail.service';
 import { MenuService } from '../menu/menu.service';
 import { ShopifyService } from '../shopify/shopify.service';
 import {
@@ -22,6 +24,7 @@ export class BackInStockService {
     private backInStockModel: Model<BackInStockSubscription>,
     private readonly shopifyService: ShopifyService,
     private readonly menuService: MenuService,
+    private readonly mailService: MailService,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -78,6 +81,24 @@ export class BackInStockService {
       this.logger.log(
         `Created back-in-stock subscription ${saved._id} for ${dto.email}`,
       );
+
+      // Also subscribe to mail list for back-in-stock notifications
+      try {
+        await this.mailService.subscribe({
+          email: dto.email,
+          subscribedTypes: [MailType.BACK_IN_STOCK],
+          locale: 'tr',
+        });
+        this.logger.log(
+          `Subscribed ${dto.email} to mail list for back-in-stock notifications`,
+        );
+      } catch (mailError) {
+        this.logger.warn(
+          `Failed to subscribe ${dto.email} to mail list: ${
+            (mailError as Error).message
+          }`,
+        );
+      }
 
       return saved;
     } catch (error) {
@@ -225,5 +246,49 @@ export class BackInStockService {
     return this.updateSubscriptionStatus(id, {
       status: SubscriptionStatus.NOTIFIED,
     });
+  }
+
+  async unsubscribeByEmail(
+    email: string,
+    variantId?: string,
+  ): Promise<{ cancelled: number; subscriptions: BackInStockSubscription[] }> {
+    const query: any = {
+      email,
+      status: SubscriptionStatus.ACTIVE,
+    };
+
+    if (variantId) {
+      query.variantId = variantId;
+    }
+
+    const subscriptions = await this.backInStockModel.find(query).exec();
+
+    if (subscriptions.length === 0) {
+      this.logger.log(
+        `No active subscriptions found for ${email}${
+          variantId ? ` - variant ${variantId}` : ''
+        }`,
+      );
+      return { cancelled: 0, subscriptions: [] };
+    }
+
+    // Update all found subscriptions
+    const updateResult = await this.backInStockModel.updateMany(query, {
+      $set: {
+        status: SubscriptionStatus.CANCELLED,
+        cancelledAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `Cancelled ${updateResult.modifiedCount} subscription(s) for ${email}${
+        variantId ? ` - variant ${variantId}` : ''
+      }`,
+    );
+
+    return {
+      cancelled: updateResult.modifiedCount,
+      subscriptions,
+    };
   }
 }

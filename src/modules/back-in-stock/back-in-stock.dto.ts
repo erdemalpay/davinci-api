@@ -68,6 +68,18 @@ export class UpdateSubscriptionStatusDto {
   status!: SubscriptionStatus;
 }
 
+export class UnsubscribeByEmailDto {
+  @IsEmail()
+  @IsNotEmpty()
+  @ApiProperty()
+  email!: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  variantId?: string;
+}
+
 export class BackInStockQueryDto {
   @IsNumber()
   @IsOptional()

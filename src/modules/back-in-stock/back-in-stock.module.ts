@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { MailModule } from '../mail/mail.module';
 import { MenuModule } from '../menu/menu.module';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { BackInStockController } from './back-in-stock.controller';
@@ -18,7 +19,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule, ShopifyModule, MenuModule],
+  imports: [mongooseModule, ShopifyModule, MenuModule, MailModule],
   providers: [BackInStockService],
   controllers: [BackInStockController],
   exports: [BackInStockService],

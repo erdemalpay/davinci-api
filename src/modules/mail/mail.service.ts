@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import * as AWS from 'aws-sdk';
 import { randomUUID } from 'crypto';
+import * as Handlebars from 'handlebars';
 import { Model } from 'mongoose';
 import {
   CreateTemplateDto,
@@ -145,6 +146,134 @@ export class MailService {
   }
 
   /**
+   * Generate unsubscribe success HTML page
+   */
+  generateUnsubscribeSuccessPage(email: string): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Abonelik İptal Edildi</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+          }
+          .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+          }
+          .success-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #2c3e50;
+            margin-bottom: 16px;
+            font-size: 28px;
+          }
+          p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+          }
+          .email {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-family: monospace;
+            color: #27ae60;
+            margin: 20px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="success-icon">✅</div>
+          <h1>Aboneliğiniz İptal Edildi</h1>
+          <p>E-posta adresiniz başarıyla abonelik listemizden çıkarıldı.</p>
+          <div class="email">${email}</div>
+          <p>Artık bizden e-posta almayacaksınız. Tekrar abone olmak isterseniz, lütfen bizimle iletişime geçin.</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate unsubscribe error HTML page
+   */
+  generateUnsubscribeErrorPage(errorMessage: string): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Hata</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+          }
+          .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+          }
+          .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #e74c3c;
+            margin-bottom: 16px;
+            font-size: 28px;
+          }
+          p {
+            color: #666;
+            line-height: 1.6;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Bir Hata Oluştu</h1>
+          <p>${
+            errorMessage ||
+            'Aboneliğinizi iptal ederken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.'
+          }</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
    * Update subscription preferences
    */
   async updateSubscription(
@@ -235,11 +364,13 @@ export class MailService {
     // Add unsubscribe link for non-transactional emails
     let finalHtmlContent = htmlContent;
     if (subscription && !this.isTransactional(mailType)) {
-      const unsubscribeLink = `${
-        process.env.FRONTEND_URL || 'http://localhost:3000'
-      }/unsubscribe?email=${encodeURIComponent(to)}&token=${
-        subscription.unsubscribeToken
-      }`;
+      const hostUrl =
+        process.env.NODE_ENV === 'production'
+          ? process.env.PRODUCTION_HOST_URL
+          : process.env.STAGING_HOST_URL;
+      const unsubscribeLink = `${hostUrl}/mail/unsubscribe?email=${encodeURIComponent(
+        to,
+      )}&token=${subscription.unsubscribeToken}`;
       finalHtmlContent += `
         <br/><br/>
         <div style="text-align: center; color: #888; font-size: 12px; margin-top: 30px;">
@@ -438,13 +569,9 @@ export class MailService {
   ): string {
     if (!variables) return template;
 
-    let result = template;
-    Object.keys(variables).forEach((key) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, variables[key] || '');
-    });
-
-    return result;
+    // Compile the template using Handlebars
+    const compiledTemplate = Handlebars.compile(template);
+    return compiledTemplate(variables);
   }
 
   /**
