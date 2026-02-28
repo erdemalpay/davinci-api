@@ -69,4 +69,9 @@ export class BackInStockController {
   async unsubscribeByEmail(@Body() dto: UnsubscribeByEmailDto) {
     return this.backInStockService.unsubscribeByEmail(dto.email, dto.variantId);
   }
+
+  @Get('/analytics/clicks')
+  async getEmailClickAnalytics() {
+    return this.backInStockService.getEmailClickAnalytics();
+  }
 }

@@ -487,6 +487,15 @@ export class MailService {
       `;
     }
 
+    // Generate tracking token for click tracking
+    const trackingToken = randomUUID();
+
+    // Wrap links with tracking for better analytics (especially for back-in-stock emails)
+    finalHtmlContent = this.wrapLinksWithTracking(
+      finalHtmlContent,
+      trackingToken,
+    );
+
     try {
       // Send email via SES
       const params: AWS.SES.SendEmailRequest = {
@@ -522,7 +531,10 @@ export class MailService {
         messageId: result.MessageId,
         status: 'sent',
         sentAt: new Date(),
-        metadata: variables,
+        metadata: {
+          ...variables,
+          trackingToken, // Store tracking token for click tracking
+        },
       });
 
       this.logger.log(
@@ -843,5 +855,82 @@ export class MailService {
         this.logger.warn(`Marked ${recipient.emailAddress} as complained`);
       }
     }
+  }
+
+  /**
+   * Track email click
+   */
+  async trackClick(trackingToken: string): Promise<MailLog | null> {
+    // Try to find by tracking token in metadata first
+    const mailLog = await this.mailLogModel.findOne({
+      'metadata.trackingToken': trackingToken,
+    });
+
+    if (!mailLog) {
+      // Fallback: try to find by messageId (for backwards compatibility)
+      const mailLogByMessageId = await this.mailLogModel.findOne({
+        messageId: trackingToken,
+      });
+
+      if (!mailLogByMessageId) {
+        this.logger.warn(
+          `Mail log not found for trackingToken: ${trackingToken}`,
+        );
+        return null;
+      }
+
+      // Only update if not already clicked
+      if (!mailLogByMessageId.clickedAt) {
+        mailLogByMessageId.clickedAt = new Date();
+        await mailLogByMessageId.save();
+        this.logger.log(
+          `Tracked click for email to ${mailLogByMessageId.email}`,
+        );
+      }
+
+      return mailLogByMessageId;
+    }
+
+    // Only update if not already clicked
+    if (!mailLog.clickedAt) {
+      mailLog.clickedAt = new Date();
+      await mailLog.save();
+      this.logger.log(
+        `Tracked click for email to ${mailLog.email} (${mailLog.mailType})`,
+      );
+    }
+
+    return mailLog;
+  }
+
+  /**
+   * Wrap links in email content with tracking URLs
+   */
+  private wrapLinksWithTracking(
+    htmlContent: string,
+    trackingToken: string,
+  ): string {
+    const hostUrl =
+      process.env.NODE_ENV === 'production'
+        ? process.env.PRODUCTION_HOST_URL
+        : process.env.STAGING_HOST_URL;
+
+    // Replace all links with tracking links
+    return htmlContent.replace(/href="([^"]+)"/gi, (match, url) => {
+      // Skip unsubscribe links and tracking links
+      if (
+        url.includes('/mail/unsubscribe') ||
+        url.includes('/mail/track-click') ||
+        url.startsWith('#') ||
+        url.startsWith('mailto:')
+      ) {
+        return match;
+      }
+
+      const trackingUrl = `${hostUrl}/mail/track-click?token=${encodeURIComponent(
+        trackingToken,
+      )}&url=${encodeURIComponent(url)}`;
+      return `href="${trackingUrl}"`;
+    });
   }
 }
