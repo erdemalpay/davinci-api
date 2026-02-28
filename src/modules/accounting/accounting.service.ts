@@ -2300,6 +2300,36 @@ export class AccountingService {
     }
   }
 
+  async notifyBackInStockSubscribersBulk(menuItemIds: number[]) {
+    const results = [];
+
+    for (const menuItemId of menuItemIds) {
+      try {
+        await this.notifyBackInStockSubscribers(menuItemId);
+        results.push({
+          menuItemId,
+          success: true,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to process back-in-stock notifications for menu item ${menuItemId}:`,
+          error,
+        );
+        results.push({
+          menuItemId,
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    this.logger.log(
+      `Processed bulk back-in-stock notifications for ${menuItemIds.length} menu items`,
+    );
+
+    return results;
+  }
+
   async createStock(user: User, createStockDto: CreateStockDto) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
