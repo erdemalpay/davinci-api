@@ -5,6 +5,7 @@ import { MailType } from '../mail/mail.schema';
 import { MailService } from '../mail/mail.service';
 import { MenuService } from '../menu/menu.service';
 import { ShopifyService } from '../shopify/shopify.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   BackInStockQueryDto,
   CreateBackInStockSubscriptionDto,
@@ -25,6 +26,7 @@ export class BackInStockService {
     private readonly shopifyService: ShopifyService,
     private readonly menuService: MenuService,
     private readonly mailService: MailService,
+    private readonly webSocketGateway: AppWebSocketGateway,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -81,6 +83,8 @@ export class BackInStockService {
       this.logger.log(
         `Created back-in-stock subscription ${saved._id} for ${dto.email}`,
       );
+
+      this.webSocketGateway.emitBackInStockChanged();
 
       // Also subscribe to mail list for back-in-stock notifications
       try {
@@ -203,6 +207,8 @@ export class BackInStockService {
     await subscription.save();
     this.logger.log(`Updated subscription ${id} status to ${dto.status}`);
 
+    this.webSocketGateway.emitBackInStockChanged();
+
     return subscription;
   }
 
@@ -227,6 +233,8 @@ export class BackInStockService {
 
     await subscription.save();
     this.logger.log(`Cancelled subscription ${subscription._id}`);
+
+    this.webSocketGateway.emitBackInStockChanged();
 
     return subscription;
   }
@@ -285,6 +293,8 @@ export class BackInStockService {
         variantId ? ` - variant ${variantId}` : ''
       }`,
     );
+
+    this.webSocketGateway.emitBackInStockChanged();
 
     return {
       cancelled: updateResult.modifiedCount,

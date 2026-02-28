@@ -562,6 +562,13 @@ export class AccountingController {
     );
   }
 
+  @Post('/stocks/notify-back-in-stock-bulk')
+  notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
+    return this.accountingService.notifyBackInStockSubscribersBulk(
+      payload.menuItemIds,
+    );
+  }
+
   // Product Stock History
   @Get('/product-stock-histories')
   getProductStockHistories(

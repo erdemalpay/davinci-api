@@ -9,6 +9,7 @@ import * as AWS from 'aws-sdk';
 import { randomUUID } from 'crypto';
 import * as Handlebars from 'handlebars';
 import { Model } from 'mongoose';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
@@ -40,6 +41,7 @@ export class MailService {
     private mailLogModel: Model<MailLog>,
     @InjectModel(MailTemplate.name)
     private mailTemplateModel: Model<MailTemplate>,
+    private readonly webSocketGateway: AppWebSocketGateway,
   ) {
     // Initialize AWS SES - credentials will be loaded from environment
     this.ses = new AWS.SES({
@@ -73,6 +75,7 @@ export class MailService {
         await subscription.save();
 
         this.logger.log(`Reactivated subscription for ${email}`);
+        this.webSocketGateway.emitMailSubscriptionChanged();
         return subscription;
       }
 
@@ -84,6 +87,7 @@ export class MailService {
       await subscription.save();
 
       this.logger.log(`Updated subscription for ${email}`);
+      this.webSocketGateway.emitMailSubscriptionChanged();
       return subscription;
     }
 
@@ -102,6 +106,8 @@ export class MailService {
 
     await subscription.save();
     this.logger.log(`New subscription created for ${email}`);
+
+    this.webSocketGateway.emitMailSubscriptionChanged();
 
     // // Send welcome email
     // try {
@@ -139,6 +145,7 @@ export class MailService {
     await subscription.save();
 
     this.logger.log(`Unsubscribed ${email}`);
+    this.webSocketGateway.emitMailSubscriptionChanged();
     return subscription;
   }
 
@@ -290,6 +297,7 @@ export class MailService {
 
     await subscription.save();
     this.logger.log(`Updated subscription preferences for ${email}`);
+    this.webSocketGateway.emitMailSubscriptionChanged();
     return subscription;
   }
 
@@ -594,6 +602,7 @@ export class MailService {
     const template = new this.mailTemplateModel(createTemplateDto);
     await template.save();
     this.logger.log(`Created template: ${createTemplateDto.name}`);
+    this.webSocketGateway.emitMailTemplateChanged();
     return template;
   }
 
@@ -613,6 +622,7 @@ export class MailService {
       throw new NotFoundException('Template not found');
     }
     this.logger.log(`Updated template: ${templateId}`);
+    this.webSocketGateway.emitMailTemplateChanged();
     return template;
   }
 
