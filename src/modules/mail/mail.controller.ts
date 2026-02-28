@@ -134,4 +134,29 @@ export class MailController {
     await this.mailService.handleSESNotification(notification);
     return { success: true };
   }
+
+  // ==================== Click Tracking Endpoint ====================
+
+  @Public()
+  @Get('track-click')
+  async trackClick(
+    @Query('token') token: string,
+    @Query('messageId') messageId: string, // For backwards compatibility
+    @Query('url') url: string,
+    @Res() res: Response,
+  ) {
+    // Track the click using token (preferred) or messageId (fallback)
+    const trackingId = token || messageId;
+
+    if (trackingId) {
+      await this.mailService.trackClick(trackingId);
+    }
+
+    // Redirect to the actual URL
+    if (url) {
+      return res.redirect(url);
+    }
+
+    return res.status(404).send('URL not found');
+  }
 }

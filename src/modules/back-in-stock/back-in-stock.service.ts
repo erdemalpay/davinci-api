@@ -301,4 +301,37 @@ export class BackInStockService {
       subscriptions,
     };
   }
+
+  /**
+   * Get click analytics for back-in-stock emails
+   */
+  async getEmailClickAnalytics() {
+    const mailLogs = await this.mailService.getMailLogs({
+      mailType: MailType.BACK_IN_STOCK,
+      limit: 10000,
+    });
+
+    const totalSent = mailLogs.length;
+    const totalClicked = mailLogs.filter((log) => log.clickedAt).length;
+    const clickRate = totalSent > 0 ? (totalClicked / totalSent) * 100 : 0;
+
+    return {
+      totalSent,
+      totalClicked,
+      clickRate: parseFloat(clickRate.toFixed(2)),
+      recentClicks: mailLogs
+        .filter((log) => log.clickedAt)
+        .sort(
+          (a, b) =>
+            new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime(),
+        )
+        .slice(0, 10)
+        .map((log) => ({
+          email: log.email,
+          clickedAt: log.clickedAt,
+          sentAt: log.sentAt,
+          subject: log.subject,
+        })),
+    };
+  }
 }
