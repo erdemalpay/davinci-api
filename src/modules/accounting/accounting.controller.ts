@@ -56,8 +56,8 @@ export class AccountingController {
   }
 
   @Get('/all-products')
-  getAllProducts() {
-    return this.accountingService.findAllProducts();
+  getAllProducts(@ReqUser() user: User) {
+    return this.accountingService.findAllProducts(user);
   }
 
   @Post('/products')
@@ -150,8 +150,8 @@ export class AccountingController {
 
   // Services
   @Get('/services')
-  getServices() {
-    return this.accountingService.findAllServices();
+  getServices(@ReqUser() user: User) {
+    return this.accountingService.findAllServices(user);
   }
 
   @Post('/services')
@@ -357,6 +357,7 @@ export class AccountingController {
   }
   @Get('/expenses')
   findAllExpenseWithPagination(
+    @ReqUser() user: User,
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('product') product?: string,
@@ -375,23 +376,28 @@ export class AccountingController {
     @Query('search') search?: string,
     @Query('includeAllRecords') includeAllRecords?: string,
   ) {
-    return this.accountingService.findAllExpenseWithPagination(page, limit, {
-      product,
-      service,
-      type,
-      expenseType,
-      paymentMethod,
-      location,
-      brand,
-      vendor,
-      before,
-      after,
-      sort,
-      asc,
-      date,
-      search,
-      includeAllRecords,
-    });
+    return this.accountingService.findAllExpenseWithPagination(
+      page,
+      limit,
+      {
+        product,
+        service,
+        type,
+        expenseType,
+        paymentMethod,
+        location,
+        brand,
+        vendor,
+        before,
+        after,
+        sort,
+        asc,
+        date,
+        search,
+        includeAllRecords,
+      },
+      user,
+    );
   }
   @Get('/expenses-without-pagination')
   findAllExpenseWithoutPagination(

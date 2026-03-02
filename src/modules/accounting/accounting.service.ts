@@ -126,35 +126,57 @@ export class AccountingService {
     private readonly mailService: MailService,
   ) {}
   //   Products
-  async findAllProducts() {
+  async findAllProducts(user?: User) {
+    let products: any[] | undefined;
     try {
       const redisProducts = await this.redisService.get(
         RedisKeys.AccountingProducts,
       );
       if (redisProducts) {
-        return redisProducts;
+        products = redisProducts as any[];
       }
     } catch (error) {
       this.logger.error('Failed to retrieve all products from Redis:', error);
     }
 
-    try {
-      const products = await this.productModel.find().exec();
-
-      if (products.length > 0) {
-        await this.redisService.set(RedisKeys.AccountingProducts, products);
+    if (!products) {
+      try {
+        products = await this.productModel.find().exec();
+        if (products.length > 0) {
+          await this.redisService.set(RedisKeys.AccountingProducts, products);
+        }
+      } catch (error) {
+        this.logger.error(
+          'Failed to retrieve all products from database:',
+          error,
+        );
+        throw new HttpException(
+          'Could not retrieve products',
+          HttpStatus.NOT_FOUND,
+        );
       }
-      return products;
-    } catch (error) {
-      this.logger.error(
-        'Failed to retrieve all products from database:',
-        error,
-      );
-      throw new HttpException(
-        'Could not retrieve products',
-        HttpStatus.NOT_FOUND,
-      );
     }
+
+    return this.applyProductRoleFilter(products, user, 'product');
+  }
+
+  private async applyProductRoleFilter(
+    products: any[],
+    user: User | undefined,
+    page: string,
+  ): Promise<any[]> {
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      page,
+    );
+    if (forbiddenExpenseTypeIds.length === 0) return products;
+    return products.filter(
+      (p) =>
+        !p.expenseType?.some((et: string) =>
+          forbiddenExpenseTypeIds.includes(et),
+        ),
+    );
   }
   async findDeletedProducts() {
     return this.productModel.find({ deleted: true });
@@ -513,8 +535,18 @@ export class AccountingService {
   }
 
   // Services
-  findAllServices() {
-    return this.serviceModel.find();
+  async findAllServices(user?: User) {
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      'service',
+    );
+    if (forbiddenExpenseTypeIds.length === 0) {
+      return this.serviceModel.find();
+    }
+    return this.serviceModel.find({
+      expenseType: { $nin: forbiddenExpenseTypeIds },
+    });
   }
 
   async createService(user: User, createServiceDto: CreateServiceDto) {
@@ -959,6 +991,7 @@ export class AccountingService {
     page: number,
     limit: number,
     filter: ExpenseWithPaginateFilterType,
+    user?: User,
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
@@ -1027,13 +1060,29 @@ export class AccountingService {
       .find({ isPaymentMade: false })
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
+    // Role-based expense type filtering
+    const expensePageKey = vendor
+      ? 'vendor-expense'
+      : brand
+        ? 'brand-expense'
+        : 'expense';
+    const userRoleId = this.extractUserRoleId(user);
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      userRoleId,
+      expensePageKey,
+    );
+    // Combine user-requested expenseType filter and role-based restriction
+    const expenseTypeMatchCondition = this.buildExpenseTypeMatchCondition(
+      expenseType,
+      forbiddenExpenseTypeIds,
+    );
     const pipeline: PipelineStage[] = [
       {
         $match: {
           ...(location && { location: Number(location) }),
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
-          ...(expenseType && { expenseType: expenseType }),
+          ...expenseTypeMatchCondition,
           ...(paymentMethod && { paymentMethod: { $in: paymentMethodArray } }),
           ...(brand && { brand: brand }),
           ...(type && { type: type }),
@@ -4251,5 +4300,48 @@ export class AccountingService {
     );
     await this.websocketGateway.emitProductChanged();
     await this.websocketGateway.emitStockChanged();
+  }
+
+  private buildExpenseTypeMatchCondition(
+    expenseType: string | undefined,
+    forbiddenExpenseTypeIds: string[],
+  ): Record<string, any> {
+    if (expenseType && forbiddenExpenseTypeIds.length > 0) {
+      return forbiddenExpenseTypeIds.includes(expenseType)
+        ? { expenseType: { $in: [] } }
+        : { expenseType };
+    }
+    if (expenseType) return { expenseType };
+    if (forbiddenExpenseTypeIds.length > 0)
+      return { expenseType: { $nin: forbiddenExpenseTypeIds } };
+    return {};
+  }
+
+  private extractUserRoleId(user?: User): number | null {
+    const role = user?.role;
+    if (!user || !role) return null;
+    return typeof role === 'object' && role !== null
+      ? (role as any)._id
+      : (role as unknown as number);
+  }
+
+  private async getForbiddenExpenseTypeIds(
+    userRoleId: number | null,
+    page: string,
+  ): Promise<any[]> {
+    const restrictedExpenseTypes = await this.expenseTypeModel.find({
+      isRoleRestricted: true,
+    });
+    return restrictedExpenseTypes
+      .filter((et) => {
+        const pagePerm = (et.pagePermissions ?? []).find(
+          (p) => p.page === page,
+        );
+        if (!pagePerm) return false;
+        return (
+          userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId)
+        );
+      })
+      .map((et) => et._id);
   }
 }
