@@ -2498,17 +2498,10 @@ export class ShopifyService {
         return;
       }
 
-      // Collect all cancellation info first
-      const cancellationResults: Array<{
-        order: any;
-        collection: any;
-        cancelledAmount: number;
-        isPartial: boolean;
-        remainingQuantity: number;
-        cancelledOrder: any;
-      }> = [];
-
       // Process each refund and its refund_line_items
+      // Collection management is handled inside cancelShopifyOrder
+      let cancellationsProcessed = 0;
+
       for (const refund of refunds) {
         const refundLineItems = refund?.refund_line_items ?? [];
 
@@ -2537,120 +2530,23 @@ export class ShopifyService {
               continue;
             }
 
-            const cancellationResult =
-              await this.orderService.cancelShopifyOrder(
-                constantUser,
-                lineItemId,
-                quantity,
-              );
+            await this.orderService.cancelShopifyOrder(
+              constantUser,
+              lineItemId,
+              quantity,
+            );
 
-            if (cancellationResult) {
-              cancellationResults.push(cancellationResult);
-            }
+            cancellationsProcessed++;
           } catch (itemError) {
             this.logError('Error processing refund line item', itemError);
           }
         }
       }
 
-      // Group cancellations by collection and update collections
-      const collectionMap = new Map();
-
-      for (const result of cancellationResults) {
-        const collectionId = result.collection._id.toString();
-
-        if (!collectionMap.has(collectionId)) {
-          collectionMap.set(collectionId, {
-            collection: result.collection,
-            cancellations: [],
-            totalCancelledAmount: 0,
-          });
-        }
-
-        const collectionData = collectionMap.get(collectionId);
-        collectionData.cancellations.push(result);
-        collectionData.totalCancelledAmount += result.cancelledAmount;
-      }
-
-      // Update each collection once
-      for (const [collectionId, collectionData] of collectionMap.entries()) {
-        try {
-          const { collection, cancellations, totalCancelledAmount } =
-            collectionData;
-
-          // Build updated orders array
-          const orderUpdateMap = new Map();
-
-          // Initialize with existing orders
-          for (const orderItem of collection.orders) {
-            orderUpdateMap.set(orderItem.order.toString(), {
-              order: orderItem.order,
-              paidQuantity: orderItem.paidQuantity,
-            });
-          }
-
-          // Update based on cancellations
-          for (const cancellation of cancellations) {
-            if (cancellation.isPartial) {
-              // Partial cancellation: update existing order's paidQuantity
-              orderUpdateMap.set(cancellation.order._id.toString(), {
-                order: cancellation.order._id,
-                paidQuantity: cancellation.remainingQuantity,
-              });
-            } else {
-              // Full cancellation: remove order from collection
-              orderUpdateMap.delete(cancellation.order._id.toString());
-            }
-          }
-
-          const updatedOrders = Array.from(orderUpdateMap.values());
-          const newAmount = collection.amount - totalCancelledAmount;
-
-          // Check if all orders in collection are cancelled
-          const allOrderIds = updatedOrders.map((o) => o.order);
-          const activeOrders = await this.orderService.findActiveOrdersByIds(
-            allOrderIds,
-          );
-
-          const updateData: any = {
-            orders: updatedOrders,
-            amount: Math.max(0, newAmount), // Ensure amount doesn't go negative
-          };
-
-          // If no active orders left or amount is 0, cancel the collection
-          if (activeOrders.length === 0 || newAmount <= 0) {
-            updateData.status = OrderCollectionStatus.CANCELLED;
-            updateData.cancelledAt = new Date();
-            updateData.cancelledBy = constantUser._id;
-          }
-
-          // UpdateCollection already emits websocket events for collection
-          // We only need to emit order updates here
-          const allUpdatedOrders = cancellations
-            .flatMap((c) =>
-              c.isPartial ? [c.order, c.cancelledOrder] : [c.order],
-            )
-            .filter(Boolean); // Remove null/undefined values
-
-          await this.orderService.updateCollection(
-            constantUser,
-            collection._id,
-            updateData,
-          );
-
-          // Emit order updates separately since updateCollection might emit different orders
-          if (allUpdatedOrders.length > 0) {
-            await this.websocketGateway.emitOrderUpdated(allUpdatedOrders);
-          }
-        } catch (collectionError) {
-          this.logError('Error updating collection', collectionError);
-        }
-      }
-
       // Update webhook log with success response (fire-and-forget)
       const response = {
         success: true,
-        cancellationsProcessed: cancellationResults.length,
+        cancellationsProcessed,
       };
 
       if (webhookLog) {
