@@ -2037,94 +2037,107 @@ export class OrderService {
     shopifyOrderLineItemId: string,
     quantity: number,
   ) {
+    const session = await this.conn.startSession();
+
+    // Data collected inside transaction, used after commit for side effects
+    let postCommitData: {
+      cancelledOrder: Order;
+      populatedItem: Order['item'];
+      stockLocation: Order['stockLocation'];
+      ordersToEmit: Order[];
+      collectionsToEmit: any[];
+    } | null = null;
+
     try {
-      // Find order by shopifyOrderLineItemId
-      const order = await this.orderModel
-        .findOne({ shopifyOrderLineItemId })
-        .populate('item');
+      await session.withTransaction(async () => {
+        const order = await this.orderModel
+          .findOne({ shopifyOrderLineItemId }, null, { session })
+          .populate('item');
 
-      if (!order) {
-        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
-      }
+        if (!order) {
+          throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+        }
 
-      // Find collection by shopifyOrderId from the order
-      const collection = await this.collectionModel.findOne({
-        shopifyId: order.shopifyOrderId,
-      });
-
-      if (!collection) {
-        throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
-      }
-
-      // Validation checks
-      if (order.status === OrderStatus.CANCELLED) {
-        throw new HttpException(
-          'Order is already cancelled',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (collection.status === OrderCollectionStatus.CANCELLED) {
-        throw new HttpException(
-          'Collection is already cancelled',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (quantity > order.quantity) {
-        throw new HttpException(
-          'Cancel quantity cannot exceed order quantity',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      const cancelledAt = new Date();
-      const cancelledAmount = order.unitPrice * quantity;
-      const isPartialCancel = order.quantity !== quantity;
-      const isLastOrderInCollection =
-        !collection || collection.orders.length <= 1;
-
-      let cancelledOrder: Order;
-
-      if (isPartialCancel) {
-        // Partial cancellation: split order → cancelled part + remaining active part
-        const remainingQuantity = order.quantity - quantity;
-        const orderWithoutId = order.toObject();
-        delete orderWithoutId._id;
-        delete orderWithoutId.shopifyOrderLineItemId; // cancelled copy has no lineItemId
-
-        // Create cancelled order for the cancelled quantity
-        cancelledOrder = await this.orderModel.create({
-          ...orderWithoutId,
-          quantity: quantity,
-          paidQuantity: quantity,
-          status: OrderStatus.CANCELLED,
-          cancelledAt,
-          cancelledBy: user._id,
-        });
-
-        // Keep original order with remaining quantity (still active)
-        await this.orderModel.findByIdAndUpdate(
-          order._id,
-          {
-            $set: {
-              quantity: remainingQuantity,
-              paidQuantity: remainingQuantity,
-            },
-          },
-          { new: true },
+        const collection = await this.collectionModel.findOne(
+          { shopifyId: order.shopifyOrderId },
+          null,
+          { session },
         );
 
-        // Collection handling for partial cancel
-        if (collection) {
+        if (!collection) {
+          throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
+        }
+
+        if (order.status === OrderStatus.CANCELLED) {
+          throw new HttpException(
+            'Order is already cancelled',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        if (collection.status === OrderCollectionStatus.CANCELLED) {
+          throw new HttpException(
+            'Collection is already cancelled',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        if (quantity > order.quantity) {
+          throw new HttpException(
+            'Cancel quantity cannot exceed order quantity',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const cancelledAt = new Date();
+        const cancelledAmount = order.unitPrice * quantity;
+        const isPartialCancel = order.quantity !== quantity;
+        const isLastOrderInCollection = collection.orders.length <= 1;
+
+        const ordersToEmit: Order[] = [];
+        const collectionsToEmit: any[] = [];
+        let cancelledOrder: Order;
+
+        if (isPartialCancel) {
+          // Partial cancellation: split → cancelled part + remaining active part
+          const remainingQuantity = order.quantity - quantity;
+          const orderWithoutId = order.toObject();
+          delete orderWithoutId._id;
+          delete orderWithoutId.shopifyOrderLineItemId;
+
+          [cancelledOrder] = await this.orderModel.create(
+            [
+              {
+                ...orderWithoutId,
+                quantity,
+                paidQuantity: quantity,
+                status: OrderStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+            ],
+            { session },
+          );
+
+          await this.orderModel.findByIdAndUpdate(
+            order._id,
+            { $set: { quantity: remainingQuantity, paidQuantity: remainingQuantity } },
+            { new: true, session },
+          );
+
           if (isLastOrderInCollection) {
             // Single-order collection: create new active collection for remainder,
-            // mark original collection as cancelled
-            const newCollection = await this.collectionModel.create({
-              ...collection.toObject(),
-              _id: undefined,
-              orders: [{ order: order._id, paidQuantity: remainingQuantity }],
-              amount: collection.amount - cancelledAmount,
-            });
-            this.websocketGateway.emitCollectionChanged(newCollection);
+            // mark original as cancelled
+            const [newCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: order._id, paidQuantity: remainingQuantity }],
+                  amount: collection.amount - cancelledAmount,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(newCollection);
 
             await this.collectionModel.findByIdAndUpdate(
               collection._id,
@@ -2135,75 +2148,10 @@ export class OrderService {
                 cancelledAt,
                 cancelledBy: user._id,
               },
-              { new: true },
+              { new: true, session },
             );
           } else {
-            // Multi-order collection: remove original order, add remainder order,
-            // reduce amount; create a separate cancelled collection for audit
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $pull: { orders: { order: order._id } },
-                $inc: { amount: -cancelledAmount },
-              },
-              { new: true },
-            );
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $push: {
-                  orders: { order: order._id, paidQuantity: remainingQuantity },
-                },
-              },
-              { new: true },
-            );
-
-            const cancelledCollection = await this.collectionModel.create({
-              ...collection.toObject(),
-              _id: undefined,
-              orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
-              amount: cancelledAmount,
-              status: OrderCollectionStatus.CANCELLED,
-              cancelledAt,
-              cancelledBy: user._id,
-            });
-            this.websocketGateway.emitCollectionChanged(cancelledCollection);
-          }
-        }
-
-        this.websocketGateway.emitOrderUpdated([order.toObject(), cancelledOrder]);
-      } else {
-        // Full cancellation: cancel the entire order and its collection
-        cancelledOrder = await this.orderModel.findByIdAndUpdate(
-          order._id,
-          {
-            $set: {
-              status: OrderStatus.CANCELLED,
-              cancelledAt,
-              cancelledBy: user._id,
-            },
-            $unset: {
-              shopifyCustomer: '',
-              isShopifyCustomerPicked: '',
-            },
-          },
-          { new: true },
-        );
-
-        if (collection) {
-          if (isLastOrderInCollection) {
-            // Only order in collection: mark entire collection as cancelled
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                status: OrderCollectionStatus.CANCELLED,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              { new: true },
-            );
-          } else {
-            // Multi-order collection: remove this order, reduce amount,
+            // Multi-order collection: replace this order entry with remainder,
             // create a separate cancelled collection for audit
             await this.collectionModel.findByIdAndUpdate(
               collection._id,
@@ -2211,41 +2159,130 @@ export class OrderService {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
               },
-              { new: true },
+              { new: true, session },
+            );
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+              },
+              { new: true, session },
             );
 
-            const cancelledCollection = await this.collectionModel.create({
-              ...collection.toObject(),
-              _id: undefined,
-              orders: [{ order: order._id, paidQuantity: quantity }],
-              amount: cancelledAmount,
-              status: OrderCollectionStatus.CANCELLED,
-              cancelledAt,
-              cancelledBy: user._id,
-            });
-            this.websocketGateway.emitCollectionChanged(cancelledCollection);
+            const [cancelledCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                  amount: cancelledAmount,
+                  status: OrderCollectionStatus.CANCELLED,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(cancelledCollection);
+          }
+
+          ordersToEmit.push(order.toObject() as Order, cancelledOrder);
+        } else {
+          // Full cancellation: cancel order and manage collection
+          cancelledOrder = await this.orderModel.findByIdAndUpdate(
+            order._id,
+            {
+              $set: {
+                status: OrderStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+              $unset: {
+                shopifyCustomer: '',
+                isShopifyCustomerPicked: '',
+              },
+            },
+            { new: true, session },
+          );
+
+          if (isLastOrderInCollection) {
+            // Only order in collection: cancel the whole collection
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+              { new: true, session },
+            );
+          } else {
+            // Multi-order collection: remove this order, create cancelled audit collection
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                $pull: { orders: { order: order._id } },
+                $inc: { amount: -cancelledAmount },
+              },
+              { new: true, session },
+            );
+
+            const [cancelledCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: order._id, paidQuantity: quantity }],
+                  amount: cancelledAmount,
+                  status: OrderCollectionStatus.CANCELLED,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(cancelledCollection);
+          }
+
+          ordersToEmit.push(cancelledOrder);
+        }
+
+        postCommitData = {
+          cancelledOrder,
+          populatedItem: order.item,
+          stockLocation: order.stockLocation,
+          ordersToEmit,
+          collectionsToEmit,
+        };
+      });
+
+      // After successful transaction: emit websocket events
+      if (postCommitData) {
+        const { ordersToEmit, collectionsToEmit, cancelledOrder } = postCommitData;
+
+        this.websocketGateway.emitOrderUpdated(ordersToEmit);
+        for (const col of collectionsToEmit) {
+          this.websocketGateway.emitCollectionChanged(col);
+        }
+
+        // Restore stock (outside transaction - side effect after commit)
+        if (isPopulatedMenuItem(postCommitData.populatedItem)) {
+          for (const ingredient of postCommitData.populatedItem.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: postCommitData.stockLocation,
+                quantity: ingredient?.quantity * quantity,
+                status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
+              });
+            }
           }
         }
 
-        this.websocketGateway.emitOrderUpdated([cancelledOrder]);
+        return cancelledOrder;
       }
 
-      // Restore stock for cancelled quantity
-      if (isPopulatedMenuItem(order.item)) {
-        for (const ingredient of order.item.itemProduction) {
-          if (ingredient?.isDecrementStock) {
-            const incrementQuantity = ingredient?.quantity * quantity;
-            await this.accountingService.createStock(user, {
-              product: ingredient?.product,
-              location: order?.stockLocation,
-              quantity: incrementQuantity,
-              status: StockHistoryStatusEnum.SHOPIFYORDERCANCEL,
-            });
-          }
-        }
-      }
-
-      return cancelledOrder;
+      return null;
     } catch (error) {
       this.logger.error('Error cancelling shopify order:', error);
       if (error instanceof HttpException) {
@@ -2255,6 +2292,8 @@ export class OrderService {
         'Failed to cancel order',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      await session.endSession();
     }
   }
 

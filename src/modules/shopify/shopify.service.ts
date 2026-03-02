@@ -2498,8 +2498,8 @@ export class ShopifyService {
         return;
       }
 
-      // Process each refund and its refund_line_items
-      // Collection management is handled inside cancelShopifyOrder
+      // Process each refund line item.
+      // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
 
       for (const refund of refunds) {
