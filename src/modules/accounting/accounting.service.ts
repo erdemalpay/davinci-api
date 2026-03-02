@@ -1061,7 +1061,11 @@ export class AccountingService {
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
     // Role-based expense type filtering
-    const expensePageKey = vendor ? 'vendor-expense' : 'expense';
+    const expensePageKey = vendor
+      ? 'vendor-expense'
+      : brand
+        ? 'brand-expense'
+        : 'expense';
     const userRoleId = this.extractUserRoleId(user);
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
       userRoleId,
