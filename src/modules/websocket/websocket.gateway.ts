@@ -37,9 +37,21 @@ export class AppWebSocketGateway {
     this.server.emit('assetChanged');
   }
 
+  emitBackInStockChanged() {
+    this.server.emit('backInStockChanged');
+  }
+
   async emitAuthorizationChanged() {
     await this.redisService.reset(RedisKeys.Authorizations);
     this.server.emit('authorizationChanged');
+  }
+
+  emitMailSubscriptionChanged() {
+    this.server.emit('mailSubscriptionChanged');
+  }
+
+  emitMailTemplateChanged() {
+    this.server.emit('mailTemplateChanged');
   }
 
   emitBrandChanged() {

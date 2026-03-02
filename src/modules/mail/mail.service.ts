@@ -9,6 +9,7 @@ import * as AWS from 'aws-sdk';
 import { randomUUID } from 'crypto';
 import * as Handlebars from 'handlebars';
 import { Model } from 'mongoose';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
@@ -40,6 +41,7 @@ export class MailService {
     private mailLogModel: Model<MailLog>,
     @InjectModel(MailTemplate.name)
     private mailTemplateModel: Model<MailTemplate>,
+    private readonly webSocketGateway: AppWebSocketGateway,
   ) {
     // Initialize AWS SES - credentials will be loaded from environment
     this.ses = new AWS.SES({
@@ -73,6 +75,7 @@ export class MailService {
         await subscription.save();
 
         this.logger.log(`Reactivated subscription for ${email}`);
+        this.webSocketGateway.emitMailSubscriptionChanged();
         return subscription;
       }
 
@@ -84,6 +87,7 @@ export class MailService {
       await subscription.save();
 
       this.logger.log(`Updated subscription for ${email}`);
+      this.webSocketGateway.emitMailSubscriptionChanged();
       return subscription;
     }
 
@@ -92,10 +96,7 @@ export class MailService {
     subscription = new this.mailSubscriptionModel({
       email,
       name,
-      subscribedTypes: subscribedTypes || [
-        MailType.NEWSLETTER,
-        MailType.PROMOTIONAL,
-      ],
+      subscribedTypes: subscribedTypes,
       status: SubscriptionStatus.ACTIVE,
       unsubscribeToken,
       subscribedAt: new Date(),
@@ -106,17 +107,19 @@ export class MailService {
     await subscription.save();
     this.logger.log(`New subscription created for ${email}`);
 
-    // Send welcome email
-    try {
-      await this.sendMail({
-        to: email,
-        mailType: MailType.WELCOME,
-        variables: { name: name || email, email },
-        locale,
-      });
-    } catch (error) {
-      this.logger.error(`Failed to send welcome email to ${email}:`, error);
-    }
+    this.webSocketGateway.emitMailSubscriptionChanged();
+
+    // // Send welcome email
+    // try {
+    //   await this.sendMail({
+    //     to: email,
+    //     mailType: MailType.WELCOME,
+    //     variables: { name: name || email, email },
+    //     locale,
+    //   });
+    // } catch (error) {
+    //   this.logger.error(`Failed to send welcome email to ${email}:`, error);
+    // }
 
     return subscription;
   }
@@ -142,6 +145,7 @@ export class MailService {
     await subscription.save();
 
     this.logger.log(`Unsubscribed ${email}`);
+    this.webSocketGateway.emitMailSubscriptionChanged();
     return subscription;
   }
 
@@ -293,6 +297,7 @@ export class MailService {
 
     await subscription.save();
     this.logger.log(`Updated subscription preferences for ${email}`);
+    this.webSocketGateway.emitMailSubscriptionChanged();
     return subscription;
   }
 
@@ -320,6 +325,120 @@ export class MailService {
   }
 
   /**
+   * Get subscriptions with pagination and filtering
+   */
+  async getSubscriptionsWithPagination(
+    page: number,
+    limit: number,
+    filter: {
+      email?: string;
+      status?: string;
+      mailType?: MailType;
+      locale?: string;
+      after?: string;
+      before?: string;
+      sort?: string;
+      asc?: number;
+      search?: string;
+    },
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const {
+      email,
+      status,
+      mailType,
+      locale,
+      before,
+      after,
+      sort,
+      asc,
+      search,
+    } = filter;
+    const skip = (pageNum - 1) * limitNum;
+    const statusArray = status ? (status as any).split(',') : [];
+    const sortObject: Record<string, 1 | -1> = {};
+
+    if (sort) {
+      sortObject[sort] = asc === 1 ? 1 : -1;
+    } else {
+      sortObject['createdAt'] = -1;
+    }
+
+    const matchStage: Record<string, any> = {
+      ...(after &&
+        before && {
+          subscribedAt: { $gte: new Date(after), $lte: new Date(before) },
+        }),
+      ...(before && !after && { subscribedAt: { $lte: new Date(before) } }),
+      ...(after && !before && { subscribedAt: { $gte: new Date(after) } }),
+    };
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      matchStage.$or = [
+        { email: { $regex: searchRegex } },
+        { name: { $regex: searchRegex } },
+        { locale: { $regex: searchRegex } },
+      ];
+    } else {
+      if (email) matchStage.email = { $regex: new RegExp(email, 'i') };
+      if (status) matchStage.status = { $in: statusArray };
+      if (mailType) matchStage.subscribedTypes = mailType;
+      if (locale) matchStage.locale = locale;
+    }
+
+    const pipeline = [
+      {
+        $match: matchStage,
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    const results = await this.mailSubscriptionModel.aggregate(pipeline);
+
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+      };
+    }
+
+    return results[0];
+  }
+
+  /**
    * Send email using template
    */
   async sendMail(sendMailDto: SendMailDto): Promise<MailLog> {
@@ -337,20 +456,9 @@ export class MailService {
     });
     if (subscription) {
       if (subscription.status === SubscriptionStatus.UNSUBSCRIBED) {
-        // Only allow transactional emails
-        const transactionalTypes = [
-          MailType.TRANSACTIONAL,
-          MailType.ORDER_CONFIRMATION,
-          MailType.ORDER_UPDATE,
-          MailType.PASSWORD_RESET,
-          MailType.ACCOUNT_VERIFICATION,
-          MailType.RESERVATION_CONFIRMATION,
-        ];
-        if (!transactionalTypes.includes(mailType)) {
-          throw new BadRequestException(
-            'User has unsubscribed from marketing emails',
-          );
-        }
+        throw new BadRequestException(
+          'User has unsubscribed from marketing emails',
+        );
       }
     }
 
@@ -363,7 +471,7 @@ export class MailService {
 
     // Add unsubscribe link for non-transactional emails
     let finalHtmlContent = htmlContent;
-    if (subscription && !this.isTransactional(mailType)) {
+    if (subscription) {
       const hostUrl =
         process.env.NODE_ENV === 'production'
           ? process.env.PRODUCTION_HOST_URL
@@ -379,15 +487,14 @@ export class MailService {
       `;
     }
 
-    // Create mail log
-    const mailLog = new this.mailLogModel({
-      email: to,
-      subject,
-      mailType,
-      status: 'pending',
-      sentAt: new Date(),
-      metadata: variables,
-    });
+    // Generate tracking token for click tracking
+    const trackingToken = randomUUID();
+
+    // Wrap links with tracking for better analytics (especially for back-in-stock emails)
+    finalHtmlContent = this.wrapLinksWithTracking(
+      finalHtmlContent,
+      trackingToken,
+    );
 
     try {
       // Send email via SES
@@ -416,18 +523,35 @@ export class MailService {
 
       const result = await this.ses.sendEmail(params).promise();
 
-      mailLog.messageId = result.MessageId;
-      mailLog.status = 'sent';
-      await mailLog.save();
+      // Create mail log after successful send
+      const mailLog = await this.mailLogModel.create({
+        email: to,
+        subject,
+        mailType,
+        messageId: result.MessageId,
+        status: 'sent',
+        sentAt: new Date(),
+        metadata: {
+          ...variables,
+          trackingToken, // Store tracking token for click tracking
+        },
+      });
 
       this.logger.log(
         `Email sent to ${to} with MessageId: ${result.MessageId}`,
       );
       return mailLog;
     } catch (error) {
-      mailLog.status = 'failed';
-      mailLog.errorMessage = error.message;
-      await mailLog.save();
+      // Create mail log for failed send
+      const mailLog = await this.mailLogModel.create({
+        email: to,
+        subject,
+        mailType,
+        status: 'failed',
+        errorMessage: error.message,
+        sentAt: new Date(),
+        metadata: variables,
+      });
 
       this.logger.error(`Failed to send email to ${to}:`, error);
       throw error;
@@ -490,6 +614,7 @@ export class MailService {
     const template = new this.mailTemplateModel(createTemplateDto);
     await template.save();
     this.logger.log(`Created template: ${createTemplateDto.name}`);
+    this.webSocketGateway.emitMailTemplateChanged();
     return template;
   }
 
@@ -509,6 +634,7 @@ export class MailService {
       throw new NotFoundException('Template not found');
     }
     this.logger.log(`Updated template: ${templateId}`);
+    this.webSocketGateway.emitMailTemplateChanged();
     return template;
   }
 
@@ -561,6 +687,109 @@ export class MailService {
   }
 
   /**
+   * Get mail logs with pagination and filtering
+   */
+  async getMailLogsWithPagination(
+    page: number,
+    limit: number,
+    filter: {
+      email?: string;
+      status?: string;
+      mailType?: MailType;
+      after?: string;
+      before?: string;
+      sort?: string;
+      asc?: number;
+      search?: string;
+    },
+  ) {
+    const pageNum = page || 1;
+    const limitNum = limit || 10;
+    const { email, status, mailType, before, after, sort, asc, search } =
+      filter;
+    const skip = (pageNum - 1) * limitNum;
+    const statusArray = status ? (status as any).split(',') : [];
+    const sortObject: Record<string, 1 | -1> = {};
+
+    if (sort) {
+      sortObject[sort] = asc === 1 ? 1 : -1;
+    } else {
+      sortObject['sentAt'] = -1;
+    }
+
+    const matchStage: Record<string, any> = {
+      ...(after &&
+        before && {
+          sentAt: { $gte: new Date(after), $lte: new Date(before) },
+        }),
+      ...(before && !after && { sentAt: { $lte: new Date(before) } }),
+      ...(after && !before && { sentAt: { $gte: new Date(after) } }),
+    };
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      matchStage.$or = [
+        { email: { $regex: searchRegex } },
+        { subject: { $regex: searchRegex } },
+        { messageId: { $regex: searchRegex } },
+      ];
+    } else {
+      if (email) matchStage.email = { $regex: new RegExp(email, 'i') };
+      if (status) matchStage.status = { $in: statusArray };
+      if (mailType) matchStage.mailType = mailType;
+    }
+
+    const pipeline = [
+      {
+        $match: matchStage,
+      },
+      {
+        $sort: sortObject,
+      },
+      {
+        $facet: {
+          metadata: [
+            { $count: 'total' },
+            {
+              $addFields: {
+                page: pageNum,
+                pages: { $ceil: { $divide: ['$total', Number(limitNum)] } },
+              },
+            },
+          ],
+          data: [{ $skip: Number(skip) }, { $limit: Number(limitNum) }],
+        },
+      },
+      {
+        $unwind: '$metadata',
+      },
+      {
+        $project: {
+          data: 1,
+          totalNumber: '$metadata.total',
+          totalPages: '$metadata.pages',
+          page: '$metadata.page',
+          limit: limitNum,
+        },
+      },
+    ];
+
+    const results = await this.mailLogModel.aggregate(pipeline);
+
+    if (!results.length) {
+      return {
+        data: [],
+        totalNumber: 0,
+        totalPages: 0,
+        page: pageNum,
+        limit: limitNum,
+      };
+    }
+
+    return results[0];
+  }
+
+  /**
    * Replace template variables
    */
   private replaceVariables(
@@ -589,17 +818,17 @@ export class MailService {
   /**
    * Check if email type is transactional
    */
-  private isTransactional(mailType: MailType): boolean {
-    const transactionalTypes = [
-      MailType.TRANSACTIONAL,
-      MailType.ORDER_CONFIRMATION,
-      MailType.ORDER_UPDATE,
-      MailType.PASSWORD_RESET,
-      MailType.ACCOUNT_VERIFICATION,
-      MailType.RESERVATION_CONFIRMATION,
-    ];
-    return transactionalTypes.includes(mailType);
-  }
+  // private isTransactional(mailType: MailType): boolean {
+  //   const transactionalTypes = [
+  //     MailType.TRANSACTIONAL,
+  //     MailType.ORDER_CONFIRMATION,
+  //     MailType.ORDER_UPDATE,
+  //     MailType.PASSWORD_RESET,
+  //     MailType.ACCOUNT_VERIFICATION,
+  //     MailType.RESERVATION_CONFIRMATION,
+  //   ];
+  //   return transactionalTypes.includes(mailType);
+  // }
 
   /**
    * Handle SES notifications (bounces, complaints)
@@ -626,5 +855,82 @@ export class MailService {
         this.logger.warn(`Marked ${recipient.emailAddress} as complained`);
       }
     }
+  }
+
+  /**
+   * Track email click
+   */
+  async trackClick(trackingToken: string): Promise<MailLog | null> {
+    // Try to find by tracking token in metadata first
+    const mailLog = await this.mailLogModel.findOne({
+      'metadata.trackingToken': trackingToken,
+    });
+
+    if (!mailLog) {
+      // Fallback: try to find by messageId (for backwards compatibility)
+      const mailLogByMessageId = await this.mailLogModel.findOne({
+        messageId: trackingToken,
+      });
+
+      if (!mailLogByMessageId) {
+        this.logger.warn(
+          `Mail log not found for trackingToken: ${trackingToken}`,
+        );
+        return null;
+      }
+
+      // Only update if not already clicked
+      if (!mailLogByMessageId.clickedAt) {
+        mailLogByMessageId.clickedAt = new Date();
+        await mailLogByMessageId.save();
+        this.logger.log(
+          `Tracked click for email to ${mailLogByMessageId.email}`,
+        );
+      }
+
+      return mailLogByMessageId;
+    }
+
+    // Only update if not already clicked
+    if (!mailLog.clickedAt) {
+      mailLog.clickedAt = new Date();
+      await mailLog.save();
+      this.logger.log(
+        `Tracked click for email to ${mailLog.email} (${mailLog.mailType})`,
+      );
+    }
+
+    return mailLog;
+  }
+
+  /**
+   * Wrap links in email content with tracking URLs
+   */
+  private wrapLinksWithTracking(
+    htmlContent: string,
+    trackingToken: string,
+  ): string {
+    const hostUrl =
+      process.env.NODE_ENV === 'production'
+        ? process.env.PRODUCTION_HOST_URL
+        : process.env.STAGING_HOST_URL;
+
+    // Replace all links with tracking links
+    return htmlContent.replace(/href="([^"]+)"/gi, (match, url) => {
+      // Skip unsubscribe links and tracking links
+      if (
+        url.includes('/mail/unsubscribe') ||
+        url.includes('/mail/track-click') ||
+        url.startsWith('#') ||
+        url.startsWith('mailto:')
+      ) {
+        return match;
+      }
+
+      const trackingUrl = `${hostUrl}/mail/track-click?token=${encodeURIComponent(
+        trackingToken,
+      )}&url=${encodeURIComponent(url)}`;
+      return `href="${trackingUrl}"`;
+    });
   }
 }

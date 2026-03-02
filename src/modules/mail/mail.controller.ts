@@ -13,6 +13,8 @@ import { Public } from '../auth/public.decorator';
 import {
   CreateTemplateDto,
   GetMailLogsDto,
+  GetMailLogsWithPaginationDto,
+  GetSubscriptionsDto,
   SendBulkMailDto,
   SendMailDto,
   SubscribeDto,
@@ -57,6 +59,15 @@ export class MailController {
   @Get('subscription/:email')
   async getSubscription(@Param('email') email: string) {
     return this.mailService.getSubscription(email);
+  }
+
+  @Get('subscriptions')
+  async getSubscriptions(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query() filter: GetSubscriptionsDto,
+  ) {
+    return this.mailService.getSubscriptionsWithPagination(page, limit, filter);
   }
 
   @Put('subscription/:email')
@@ -106,6 +117,15 @@ export class MailController {
     return this.mailService.getMailLogs(filters);
   }
 
+  @Get('logs-paginated')
+  async getMailLogsWithPagination(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query() filter: GetMailLogsWithPaginationDto,
+  ) {
+    return this.mailService.getMailLogsWithPagination(page, limit, filter);
+  }
+
   // ==================== Webhook Endpoints ====================
 
   @Public()
@@ -113,5 +133,30 @@ export class MailController {
   async handleSESWebhook(@Body() notification: any) {
     await this.mailService.handleSESNotification(notification);
     return { success: true };
+  }
+
+  // ==================== Click Tracking Endpoint ====================
+
+  @Public()
+  @Get('track-click')
+  async trackClick(
+    @Query('token') token: string,
+    @Query('messageId') messageId: string, // For backwards compatibility
+    @Query('url') url: string,
+    @Res() res: Response,
+  ) {
+    // Track the click using token (preferred) or messageId (fallback)
+    const trackingId = token || messageId;
+
+    if (trackingId) {
+      await this.mailService.trackClick(trackingId);
+    }
+
+    // Redirect to the actual URL
+    if (url) {
+      return res.redirect(url);
+    }
+
+    return res.status(404).send('URL not found');
   }
 }

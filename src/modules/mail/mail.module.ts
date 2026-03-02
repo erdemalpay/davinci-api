@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { MailController } from './mail.controller';
 import {
   MailLog,
@@ -20,7 +21,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [mongooseModule],
+  imports: [mongooseModule, WebSocketModule],
   controllers: [MailController],
   providers: [MailService, MailSeeder],
   exports: [MailService, MongooseModule],

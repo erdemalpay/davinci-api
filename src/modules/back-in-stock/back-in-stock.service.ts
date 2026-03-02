@@ -5,6 +5,7 @@ import { MailType } from '../mail/mail.schema';
 import { MailService } from '../mail/mail.service';
 import { MenuService } from '../menu/menu.service';
 import { ShopifyService } from '../shopify/shopify.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   BackInStockQueryDto,
   CreateBackInStockSubscriptionDto,
@@ -25,6 +26,7 @@ export class BackInStockService {
     private readonly shopifyService: ShopifyService,
     private readonly menuService: MenuService,
     private readonly mailService: MailService,
+    private readonly webSocketGateway: AppWebSocketGateway,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -81,6 +83,8 @@ export class BackInStockService {
       this.logger.log(
         `Created back-in-stock subscription ${saved._id} for ${dto.email}`,
       );
+
+      this.webSocketGateway.emitBackInStockChanged();
 
       // Also subscribe to mail list for back-in-stock notifications
       try {
@@ -203,6 +207,8 @@ export class BackInStockService {
     await subscription.save();
     this.logger.log(`Updated subscription ${id} status to ${dto.status}`);
 
+    this.webSocketGateway.emitBackInStockChanged();
+
     return subscription;
   }
 
@@ -227,6 +233,8 @@ export class BackInStockService {
 
     await subscription.save();
     this.logger.log(`Cancelled subscription ${subscription._id}`);
+
+    this.webSocketGateway.emitBackInStockChanged();
 
     return subscription;
   }
@@ -286,9 +294,44 @@ export class BackInStockService {
       }`,
     );
 
+    this.webSocketGateway.emitBackInStockChanged();
+
     return {
       cancelled: updateResult.modifiedCount,
       subscriptions,
+    };
+  }
+
+  /**
+   * Get click analytics for back-in-stock emails
+   */
+  async getEmailClickAnalytics() {
+    const mailLogs = await this.mailService.getMailLogs({
+      mailType: MailType.BACK_IN_STOCK,
+      limit: 10000,
+    });
+
+    const totalSent = mailLogs.length;
+    const totalClicked = mailLogs.filter((log) => log.clickedAt).length;
+    const clickRate = totalSent > 0 ? (totalClicked / totalSent) * 100 : 0;
+
+    return {
+      totalSent,
+      totalClicked,
+      clickRate: parseFloat(clickRate.toFixed(2)),
+      recentClicks: mailLogs
+        .filter((log) => log.clickedAt)
+        .sort(
+          (a, b) =>
+            new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime(),
+        )
+        .slice(0, 10)
+        .map((log) => ({
+          email: log.email,
+          clickedAt: log.clickedAt,
+          sentAt: log.sentAt,
+          subject: log.subject,
+        })),
     };
   }
 }
