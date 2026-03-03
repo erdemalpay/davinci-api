@@ -25,6 +25,7 @@ import { LocationModule } from './modules/location/location.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
+import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
 import { OrderModule } from './modules/order/order.module';
@@ -93,8 +94,8 @@ const modules = [
   NotificationModule,
   ShiftModule,
   ExpirationModule,
-  BreakModule,
   GameplayTimeModule,
+  MiddlemanModule,
   WebhookLogModule,
 ];
 
