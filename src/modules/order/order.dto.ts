@@ -549,3 +549,19 @@ export class CancelShopifyOrderDto {
   @IsNumber()
   quantity: number;
 }
+
+export class CancelTrendyolOrderDto {
+  @IsString()
+  trendyolLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
+
+export class CancelHepsiburadaOrderDto {
+  @IsString()
+  hepsiburadaLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
