@@ -62,6 +62,10 @@ export class AppWebSocketGateway {
     this.server.emit('breakChanged');
   }
 
+  emitMiddlemanChanged() {
+    this.server.emit('middlemanChanged');
+  }
+
   emitGameplayTimeChanged() {
     this.server.emit('gameplayTimeChanged');
   }

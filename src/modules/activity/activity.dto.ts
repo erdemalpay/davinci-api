@@ -6,6 +6,7 @@ import { Product } from '../accounting/product.schema';
 import { Stock } from '../accounting/stock.schema';
 import { Authorization } from '../authorization/authorization.schema';
 import { Break } from '../break/break.schema';
+import { Middleman } from '../middleman/middleman.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { ShiftChangeRequest } from '../shift/shiftChange/shiftChangeRequest.schema';
@@ -90,6 +91,8 @@ export enum ActivityType {
   FINISH_GAMEPLAY_TIME = 'FINISH_GAMEPLAY_TIME',
   SHIFT_CHANGE_APPROVED = 'SHIFT_CHANGE_APPROVED',
   SHIFT_CHANGE_REJECTED = 'SHIFT_CHANGE_REJECTED',
+  START_MIDDLEMAN = 'START_MIDDLEMAN',
+  FINISH_MIDDLEMAN = 'FINISH_MIDDLEMAN',
 }
 
 export type ActivityTypePayload = {
@@ -186,6 +189,8 @@ export type ActivityTypePayload = {
   [ActivityType.FINISH_GAMEPLAY_TIME]: GameplayTime;
   [ActivityType.SHIFT_CHANGE_APPROVED]: ShiftChangeRequest;
   [ActivityType.SHIFT_CHANGE_REJECTED]: ShiftChangeRequest;
+  [ActivityType.START_MIDDLEMAN]: Middleman;
+  [ActivityType.FINISH_MIDDLEMAN]: Middleman;
 };
 
 export class ActivityQueryDto {
