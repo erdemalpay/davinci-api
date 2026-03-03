@@ -79,6 +79,24 @@ import { Vendor } from './vendor.schema';
 
 const path = require('path');
 
+type RoleId = number;
+
+type ExpenseTypeId = string;
+
+type StockLocationId = number;
+
+interface RollbackInfo {
+  expenseId?: unknown;
+  paymentId?: unknown;
+  stockDelta?: number;
+  stockId?: string;
+  stockHistoryId?: unknown;
+}
+
+type BulkCreateExpenseError<TDto> = TDto & {
+  errorNote: string;
+};
+
 @Injectable()
 export class AccountingService {
   private readonly logger = new Logger(AccountingService.name);
@@ -126,35 +144,56 @@ export class AccountingService {
     private readonly mailService: MailService,
   ) {}
   //   Products
-  async findAllProducts() {
+  async findAllProducts(user?: User) {
+    let products: Product[] | undefined;
     try {
       const redisProducts = await this.redisService.get(
         RedisKeys.AccountingProducts,
       );
       if (redisProducts) {
-        return redisProducts;
+        products = redisProducts as Product[];
       }
     } catch (error) {
       this.logger.error('Failed to retrieve all products from Redis:', error);
     }
 
-    try {
-      const products = await this.productModel.find().exec();
-
-      if (products.length > 0) {
-        await this.redisService.set(RedisKeys.AccountingProducts, products);
+    if (!products) {
+      try {
+        products = await this.productModel.find().exec();
+        if (products.length > 0) {
+          await this.redisService.set(RedisKeys.AccountingProducts, products);
+        }
+      } catch (error) {
+        this.logger.error(
+          'Failed to retrieve all products from database:',
+          error,
+        );
+        throw new HttpException(
+          'Could not retrieve products',
+          HttpStatus.NOT_FOUND,
+        );
       }
-      return products;
-    } catch (error) {
-      this.logger.error(
-        'Failed to retrieve all products from database:',
-        error,
-      );
-      throw new HttpException(
-        'Could not retrieve products',
-        HttpStatus.NOT_FOUND,
-      );
     }
+
+    return this.applyProductRoleFilter(products, user, 'product');
+  }
+
+  private async applyProductRoleFilter(
+    products: Product[],
+    user: User | undefined,
+    page: string,
+  ): Promise<Product[]> {
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      user,
+      page,
+    );
+    if (forbiddenExpenseTypeIds.length === 0) return products;
+    return products.filter(
+      (p) =>
+        !p.expenseType?.some((et: string) =>
+          forbiddenExpenseTypeIds.includes(et),
+        ),
+    );
   }
   async findDeletedProducts() {
     return this.productModel.find({ deleted: true });
@@ -513,8 +552,17 @@ export class AccountingService {
   }
 
   // Services
-  findAllServices() {
-    return this.serviceModel.find();
+  async findAllServices(user?: User) {
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      user,
+      'service',
+    );
+    if (forbiddenExpenseTypeIds.length === 0) {
+      return this.serviceModel.find();
+    }
+    return this.serviceModel.find({
+      expenseType: { $nin: forbiddenExpenseTypeIds },
+    });
   }
 
   async createService(user: User, createServiceDto: CreateServiceDto) {
@@ -912,7 +960,7 @@ export class AccountingService {
         );
       }
     }
-    const match: Record<string, any> = {};
+    const match: Record<string, unknown> = {};
     match.invoice = null;
     match.serviceInvoice = null;
     if (startDate && before) {
@@ -959,6 +1007,7 @@ export class AccountingService {
     page: number,
     limit: number,
     filter: ExpenseWithPaginateFilterType,
+    user?: User,
   ) {
     const pageNum = page || 1;
     const limitNum = limit || 10;
@@ -1027,13 +1076,28 @@ export class AccountingService {
       .find({ isPaymentMade: false })
       .select('_id')
       .then((docs) => docs.map((doc) => doc._id));
+    // Role-based expense type filtering
+    const expensePageKey = vendor
+      ? 'vendor-expense'
+      : brand
+        ? 'brand-expense'
+        : 'expense';
+    const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
+      user,
+      expensePageKey,
+    );
+    // Combine user-requested expenseType filter and role-based restriction
+    const expenseTypeMatchCondition = this.buildExpenseTypeMatchCondition(
+      expenseType,
+      forbiddenExpenseTypeIds,
+    );
     const pipeline: PipelineStage[] = [
       {
         $match: {
           ...(location && { location: Number(location) }),
           ...(product && { product: { $in: productArray } }),
           ...(service && { service: { $in: serviceArray } }),
-          ...(expenseType && { expenseType: expenseType }),
+          ...expenseTypeMatchCondition,
           ...(paymentMethod && { paymentMethod: { $in: paymentMethodArray } }),
           ...(brand && { brand: brand }),
           ...(type && { type: type }),
@@ -1211,7 +1275,8 @@ export class AccountingService {
     user: User,
     createExpenseDto: CreateMultipleExpenseDto[],
   ) {
-    const errorDatas: Array<any> = [];
+    const errorDatas: Array<BulkCreateExpenseError<CreateMultipleExpenseDto>> =
+      [];
     let anySuccess = false;
 
     for (const expenseDto of createExpenseDto) {
@@ -1301,13 +1366,7 @@ export class AccountingService {
           );
         }
 
-        const rollback: {
-          expenseId?: any;
-          paymentId?: any;
-          stockDelta?: number;
-          stockId?: string;
-          stockHistoryId?: any;
-        } = {};
+        const rollback: RollbackInfo = {};
 
         const expense = await this.expenseModel.create({
           date: adjustedDate,
@@ -1326,7 +1385,7 @@ export class AccountingService {
           type,
           isAfterCount: isAfterCount ?? true,
           isStockIncrement:
-            (isStockIncrement as any) === 'true' || isStockIncrement === true,
+            String(isStockIncrement) === 'true' || isStockIncrement === true,
           user: user._id,
         });
         rollback.expenseId = expense._id;
@@ -1445,23 +1504,23 @@ export class AccountingService {
         anySuccess = true;
       } catch (e) {
         try {
-          if ((e as any)?.rollback?.paymentId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.paymentId) {
             await this.paymentModel.findByIdAndDelete(
-              (e as any).rollback.paymentId,
+              (e as { rollback?: RollbackInfo }).rollback?.paymentId,
             );
           }
         } catch {}
 
         try {
-          if ((e as any)?.rollback?.stockHistoryId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.stockHistoryId) {
             await this.productStockHistoryModel.findByIdAndDelete(
-              (e as any).rollback.stockHistoryId,
+              (e as { rollback?: RollbackInfo }).rollback?.stockHistoryId,
             );
           }
         } catch {}
 
         try {
-          const rb = (e as any)?.rollback;
+          const rb = (e as { rollback?: RollbackInfo })?.rollback;
           if (rb?.stockId && rb?.stockDelta) {
             await this.stockModel.findByIdAndUpdate(
               rb.stockId,
@@ -1472,16 +1531,16 @@ export class AccountingService {
         } catch {}
 
         try {
-          if ((e as any)?.rollback?.expenseId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.expenseId) {
             await this.expenseModel.findByIdAndDelete(
-              (e as any).rollback.expenseId,
+              (e as { rollback?: RollbackInfo }).rollback?.expenseId,
             );
           }
         } catch {}
 
         errorDatas.push({
           ...expenseDto,
-          errorNote: (e as any)?.message || 'Error occurred',
+          errorNote: (e as { message?: string })?.message || 'Error occurred',
         });
       }
     }
@@ -1905,7 +1964,7 @@ export class AccountingService {
 
   async findQueryStocks(user: User, query: StockQueryDto) {
     const { after, location } = query;
-    const filterQuery = {};
+    const filterQuery: Record<string, unknown> = {};
     if (after) {
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
@@ -1957,17 +2016,12 @@ export class AccountingService {
 
       const calculateStockValueAtDate = async (targetDate: Date) => {
         // Build match conditions
-        const stockMatch: any = {};
+        const stockMatch: Partial<Record<'location', StockLocationId>> = {};
         if (stockLocation) {
-          stockMatch.location = stockLocation;
+          stockMatch.location = stockLocation as StockLocationId;
         }
 
-        const historyMatch: any = {
-          createdAt: { $gte: targetDate },
-        };
-        if (stockLocation) {
-          historyMatch.location = stockLocation;
-        }
+        // NOTE: historyMatch was unused; removed to keep types strict.
 
         // Aggregation pipeline to calculate stock value
         const result = await this.stockModel.aggregate([
@@ -3021,10 +3075,10 @@ export class AccountingService {
       search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
-    const productArray = product ? (product as any).split(',') : [];
-    const statusArray = status ? (status as any).split(',') : [];
+    const productArray = product ? String(product).split(',') : [];
+    const statusArray = status ? String(status).split(',') : [];
     const categoryArray = category
-      ? (category as any).split(',').map(Number)
+      ? String(category).split(',').map(Number)
       : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
@@ -3051,7 +3105,7 @@ export class AccountingService {
     }
 
     // Date filtering logic
-    const matchFilter: any = {};
+    const matchFilter: Record<string, unknown> = {};
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);
@@ -3059,7 +3113,7 @@ export class AccountingService {
       end.setHours(23, 59, 59, 999);
       matchFilter.createdAt = { $gte: start, $lte: end };
     } else {
-      const rangeFilter: Record<string, any> = {};
+      const rangeFilter: Record<string, unknown> = {};
       if (after) {
         const start = this.parseLocalDate(after);
         rangeFilter.$gte = start;
@@ -3200,10 +3254,10 @@ export class AccountingService {
       search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
-    const productArray = product ? (product as any).split(',') : [];
-    const statusArray = status ? (status as any).split(',') : [];
+    const productArray = product ? String(product).split(',') : [];
+    const statusArray = status ? String(status).split(',') : [];
     const categoryArray = category
-      ? (category as any).split(',').map(Number)
+      ? String(category).split(',').map(Number)
       : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
@@ -3231,7 +3285,7 @@ export class AccountingService {
     }
 
     // Date filtering logic
-    const matchFilter: any = {};
+    const matchFilter: Record<string, unknown> = {};
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);
@@ -3239,7 +3293,7 @@ export class AccountingService {
       end.setHours(23, 59, 59, 999);
       matchFilter.createdAt = { $gte: start, $lte: end };
     } else {
-      const rangeFilter: Record<string, any> = {};
+      const rangeFilter: Record<string, unknown> = {};
       if (after) {
         const start = this.parseLocalDate(after);
         rangeFilter.$gte = start;
@@ -4251,5 +4305,49 @@ export class AccountingService {
     );
     await this.websocketGateway.emitProductChanged();
     await this.websocketGateway.emitStockChanged();
+  }
+
+  private buildExpenseTypeMatchCondition(
+    expenseType: string | undefined,
+    forbiddenExpenseTypeIds: string[],
+  ): Record<string, unknown> {
+    if (expenseType && forbiddenExpenseTypeIds.length > 0) {
+      return forbiddenExpenseTypeIds.includes(expenseType)
+        ? { expenseType: { $in: [] } }
+        : { expenseType };
+    }
+    if (expenseType) return { expenseType };
+    if (forbiddenExpenseTypeIds.length > 0)
+      return { expenseType: { $nin: forbiddenExpenseTypeIds } };
+    return {};
+  }
+
+  private extractUserRoleId(user?: User): number | null {
+    const role = user?.role;
+    if (!user || !role) return null;
+    return typeof role === 'object' && role !== null
+      ? ((role as { _id?: RoleId })._id ?? null)
+      : (role as unknown as RoleId);
+  }
+
+  private async getForbiddenExpenseTypeIds(
+    user: User | undefined,
+    page: string,
+  ): Promise<ExpenseTypeId[]> {
+    const userRoleId = this.extractUserRoleId(user);
+    const restrictedExpenseTypes = await this.expenseTypeModel.find({
+      isRoleRestricted: true,
+    });
+    return restrictedExpenseTypes
+      .filter((et) => {
+        const pagePerm = (et.pagePermissions ?? []).find(
+          (p) => p.page === page,
+        );
+        if (!pagePerm) return false;
+        return (
+          userRoleId === null || !pagePerm.allowedRoles.includes(userRoleId)
+        );
+      })
+      .map((et) => et._id);
   }
 }
