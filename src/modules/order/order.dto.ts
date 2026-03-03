@@ -557,3 +557,11 @@ export class CancelTrendyolOrderDto {
   @IsNumber()
   quantity: number;
 }
+
+export class CancelHepsiburadaOrderDto {
+  @IsString()
+  hepsiburadaLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}

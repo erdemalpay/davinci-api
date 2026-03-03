@@ -15,6 +15,7 @@ import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
+  CancelHepsiburadaOrderDto,
   CancelIkasOrderDto,
   CancelShopifyOrderDto,
   CancelTrendyolOrderDto,
@@ -253,6 +254,17 @@ export class OrderController {
     return this.orderService.cancelTrendyolOrder(
       user,
       payload.trendyolLineItemId,
+      payload.quantity,
+    );
+  }
+  @Post('/cancel-hepsiburada-order')
+  cancelHepsiburadaOrder(
+    @ReqUser() user: User,
+    @Body() payload: CancelHepsiburadaOrderDto,
+  ) {
+    return this.orderService.cancelHepsiburadaOrder(
+      user,
+      payload.hepsiburadaLineItemId,
       payload.quantity,
     );
   }
