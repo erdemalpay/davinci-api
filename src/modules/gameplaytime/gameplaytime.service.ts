@@ -14,6 +14,11 @@ import { LocationService } from '../location/location.service';
 import { TableService } from '../table/table.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { extractRefId } from 'src/utils/tsUtils';
+import {
+  buildPaginationParams,
+  totalPages,
+} from 'src/utils/queryUtils';
 import {
   CreateGameplayTimeDto,
   GameplayTimeQueryDto,
@@ -134,9 +139,10 @@ export class GameplayTimeService {
       sortObject.createdAt = -1;
     }
 
-    const pageNum = Math.max(1, Number(page) || 1);
-    const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = buildPaginationParams(
+      query.page,
+      query.limit,
+    );
 
     if (query.search && String(query.search).trim().length > 0) {
       const rx = new RegExp(String(query.search).trim(), 'i');
@@ -192,11 +198,10 @@ export class GameplayTimeService {
         this.gameplayTimeModel.countDocuments(filter),
       ]);
 
-      const totalPages = Math.ceil(totalNumber / limitNum);
       return {
         data,
         totalNumber,
-        totalPages,
+        totalPages: totalPages(totalNumber, limitNum),
         page: pageNum,
         limit: limitNum,
       };
@@ -263,12 +268,7 @@ export class GameplayTimeService {
 
       if (updateGameplayTimeDto.finishHour) {
         try {
-          const userId = String(
-            typeof updatedGameplayTime.user === 'object' &&
-              updatedGameplayTime.user?._id
-              ? updatedGameplayTime.user._id
-              : updatedGameplayTime.user,
-          );
+          const userId = String(extractRefId(updatedGameplayTime.user));
           const user = await this.userService.findById(userId);
           if (user) {
             await this.activityService.addActivity(

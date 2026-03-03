@@ -5,6 +5,13 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { extractRefId } from 'src/utils/tsUtils';
+import { computeDurationMinutes } from 'src/utils/timeUtils';
+import {
+  buildPaginationParams,
+  buildSortObject,
+  totalPages,
+} from 'src/utils/queryUtils';
 import {
   CreateMiddlemanDto,
   MiddlemanQueryDto,
@@ -92,14 +99,8 @@ export class MiddlemanService {
 
     if (date) filter.date = date;
 
-    const sortObject: Record<string, 1 | -1> = {};
-    const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
-    sortObject[sort] = dir;
-    sortObject.createdAt = -1;
-
-    const pageNum = Math.max(1, Number(page) || 1);
-    const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = buildPaginationParams(page, limit);
+    const sortObject = buildSortObject(sort, asc);
 
     const [data, totalNumber] = await Promise.all([
       this.middlemanModel
@@ -114,12 +115,10 @@ export class MiddlemanService {
 
     const dataWithDuration = data.map(
       (record: { startHour?: string; finishHour?: string }) => {
-        let duration = 0;
-        if (record.startHour && record.finishHour) {
-          const [sh, sm] = record.startHour.split(':').map(Number);
-          const [fh, fm] = record.finishHour.split(':').map(Number);
-          duration = fh * 60 + fm - (sh * 60 + sm);
-        }
+        const duration = computeDurationMinutes(
+          record.startHour ?? '',
+          record.finishHour ?? '',
+        );
         return { ...record, duration };
       },
     );
@@ -127,7 +126,7 @@ export class MiddlemanService {
     return {
       data: dataWithDuration,
       totalNumber,
-      totalPages: Math.ceil(totalNumber / limitNum),
+      totalPages: totalPages(totalNumber, limitNum),
       page: pageNum,
       limit: limitNum,
     };
@@ -172,11 +171,7 @@ export class MiddlemanService {
 
       if (updateDto.finishHour) {
         try {
-          const userId = String(
-            typeof updated.user === 'object' && updated.user?._id
-              ? updated.user._id
-              : updated.user,
-          );
+          const userId = String(extractRefId(updated.user));
           const user = await this.userService.findById(userId);
           if (user) {
             await this.activityService.addActivity(

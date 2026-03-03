@@ -7,6 +7,13 @@ import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { extractRefId } from 'src/utils/tsUtils';
+import { computeDurationMinutes } from 'src/utils/timeUtils';
+import {
+  buildPaginationParams,
+  buildSortObject,
+  totalPages,
+} from 'src/utils/queryUtils';
 import { BreakQueryDto, CreateBreakDto, UpdateBreakDto } from './break.dto';
 import { Break } from './break.schema';
 
@@ -102,16 +109,9 @@ export class BreakService {
         filter.createdAt = rangeFilter;
       }
     }
-    const sortObject: Record<string, 1 | -1> = {};
-    if (sort) {
-      const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
-      sortObject[sort] = dir;
-      sortObject.createdAt = -1;
-    }
+    const sortObject = buildSortObject(sort, asc);
 
-    const pageNum = Math.max(1, Number(page) || 1);
-    const limitNum = Math.min(200, Math.max(1, Number(limit) || 10));
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = buildPaginationParams(page, limit);
 
     if (search && String(search).trim().length > 0) {
       const rx = new RegExp(String(search).trim(), 'i');
@@ -155,20 +155,12 @@ export class BreakService {
 
       // Process each break to calculate duration
       const dataWithDuration = data.map((breakRecord: any) => {
-        let duration = 0;
+        const duration = computeDurationMinutes(
+          breakRecord.startHour ?? '',
+          breakRecord.finishHour ?? '',
+        );
 
-        if (breakRecord.startHour && breakRecord.finishHour) {
-          const [startH, startM] = breakRecord.startHour.split(':').map(Number);
-          const [finishH, finishM] = breakRecord.finishHour
-            .split(':')
-            .map(Number);
-
-          const startMinutes = startH * 60 + startM;
-          const finishMinutes = finishH * 60 + finishM;
-
-          duration = finishMinutes - startMinutes;
-
-          // Add to daily total per user
+        if (duration > 0) {
           const key = `${breakRecord.user}-${breakRecord.date}`;
           const currentDaily = dailyDurationMap.get(key) || 0;
           dailyDurationMap.set(key, currentDaily + duration);
@@ -187,11 +179,10 @@ export class BreakService {
           dailyDurationMap.get(`${breakRecord.user}-${breakRecord.date}`) || 0,
       }));
 
-      const totalPages = Math.ceil(totalNumber / limitNum);
       return {
         data: dataWithDailyDuration,
         totalNumber,
-        totalPages,
+        totalPages: totalPages(totalNumber, limitNum),
         page: pageNum,
         limit: limitNum,
       };
@@ -247,11 +238,7 @@ export class BreakService {
 
       if (updateBreakDto.finishHour) {
         try {
-          const userId = String(
-            typeof updatedBreak.user === 'object' && updatedBreak.user?._id
-              ? updatedBreak.user._id
-              : updatedBreak.user,
-          );
+          const userId = String(extractRefId(updatedBreak.user));
           const user = await this.userService.findById(userId);
           if (user) {
             await this.activityService.addActivity(
