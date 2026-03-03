@@ -7,13 +7,18 @@ import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { extractRefId } from 'src/utils/tsUtils';
 import { computeDurationMinutes } from 'src/utils/timeUtils';
 import {
   buildPaginationParams,
   buildSortObject,
   totalPages,
 } from 'src/utils/queryUtils';
+import {
+  assertFound,
+  toPlainObject,
+  tryAddActivity,
+  wrapHttpException,
+} from 'src/utils/serviceUtils';
 import { BreakQueryDto, CreateBreakDto, UpdateBreakDto } from './break.dto';
 import { Break } from './break.schema';
 
@@ -28,8 +33,7 @@ export class BreakService {
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
-    try {
-      // Check if there's already an active break for the same user, date, and location
+    return wrapHttpException(async () => {
       const existingActiveBreak = await this.breakModel.findOne({
         user: createBreakDto.user,
         date: createBreakDto.date,
@@ -45,29 +49,17 @@ export class BreakService {
       }
 
       const breakRecord = await this.breakModel.create(createBreakDto);
-      try {
-        const user = await this.userService.findById(createBreakDto.user);
-        if (user) {
-          await this.activityService.addActivity(
-            user,
-            ActivityType.START_BREAK,
-            (breakRecord.toObject ? breakRecord.toObject() : breakRecord) as Break,
-          );
-        }
-      } catch (activityError) {
-        console.error('Failed to add start break activity:', activityError);
-      }
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        createBreakDto.user,
+        ActivityType.START_BREAK,
+        toPlainObject(breakRecord),
+        'start break',
+      );
       this.websocketGateway.emitBreakChanged();
       return breakRecord;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to create break record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to create break record');
   }
 
   async findAll(query: BreakQueryDto) {
@@ -96,21 +88,16 @@ export class BreakService {
       filter.createdAt = { $gte: start, $lte: end };
     } else {
       const rangeFilter: Record<string, any> = {};
-      if (after) {
-        const start = this.parseLocalDate(after);
-        rangeFilter.$gte = start;
-      }
+      if (after) rangeFilter.$gte = this.parseLocalDate(after);
       if (before) {
         const end = this.parseLocalDate(before);
         end.setHours(23, 59, 59, 999);
         rangeFilter.$lte = end;
       }
-      if (Object.keys(rangeFilter).length) {
-        filter.createdAt = rangeFilter;
-      }
+      if (Object.keys(rangeFilter).length) filter.createdAt = rangeFilter;
     }
-    const sortObject = buildSortObject(sort, asc);
 
+    const sortObject = buildSortObject(sort, asc);
     const { pageNum, limitNum, skip } = buildPaginationParams(page, limit);
 
     if (search && String(search).trim().length > 0) {
@@ -130,12 +117,8 @@ export class BreakService {
           ? [{ location: { $in: searchedLocationIds } }]
           : []),
       ];
-      if (isNumeric) {
-        orConds.push({ _id: numeric as any });
-      }
-      if (orConds.length) {
-        filter.$or = orConds;
-      }
+      if (isNumeric) orConds.push({ _id: numeric as any });
+      if (orConds.length) filter.$or = orConds;
     }
 
     try {
@@ -150,29 +133,19 @@ export class BreakService {
         this.breakModel.countDocuments(filter),
       ]);
 
-      // Calculate duration for each break and group by user+date for daily totals
       const dailyDurationMap = new Map<string, number>();
-
-      // Process each break to calculate duration
       const dataWithDuration = data.map((breakRecord: any) => {
         const duration = computeDurationMinutes(
           breakRecord.startHour ?? '',
           breakRecord.finishHour ?? '',
         );
-
         if (duration > 0) {
           const key = `${breakRecord.user}-${breakRecord.date}`;
-          const currentDaily = dailyDurationMap.get(key) || 0;
-          dailyDurationMap.set(key, currentDaily + duration);
+          dailyDurationMap.set(key, (dailyDurationMap.get(key) || 0) + duration);
         }
-
-        return {
-          ...breakRecord,
-          duration,
-        };
+        return { ...breakRecord, duration };
       });
 
-      // Add dailyDuration to each record
       const dataWithDailyDuration = dataWithDuration.map((breakRecord) => ({
         ...breakRecord,
         dailyDuration:
@@ -204,9 +177,7 @@ export class BreakService {
 
   async findById(id: string): Promise<Break> {
     const breakRecord = await this.breakModel.findById(id);
-    if (!breakRecord) {
-      throw new HttpException('Break record not found', HttpStatus.NOT_FOUND);
-    }
+    assertFound(breakRecord, 'Break record not found');
     return breakRecord;
   }
 
@@ -225,52 +196,33 @@ export class BreakService {
   }
 
   async update(id: string, updateBreakDto: UpdateBreakDto): Promise<Break> {
-    try {
+    return wrapHttpException(async () => {
       const updatedBreak = await this.breakModel.findByIdAndUpdate(
         id,
         updateBreakDto,
         { new: true },
       );
-
-      if (!updatedBreak) {
-        throw new HttpException('Break record not found', HttpStatus.NOT_FOUND);
-      }
+      assertFound(updatedBreak, 'Break record not found');
 
       if (updateBreakDto.finishHour) {
-        try {
-          const userId = String(extractRefId(updatedBreak.user));
-          const user = await this.userService.findById(userId);
-          if (user) {
-            await this.activityService.addActivity(
-              user,
-              ActivityType.FINISH_BREAK,
-              (updatedBreak.toObject ? updatedBreak.toObject() : updatedBreak) as Break,
-            );
-          }
-        } catch (activityError) {
-          console.error('Failed to add finish break activity:', activityError);
-        }
+        await tryAddActivity(
+          this.activityService,
+          this.userService,
+          updatedBreak.user,
+          ActivityType.FINISH_BREAK,
+          toPlainObject(updatedBreak),
+          'finish break',
+        );
       }
 
       this.websocketGateway.emitBreakChanged();
       return updatedBreak;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to update break record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to update break record');
   }
 
   async delete(id: string): Promise<Break> {
     const deletedBreak = await this.breakModel.findByIdAndDelete(id);
-    if (!deletedBreak) {
-      throw new HttpException('Break record not found', HttpStatus.NOT_FOUND);
-    }
-
+    assertFound(deletedBreak, 'Break record not found');
     this.websocketGateway.emitBreakChanged();
     return deletedBreak;
   }

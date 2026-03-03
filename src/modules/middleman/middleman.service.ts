@@ -5,13 +5,18 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { extractRefId } from 'src/utils/tsUtils';
 import { computeDurationMinutes } from 'src/utils/timeUtils';
 import {
   buildPaginationParams,
   buildSortObject,
   totalPages,
 } from 'src/utils/queryUtils';
+import {
+  assertFound,
+  toPlainObject,
+  tryAddActivity,
+  wrapHttpException,
+} from 'src/utils/serviceUtils';
 import {
   CreateMiddlemanDto,
   MiddlemanQueryDto,
@@ -29,8 +34,7 @@ export class MiddlemanService {
   ) {}
 
   async create(createMiddlemanDto: CreateMiddlemanDto): Promise<Middleman> {
-    try {
-      // Only 1 active middleman per location at a time
+    return wrapHttpException(async () => {
       const existingActive = await this.middlemanModel.findOne({
         location: createMiddlemanDto.location,
         finishHour: { $exists: false },
@@ -44,31 +48,17 @@ export class MiddlemanService {
       }
 
       const record = await this.middlemanModel.create(createMiddlemanDto);
-
-      try {
-        const user = await this.userService.findById(createMiddlemanDto.user);
-        if (user) {
-          await this.activityService.addActivity(
-            user,
-            ActivityType.START_MIDDLEMAN,
-            (record.toObject ? record.toObject() : record) as Middleman,
-          );
-        }
-      } catch (activityError) {
-        console.error('Failed to add start middleman activity:', activityError);
-      }
-
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        createMiddlemanDto.user,
+        ActivityType.START_MIDDLEMAN,
+        toPlainObject(record),
+        'start middleman',
+      );
       this.websocketGateway.emitMiddlemanChanged();
       return record;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to create middleman record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to create middleman record');
   }
 
   async findAll(query: MiddlemanQueryDto) {
@@ -114,13 +104,13 @@ export class MiddlemanService {
     ]);
 
     const dataWithDuration = data.map(
-      (record: { startHour?: string; finishHour?: string }) => {
-        const duration = computeDurationMinutes(
+      (record: { startHour?: string; finishHour?: string }) => ({
+        ...record,
+        duration: computeDurationMinutes(
           record.startHour ?? '',
           record.finishHour ?? '',
-        );
-        return { ...record, duration };
-      },
+        ),
+      }),
     );
 
     return {
@@ -134,12 +124,7 @@ export class MiddlemanService {
 
   async findById(id: string): Promise<Middleman> {
     const record = await this.middlemanModel.findById(id);
-    if (!record) {
-      throw new HttpException(
-        'Middleman record not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    assertFound(record, 'Middleman record not found');
     return record;
   }
 
@@ -155,58 +140,33 @@ export class MiddlemanService {
   }
 
   async update(id: string, updateDto: UpdateMiddlemanDto): Promise<Middleman> {
-    try {
+    return wrapHttpException(async () => {
       const updated = await this.middlemanModel.findByIdAndUpdate(
         id,
         updateDto,
         { new: true },
       );
-
-      if (!updated) {
-        throw new HttpException(
-          'Middleman record not found',
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      assertFound(updated, 'Middleman record not found');
 
       if (updateDto.finishHour) {
-        try {
-          const userId = String(extractRefId(updated.user));
-          const user = await this.userService.findById(userId);
-          if (user) {
-            await this.activityService.addActivity(
-              user,
-              ActivityType.FINISH_MIDDLEMAN,
-              (updated.toObject ? updated.toObject() : updated) as Middleman,
-            );
-          }
-        } catch (activityError) {
-          console.error(
-            'Failed to add finish middleman activity:',
-            activityError,
-          );
-        }
+        await tryAddActivity(
+          this.activityService,
+          this.userService,
+          updated.user,
+          ActivityType.FINISH_MIDDLEMAN,
+          toPlainObject(updated),
+          'finish middleman',
+        );
       }
 
       this.websocketGateway.emitMiddlemanChanged();
       return updated;
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new HttpException(
-        'Failed to update middleman record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to update middleman record');
   }
 
   async delete(id: string): Promise<Middleman> {
     const deleted = await this.middlemanModel.findByIdAndDelete(id);
-    if (!deleted) {
-      throw new HttpException(
-        'Middleman record not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    assertFound(deleted, 'Middleman record not found');
     this.websocketGateway.emitMiddlemanChanged();
     return deleted;
   }

@@ -14,11 +14,13 @@ import { LocationService } from '../location/location.service';
 import { TableService } from '../table/table.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { extractRefId } from 'src/utils/tsUtils';
+import { buildPaginationParams, totalPages } from 'src/utils/queryUtils';
 import {
-  buildPaginationParams,
-  totalPages,
-} from 'src/utils/queryUtils';
+  assertFound,
+  toPlainObject,
+  tryAddActivity,
+  wrapHttpException,
+} from 'src/utils/serviceUtils';
 import {
   CreateGameplayTimeDto,
   GameplayTimeQueryDto,
@@ -43,8 +45,7 @@ export class GameplayTimeService {
   async create(
     createGameplayTimeDto: CreateGameplayTimeDto,
   ): Promise<GameplayTime> {
-    try {
-      // Check if there's already an active gameplay time for the same user, date, and location
+    return wrapHttpException(async () => {
       const existingActiveGameplayTime = await this.gameplayTimeModel.findOne({
         user: createGameplayTimeDto.user,
         date: createGameplayTimeDto.date,
@@ -62,34 +63,17 @@ export class GameplayTimeService {
       const gameplayTimeRecord = await this.gameplayTimeModel.create(
         createGameplayTimeDto,
       );
-      try {
-        const user = await this.userService.findById(createGameplayTimeDto.user);
-        if (user) {
-          await this.activityService.addActivity(
-            user,
-            ActivityType.START_GAMEPLAY_TIME,
-            (gameplayTimeRecord.toObject
-              ? gameplayTimeRecord.toObject()
-              : gameplayTimeRecord) as GameplayTime,
-          );
-        }
-      } catch (activityError) {
-        console.error(
-          'Failed to add start gameplay time activity:',
-          activityError,
-        );
-      }
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        createGameplayTimeDto.user,
+        ActivityType.START_GAMEPLAY_TIME,
+        toPlainObject(gameplayTimeRecord),
+        'start gameplay time',
+      );
       this.websocketGateway.emitGameplayTimeChanged();
       return gameplayTimeRecord;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to create gameplay time record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to create gameplay time record');
   }
 
   async findAll(query: GameplayTimeQueryDto) {
@@ -115,8 +99,7 @@ export class GameplayTimeService {
 
     const rangeFilter: Record<string, Date> = {};
     if (after) {
-      const start = this.parseLocalDate(after);
-      rangeFilter.$gte = start;
+      rangeFilter.$gte = this.parseLocalDate(after);
     }
     if (before) {
       const end = this.parseLocalDate(before);
@@ -130,11 +113,7 @@ export class GameplayTimeService {
     const sortObject: Record<string, 1 | -1> = {};
     if (sort && sort !== '') {
       const dir = (typeof asc === 'string' ? Number(asc) : asc) === 1 ? 1 : -1;
-      if (sort === 'date') {
-        sortObject['createdAt'] = dir;
-      } else {
-        sortObject[sort] = dir;
-      }
+      sortObject[sort === 'date' ? 'createdAt' : sort] = dir;
     } else {
       sortObject.createdAt = -1;
     }
@@ -179,9 +158,7 @@ export class GameplayTimeService {
         orConds.push({ gameplay: numeric as any });
         orConds.push({ table: numeric as any });
       }
-      if (orConds.length) {
-        filter.$or = orConds;
-      }
+      if (orConds.length) filter.$or = orConds;
     }
 
     try {
@@ -223,12 +200,7 @@ export class GameplayTimeService {
 
   async findById(id: string): Promise<GameplayTime> {
     const gameplayTimeRecord = await this.gameplayTimeModel.findById(id);
-    if (!gameplayTimeRecord) {
-      throw new HttpException(
-        'Gameplay time record not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    assertFound(gameplayTimeRecord, 'Gameplay time record not found');
     return gameplayTimeRecord;
   }
 
@@ -251,66 +223,36 @@ export class GameplayTimeService {
     id: string,
     updateGameplayTimeDto: UpdateGameplayTimeDto,
   ): Promise<GameplayTime> {
-    try {
+    return wrapHttpException(async () => {
       const updatedGameplayTime =
         await this.gameplayTimeModel.findByIdAndUpdate(
           id,
           updateGameplayTimeDto,
           { new: true },
         );
-
-      if (!updatedGameplayTime) {
-        throw new HttpException(
-          'Gameplay time record not found',
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      assertFound(updatedGameplayTime, 'Gameplay time record not found');
 
       if (updateGameplayTimeDto.finishHour) {
-        try {
-          const userId = String(extractRefId(updatedGameplayTime.user));
-          const user = await this.userService.findById(userId);
-          if (user) {
-            await this.activityService.addActivity(
-              user,
-              ActivityType.FINISH_GAMEPLAY_TIME,
-              (updatedGameplayTime.toObject
-                ? updatedGameplayTime.toObject()
-                : updatedGameplayTime) as GameplayTime,
-            );
-          }
-        } catch (activityError) {
-          console.error(
-            'Failed to add finish gameplay time activity:',
-            activityError,
-          );
-        }
+        await tryAddActivity(
+          this.activityService,
+          this.userService,
+          updatedGameplayTime.user,
+          ActivityType.FINISH_GAMEPLAY_TIME,
+          toPlainObject(updatedGameplayTime),
+          'finish gameplay time',
+        );
       }
 
       this.websocketGateway.emitGameplayTimeChanged();
       return updatedGameplayTime;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to update gameplay time record',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    }, 'Failed to update gameplay time record');
   }
 
   async delete(id: string): Promise<GameplayTime> {
     const deletedGameplayTime = await this.gameplayTimeModel.findByIdAndDelete(
       id,
     );
-    if (!deletedGameplayTime) {
-      throw new HttpException(
-        'Gameplay time record not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
+    assertFound(deletedGameplayTime, 'Gameplay time record not found');
     this.websocketGateway.emitGameplayTimeChanged();
     return deletedGameplayTime;
   }
