@@ -183,9 +183,8 @@ export class AccountingService {
     user: User | undefined,
     page: string,
   ): Promise<Product[]> {
-    const userRoleId = this.extractUserRoleId(user);
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
-      userRoleId,
+      user,
       page,
     );
     if (forbiddenExpenseTypeIds.length === 0) return products;
@@ -554,9 +553,8 @@ export class AccountingService {
 
   // Services
   async findAllServices(user?: User) {
-    const userRoleId = this.extractUserRoleId(user);
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
-      userRoleId,
+      user,
       'service',
     );
     if (forbiddenExpenseTypeIds.length === 0) {
@@ -1084,9 +1082,8 @@ export class AccountingService {
       : brand
         ? 'brand-expense'
         : 'expense';
-    const userRoleId = this.extractUserRoleId(user);
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
-      userRoleId,
+      user,
       expensePageKey,
     );
     // Combine user-requested expenseType filter and role-based restriction
@@ -4334,9 +4331,10 @@ export class AccountingService {
   }
 
   private async getForbiddenExpenseTypeIds(
-    userRoleId: number | null,
+    user: User | undefined,
     page: string,
   ): Promise<ExpenseTypeId[]> {
+    const userRoleId = this.extractUserRoleId(user);
     const restrictedExpenseTypes = await this.expenseTypeModel.find({
       isRoleRestricted: true,
     });
