@@ -2297,6 +2297,260 @@ export class OrderService {
     }
   }
 
+  async cancelTrendyolOrder(
+    user: User,
+    trendyolLineItemId: string,
+    quantity: number,
+  ) {
+    const session = await this.conn.startSession();
+
+    let postCommitData: {
+      cancelledOrder: Order;
+      populatedItem: Order['item'];
+      stockLocation: Order['stockLocation'];
+      ordersToEmit: Order[];
+      collectionsToEmit: any[];
+    } | null = null;
+
+    try {
+      await session.withTransaction(async () => {
+        const order = await this.orderModel
+          .findOne({ trendyolLineItemId }, null, { session })
+          .populate('item');
+
+        if (!order) {
+          throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+        }
+
+        const collection = await this.collectionModel.findOne(
+          { trendyolShipmentPackageId: order.trendyolShipmentPackageId },
+          null,
+          { session },
+        );
+
+        if (!collection) {
+          throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
+        }
+
+        if (order.status === OrderStatus.CANCELLED) {
+          throw new HttpException(
+            'Order is already cancelled',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        if (collection.status === OrderCollectionStatus.CANCELLED) {
+          throw new HttpException(
+            'Collection is already cancelled',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        if (quantity > order.quantity) {
+          throw new HttpException(
+            'Cancel quantity cannot exceed order quantity',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const cancelledAt = new Date();
+        const cancelledAmount = order.unitPrice * quantity;
+        const isPartialCancel = order.quantity !== quantity;
+        const isLastOrderInCollection = collection.orders.length <= 1;
+
+        const ordersToEmit: Order[] = [];
+        const collectionsToEmit: any[] = [];
+        let cancelledOrder: Order;
+
+        if (isPartialCancel) {
+          const remainingQuantity = order.quantity - quantity;
+          const orderWithoutId = order.toObject();
+          delete orderWithoutId._id;
+          delete orderWithoutId.trendyolLineItemId;
+
+          [cancelledOrder] = await this.orderModel.create(
+            [
+              {
+                ...orderWithoutId,
+                quantity,
+                paidQuantity: quantity,
+                status: OrderStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+            ],
+            { session },
+          );
+
+          await this.orderModel.findByIdAndUpdate(
+            order._id,
+            { $set: { quantity: remainingQuantity, paidQuantity: remainingQuantity } },
+            { new: true, session },
+          );
+
+          if (isLastOrderInCollection) {
+            const [newCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: order._id, paidQuantity: remainingQuantity }],
+                  amount: collection.amount - cancelledAmount,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(newCollection);
+
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                amount: cancelledAmount,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+              { new: true, session },
+            );
+          } else {
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                $pull: { orders: { order: order._id } },
+                $inc: { amount: -cancelledAmount },
+              },
+              { new: true, session },
+            );
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+              },
+              { new: true, session },
+            );
+
+            const [cancelledCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                  amount: cancelledAmount,
+                  status: OrderCollectionStatus.CANCELLED,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(cancelledCollection);
+          }
+
+          ordersToEmit.push(order.toObject() as Order, cancelledOrder);
+        } else {
+          cancelledOrder = await this.orderModel.findByIdAndUpdate(
+            order._id,
+            {
+              $set: {
+                status: OrderStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+              $unset: {
+                trendyolCustomer: '',
+                isTrendyolCustomerPicked: '',
+              },
+            },
+            { new: true, session },
+          );
+
+          if (isLastOrderInCollection) {
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                cancelledAt,
+                cancelledBy: user._id,
+              },
+              { new: true, session },
+            );
+          } else {
+            await this.collectionModel.findByIdAndUpdate(
+              collection._id,
+              {
+                $pull: { orders: { order: order._id } },
+                $inc: { amount: -cancelledAmount },
+              },
+              { new: true, session },
+            );
+
+            const [cancelledCollection] = await this.collectionModel.create(
+              [
+                {
+                  ...collection.toObject(),
+                  _id: undefined,
+                  orders: [{ order: order._id, paidQuantity: quantity }],
+                  amount: cancelledAmount,
+                  status: OrderCollectionStatus.CANCELLED,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+              ],
+              { session },
+            );
+            collectionsToEmit.push(cancelledCollection);
+          }
+
+          ordersToEmit.push(cancelledOrder);
+        }
+
+        postCommitData = {
+          cancelledOrder,
+          populatedItem: order.item,
+          stockLocation: order.stockLocation,
+          ordersToEmit,
+          collectionsToEmit,
+        };
+      });
+
+      if (postCommitData) {
+        const { ordersToEmit, collectionsToEmit, cancelledOrder } = postCommitData;
+
+        this.websocketGateway.emitOrderUpdated(ordersToEmit);
+        for (const col of collectionsToEmit) {
+          this.websocketGateway.emitCollectionChanged(col);
+        }
+
+        if (isPopulatedMenuItem(postCommitData.populatedItem)) {
+          for (const ingredient of postCommitData.populatedItem.itemProduction) {
+            if (ingredient?.isDecrementStock) {
+              await this.accountingService.createStock(user, {
+                product: ingredient?.product,
+                location: postCommitData.stockLocation,
+                quantity: ingredient?.quantity * quantity,
+                status: StockHistoryStatusEnum.TRENDYOLORDERCANCEL,
+              });
+            }
+          }
+        }
+
+        return cancelledOrder;
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error('Error cancelling trendyol order:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to cancel order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await session.endSession();
+    }
+  }
+
   async updateMultipleOrders(
     user: User,
     ids: number[],

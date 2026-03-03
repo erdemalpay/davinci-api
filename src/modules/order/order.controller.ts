@@ -17,6 +17,7 @@ import { Discount } from './discount.schema';
 import {
   CancelIkasOrderDto,
   CancelShopifyOrderDto,
+  CancelTrendyolOrderDto,
   CreateCollectionDto,
   CreateDiscountDto,
   CreateOrderDto,
@@ -241,6 +242,17 @@ export class OrderController {
     return this.orderService.cancelShopifyOrder(
       user,
       payload.shopifyOrderLineItemId,
+      payload.quantity,
+    );
+  }
+  @Post('/cancel-trendyol-order')
+  cancelTrendyolOrder(
+    @ReqUser() user: User,
+    @Body() payload: CancelTrendyolOrderDto,
+  ) {
+    return this.orderService.cancelTrendyolOrder(
+      user,
+      payload.trendyolLineItemId,
       payload.quantity,
     );
   }

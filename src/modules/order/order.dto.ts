@@ -549,3 +549,11 @@ export class CancelShopifyOrderDto {
   @IsNumber()
   quantity: number;
 }
+
+export class CancelTrendyolOrderDto {
+  @IsString()
+  trendyolLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
