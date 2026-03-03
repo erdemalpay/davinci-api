@@ -79,6 +79,24 @@ import { Vendor } from './vendor.schema';
 
 const path = require('path');
 
+type RoleId = number;
+
+type ExpenseTypeId = string;
+
+type StockLocationId = number;
+
+interface RollbackInfo {
+  expenseId?: unknown;
+  paymentId?: unknown;
+  stockDelta?: number;
+  stockId?: string;
+  stockHistoryId?: unknown;
+}
+
+type BulkCreateExpenseError<TDto> = TDto & {
+  errorNote: string;
+};
+
 @Injectable()
 export class AccountingService {
   private readonly logger = new Logger(AccountingService.name);
@@ -127,13 +145,13 @@ export class AccountingService {
   ) {}
   //   Products
   async findAllProducts(user?: User) {
-    let products: any[] | undefined;
+    let products: Product[] | undefined;
     try {
       const redisProducts = await this.redisService.get(
         RedisKeys.AccountingProducts,
       );
       if (redisProducts) {
-        products = redisProducts as any[];
+        products = redisProducts as Product[];
       }
     } catch (error) {
       this.logger.error('Failed to retrieve all products from Redis:', error);
@@ -161,10 +179,10 @@ export class AccountingService {
   }
 
   private async applyProductRoleFilter(
-    products: any[],
+    products: Product[],
     user: User | undefined,
     page: string,
-  ): Promise<any[]> {
+  ): Promise<Product[]> {
     const userRoleId = this.extractUserRoleId(user);
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
       userRoleId,
@@ -944,7 +962,7 @@ export class AccountingService {
         );
       }
     }
-    const match: Record<string, any> = {};
+    const match: Record<string, unknown> = {};
     match.invoice = null;
     match.serviceInvoice = null;
     if (startDate && before) {
@@ -1260,7 +1278,8 @@ export class AccountingService {
     user: User,
     createExpenseDto: CreateMultipleExpenseDto[],
   ) {
-    const errorDatas: Array<any> = [];
+    const errorDatas: Array<BulkCreateExpenseError<CreateMultipleExpenseDto>> =
+      [];
     let anySuccess = false;
 
     for (const expenseDto of createExpenseDto) {
@@ -1350,13 +1369,7 @@ export class AccountingService {
           );
         }
 
-        const rollback: {
-          expenseId?: any;
-          paymentId?: any;
-          stockDelta?: number;
-          stockId?: string;
-          stockHistoryId?: any;
-        } = {};
+        const rollback: RollbackInfo = {};
 
         const expense = await this.expenseModel.create({
           date: adjustedDate,
@@ -1375,7 +1388,7 @@ export class AccountingService {
           type,
           isAfterCount: isAfterCount ?? true,
           isStockIncrement:
-            (isStockIncrement as any) === 'true' || isStockIncrement === true,
+            String(isStockIncrement) === 'true' || isStockIncrement === true,
           user: user._id,
         });
         rollback.expenseId = expense._id;
@@ -1494,23 +1507,23 @@ export class AccountingService {
         anySuccess = true;
       } catch (e) {
         try {
-          if ((e as any)?.rollback?.paymentId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.paymentId) {
             await this.paymentModel.findByIdAndDelete(
-              (e as any).rollback.paymentId,
+              (e as { rollback?: RollbackInfo }).rollback?.paymentId,
             );
           }
         } catch {}
 
         try {
-          if ((e as any)?.rollback?.stockHistoryId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.stockHistoryId) {
             await this.productStockHistoryModel.findByIdAndDelete(
-              (e as any).rollback.stockHistoryId,
+              (e as { rollback?: RollbackInfo }).rollback?.stockHistoryId,
             );
           }
         } catch {}
 
         try {
-          const rb = (e as any)?.rollback;
+          const rb = (e as { rollback?: RollbackInfo })?.rollback;
           if (rb?.stockId && rb?.stockDelta) {
             await this.stockModel.findByIdAndUpdate(
               rb.stockId,
@@ -1521,16 +1534,16 @@ export class AccountingService {
         } catch {}
 
         try {
-          if ((e as any)?.rollback?.expenseId) {
+          if ((e as { rollback?: RollbackInfo })?.rollback?.expenseId) {
             await this.expenseModel.findByIdAndDelete(
-              (e as any).rollback.expenseId,
+              (e as { rollback?: RollbackInfo }).rollback?.expenseId,
             );
           }
         } catch {}
 
         errorDatas.push({
           ...expenseDto,
-          errorNote: (e as any)?.message || 'Error occurred',
+          errorNote: (e as { message?: string })?.message || 'Error occurred',
         });
       }
     }
@@ -1954,7 +1967,7 @@ export class AccountingService {
 
   async findQueryStocks(user: User, query: StockQueryDto) {
     const { after, location } = query;
-    const filterQuery = {};
+    const filterQuery: Record<string, unknown> = {};
     if (after) {
       filterQuery['createdAt'] = { $gte: new Date(after) };
     }
@@ -2006,17 +2019,12 @@ export class AccountingService {
 
       const calculateStockValueAtDate = async (targetDate: Date) => {
         // Build match conditions
-        const stockMatch: any = {};
+        const stockMatch: Partial<Record<'location', StockLocationId>> = {};
         if (stockLocation) {
-          stockMatch.location = stockLocation;
+          stockMatch.location = stockLocation as StockLocationId;
         }
 
-        const historyMatch: any = {
-          createdAt: { $gte: targetDate },
-        };
-        if (stockLocation) {
-          historyMatch.location = stockLocation;
-        }
+        // NOTE: historyMatch was unused; removed to keep types strict.
 
         // Aggregation pipeline to calculate stock value
         const result = await this.stockModel.aggregate([
@@ -3070,10 +3078,10 @@ export class AccountingService {
       search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
-    const productArray = product ? (product as any).split(',') : [];
-    const statusArray = status ? (status as any).split(',') : [];
+    const productArray = product ? String(product).split(',') : [];
+    const statusArray = status ? String(status).split(',') : [];
     const categoryArray = category
-      ? (category as any).split(',').map(Number)
+      ? String(category).split(',').map(Number)
       : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
@@ -3100,7 +3108,7 @@ export class AccountingService {
     }
 
     // Date filtering logic
-    const matchFilter: any = {};
+    const matchFilter: Record<string, unknown> = {};
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);
@@ -3108,7 +3116,7 @@ export class AccountingService {
       end.setHours(23, 59, 59, 999);
       matchFilter.createdAt = { $gte: start, $lte: end };
     } else {
-      const rangeFilter: Record<string, any> = {};
+      const rangeFilter: Record<string, unknown> = {};
       if (after) {
         const start = this.parseLocalDate(after);
         rangeFilter.$gte = start;
@@ -3249,10 +3257,10 @@ export class AccountingService {
       search,
     } = filter;
     const skip = (pageNum - 1) * limitNum;
-    const productArray = product ? (product as any).split(',') : [];
-    const statusArray = status ? (status as any).split(',') : [];
+    const productArray = product ? String(product).split(',') : [];
+    const statusArray = status ? String(status).split(',') : [];
     const categoryArray = category
-      ? (category as any).split(',').map(Number)
+      ? String(category).split(',').map(Number)
       : [];
     const sortObject = {};
     const regexSearch = search ? new RegExp(usernamify(search), 'i') : null;
@@ -3280,7 +3288,7 @@ export class AccountingService {
     }
 
     // Date filtering logic
-    const matchFilter: any = {};
+    const matchFilter: Record<string, unknown> = {};
     if (date && dateRanges[date]) {
       const { after: dAfter, before: dBefore } = dateRanges[date]();
       const start = this.parseLocalDate(dAfter);
@@ -3288,7 +3296,7 @@ export class AccountingService {
       end.setHours(23, 59, 59, 999);
       matchFilter.createdAt = { $gte: start, $lte: end };
     } else {
-      const rangeFilter: Record<string, any> = {};
+      const rangeFilter: Record<string, unknown> = {};
       if (after) {
         const start = this.parseLocalDate(after);
         rangeFilter.$gte = start;
@@ -4305,7 +4313,7 @@ export class AccountingService {
   private buildExpenseTypeMatchCondition(
     expenseType: string | undefined,
     forbiddenExpenseTypeIds: string[],
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     if (expenseType && forbiddenExpenseTypeIds.length > 0) {
       return forbiddenExpenseTypeIds.includes(expenseType)
         ? { expenseType: { $in: [] } }
@@ -4321,14 +4329,14 @@ export class AccountingService {
     const role = user?.role;
     if (!user || !role) return null;
     return typeof role === 'object' && role !== null
-      ? (role as any)._id
-      : (role as unknown as number);
+      ? ((role as { _id?: RoleId })._id ?? null)
+      : (role as unknown as RoleId);
   }
 
   private async getForbiddenExpenseTypeIds(
     userRoleId: number | null,
     page: string,
-  ): Promise<any[]> {
+  ): Promise<ExpenseTypeId[]> {
     const restrictedExpenseTypes = await this.expenseTypeModel.find({
       isRoleRestricted: true,
     });

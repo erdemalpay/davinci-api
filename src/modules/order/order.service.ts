@@ -2045,7 +2045,7 @@ export class OrderService {
       populatedItem: Order['item'];
       stockLocation: Order['stockLocation'];
       ordersToEmit: Order[];
-      collectionsToEmit: any[];
+      collectionsToEmit: Collection[];
     } | null = null;
 
     try {
@@ -2093,7 +2093,7 @@ export class OrderService {
         const isLastOrderInCollection = collection.orders.length <= 1;
 
         const ordersToEmit: Order[] = [];
-        const collectionsToEmit: any[] = [];
+        const collectionsToEmit: Collection[] = [];
         let cancelledOrder: Order;
 
         if (isPartialCancel) {
