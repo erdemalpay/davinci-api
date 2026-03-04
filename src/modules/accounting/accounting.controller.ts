@@ -476,6 +476,12 @@ export class AccountingController {
   findProductExpenses(@Query('product') product: string) {
     return this.accountingService.findProductExpenses(product);
   }
+
+  @Get('/game-batches')
+  getGameBatches(@Query('location') location?: number) {
+    return this.accountingService.getGameBatchesWithFIFO(location);
+  }
+
   // Stocks
   @Get('/stocks')
   getStock() {
@@ -561,19 +567,19 @@ export class AccountingController {
     return this.accountingService.consumptStock(user, consumptStockDto);
   }
 
-  @Post('/stocks/notify-back-in-stock')
-  notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
-    return this.accountingService.notifyBackInStockSubscribers(
-      payload.menuItemId,
-    );
-  }
+  // @Post('/stocks/notify-back-in-stock')
+  // notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
+  //   return this.accountingService.notifyBackInStockSubscribers(
+  //     payload.menuItemId,
+  //   );
+  // }
 
-  @Post('/stocks/notify-back-in-stock-bulk')
-  notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
-    return this.accountingService.notifyBackInStockSubscribersBulk(
-      payload.menuItemIds,
-    );
-  }
+  // @Post('/stocks/notify-back-in-stock-bulk')
+  // notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
+  //   return this.accountingService.notifyBackInStockSubscribersBulk(
+  //     payload.menuItemIds,
+  //   );
+  // }
 
   // Product Stock History
   @Get('/product-stock-histories')

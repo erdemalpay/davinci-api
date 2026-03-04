@@ -56,6 +56,7 @@ import {
   ExpenseTypes,
   ExpenseWithoutPaginateFilterType,
   ExpenseWithPaginateFilterType,
+  GameExpenseType,
   JoinProductDto,
   PaymentDateFilter,
   StockHistoryFilter,
@@ -1080,8 +1081,8 @@ export class AccountingService {
     const expensePageKey = vendor
       ? 'vendor-expense'
       : brand
-        ? 'brand-expense'
-        : 'expense';
+      ? 'brand-expense'
+      : 'expense';
     const forbiddenExpenseTypeIds = await this.getForbiddenExpenseTypeIds(
       user,
       expensePageKey,
@@ -3481,7 +3482,176 @@ export class AccountingService {
     return productStockHistory;
   }
 
-  // countlist
+  async getGameBatchesWithFIFO(location?: number) {
+    const gameProducts = await this.productModel
+      .find({
+        expenseType: GameExpenseType,
+      })
+      .select('_id')
+      .exec();
+
+    if (!gameProducts?.length) return [];
+
+    const productIds = gameProducts.map((p) => p._id);
+
+    const batchStarts = await this.productStockHistoryModel
+      .find({
+        product: { $in: productIds },
+        status: {
+          $in: [
+            StockHistoryStatusEnum.EXPENSEENTRY,
+            StockHistoryStatusEnum.STOCKENTRY,
+          ],
+        },
+        change: { $gt: 0 },
+        ...(location && { location }),
+      })
+      .sort({ createdAt: 1, _id: 1 })
+      .exec();
+
+    if (!batchStarts?.length) return [];
+
+    const allStockHistory = await this.productStockHistoryModel
+      .find({
+        product: { $in: productIds },
+        ...(location && { location }),
+      })
+      .sort({ createdAt: 1, _id: 1 })
+      .exec();
+
+    const batchStartsByProduct = new Map<string, any[]>();
+    for (const batch of batchStarts) {
+      const productId = batch.product;
+      if (!batchStartsByProduct.has(productId)) {
+        batchStartsByProduct.set(productId, []);
+      }
+      batchStartsByProduct.get(productId)!.push(batch);
+    }
+
+    const stockHistoryByProduct = new Map<string, any[]>();
+    for (const sh of allStockHistory) {
+      const productId = sh.product;
+      if (!stockHistoryByProduct.has(productId)) {
+        stockHistoryByProduct.set(productId, []);
+      }
+      stockHistoryByProduct.get(productId)!.push(sh);
+    }
+
+    const batches: any[] = [];
+    const today = new Date();
+
+    for (const [
+      productId,
+      batchStartEntries,
+    ] of batchStartsByProduct.entries()) {
+      const stockHistory = stockHistoryByProduct.get(productId) || [];
+
+      const stockMovements = stockHistory
+        .filter((sh) => {
+          if (
+            (sh.status === StockHistoryStatusEnum.EXPENSEENTRY ||
+              sh.status === StockHistoryStatusEnum.STOCKENTRY) &&
+            sh.change > 0
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .map((sh) => ({
+          date: new Date(sh.createdAt),
+          change: sh.change,
+          isIncrease: sh.change > 0,
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      let movementIndex = 0;
+      let carriedOverReduction = 0;
+      let carriedOverReductionDate: Date | null = null;
+
+      for (let i = 0; i < batchStartEntries.length; i++) {
+        const batchStart = batchStartEntries[i];
+
+        const purchasedQty = Math.abs(batchStart.change);
+        const purchaseDate = new Date(batchStart.createdAt);
+        let batchRemaining = purchasedQty;
+        let batchEndDate: Date | null = null;
+
+        if (carriedOverReduction > 0 && carriedOverReductionDate) {
+          const consumedFromCarryOver = Math.min(
+            batchRemaining,
+            carriedOverReduction,
+          );
+          batchRemaining -= consumedFromCarryOver;
+          carriedOverReduction -= consumedFromCarryOver;
+
+          batchEndDate = new Date(carriedOverReductionDate);
+
+          if (carriedOverReduction === 0) {
+            carriedOverReductionDate = null;
+            movementIndex++;
+          }
+        }
+
+        while (
+          movementIndex < stockMovements.length &&
+          stockMovements[movementIndex].date < purchaseDate
+        ) {
+          movementIndex++;
+        }
+
+        while (movementIndex < stockMovements.length && batchRemaining > 0) {
+          const movement = stockMovements[movementIndex];
+
+          if (movement.isIncrease) {
+            batchRemaining += movement.change;
+            batchEndDate = new Date(movement.date);
+            movementIndex++;
+          } else {
+            const reductionQty = Math.abs(movement.change);
+
+            if (reductionQty <= batchRemaining) {
+              batchRemaining -= reductionQty;
+              batchEndDate = new Date(movement.date);
+              movementIndex++;
+            } else {
+              const consumed = batchRemaining;
+              batchRemaining = 0;
+              batchEndDate = new Date(movement.date);
+              carriedOverReduction = reductionQty - consumed;
+              carriedOverReductionDate = new Date(movement.date);
+            }
+          }
+        }
+
+        const displayEndDate =
+          batchRemaining === 0 && batchEndDate ? batchEndDate : today;
+
+        const durationMs = displayEndDate.getTime() - purchaseDate.getTime();
+        const durationDays = Math.max(
+          1,
+          Math.ceil(durationMs / (1000 * 60 * 60 * 24)),
+        );
+
+        const consumed = purchasedQty - batchRemaining;
+        const avgSalesPerDay = consumed > 0 ? consumed / durationDays : 0;
+
+        batches.push({
+          productId,
+          purchasedQuantity: purchasedQty,
+          startDate: format(purchaseDate, 'yyyy-MM-dd'),
+          endDate: format(displayEndDate, 'yyyy-MM-dd'),
+          duration: durationDays,
+          averageSalesPerDay: parseFloat(avgSalesPerDay.toFixed(2)),
+          remainingQuantity: batchRemaining,
+          purchaseDate: format(purchaseDate, 'yyyy-MM-dd'),
+          stockHistoryId: batchStart._id,
+        });
+      }
+    }
+
+    return batches;
+  }
+
   async createCountList(createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);
@@ -4326,7 +4496,7 @@ export class AccountingService {
     const role = user?.role;
     if (!user || !role) return null;
     return typeof role === 'object' && role !== null
-      ? ((role as { _id?: RoleId })._id ?? null)
+      ? (role as { _id?: RoleId })._id ?? null
       : (role as unknown as RoleId);
   }
 
