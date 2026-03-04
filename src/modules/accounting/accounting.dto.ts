@@ -194,6 +194,23 @@ export enum ExpenseTypes {
   NONSTOCKABLE = 'NONSTOCKABLE',
 }
 
+// Game expense type constant
+export const GameExpenseType = 'oys';
+
+// DTO for game batch tracking
+export class GameBatchDto {
+  game: string;
+  productId: string;
+  quantity: number;
+  startDate: string;
+  endDate: string | null;
+  duration: number;
+  averageSalesPerDay: number;
+  remainingQuantity: number;
+  purchaseDate: string;
+  expenseId: number;
+}
+
 export class CreateServiceInvoiceDto {
   service: string;
   expenseType: string;

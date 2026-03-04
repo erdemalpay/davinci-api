@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import {
@@ -476,6 +477,13 @@ export class AccountingController {
   findProductExpenses(@Query('product') product: string) {
     return this.accountingService.findProductExpenses(product);
   }
+
+  @Public()
+  @Get('/game-batches')
+  getGameBatches(@Query('location') location?: number) {
+    return this.accountingService.getGameBatchesWithFIFO(location);
+  }
+
   // Stocks
   @Get('/stocks')
   getStock() {
@@ -561,19 +569,19 @@ export class AccountingController {
     return this.accountingService.consumptStock(user, consumptStockDto);
   }
 
-  @Post('/stocks/notify-back-in-stock')
-  notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
-    return this.accountingService.notifyBackInStockSubscribers(
-      payload.menuItemId,
-    );
-  }
+  // @Post('/stocks/notify-back-in-stock')
+  // notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
+  //   return this.accountingService.notifyBackInStockSubscribers(
+  //     payload.menuItemId,
+  //   );
+  // }
 
-  @Post('/stocks/notify-back-in-stock-bulk')
-  notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
-    return this.accountingService.notifyBackInStockSubscribersBulk(
-      payload.menuItemIds,
-    );
-  }
+  // @Post('/stocks/notify-back-in-stock-bulk')
+  // notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
+  //   return this.accountingService.notifyBackInStockSubscribersBulk(
+  //     payload.menuItemIds,
+  //   );
+  // }
 
   // Product Stock History
   @Get('/product-stock-histories')
