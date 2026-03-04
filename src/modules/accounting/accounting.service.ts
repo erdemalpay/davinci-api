@@ -3483,7 +3483,6 @@ export class AccountingService {
   }
 
   async getGameBatchesWithFIFO(location?: number) {
-    // First, get all products with the specified expense type
     const gameProducts = await this.productModel
       .find({
         expenseType: GameExpenseType,
@@ -3495,7 +3494,6 @@ export class AccountingService {
 
     const productIds = gameProducts.map((p) => p._id);
 
-    // Get all stock history entries that mark batch starts (EXPENSEENTRY or STOCKENTRY)
     const batchStarts = await this.productStockHistoryModel
       .find({
         product: { $in: productIds },
@@ -3505,7 +3503,7 @@ export class AccountingService {
             StockHistoryStatusEnum.STOCKENTRY,
           ],
         },
-        change: { $gt: 0 }, // Only positive entries
+        change: { $gt: 0 },
         ...(location && { location }),
       })
       .sort({ createdAt: 1, _id: 1 })
@@ -3513,7 +3511,6 @@ export class AccountingService {
 
     if (!batchStarts?.length) return [];
 
-    // Get all stock history for these products (for FIFO processing)
     const allStockHistory = await this.productStockHistoryModel
       .find({
         product: { $in: productIds },
@@ -3522,7 +3519,6 @@ export class AccountingService {
       .sort({ createdAt: 1, _id: 1 })
       .exec();
 
-    // Group by product
     const batchStartsByProduct = new Map<string, any[]>();
     for (const batch of batchStarts) {
       const productId = batch.product;
@@ -3550,10 +3546,8 @@ export class AccountingService {
     ] of batchStartsByProduct.entries()) {
       const stockHistory = stockHistoryByProduct.get(productId) || [];
 
-      // Get all stock movements excluding the batch start entries themselves
       const stockMovements = stockHistory
         .filter((sh) => {
-          // Exclude the EXPENSEENTRY and STOCKENTRY that are batch starts (positive changes only)
           if (
             (sh.status === StockHistoryStatusEnum.EXPENSEENTRY ||
               sh.status === StockHistoryStatusEnum.STOCKENTRY) &&
@@ -3582,7 +3576,6 @@ export class AccountingService {
         let batchRemaining = purchasedQty;
         let batchEndDate: Date | null = null;
 
-        // Apply carried-over reduction from previous batch
         if (carriedOverReduction > 0 && carriedOverReductionDate) {
           const consumedFromCarryOver = Math.min(
             batchRemaining,
@@ -3599,7 +3592,6 @@ export class AccountingService {
           }
         }
 
-        // Skip movements that occurred before this purchase
         while (
           movementIndex < stockMovements.length &&
           stockMovements[movementIndex].date < purchaseDate
@@ -3607,17 +3599,14 @@ export class AccountingService {
           movementIndex++;
         }
 
-        // Process all movements after the purchase date
         while (movementIndex < stockMovements.length && batchRemaining > 0) {
           const movement = stockMovements[movementIndex];
 
           if (movement.isIncrease) {
-            // Positive change: increase the batch quantity
             batchRemaining += movement.change;
             batchEndDate = new Date(movement.date);
             movementIndex++;
           } else {
-            // Negative change: decrease the batch quantity
             const reductionQty = Math.abs(movement.change);
 
             if (reductionQty <= batchRemaining) {
@@ -3625,7 +3614,6 @@ export class AccountingService {
               batchEndDate = new Date(movement.date);
               movementIndex++;
             } else {
-              // This reduction consumes the entire batch and carries over
               const consumed = batchRemaining;
               batchRemaining = 0;
               batchEndDate = new Date(movement.date);
@@ -3664,7 +3652,6 @@ export class AccountingService {
     return batches;
   }
 
-  // countlist
   async createCountList(createCountListDto: CreateCountListDto) {
     const countList = new this.countListModel(createCountListDto);
     countList._id = usernamify(countList.name);

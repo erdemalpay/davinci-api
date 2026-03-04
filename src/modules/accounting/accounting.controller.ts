@@ -9,7 +9,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import {
@@ -478,7 +477,6 @@ export class AccountingController {
     return this.accountingService.findProductExpenses(product);
   }
 
-  @Public()
   @Get('/game-batches')
   getGameBatches(@Query('location') location?: number) {
     return this.accountingService.getGameBatchesWithFIFO(location);
