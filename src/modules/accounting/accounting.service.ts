@@ -3494,23 +3494,7 @@ export class AccountingService {
 
     const productIds = gameProducts.map((p) => p._id);
 
-    const batchStarts = await this.productStockHistoryModel
-      .find({
-        product: { $in: productIds },
-        status: {
-          $in: [
-            StockHistoryStatusEnum.EXPENSEENTRY,
-            StockHistoryStatusEnum.STOCKENTRY,
-          ],
-        },
-        change: { $gt: 0 },
-        ...(location && { location }),
-      })
-      .sort({ createdAt: 1, _id: 1 })
-      .exec();
-
-    if (!batchStarts?.length) return [];
-
+    // Single query to get all stock history
     const allStockHistory = await this.productStockHistoryModel
       .find({
         product: { $in: productIds },
@@ -3519,23 +3503,48 @@ export class AccountingService {
       .sort({ createdAt: 1, _id: 1 })
       .exec();
 
-    const batchStartsByProduct = new Map<string, any[]>();
-    for (const batch of batchStarts) {
-      const productId = batch.product;
-      if (!batchStartsByProduct.has(productId)) {
-        batchStartsByProduct.set(productId, []);
-      }
-      batchStartsByProduct.get(productId)!.push(batch);
-    }
+    if (!allStockHistory?.length) return [];
 
+    // Group by product and determine batch starts based on running stock
+    const batchStartsByProduct = new Map<string, any[]>();
     const stockHistoryByProduct = new Map<string, any[]>();
+    const runningStockByProduct = new Map<string, number>();
+
     for (const sh of allStockHistory) {
       const productId = sh.product;
+
+      // Add to stockHistoryByProduct
       if (!stockHistoryByProduct.has(productId)) {
         stockHistoryByProduct.set(productId, []);
+        runningStockByProduct.set(productId, 0);
       }
       stockHistoryByProduct.get(productId)!.push(sh);
+
+      const currentStock = runningStockByProduct.get(productId)!;
+
+      // Check if this is a batch start
+      if (sh.change > 0) {
+        // EXPENSEENTRY always creates a new batch
+        if (sh.status === StockHistoryStatusEnum.EXPENSEENTRY) {
+          if (!batchStartsByProduct.has(productId)) {
+            batchStartsByProduct.set(productId, []);
+          }
+          batchStartsByProduct.get(productId)!.push(sh);
+        }
+        // Any other positive increase: only create batch if stock <= 0
+        else if (currentStock <= 0) {
+          if (!batchStartsByProduct.has(productId)) {
+            batchStartsByProduct.set(productId, []);
+          }
+          batchStartsByProduct.get(productId)!.push(sh);
+        }
+      }
+
+      // Update running stock
+      runningStockByProduct.set(productId, currentStock + sh.change);
     }
+
+    if (batchStartsByProduct.size === 0) return [];
 
     const batches: any[] = [];
     const today = new Date();
@@ -3546,16 +3555,15 @@ export class AccountingService {
     ] of batchStartsByProduct.entries()) {
       const stockHistory = stockHistoryByProduct.get(productId) || [];
 
+      // Create a Set of batch start IDs for fast lookup
+      const batchStartIds = new Set(
+        batchStartEntries.map((batch) => batch._id.toString()),
+      );
+
       const stockMovements = stockHistory
         .filter((sh) => {
-          if (
-            (sh.status === StockHistoryStatusEnum.EXPENSEENTRY ||
-              sh.status === StockHistoryStatusEnum.STOCKENTRY) &&
-            sh.change > 0
-          ) {
-            return false;
-          }
-          return true;
+          // Exclude entries that are batch starts
+          return !batchStartIds.has(sh._id.toString());
         })
         .map((sh) => ({
           date: new Date(sh.createdAt),
