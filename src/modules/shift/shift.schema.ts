@@ -17,6 +17,9 @@ export class ShiftValues {
   @Prop({ required: false, type: String, ref: User.name })
   chefUser: string;
 
+  @Prop({ required: false, type: String, ref: User.name })
+  middlemanUser: string;
+
   @Prop({ required: false, type: Boolean })
   notInAverage: boolean;
 }
