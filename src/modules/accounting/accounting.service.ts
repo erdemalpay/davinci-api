@@ -1056,6 +1056,7 @@ export class AccountingService {
     let searchedPaymentMethodsIds = [];
     let searchedLocationIds = [];
     let searchedExpenses = [];
+    let searchProductsIds = [];
     if (search) {
       searchedPaymentMethodsIds = await this.paymentMethodModel
         .find({ name: { $regex: new RegExp(search, 'i') } })
@@ -1064,6 +1065,10 @@ export class AccountingService {
       searchedLocationIds = await this.locationService.searchLocationIds(
         search,
       );
+      searchProductsIds = await this.productModel
+        .find({ name: { $regex: new RegExp(search, 'i') } })
+        .select('_id')
+        .then((docs) => docs.map((doc) => doc._id));
       if (Number(search)) {
         searchedExpenses = await this.expenseModel
           .find({
@@ -1115,7 +1120,7 @@ export class AccountingService {
                   { brand: { $regex: regexSearch } },
                   { vendor: { $regex: regexSearch } },
                   { user: { $regex: regexSearch } },
-                  { product: { $regex: regexSearch } },
+                  { product: { $in: searchProductsIds } },
                   { service: { $regex: regexSearch } },
                   { expenseType: { $regex: regexSearch } },
                   { paymentMethod: { $in: searchedPaymentMethodsIds } },
