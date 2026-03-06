@@ -93,6 +93,7 @@ export enum ActivityType {
   SHIFT_CHANGE_REJECTED = 'SHIFT_CHANGE_REJECTED',
   START_MIDDLEMAN = 'START_MIDDLEMAN',
   FINISH_MIDDLEMAN = 'FINISH_MIDDLEMAN',
+  FINISH_MIDDLEMAN_BY_MANAGER = 'FINISH_MIDDLEMAN_BY_MANAGER',
 }
 
 export type ActivityTypePayload = {
@@ -191,6 +192,7 @@ export type ActivityTypePayload = {
   [ActivityType.SHIFT_CHANGE_REJECTED]: ShiftChangeRequest;
   [ActivityType.START_MIDDLEMAN]: Middleman;
   [ActivityType.FINISH_MIDDLEMAN]: Middleman;
+  [ActivityType.FINISH_MIDDLEMAN_BY_MANAGER]: Middleman;
 };
 
 export class ActivityQueryDto {

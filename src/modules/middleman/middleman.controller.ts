@@ -9,6 +9,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import {
   CreateMiddlemanDto,
   MiddlemanQueryDto,
@@ -57,8 +59,13 @@ export class MiddlemanController {
   async update(
     @Param('id') id: string,
     @Body() updateMiddlemanDto: UpdateMiddlemanDto,
+    @ReqUser() user?: User,
   ) {
-    return this.middlemanService.update(id, updateMiddlemanDto);
+    return this.middlemanService.update(
+      id,
+      updateMiddlemanDto,
+      user?._id != null ? String(user._id) : undefined,
+    );
   }
 
   @ApiResponse({ type: Middleman })

@@ -17,6 +17,7 @@ import {
   tryAddActivity,
   wrapHttpException,
 } from 'src/utils/serviceUtils';
+import { extractRefId } from 'src/utils/tsUtils';
 import {
   CreateMiddlemanDto,
   MiddlemanQueryDto,
@@ -131,15 +132,26 @@ export class MiddlemanService {
   async findByLocation(location: number): Promise<Middleman[]> {
     return this.middlemanModel
       .find({ location, finishHour: { $exists: false } })
+      .populate('user', 'name')
       .sort({ date: -1 })
-      .exec();
+      .lean()
+      .exec() as Promise<Middleman[]>;
   }
 
   async findByDate(date: string): Promise<Middleman[]> {
-    return this.middlemanModel.find({ date }).sort({ startHour: 1 }).exec();
+    return this.middlemanModel
+      .find({ date })
+      .populate('user', 'name')
+      .sort({ startHour: 1 })
+      .lean()
+      .exec() as Promise<Middleman[]>;
   }
 
-  async update(id: string, updateDto: UpdateMiddlemanDto): Promise<Middleman> {
+  async update(
+    id: string,
+    updateDto: UpdateMiddlemanDto,
+    requestingUserId?: string,
+  ): Promise<Middleman> {
     return wrapHttpException(async () => {
       const updated = await this.middlemanModel.findByIdAndUpdate(
         id,
@@ -149,14 +161,29 @@ export class MiddlemanService {
       assertFound(updated, 'Middleman record not found');
 
       if (updateDto.finishHour) {
-        await tryAddActivity(
-          this.activityService,
-          this.userService,
-          updated.user,
-          ActivityType.FINISH_MIDDLEMAN,
-          toPlainObject(updated),
-          'finish middleman',
-        );
+        const middlemanUserId = String(extractRefId(updated.user));
+        const closedByOther =
+          requestingUserId && requestingUserId !== middlemanUserId;
+
+        if (closedByOther) {
+          await tryAddActivity(
+            this.activityService,
+            this.userService,
+            requestingUserId,
+            ActivityType.FINISH_MIDDLEMAN_BY_MANAGER,
+            toPlainObject(updated),
+            'finish middleman by manager',
+          );
+        } else {
+          await tryAddActivity(
+            this.activityService,
+            this.userService,
+            updated.user,
+            ActivityType.FINISH_MIDDLEMAN,
+            toPlainObject(updated),
+            'finish middleman',
+          );
+        }
       }
 
       this.websocketGateway.emitMiddlemanChanged();
