@@ -2000,7 +2000,7 @@ export class ShopifyService {
     const startTime = Date.now();
     this.logger.log('Processing Shopify order webhook...');
     this.logger.debug('Webhook data:', data);
-    
+
     let webhookLog: any = null;
     try {
       if (!data) {
@@ -2008,6 +2008,23 @@ export class ShopifyService {
           'Invalid request: Missing data',
           HttpStatus.BAD_REQUEST,
         );
+      }
+
+      // Idempotency lock: aynı Shopify order_id için tekrar işlem yapılmasın.
+      // Shopify timeout durumunda retry yaptığında veya duplicate webhook geldiğinde koruma sağlar.
+      const shopifyOrderId = data?.id?.toString();
+      if (shopifyOrderId) {
+        const lockKey = `${RedisKeys.ShopifyOrderLock}:${shopifyOrderId}`;
+        // SET NX → sadece key yoksa set eder (atomik), varsa null döner
+        const lockAcquired = await this.redisService
+          .getClient()
+          .set(lockKey, '1', 'EX', 300, 'NX'); // 5 dakika TTL
+        if (!lockAcquired) {
+          this.logger.warn(
+            `Duplicate webhook ignored for Shopify order ${shopifyOrderId}`,
+          );
+          return { success: false, message: 'Duplicate webhook ignored' };
+        }
       }
 
       // Log webhook request - await to ensure it's saved before processing

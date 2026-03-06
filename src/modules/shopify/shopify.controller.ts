@@ -102,9 +102,9 @@ export class ShopifyController {
   @Public()
   @Post('/order-create-webhook')
   createOrderWebhook(@Body() data?: any) {
-    this.logger.log(`Received Shopify order webhook, processing in background...`);
-    // Shopify 5 saniyede cevap alamazsa retry yapıyor ve duplike sipariş oluşuyor.
-    // Bu yüzden hemen 200 dönüp işlemi arka planda yapıyoruz.
+    // Shopify 5 sn içinde 200 alamazsa retry yapıyor ve duplike sipariş oluşuyor.
+    // Hemen 200 dönüp işlemi arka planda yapıyoruz.
+    // Duplike koruması service içindeki Redis NX lock ile sağlanıyor.
     this.shopifyService.orderCreateWebHook(data).catch((error) => {
       this.logger.error('Error in order-create-webhook background processing:', error);
     });
