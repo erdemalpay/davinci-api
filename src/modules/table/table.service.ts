@@ -75,9 +75,10 @@ export class TableService {
   }
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
-    // Individual table names: use tableDto.tables if combined, otherwise just name
-    const individualNames =
-      tableDto.tables?.length > 0 ? tableDto.tables : [tableDto.name];
+    // Include both tableDto.name and tableDto.tables to cover all relevant names
+    const individualNames = [
+      ...new Set([tableDto.name, ...(tableDto.tables || [])].filter(Boolean)),
+    ];
 
     const lockValue = `${user._id}-${Date.now()}`;
     const lockKeys = individualNames.map(
@@ -98,20 +99,14 @@ export class TableService {
     }
 
     try {
-      // Check all individual table names for overlap (not just tableDto.name)
-      const tableNamesToCheck =
-        tableDto.tables?.length > 0
-          ? [...tableDto.tables, tableDto.name]
-          : [tableDto.name];
-
       const foundTable = await this.tableModel.findOne({
         location: tableDto.location,
         date: tableDto.date,
         status: { $ne: TableStatus.CANCELLED },
         finishHour: { $exists: false },
         $or: [
-          { name: { $in: tableNamesToCheck } },
-          { tables: { $in: tableNamesToCheck } },
+          { name: { $in: individualNames } },
+          { tables: { $in: individualNames } },
         ],
       });
       if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
