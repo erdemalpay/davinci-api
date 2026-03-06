@@ -2018,7 +2018,7 @@ export class ShopifyService {
         // SET NX → sadece key yoksa set eder (atomik), varsa null döner
         const lockAcquired = await this.redisService
           .getClient()
-          .set(lockKey, '1', 'EX', 300, 'NX'); // 5 dakika TTL
+          .set(lockKey, '1', 'EX', 86400, 'NX'); // 24 saat TTL (Shopify 48h retry yapabilir)
         if (!lockAcquired) {
           this.logger.warn(
             `Duplicate webhook ignored for Shopify order ${shopifyOrderId}`,
@@ -2172,20 +2172,12 @@ export class ShopifyService {
       }> = [];
       let totalAmount = 0;
 
-      // Pre-fetch menu items and check existing orders in parallel
+      // Pre-fetch menu items in parallel (read-only, safe)
       const menuItemPromises = lineItems.map((lineItem) =>
         this.menuService.findByShopifyId(lineItem.product_id?.toString()),
       );
-      const existingOrderPromises = lineItems.map((lineItem) =>
-        this.orderService.findByShopifyOrderLineItemId(
-          lineItem.id?.toString(),
-        ),
-      );
 
-      const [menuItems, existingOrders] = await Promise.all([
-        Promise.all(menuItemPromises),
-        Promise.all(existingOrderPromises),
-      ]);
+      const menuItems = await Promise.all(menuItemPromises);
 
       for (let i = 0; i < lineItems.length; i++) {
         try {
@@ -2209,8 +2201,11 @@ export class ShopifyService {
             continue;
           }
 
-          // Check if this specific line item order already exists
-          const foundShopifyOrder = existingOrders[i];
+          // Check if this specific line item order already exists (fresh DB query)
+          const foundShopifyOrder =
+            await this.orderService.findByShopifyOrderLineItemId(
+              lineItemId?.toString(),
+            );
           if (foundShopifyOrder) {
             this.logger.log(
               `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,

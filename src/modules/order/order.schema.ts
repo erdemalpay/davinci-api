@@ -175,7 +175,7 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   shopifyOrderId: string;
 
-  @Prop({ required: false, type: String })
+  @Prop({ required: false, type: String, unique: true, sparse: true })
   shopifyOrderLineItemId: string;
 
   @Prop({ required: false, type: String })
