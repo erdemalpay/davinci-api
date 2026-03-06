@@ -75,36 +75,70 @@ export class TableService {
   }
 
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
-    const foundTable = await this.tableModel.findOne({
-      location: tableDto.location,
-      date: tableDto.date,
-      status: { $ne: TableStatus.CANCELLED },
-      finishHour: { $exists: false },
-      $or: [{ name: tableDto.name }, { tables: { $in: [tableDto.name] } }],
-    });
-    if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
+    // Individual table names: use tableDto.tables if combined, otherwise just name
+    const individualNames =
+      tableDto.tables?.length > 0 ? tableDto.tables : [tableDto.name];
+
+    const lockValue = `${user._id}-${Date.now()}`;
+    const lockKeys = individualNames.map(
+      (name) => `table_lock:${tableDto.location}:${tableDto.date}:${name}`,
+    );
+
+    const acquired = await this.redisService.acquireTableLocks(
+      lockKeys,
+      lockValue,
+      10,
+    );
+
+    if (!acquired) {
       throw new HttpException(
-        'Table with the same name already exists for the given date and location',
-        HttpStatus.BAD_REQUEST,
+        'Bu masalar şu anda başka bir işlem tarafından kullanılıyor. Lütfen tekrar deneyin.',
+        HttpStatus.CONFLICT,
       );
     }
-    const createdTable = await this.tableModel.create({
-      ...tableDto,
-      createdBy: user._id,
-    });
-    this.activityService.addActivity(
-      user,
-      ActivityType.CREATE_TABLE,
-      createdTable,
-    );
-    // Add auto entry for the table
-    if (
-      tableDto.isAutoEntryAdded &&
-      !tableDto?.isOnlineSale &&
-      tableDto.playerCount > 0
-    ) {
-      const isWeekend = await this.panelControlService.isWeekend();
-      const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+
+    try {
+      // Check all individual table names for overlap (not just tableDto.name)
+      const tableNamesToCheck =
+        tableDto.tables?.length > 0
+          ? [...tableDto.tables, tableDto.name]
+          : [tableDto.name];
+
+      const foundTable = await this.tableModel.findOne({
+        location: tableDto.location,
+        date: tableDto.date,
+        status: { $ne: TableStatus.CANCELLED },
+        finishHour: { $exists: false },
+        $or: [
+          { name: { $in: tableNamesToCheck } },
+          { tables: { $in: tableNamesToCheck } },
+        ],
+      });
+      if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
+        throw new HttpException(
+          'Table with the same name already exists for the given date and location',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const createdTable = await this.tableModel.create({
+        ...tableDto,
+        createdBy: user._id,
+      });
+      this.activityService.addActivity(
+        user,
+        ActivityType.CREATE_TABLE,
+        createdTable,
+      );
+      // Add auto entry for the table
+      if (
+        tableDto.isAutoEntryAdded &&
+        !tableDto?.isOnlineSale &&
+        tableDto.playerCount > 0
+      ) {
+        const isWeekend = await this.panelControlService.isWeekend();
+        const menuItem = await this.menuService.findItemById(
+          isWeekend ? 5 : 113,
+        );
 
       const category = await this.menuService.findCategoryById(
         menuItem.category as number,
@@ -131,7 +165,10 @@ export class TableService {
     }
     this.websocketGateway.emitTableCreated(createdTable);
 
-    return createdTable;
+      return createdTable;
+    } finally {
+      await this.redisService.releaseTableLocks(lockKeys, lockValue);
+    }
   }
 
   async update(user: User, id: number, updates: TableDto) {
