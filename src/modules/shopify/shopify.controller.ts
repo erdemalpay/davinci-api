@@ -101,15 +101,14 @@ export class ShopifyController {
 
   @Public()
   @Post('/order-create-webhook')
-  async createOrderWebhook(@Body() data?: any) {
-    try {
-      let i = 0;
-      this.logger.log(`Received Shopify order webhook data: ${i++}`);
-      return await this.shopifyService.orderCreateWebHook(data);
-    } catch (error) {
-      this.logger.error('Error in order-create-webhook controller:', error);
-      return { success: false, error: error?.message || 'Unknown error' };
-    }
+  createOrderWebhook(@Body() data?: any) {
+    this.logger.log(`Received Shopify order webhook, processing in background...`);
+    // Shopify 5 saniyede cevap alamazsa retry yapıyor ve duplike sipariş oluşuyor.
+    // Bu yüzden hemen 200 dönüp işlemi arka planda yapıyoruz.
+    this.shopifyService.orderCreateWebHook(data).catch((error) => {
+      this.logger.error('Error in order-create-webhook background processing:', error);
+    });
+    return { received: true };
   }
 
   @Public()
