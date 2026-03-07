@@ -678,8 +678,8 @@ export class AccountingController {
 
   // count list
   @Get('/count-list')
-  getCountList() {
-    return this.accountingService.findAllCountLists();
+  getCountList(@ReqUser() user: User) {
+    return this.accountingService.findAllCountLists(user);
   }
 
   @Post('/count-list')
@@ -702,12 +702,13 @@ export class AccountingController {
 
   // count
   @Get('/counts')
-  getCounts() {
-    return this.accountingService.findAllCounts();
+  getCounts(@ReqUser() user: User) {
+    return this.accountingService.findAllCounts(user);
   }
 
   @Get('/counts/query')
   findQueryCounts(
+    @ReqUser() user: User,
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('createdBy') createdBy?: string,
@@ -720,7 +721,7 @@ export class AccountingController {
     @Query('search') search?: string,
     @Query('asc') asc?: number | '1' | '0' | '-1',
   ) {
-    return this.accountingService.findQueryCounts({
+    return this.accountingService.findQueryCounts(user, {
       page,
       limit,
       createdBy,

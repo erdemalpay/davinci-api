@@ -101,3 +101,17 @@ export class UserResponse {
   @ApiProperty()
   settings: UserSettings;
 }
+
+export enum RoleEnum {
+  MANAGER = 1,
+  GAMEMASTER,
+  GAMEMANAGER,
+  OPERATIONSASISTANT,
+  BARISTA,
+  KITCHEN,
+  SERVICE,
+  CLEANING,
+  KITCHEN2,
+  KITCHEN3,
+  BARCHEF,
+}
