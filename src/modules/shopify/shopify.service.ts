@@ -2019,12 +2019,19 @@ export class ShopifyService {
         const lockAcquired = await this.redisService
           .getClient()
           .set(lockKey, '1', 'EX', 86400, 'NX'); // 24 saat TTL (Shopify 48h retry yapabilir)
+        this.logger.log(
+          `[LOCK] Order-level Redis lock for ${shopifyOrderId}: ${lockAcquired ? 'ACQUIRED' : 'ALREADY_EXISTS (duplicate blocked)'}`,
+        );
         if (!lockAcquired) {
           this.logger.warn(
             `Duplicate webhook ignored for Shopify order ${shopifyOrderId}`,
           );
           return { success: false, message: 'Duplicate webhook ignored' };
         }
+      } else {
+        this.logger.warn(
+          `[LOCK] No shopifyOrderId found in webhook data — order-level lock skipped! data.id=${data?.id}`,
+        );
       }
 
       // Log webhook request - await to ensure it's saved before processing
@@ -2200,6 +2207,22 @@ export class ShopifyService {
             this.logger.log(`Menu item not found for productId: ${product_id}`);
             continue;
           }
+
+          // Per-line-item Redis lock: aynı line item'ın birden fazla webhook tarafından
+          // eş zamanlı işlenmesini önler (order-level lock'a ek savunma katmanı).
+          const itemLockKey = `${RedisKeys.ShopifyLineItemLock}:${lineItemId}`;
+          const itemLockAcquired = await this.redisService
+            .getClient()
+            .set(itemLockKey, '1', 'EX', 86400, 'NX');
+          if (!itemLockAcquired) {
+            this.logger.warn(
+              `[LOCK] Line item ${lineItemId} already locked — concurrent webhook detected, skipping.`,
+            );
+            continue;
+          }
+          this.logger.log(
+            `[LOCK] Line item lock acquired for ${lineItemId}`,
+          );
 
           // Check if this specific line item order already exists (fresh DB query)
           const foundShopifyOrder =
