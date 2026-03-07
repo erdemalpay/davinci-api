@@ -20,4 +20,5 @@ export enum RedisKeys {
   Tables = 'tables',
   Shifts = 'shifts',
   ShopifyOrderLock = 'shopify-order-lock',
+  ShopifyLineItemLock = 'shopify-lineitem-lock',
 }
