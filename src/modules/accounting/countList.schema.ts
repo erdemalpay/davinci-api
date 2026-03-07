@@ -29,6 +29,9 @@ export class CountList extends Document {
   @Prop({ required: true, type: [{ type: Number, ref: Location.name }] })
   locations: number[];
 
+  @Prop({ required: true, type: [Number] })
+  permissionRoles: number[];
+
   @Prop([CountListsProduct])
   products: CountListsProduct[];
 }

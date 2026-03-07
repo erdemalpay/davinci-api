@@ -24,6 +24,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { ShopifyService } from '../shopify/shopify.service';
 import { TrendyolService } from '../trendyol/trendyol.service';
+import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
@@ -3670,12 +3671,24 @@ export class AccountingService {
     countList._id = usernamify(countList.name);
     countList.locations = [1, 2];
     countList.active = true;
+    countList.permissionRoles = [1];
     await countList.save();
     this.websocketGateway.emitCountListChanged();
     return countList;
   }
-  findAllCountLists() {
-    return this.countListModel.find();
+  async findAllCountLists(user: User) {
+    // Manager can see all count lists
+    if (user?.role?._id === RoleEnum.MANAGER) {
+      return this.countListModel.find();
+    }
+    // Other roles can only see count lists they have permission for
+    const userRoleId = user?.role?._id;
+    if (!userRoleId) {
+      return [];
+    }
+    return this.countListModel.find({
+      permissionRoles: { $in: [userRoleId] },
+    });
   }
 
   async updateCountList(id: string, updates: UpdateQuery<CountList>) {
@@ -3699,8 +3712,27 @@ export class AccountingService {
     return countList;
   }
   // count
-  findAllCounts() {
-    return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
+  async findAllCounts(user: User) {
+    // Manager can see all counts
+    if (user?.role?._id === RoleEnum.MANAGER) {
+      return this.countModel.find().sort({ isCompleted: 1, completedAt: -1 });
+    }
+    // Other roles can only see counts from count lists they have permission for
+    const userRoleId = user?.role?._id;
+    if (!userRoleId) {
+      return [];
+    }
+    const accessibleCountLists = await this.countListModel
+      .find({ permissionRoles: { $in: [userRoleId] } })
+      .select('_id')
+      .lean();
+    const countListIds = accessibleCountLists.map((cl) => cl._id);
+    if (countListIds.length === 0) {
+      return [];
+    }
+    return this.countModel
+      .find({ countList: { $in: countListIds } })
+      .sort({ isCompleted: 1, completedAt: -1 });
   }
   findCountById(id: string) {
     return this.countModel.findById(id);
@@ -3709,7 +3741,7 @@ export class AccountingService {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
-  async findQueryCounts(query: CountQueryDto) {
+  async findQueryCounts(user, query: CountQueryDto) {
     const {
       page = 1,
       limit = 10,
@@ -3727,6 +3759,49 @@ export class AccountingService {
     const filter: FilterQuery<Count> = {};
     if (createdBy) filter.user = createdBy;
     if (countList) filter.countList = countList;
+
+    // Role-based filtering: non-managers can only see counts from accessible count lists
+    if (user?.role?._id !== RoleEnum.MANAGER) {
+      const userRoleId = user?.role?._id;
+      if (!userRoleId) {
+        return {
+          data: [],
+          totalNumber: 0,
+          totalPages: 0,
+          page: Number(page) || 1,
+          limit: Number(limit) || 10,
+        };
+      }
+      const accessibleCountLists = await this.countListModel
+        .find({ permissionRoles: { $in: [userRoleId] } })
+        .select('_id')
+        .lean();
+      const countListIds = accessibleCountLists.map((cl) => cl._id);
+      if (countListIds.length === 0) {
+        return {
+          data: [],
+          totalNumber: 0,
+          totalPages: 0,
+          page: Number(page) || 1,
+          limit: Number(limit) || 10,
+        };
+      }
+      // If countList filter already specified, ensure it's in accessible list
+      if (filter.countList) {
+        if (!countListIds.includes(filter.countList as string)) {
+          return {
+            data: [],
+            totalNumber: 0,
+            totalPages: 0,
+            page: Number(page) || 1,
+            limit: Number(limit) || 10,
+          };
+        }
+      } else {
+        // Otherwise, restrict to accessible count lists
+        filter.countList = { $in: countListIds } as any;
+      }
+    }
 
     if (location !== undefined && location !== null && `${location}` !== '') {
       const locNum =
