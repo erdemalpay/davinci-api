@@ -90,7 +90,7 @@ export class MenuService {
 
     try {
       const allCategories = await this.categoryModel
-        .find()
+        .find({ isDeleted: { $ne: true } })
         .sort({ order: 'asc' })
         .exec();
 
@@ -145,7 +145,7 @@ export class MenuService {
 
     try {
       const activeCategories = await this.categoryModel
-        .find({ active: true })
+        .find({ active: true, isDeleted: { $ne: true } })
         .sort({ order: 'asc' })
         .exec();
 
@@ -169,7 +169,15 @@ export class MenuService {
     }
   }
   async findAllItems(): Promise<MenuItem[]> {
-    return this.itemModel.find().sort({ order: 'asc' }).exec();
+    const nonDeletedCategories = await this.categoryModel
+      .find({ isDeleted: { $ne: true } })
+      .select('_id')
+      .lean();
+    const categoryIds = nonDeletedCategories.map((cat) => cat._id);
+    return this.itemModel
+      .find({ category: { $in: categoryIds } })
+      .sort({ order: 'asc' })
+      .exec();
   }
   async findAllUndeletedItems() {
     try {
@@ -183,8 +191,14 @@ export class MenuService {
     }
 
     try {
+      const nonDeletedCategories = await this.categoryModel
+        .find({ isDeleted: { $ne: true } })
+        .select('_id')
+        .lean();
+      const categoryIds = nonDeletedCategories.map((cat) => cat._id);
+
       const allItems = await this.itemModel
-        .find({ deleted: { $ne: true } })
+        .find({ deleted: { $ne: true }, category: { $in: categoryIds } })
         .sort({ category: 1, order: 1 })
         .exec();
 
@@ -246,7 +260,11 @@ export class MenuService {
   }
 
   async updateItemField(id: number, fields: Partial<MenuItem>) {
-    return this.itemModel.findByIdAndUpdate(id, { $set: fields }, { new: true });
+    return this.itemModel.findByIdAndUpdate(
+      id,
+      { $set: fields },
+      { new: true },
+    );
   }
 
   async updateIkasItemsIkasIdFields(sendItems: MenuItem[]) {
@@ -437,29 +455,32 @@ export class MenuService {
     return category;
   }
   async removeCategory(id: number) {
-    const itemsWithCategory = await this.itemModel.find({ category: id });
-    if (itemsWithCategory.length > 0) {
-      throw new HttpException('Category has items', HttpStatus.BAD_REQUEST);
+    const deletedCategory = await this.categoryModel.findById(id);
+    if (!deletedCategory) {
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
+
     try {
-      const categories = await this.categoryModel.find();
-      const deletedCategory = categories.find(
-        (category) => category._id.toString() === id.toString(),
+      await this.categoryModel.updateMany(
+        {
+          isDeleted: { $ne: true },
+          order: { $gt: deletedCategory.order },
+        },
+        {
+          $inc: { order: -1 },
+        },
       );
-      categories?.forEach(async (category) => {
-        if (category?.order > deletedCategory?.order) {
-          await this.categoryModel.findByIdAndUpdate(category._id, {
-            order: category?.order - 1,
-          });
-        }
-      });
     } catch (error) {
       throw new HttpException(
         'Problem occured while deleting category',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-    const category = await this.categoryModel.findByIdAndRemove(id);
+    const category = await this.categoryModel.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true },
+    );
     this.websocketGateway.emitCategoryChanged();
     return category;
   }
@@ -469,6 +490,7 @@ export class MenuService {
       ikasId: id,
       deleted: { $ne: true },
     });
+
     return item;
   }
 
