@@ -255,7 +255,7 @@ export class MenuController {
   }
 
   @Delete('/categories/:id')
-  deleteCategory(@ReqUser() @Param('id') id: number) {
+  deleteCategory(@Param('id') id: number) {
     return this.menuService.removeCategory(id);
   }
 

@@ -49,6 +49,9 @@ export class MenuCategory extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   disableWhenOutOfStock: boolean;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isDeleted: boolean;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);
