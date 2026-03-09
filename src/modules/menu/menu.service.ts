@@ -1284,22 +1284,11 @@ export class MenuService {
   }
 
   async removeItem(user: User, id: number) {
-    const itemOrders = await this.orderService.findOrderByItemId(id);
-    if (itemOrders?.length > 0) {
-      throw new HttpException(
-        'Item is already ordered',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const item = await this.itemModel.findById(id);
-    if (item?.matchedProduct) {
-      await this.accountingService.updateItemProduct(
-        user,
-        item.matchedProduct,
-        { matchedMenuItem: null },
-      );
-    }
-    await item.remove();
+    const item = await this.itemModel.findByIdAndUpdate(
+      id,
+      { deleted: true },
+      { new: true },
+    );
     this.websocketGateway.emitItemChanged();
     return item;
   }
