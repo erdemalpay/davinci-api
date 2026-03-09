@@ -2002,6 +2002,7 @@ export class ShopifyService {
     this.logger.debug('Webhook data:', data);
 
     let webhookLog: any = null;
+    let orderLockKey: string | null = null; // hata durumunda serbest bırakmak için try dışında tutuyoruz
     try {
       if (!data) {
         throw new HttpException(
@@ -2028,6 +2029,7 @@ export class ShopifyService {
           );
           return { success: false, message: 'Duplicate webhook ignored' };
         }
+        orderLockKey = lockKey; // başarıyla alındı, hata olursa catch'te serbest bırakacağız
       } else {
         this.logger.warn(
           `[LOCK] No shopifyOrderId found in webhook data — order-level lock skipped! data.id=${data?.id}`,
@@ -2307,6 +2309,10 @@ export class ShopifyService {
             totalAmount += itemAmount;
           } catch (orderError) {
             this.logError('Error creating order', orderError);
+            // Order oluşturulamadı → per-item lock serbest bırak ki Shopify retry bu item'ı tekrar işleyebilsin
+            await this.redisService.getClient().del(itemLockKey).catch((e) =>
+              this.logger.error('Failed to release item lock on order error:', e),
+            );
           }
         } catch (itemError) {
           this.logError('Error processing line item', itemError);
@@ -2446,7 +2452,14 @@ export class ShopifyService {
       return response;
     } catch (error) {
       this.logError('Error in orderCreateWebHook', error);
-      
+
+      // İşlem tamamen başarısız oldu → order-level lock serbest bırak ki Shopify retry yapabilsin
+      if (orderLockKey) {
+        await this.redisService.getClient().del(orderLockKey).catch((e) =>
+          this.logger.error('Failed to release order lock on error:', e),
+        );
+      }
+
       // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
         this.webhookLogService.updateWebhookResponse(
