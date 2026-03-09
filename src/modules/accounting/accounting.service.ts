@@ -1079,10 +1079,6 @@ export class AccountingService {
           .then((docs) => docs.map((doc) => doc._id));
       }
     }
-    const unpaidPaymentMethodIds = await this.paymentMethodModel
-      .find({ isPaymentMade: false })
-      .select('_id')
-      .then((docs) => docs.map((doc) => doc._id));
     // Role-based expense type filtering
     const expensePageKey = vendor
       ? 'vendor-expense'
@@ -1152,15 +1148,7 @@ export class AccountingService {
             {
               $group: {
                 _id: null,
-                generalTotalExpense: {
-                  $sum: {
-                    $cond: [
-                      { $in: ['$paymentMethod', unpaidPaymentMethodIds] },
-                      0,
-                      '$totalExpense',
-                    ],
-                  },
-                },
+                generalTotalExpense: { $sum: '$totalExpense' },
                 overallTotalExpense: { $sum: '$totalExpense' },
               },
             },
