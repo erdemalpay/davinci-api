@@ -1,4 +1,5 @@
 import { HttpService } from '@nestjs/axios';
+import { randomUUID } from 'crypto';
 import {
   forwardRef,
   HttpException,
@@ -2190,6 +2191,8 @@ export class ShopifyService {
 
       for (let i = 0; i < lineItems.length; i++) {
         let itemLockKey: string | null = null; // try dışında tanımlıyoruz ki catch(itemError) erişebilsin
+        let itemLockValue: string | null = null;
+        let itemLockHeld = false;
         try {
           const lineItem = lineItems[i];
           const {
@@ -2214,15 +2217,17 @@ export class ShopifyService {
           // Per-line-item Redis lock: aynı line item'ın birden fazla webhook tarafından
           // eş zamanlı işlenmesini önler (order-level lock'a ek savunma katmanı).
           itemLockKey = `${RedisKeys.ShopifyLineItemLock}:${lineItemId}`;
+          itemLockValue = randomUUID();
           const itemLockAcquired = await this.redisService
             .getClient()
-            .set(itemLockKey, '1', 'EX', 86400, 'NX');
+            .set(itemLockKey, itemLockValue, 'EX', 86400, 'NX');
           if (!itemLockAcquired) {
             this.logger.warn(
               `[LOCK] Line item ${lineItemId} already locked — concurrent webhook detected, skipping.`,
             );
             continue;
           }
+          itemLockHeld = true;
           this.logger.log(
             `[LOCK] Line item lock acquired for ${lineItemId}`,
           );
@@ -2311,17 +2316,28 @@ export class ShopifyService {
           } catch (orderError) {
             this.logError('Error creating order', orderError);
             // Order oluşturulamadı → per-item lock serbest bırak ki Shopify retry bu item'ı tekrar işleyebilsin
-            await this.redisService.getClient().del(itemLockKey).catch((e) =>
-              this.logger.error('Failed to release item lock on order error:', e),
-            );
+            if (itemLockKey && itemLockValue && itemLockHeld) {
+              await this.redisService
+                .releaseTableLocks([itemLockKey], itemLockValue)
+                .catch((e) =>
+                  this.logger.error(
+                    'Failed to release item lock on order error:',
+                    e,
+                  ),
+                );
+              itemLockHeld = false;
+            }
           }
         } catch (itemError) {
           this.logError('Error processing line item', itemError);
           // Lock alındıktan sonra beklenmedik hata → serbest bırak ki retry işleyebilsin
-          if (itemLockKey) {
-            await this.redisService.getClient().del(itemLockKey).catch((e) =>
-              this.logger.error('Failed to release item lock on item error:', e),
-            );
+          if (itemLockKey && itemLockValue && itemLockHeld) {
+            await this.redisService
+              .releaseTableLocks([itemLockKey], itemLockValue)
+              .catch((e) =>
+                this.logger.error('Failed to release item lock on item error:', e),
+              );
+            itemLockHeld = false;
           }
         }
       }
