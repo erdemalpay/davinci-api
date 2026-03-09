@@ -1670,6 +1670,10 @@ export class TrendyolService {
             continue;
           }
 
+          this.logger.log(
+            `[DEBUG] Claim ${claimId} accepted - orderNumber: ${orderNumber}, orderShipmentPackageId: ${orderShipmentPackageId} (type: ${typeof orderShipmentPackageId})`,
+          );
+
           // İdempotency kontrolü: Bu claim'i daha önce işledik mi?
           // Claim bazında kontrol yapıyoruz (bir claim içinde birden fazla item olabilir)
           const existingProcessed = await this.processedClaimItemModel
