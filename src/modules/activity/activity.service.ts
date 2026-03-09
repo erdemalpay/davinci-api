@@ -122,14 +122,26 @@ export class ActivityService {
     return activity;
   }
 
+  private static readonly IGNORED_DIFF_KEYS = new Set([
+    'updatedAt',
+    'createdAt',
+    '__v',
+  ]);
+
   async addUpdateActivity<
     T extends keyof ActivityTypePayload,
     P extends Document,
   >(user: User, type: T, previousState: P, newState: P) {
     const difs = diff(previousState.toJSON(), newState.toJSON());
 
-    if (!difs.length) return;
-    const dif = difs.length > 1 ? difs[1] : difs[0];
+    const meaningfulDifs = difs.filter((d) => {
+      const key = d.path?.[0];
+      return key != null && !ActivityService.IGNORED_DIFF_KEYS.has(String(key));
+    });
+
+    if (!meaningfulDifs.length) return;
+
+    const dif = meaningfulDifs[0];
     let value = null;
     let oldValue = null;
     if (dif.type === 'CHANGE') {
