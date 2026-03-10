@@ -2542,7 +2542,25 @@ export class ShopifyService {
 
       this.logger.log('Received Shopify cancel webhook data:', data);
 
-      const refunds = data?.refunds ?? [];
+      // Shopify iki farklı formatta veri gönderir:
+      // 1) Order objesi (orders/cancelled): data.refunds[].refund_line_items
+      // 2) Refund objesi (orders/refunds/create): data.refund_line_items root'ta, data.order_id var
+      const isRefundObject = !data?.refunds && Array.isArray(data?.refund_line_items);
+
+      // Tüm işlenecek refund line item'larını tek bir flat listeye topla
+      let allRefundLineItems: any[] = [];
+
+      if (isRefundObject) {
+        // orders/refunds/create formatı
+        this.logger.log('Detected refund object format (orders/refunds/create)');
+        allRefundLineItems = data.refund_line_items ?? [];
+      } else {
+        // orders/cancelled formatı — refunds array içinde
+        const refunds: any[] = data?.refunds ?? [];
+        for (const refund of refunds) {
+          allRefundLineItems.push(...(refund?.refund_line_items ?? []));
+        }
+      }
 
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
@@ -2553,19 +2571,8 @@ export class ShopifyService {
         );
       }
 
-      if (refunds.length === 0) {
-        this.logger.log('No refunds to process');
-        return;
-      }
-
-      if (
-        data?.financial_status !== 'refunded' &&
-        data?.financial_status !== 'partially_refunded' &&
-        data?.cancelled_at === null
-      ) {
-        this.logger.log(
-          `Skipping order as status is not 'refunded', 'partially_refunded' or cancelled`,
-        );
+      if (allRefundLineItems.length === 0) {
+        this.logger.log('No refund line items to process');
         return;
       }
 
@@ -2573,44 +2580,35 @@ export class ShopifyService {
       // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
 
-      for (const refund of refunds) {
-        const refundLineItems = refund?.refund_line_items ?? [];
+      for (const refundLineItem of allRefundLineItems) {
+        try {
+          const lineItemId = refundLineItem?.line_item_id?.toString();
+          const quantity = refundLineItem?.quantity ?? 0;
 
-        if (refundLineItems.length === 0) {
-          this.logger.log('No refund line items in this refund');
-          continue;
-        }
-
-        for (const refundLineItem of refundLineItems) {
-          try {
-            const lineItemId = refundLineItem?.line_item_id?.toString();
-            const quantity = refundLineItem?.quantity ?? 0;
-
-            if (!lineItemId) {
-              this.logger.warn(
-                'Invalid refund line item data: missing line_item_id',
-                JSON.stringify(refundLineItem),
-              );
-              continue;
-            }
-
-            if (quantity <= 0) {
-              this.logger.warn(
-                `Invalid quantity for line item ${lineItemId}: ${quantity}`,
-              );
-              continue;
-            }
-
-            await this.orderService.cancelShopifyOrder(
-              constantUser,
-              lineItemId,
-              quantity,
+          if (!lineItemId) {
+            this.logger.warn(
+              'Invalid refund line item data: missing line_item_id',
+              JSON.stringify(refundLineItem),
             );
-
-            cancellationsProcessed++;
-          } catch (itemError) {
-            this.logError('Error processing refund line item', itemError);
+            continue;
           }
+
+          if (quantity <= 0) {
+            this.logger.warn(
+              `Invalid quantity for line item ${lineItemId}: ${quantity}`,
+            );
+            continue;
+          }
+
+          await this.orderService.cancelShopifyOrder(
+            constantUser,
+            lineItemId,
+            quantity,
+          );
+
+          cancellationsProcessed++;
+        } catch (itemError) {
+          this.logError('Error processing refund line item', itemError);
         }
       }
 
