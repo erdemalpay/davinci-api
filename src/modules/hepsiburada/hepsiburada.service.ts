@@ -18,6 +18,9 @@ import { OrderStatus, OrderCollectionStatus } from '../order/order.dto';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { Order } from '../order/order.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import {
+  ProcessedHepsiburadaClaim,
+} from './processed-hepsiburada-claim.schema';
 
 interface PopulatedMenuItem {
   itemProduction?: Array<{
@@ -37,9 +40,11 @@ export class HepsiburadaService {
   private readonly axiosInstance: AxiosInstance;
   private readonly listingAxiosInstance: AxiosInstance;
   private readonly catalogAxiosInstance: AxiosInstance;
+  private readonly omsAxiosInstance: AxiosInstance;
   private readonly baseUrl: string;
   private readonly listingBaseUrl: string;
   private readonly catalogBaseUrl: string;
+  private readonly omsBaseUrl: string;
   private readonly merchantId: string;
   private readonly secretKey: string;
   private readonly userAgent: string;
@@ -55,6 +60,8 @@ export class HepsiburadaService {
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
+    @InjectModel(ProcessedHepsiburadaClaim.name)
+    private readonly processedHepsiburadaClaimModel: Model<ProcessedHepsiburadaClaim>,
     private readonly userService: UserService,
     private readonly websocketGateway: AppWebSocketGateway,
   ) {
@@ -71,6 +78,9 @@ export class HepsiburadaService {
     this.catalogBaseUrl = isProduction
       ? 'https://mpop.hepsiburada.com'
       : 'https://mpop-sit.hepsiburada.com';
+    this.omsBaseUrl = isProduction
+      ? 'https://oms-external.hepsiburada.com'
+      : 'https://oms-external-sit.hepsiburada.com';
     this.merchantId = this.configService.get<string>(
       isProduction
         ? 'HEPSIBURADA_PRODUCTION_MERCHANT_ID'
@@ -114,6 +124,16 @@ export class HepsiburadaService {
     // Create axios instance for catalog API (mpop)
     this.catalogAxiosInstance = axios.create({
       baseURL: this.catalogBaseUrl,
+      headers: {
+        Authorization: `Basic ${authToken}`,
+        'User-Agent': this.userAgent,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Create axios instance for OMS API (claims/returns)
+    this.omsAxiosInstance = axios.create({
+      baseURL: this.omsBaseUrl,
       headers: {
         Authorization: `Basic ${authToken}`,
         'User-Agent': this.userAgent,
@@ -918,6 +938,203 @@ export class HepsiburadaService {
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  /**
+   * Hepsiburada'dan son 30 gün içindeki talepleri (claim) çeker.
+   * API: GET /claims/merchantId/{merchantId}?limit={limit}&offset={offset}
+   *
+   * @param limit Sayfa başına kayıt sayısı (default 100)
+   */
+  async getAllClaims(limit: number = 100): Promise<any[]> {
+    const allClaims: any[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    this.logger.log('Starting to fetch all Hepsiburada claims...');
+
+    try {
+      while (hasMore) {
+        const response = await this.omsAxiosInstance.get(
+          `/claims/merchantId/${this.merchantId}`,
+          {
+            params: { limit, offset },
+          },
+        );
+
+        const data = response.data;
+
+        // Hepsiburada API response formatı: array ya da { items: [] } olabilir
+        const items: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data?.content)
+              ? data.content
+              : [];
+
+        allClaims.push(...items);
+
+        this.logger.log(
+          `Fetched ${items.length} claims (offset: ${offset}, total so far: ${allClaims.length})`,
+        );
+
+        // Daha az kayıt geldiyse son sayfadayız
+        if (items.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
+
+      this.logger.log(`Completed fetching ${allClaims.length} Hepsiburada claims`);
+      return allClaims;
+    } catch (error) {
+      this.logger.error('Error fetching Hepsiburada claims:', error.message);
+      if (error.response) {
+        this.logger.error(
+          'Response data:',
+          JSON.stringify(error.response.data),
+        );
+      }
+      throw new HttpException(
+        `Failed to fetch Hepsiburada claims: ${error?.response?.data?.message || error?.message || 'Unknown error'}`,
+        error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Hepsiburada'dan son 1 ay içindeki iade taleplerini işler.
+   * "AwaitingAction" veya "Return" statüsündeki claim'leri bulur ve
+   * kendi sistemimizde iptal edilmemiş olan siparişleri iptal eder.
+   *
+   * İdempotency: Her claimNumber için yalnızca bir kez işlem yapar.
+   * Bu metot cron servisi tarafından periyodik olarak çağrılır.
+   */
+  async processAcceptedClaims() {
+    this.logger.log('Starting to process Hepsiburada accepted claims...');
+
+    try {
+      const allClaims = await this.getAllClaims();
+      this.logger.log(`Fetched ${allClaims.length} claims to process`);
+
+      let processedCount = 0;
+      let skippedCount = 0;
+      let cancelledCount = 0;
+      let errorCount = 0;
+
+      for (const claim of allClaims) {
+        try {
+          // Hepsiburada claim fields (field isimleri küçük/büyük harfe göre değişebilir)
+          const claimNumber =
+            claim.claimNumber?.toString() ?? claim.ClaimNumber?.toString();
+          const orderNumber =
+            claim.orderNumber?.toString() ?? claim.OrderNumber?.toString();
+          const claimType = claim.type ?? claim.claimType ?? claim.Type;
+          const status = claim.status ?? claim.Status;
+          const claimDate = claim.claimDate ?? claim.ClaimDate;
+
+          if (!claimNumber || !orderNumber) {
+            this.logger.warn(
+              `Skipping claim without claimNumber or orderNumber: ${JSON.stringify(claim)}`,
+            );
+            continue;
+          }
+
+          // Sadece Return (iade) tipindeki claim'leri işle
+          const isReturnClaim =
+            !claimType ||
+            claimType === 'Return' ||
+            claimType === 'İade' ||
+            claimType === 'RETURN';
+
+          if (!isReturnClaim) {
+            this.logger.debug(
+              `Skipping non-return claim ${claimNumber} (type: ${claimType})`,
+            );
+            continue;
+          }
+
+          // İdempotency kontrolü: Bu claim'i daha önce işledik mi?
+          const existingProcessed = await this.processedHepsiburadaClaimModel
+            .findOne({ claimNumber })
+            .exec();
+
+          if (existingProcessed) {
+            skippedCount++;
+            this.logger.debug(
+              `Claim ${claimNumber} already processed, skipping`,
+            );
+            continue;
+          }
+
+          this.logger.log(
+            `Processing claim ${claimNumber} (orderNumber: ${orderNumber}, status: ${status}, type: ${claimType})`,
+          );
+
+          // Mevcut handleCancelOrder metodunu kullanarak iptali gerçekleştir
+          // Sipariş numarası üzerinden arama yapıyoruz
+          const cancelData = {
+            orderNumber: orderNumber,
+          };
+
+          const result = await this.handleCancelOrder(cancelData);
+
+          // İşlem kaydını oluştur (idempotency için)
+          await this.processedHepsiburadaClaimModel.create({
+            claimNumber,
+            orderNumber,
+            statusAtProcess: status || 'unknown',
+            claimType: claimType || 'Return',
+            action: 'CANCEL_ORDER',
+            success: result?.success ?? true,
+            processedAt: new Date(),
+            claimDate: claimDate ? new Date(claimDate) : undefined,
+            metadata: {
+              claimType,
+              explanation: claim.explanation ?? claim.Explanation,
+              quantity: claim.quantity ?? claim.Quantity,
+              cancelledOrdersCount: result?.ordersCancelled ?? (result?.success ? 1 : 0),
+            },
+          });
+
+          processedCount++;
+          cancelledCount += result?.ordersCancelled ?? (result?.success ? 1 : 0);
+
+          this.logger.log(
+            `Claim ${claimNumber} processed successfully (orderNumber: ${orderNumber})`,
+          );
+        } catch (claimError) {
+          this.logger.error(
+            `Error processing claim ${claim?.claimNumber}:`,
+            claimError,
+          );
+          errorCount++;
+        }
+      }
+
+      const summary = {
+        success: true,
+        message: 'Hepsiburada accepted claims processing completed',
+        stats: {
+          totalClaimsChecked: allClaims.length,
+          processed: processedCount,
+          skipped: skippedCount,
+          cancelled: cancelledCount,
+          errors: errorCount,
+        },
+      };
+
+      this.logger.log(
+        `Hepsiburada claims processing completed: ${JSON.stringify(summary.stats)}`,
+      );
+
+      return summary;
+    } catch (error) {
+      this.logger.error('Error in Hepsiburada processAcceptedClaims:', error);
+      throw error;
     }
   }
 
