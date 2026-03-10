@@ -9,13 +9,17 @@ import {
   Query,
 } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
+import { HepsiburadaCronService } from './hepsiburada.cron.service';
 import { HepsiburadaService } from './hepsiburada.service';
 
 @Controller('hepsiburada')
 export class HepsiburadaController {
   private readonly logger = new Logger(HepsiburadaController.name);
 
-  constructor(private readonly hepsiburadaService: HepsiburadaService) {}
+  constructor(
+    private readonly hepsiburadaService: HepsiburadaService,
+    private readonly hepsiburadaCronService: HepsiburadaCronService,
+  ) {}
 
   @Get('/products')
   getAllProducts(
@@ -120,5 +124,10 @@ export class HepsiburadaController {
     this.logger.log('Received Hepsiburada order webhook');
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
     return await this.hepsiburadaService.orderWebhook(data);
+  }
+
+  @Post('/process-accepted-claims')
+  async processAcceptedClaims() {
+    return await this.hepsiburadaCronService.triggerManualClaimsProcessing();
   }
 }
