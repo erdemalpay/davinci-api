@@ -2353,6 +2353,22 @@ export class ShopifyService {
         const discountAmount = data?.current_total_discounts
           ? parseFloat(data.current_total_discounts)
           : 0;
+        const discountApplications = Array.isArray(data?.discount_applications)
+          ? data.discount_applications
+          : [];
+        const discountTypeValues = new Set(
+          discountApplications
+            .map((app: any) => app?.value_type)
+            .filter(Boolean),
+        );
+        const discountType =
+          discountTypeValues.size === 1
+            ? discountTypeValues.has('percentage')
+              ? 'PERCENTAGE'
+              : discountTypeValues.has('fixed_amount')
+                ? 'AMOUNT'
+                : undefined
+            : undefined;
 
         const createdCollection = {
           location: 4,
@@ -2374,6 +2390,9 @@ export class ShopifyService {
           }),
           ...(discountAmount > 0 && {
             shopifyDiscountAmount: discountAmount,
+          }),
+          ...(discountType && {
+            shopifyDiscountType: discountType,
           }),
         };
 

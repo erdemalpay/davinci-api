@@ -2089,6 +2089,9 @@ export class OrderService {
 
         const cancelledAt = new Date();
         const cancelledAmount = order.unitPrice * quantity;
+        const shippingAmount = collection.shopifyShippingAmount ?? 0;
+        const { cancelledDiscount, remainingDiscount } =
+          this.splitCollectionDiscount(collection, cancelledAmount);
         const isPartialCancel = order.quantity !== quantity;
         const isLastOrderInCollection = collection.orders.length <= 1;
 
@@ -2133,6 +2136,10 @@ export class OrderService {
                   _id: undefined,
                   orders: [{ order: order._id, paidQuantity: remainingQuantity }],
                   amount: collection.amount - cancelledAmount,
+                  ...(shippingAmount > 0 && {
+                    shopifyShippingAmount: shippingAmount,
+                  }),
+                  shopifyDiscountAmount: remainingDiscount,
                 },
               ],
               { session },
@@ -2145,6 +2152,8 @@ export class OrderService {
                 status: OrderCollectionStatus.CANCELLED,
                 orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                 amount: cancelledAmount,
+                shopifyShippingAmount: 0,
+                shopifyDiscountAmount: cancelledDiscount,
                 cancelledAt,
                 cancelledBy: user._id,
               },
@@ -2158,6 +2167,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2165,6 +2175,7 @@ export class OrderService {
               collection._id,
               {
                 $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2177,6 +2188,8 @@ export class OrderService {
                   orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -2223,6 +2236,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2235,6 +2249,8 @@ export class OrderService {
                   orders: [{ order: order._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -2353,6 +2369,9 @@ export class OrderService {
 
         const cancelledAt = new Date();
         const cancelledAmount = order.unitPrice * quantity;
+        const shippingAmount = collection.shopifyShippingAmount ?? 0;
+        const { cancelledDiscount, remainingDiscount } =
+          this.splitCollectionDiscount(collection, cancelledAmount);
         const isPartialCancel = order.quantity !== quantity;
         const isLastOrderInCollection = collection.orders.length <= 1;
 
@@ -2394,6 +2413,10 @@ export class OrderService {
                   _id: undefined,
                   orders: [{ order: order._id, paidQuantity: remainingQuantity }],
                   amount: collection.amount - cancelledAmount,
+                  ...(shippingAmount > 0 && {
+                    shopifyShippingAmount: shippingAmount,
+                  }),
+                  shopifyDiscountAmount: remainingDiscount,
                 },
               ],
               { session },
@@ -2406,6 +2429,8 @@ export class OrderService {
                 status: OrderCollectionStatus.CANCELLED,
                 orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                 amount: cancelledAmount,
+                shopifyShippingAmount: 0,
+                shopifyDiscountAmount: cancelledDiscount,
                 cancelledAt,
                 cancelledBy: user._id,
               },
@@ -2417,6 +2442,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2424,6 +2450,7 @@ export class OrderService {
               collection._id,
               {
                 $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2436,6 +2463,8 @@ export class OrderService {
                   orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -2479,6 +2508,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2491,6 +2521,8 @@ export class OrderService {
                   orders: [{ order: order._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -2607,6 +2639,9 @@ export class OrderService {
 
         const cancelledAt = new Date();
         const cancelledAmount = order.unitPrice * quantity;
+        const shippingAmount = collection.shopifyShippingAmount ?? 0;
+        const { cancelledDiscount, remainingDiscount } =
+          this.splitCollectionDiscount(collection, cancelledAmount);
         const isPartialCancel = order.quantity !== quantity;
         const isLastOrderInCollection = collection.orders.length <= 1;
 
@@ -2648,6 +2683,10 @@ export class OrderService {
                   _id: undefined,
                   orders: [{ order: order._id, paidQuantity: remainingQuantity }],
                   amount: collection.amount - cancelledAmount,
+                  ...(shippingAmount > 0 && {
+                    shopifyShippingAmount: shippingAmount,
+                  }),
+                  shopifyDiscountAmount: remainingDiscount,
                 },
               ],
               { session },
@@ -2660,6 +2699,8 @@ export class OrderService {
                 status: OrderCollectionStatus.CANCELLED,
                 orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                 amount: cancelledAmount,
+                shopifyShippingAmount: 0,
+                shopifyDiscountAmount: cancelledDiscount,
                 cancelledAt,
                 cancelledBy: user._id,
               },
@@ -2678,6 +2719,7 @@ export class OrderService {
               collection._id,
               {
                 $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2690,6 +2732,8 @@ export class OrderService {
                   orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -2741,6 +2785,8 @@ export class OrderService {
                   orders: [{ order: order._id, paidQuantity: quantity }],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
+                  shopifyShippingAmount: 0,
+                  shopifyDiscountAmount: cancelledDiscount,
                   cancelledAt,
                   cancelledBy: user._id,
                 },
@@ -3398,6 +3444,32 @@ export class OrderService {
 
     // Convert the resulting object back to an array
     return Object.values(orderSums);
+  }
+
+  private splitCollectionDiscount(
+    collection: Collection,
+    cancelledAmount: number,
+  ) {
+    const totalDiscount = collection?.shopifyDiscountAmount ?? 0;
+    const discountType = collection?.shopifyDiscountType;
+    if (!totalDiscount || totalDiscount <= 0) {
+      return { cancelledDiscount: 0, remainingDiscount: 0 };
+    }
+    if (discountType !== 'PERCENTAGE') {
+      return { cancelledDiscount: 0, remainingDiscount: totalDiscount };
+    }
+    const baseAmount = collection?.amount ?? 0;
+    if (baseAmount <= 0) {
+      return { cancelledDiscount: 0, remainingDiscount: totalDiscount };
+    }
+    const rate = totalDiscount / baseAmount;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const cancelledDiscount = Math.min(
+      totalDiscount,
+      round2(cancelledAmount * rate),
+    );
+    const remainingDiscount = Math.max(0, totalDiscount - cancelledDiscount);
+    return { cancelledDiscount, remainingDiscount };
   }
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     let tableCollections: Collection[] = [];
