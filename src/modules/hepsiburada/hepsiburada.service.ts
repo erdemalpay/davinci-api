@@ -1097,9 +1097,13 @@ export class HepsiburadaService {
           );
 
           // Mevcut handleCancelOrder metodunu kullanarak iptali gerçekleştir
-          // Sipariş numarası üzerinden arama yapıyoruz
+          // lineItemId varsa sadece o ürünü iptal et (kısmi iade desteği)
+          const lineItemId = claim.lineItemId ?? claim.LineItemId;
+          const quantity = claim.quantity ?? claim.Quantity ?? 1;
           const cancelData = {
+            id: lineItemId,       // handleCancelOrder lineItemId'yi data.id'den okuyor
             orderNumber: orderNumber,
+            quantity: quantity,
           };
 
           const result = await this.handleCancelOrder(cancelData);
@@ -1459,6 +1463,16 @@ export class HepsiburadaService {
       });
 
       if (collections && collections.length > 0) {
+        // İptal sonrası tüm orderların güncel durumunu kontrol et
+        const allOrdersForNumber = await this.orderService.findQueryOrders({
+          hepsiburadaOrderNumber: orderNumberString,
+        });
+        const allCancelled =
+          allOrdersForNumber.length > 0 &&
+          allOrdersForNumber.every(
+            (o) => o.status === OrderStatus.CANCELLED,
+          );
+
         for (const collection of collections) {
           if (collection.status === OrderCollectionStatus.CANCELLED) {
             this.logger.log(
@@ -1467,16 +1481,38 @@ export class HepsiburadaService {
             continue;
           }
 
-          await this.orderService.updateCollection(
-            constantUser,
-            collection._id,
-            {
-              status: OrderCollectionStatus.CANCELLED,
-              cancelledAt: new Date(),
-              cancelledBy: constantUser._id,
-            },
-          );
-          this.logger.log(`Collection ${collection._id} cancelled successfully`);
+          if (allCancelled) {
+            // Tüm orderlar iptal olduysa tahsilatı da iptal et
+            await this.orderService.updateCollection(
+              constantUser,
+              collection._id,
+              {
+                status: OrderCollectionStatus.CANCELLED,
+                cancelledAt: new Date(),
+                cancelledBy: constantUser._id,
+              },
+            );
+            this.logger.log(
+              `Collection ${collection._id} cancelled (all orders cancelled)`,
+            );
+          } else {
+            // Kısmi iptal: tahsilat tutarını güncelle, iptal etme
+            const cancelledAmount = updatedOrdersToEmit.reduce((sum, o) => {
+              return sum + (o.unitPrice ?? 0) * (o.quantity ?? 0);
+            }, 0);
+            const newAmount = Math.max(
+              0,
+              (collection.amount ?? 0) - cancelledAmount,
+            );
+            await this.orderService.updateCollection(
+              constantUser,
+              collection._id,
+              { amount: newAmount },
+            );
+            this.logger.log(
+              `Collection ${collection._id} amount updated to ${newAmount} (partial cancel)`,
+            );
+          }
         }
       }
 

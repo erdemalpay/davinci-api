@@ -1632,11 +1632,7 @@ export class TrendyolService {
         startDate: oneMonthAgo,
       });
       this.logger.log(
-        `Fetched ${
-          allClaims.length
-        } claims from last 30 days (startDate: ${new Date(
-          oneMonthAgo,
-        ).toISOString()})`,
+        `Fetched ${allClaims.length} claims from last 30 days (startDate: ${new Date(oneMonthAgo).toISOString()})`,
       );
 
       let processedCount = 0;
@@ -1646,142 +1642,124 @@ export class TrendyolService {
 
       // Her claim'i işle
       for (const claim of allClaims) {
-        try {
-          const {
-            claimId,
-            orderNumber,
-            orderShipmentPackageId,
-            items,
-            lastModifiedDate,
-          } = claim;
+        const { claimId, orderNumber, orderShipmentPackageId, items, lastModifiedDate } = claim;
 
-          // Bu claim'de en az bir "Accepted" item var mı kontrol et
-          const hasAcceptedItems = items.some((itemGroup: any) =>
-            itemGroup.claimItems.some(
-              (claimItem: any) =>
-                claimItem.claimItemStatus?.name === 'Accepted',
-            ),
-          );
+        if (!Array.isArray(items) || items.length === 0) {
+          continue;
+        }
 
-          if (!hasAcceptedItems) {
-            this.logger.debug(
-              `Claim ${claimId} has no accepted items, skipping`,
-            );
+        // Her item group içindeki her claimItem'ı ayrı ayrı işle (claimItemId bazında idempotency)
+        for (const itemGroup of items) {
+          const { orderLine, claimItems } = itemGroup;
+
+          if (!Array.isArray(claimItems) || claimItems.length === 0) {
             continue;
           }
 
-          this.logger.log(
-            `[DEBUG] Claim ${claimId} accepted - orderNumber: ${orderNumber}, orderShipmentPackageId: ${orderShipmentPackageId} (type: ${typeof orderShipmentPackageId})`,
-          );
+          for (const claimItem of claimItems) {
+            try {
+              const claimItemId: string = claimItem.id;
+              const claimItemStatus: string = claimItem.claimItemStatus?.name;
 
-          // İdempotency kontrolü: Bu claim'i daha önce işledik mi?
-          // Claim bazında kontrol yapıyoruz (bir claim içinde birden fazla item olabilir)
-          const existingProcessed = await this.processedClaimItemModel
-            .findOne({ claimId })
-            .exec();
-
-          if (existingProcessed) {
-            skippedCount++;
-            continue;
-          }
-
-          // Webhook formatında payload oluştur
-          // orderCancelWebhook'un beklediği format:
-          const webhookPayload = {
-            id: orderShipmentPackageId,
-            shipmentPackageId: orderShipmentPackageId,
-            orderNumber: orderNumber,
-            status: 'Cancelled',
-            shipmentPackageStatus: 'Cancelled',
-            orderDate: claim.orderDate,
-            lastModifiedDate: lastModifiedDate,
-            // lines: Sadece "Cancelled" (Accepted claim'e karşılık gelen) satırları ekle
-            lines: items.flatMap((itemGroup: any) => {
-              const { orderLine, claimItems } = itemGroup;
-
-              // Bu orderLine için accepted claim var mı?
-              const hasAcceptedClaim = claimItems.some(
-                (ci: any) => ci.claimItemStatus?.name === 'Accepted',
-              );
-
-              if (!hasAcceptedClaim) {
-                return []; // Bu satırı ekleme
+              // Sadece "Accepted" statüsündeki item'ları işle
+              if (claimItemStatus !== 'Accepted') {
+                this.logger.debug(
+                  `ClaimItem ${claimItemId} status is "${claimItemStatus}", skipping`,
+                );
+                continue;
               }
 
-              // Webhook formatında line oluştur
-              return [
-                {
-                  id: orderLine.id,
-                  lineId: orderLine.id,
-                  quantity: 1, // Claim'de quantity bilgisi yok, 1 varsayıyoruz
-                  productCode: orderLine.id,
-                  amount: orderLine.price,
-                  merchantSku: orderLine.merchantSku,
-                  barcode: orderLine.barcode,
-                  productName: orderLine.productName,
-                  orderLineItemStatusName: 'Cancelled', // Webhook bu field'a bakıyor
-                  status: 'Cancelled',
+              // İdempotency kontrolü: Bu claimItem'ı daha önce işledik mi?
+              const existingProcessed = await this.processedClaimItemModel
+                .findOne({ claimItemId })
+                .exec();
+
+              if (existingProcessed) {
+                skippedCount++;
+                this.logger.debug(
+                  `ClaimItem ${claimItemId} already processed, skipping`,
+                );
+                continue;
+              }
+
+              this.logger.log(
+                `Processing claimItem ${claimItemId} (claimId: ${claimId}, orderNumber: ${orderNumber}, packageId: ${orderShipmentPackageId}, product: ${orderLine?.productName})`,
+              );
+
+              // orderCancelWebhook'un beklediği formatta payload oluştur.
+              // lines içinde sadece bu tek item'ı geçiriyoruz - böylece
+              // kısmi iptal mantığı yalnızca bu ürünü iptal eder.
+              // orderLine.id, sipariş oluşturulurken kaydedilen trendyolLineItemId
+              // ile eşleşen değer olmalı (webhook'tan gelen lineId).
+              const webhookPayload = {
+                id: orderShipmentPackageId,
+                shipmentPackageId: orderShipmentPackageId,
+                orderNumber: orderNumber,
+                status: 'Cancelled',
+                shipmentPackageStatus: 'Cancelled',
+                orderDate: claim.orderDate,
+                lastModifiedDate: lastModifiedDate,
+                lines: [
+                  {
+                    id: orderLine.id,
+                    lineId: orderLine.id,
+                    quantity: 1,
+                    productCode: orderLine.id,
+                    amount: orderLine.price,
+                    merchantSku: orderLine.merchantSku,
+                    barcode: orderLine.barcode,
+                    productName: orderLine.productName,
+                    orderLineItemStatusName: 'Cancelled',
+                    status: 'Cancelled',
+                  },
+                ],
+              };
+
+              const result = await this.orderCancelWebhook(
+                webhookPayload,
+                orderShipmentPackageId?.toString(),
+              );
+
+              // İşlem kaydını oluştur (claimItemId bazında idempotency)
+              await this.processedClaimItemModel.create({
+                claimItemId,
+                claimId,
+                orderNumber,
+                statusAtProcess: 'Accepted',
+                action: 'WEBHOOK_CANCEL_TRIGGERED',
+                success: result?.success ?? true,
+                processedAt: new Date(),
+                lastModifiedDate: lastModifiedDate
+                  ? new Date(lastModifiedDate)
+                  : undefined,
+                metadata: {
+                  acceptedItems: [
+                    {
+                      claimItemId,
+                      barcode: orderLine?.barcode,
+                      productName: orderLine?.productName,
+                      claimReason: claimItem?.customerClaimItemReason?.name || '',
+                      customerNote: claimItem?.customerNote || '',
+                    },
+                  ],
+                  cancelledOrdersCount: result?.cancelled ?? 0,
                 },
-              ];
-            }),
-          };
+              });
 
-          this.logger.log(
-            `Processing claim ${claimId} via orderCancelWebhook (orderNumber: ${orderNumber}, packageId: ${orderShipmentPackageId})`,
-          );
+              processedCount++;
+              cancelledCount += result?.cancelled ?? 0;
 
-          // MEVCUT orderCancelWebhook metodunu çağır!
-          // Bu sayede tüm mantık (stok, collection, kısmi iptal) otomatik çalışır
-          const result = await this.orderCancelWebhook(
-            webhookPayload,
-            orderShipmentPackageId?.toString(),
-          );
-
-          // İşlem kaydını oluştur (idempotency için)
-          // Claim bazında tek bir kayıt oluşturuyoruz
-          const acceptedItemsMetadata = items.flatMap((itemGroup: any) =>
-            itemGroup.claimItems
-              .filter((ci: any) => ci.claimItemStatus?.name === 'Accepted')
-              .map((ci: any) => ({
-                claimItemId: ci.id,
-                barcode: itemGroup.orderLine?.barcode,
-                productName: itemGroup.orderLine?.productName,
-                claimReason: ci?.customerClaimItemReason?.name || '',
-                customerNote: ci?.customerNote || '',
-              })),
-          );
-
-          await this.processedClaimItemModel.create({
-            claimItemId: claimId, // Claim bazında unique ID
-            claimId: claimId,
-            orderNumber,
-            statusAtProcess: 'Accepted',
-            action: 'WEBHOOK_CANCEL_TRIGGERED',
-            success: result?.success ?? true,
-            processedAt: new Date(),
-            lastModifiedDate: lastModifiedDate
-              ? new Date(lastModifiedDate)
-              : undefined,
-            metadata: {
-              acceptedItems: acceptedItemsMetadata,
-              cancelledOrdersCount: result?.cancelled ?? 0,
-            },
-          });
-
-          processedCount++;
-          cancelledCount += result?.cancelled ?? 0;
-
-          this.logger.log(
-            `Claim ${claimId} processed successfully. Cancelled ${
-              result?.cancelled ?? 0
-            } orders`,
-          );
-        } catch (claimError) {
-          this.logger.error(
-            `Error processing claim ${claim?.claimId}:`,
-            claimError,
-          );
-          errorCount++;
+              this.logger.log(
+                `ClaimItem ${claimItemId} processed successfully. Cancelled ${result?.cancelled ?? 0} orders`,
+              );
+            } catch (claimItemError) {
+              this.logger.error(
+                `Error processing claimItem ${claimItem?.id} (claimId: ${claimId}):`,
+                claimItemError,
+              );
+              errorCount++;
+            }
+          }
         }
       }
 
@@ -1798,9 +1776,7 @@ export class TrendyolService {
       };
 
       this.logger.log(
-        `Accepted claims processing completed: ${JSON.stringify(
-          summary.stats,
-        )}`,
+        `Accepted claims processing completed: ${JSON.stringify(summary.stats)}`,
       );
 
       return summary;
