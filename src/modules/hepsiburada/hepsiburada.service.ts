@@ -1028,15 +1028,23 @@ export class HepsiburadaService {
       for (const claim of allClaims) {
         try {
           // Hepsiburada claim fields (field isimleri küçük/büyük harfe göre değişebilir)
-          const claimNumber =
-            claim.claimNumber?.toString() ?? claim.ClaimNumber?.toString();
-          const orderNumber =
-            claim.orderNumber?.toString() ?? claim.OrderNumber?.toString();
+          const claimNumberRaw =
+            claim.claimNumber ??
+            claim.ClaimNumber ??
+            claim.number ??
+            claim.Number ??
+            claim.id ??
+            claim.Id;
+          const orderNumberRaw =
+            claim.orderNumber ?? claim.OrderNumber ?? claim.ordernumber;
+          const claimNumber = claimNumberRaw?.toString?.() ?? claimNumberRaw;
+          const orderNumber = orderNumberRaw?.toString?.() ?? orderNumberRaw;
           const claimType = claim.type ?? claim.claimType ?? claim.Type;
           const status = claim.status ?? claim.Status;
           const claimDate = claim.claimDate ?? claim.ClaimDate;
 
           if (!claimNumber || !orderNumber) {
+            skippedCount++;
             this.logger.warn(
               `Skipping claim without claimNumber or orderNumber: ${JSON.stringify(claim)}`,
             );
@@ -1051,8 +1059,22 @@ export class HepsiburadaService {
             claimType === 'RETURN';
 
           if (!isReturnClaim) {
+            skippedCount++;
             this.logger.debug(
               `Skipping non-return claim ${claimNumber} (type: ${claimType})`,
+            );
+            continue;
+          }
+
+          // Sadece onaylanmış/iadeye dönmüş claim'leri işle
+          const normalizedStatus =
+            typeof status === 'string' ? status.toLowerCase() : '';
+          const isAcceptedOrRefunded =
+            normalizedStatus === 'accepted' || normalizedStatus === 'refunded';
+          if (!isAcceptedOrRefunded) {
+            skippedCount++;
+            this.logger.debug(
+              `Skipping claim ${claimNumber} due to status: ${status ?? 'unknown'}`,
             );
             continue;
           }
