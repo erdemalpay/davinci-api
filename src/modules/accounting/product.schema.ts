@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 import { Brand } from './brand.schema';
+import { CountList } from './countList.schema';
 import { ExpenseType } from './expenseType.schema';
 import { Vendor } from './vendor.schema';
 
@@ -37,6 +38,9 @@ export class Product extends Document {
 
   @Prop({ required: true, type: [{ type: String, ref: ExpenseType.name }] })
   expenseType: string[];
+
+  @Prop({ required: false, type: [{ type: String, ref: CountList.name }] })
+  countList: string[];
 
   @Prop({ required: false, type: [{ type: String, ref: Brand.name }] })
   brand: string[];

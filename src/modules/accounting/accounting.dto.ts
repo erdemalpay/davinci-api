@@ -7,6 +7,8 @@ export class CreateProductDto {
   brand?: string[];
   vendor?: string[];
   unitPrice?: number;
+  locations?: number[];
+  countList?: string[];
   matchedMenuItem?: number;
   baseQuantities?: BaseQuantityByLocation[];
   shelfInfo?: ProductShelfInfo[];
@@ -79,7 +81,6 @@ export class CreateCountDto {
   createdAt: Date;
   products: CountProductDto[];
   countList: string;
-  expenseTypes?: string[];
 }
 
 export class CountProductDto {
