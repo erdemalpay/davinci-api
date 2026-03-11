@@ -41,14 +41,17 @@ export class UserService implements OnModuleInit {
     const user = new this.userModel(
       userProps.imageUrl !== '' ? userProps : { ...userProps, imageUrl: null },
     );
-    user.password = await hash('dv' /* temporary dummy password*/, 10);
+
+    const randomNumber = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.password = await hash(randomNumber, 10);
     if (user._id !== 'dv') {
       user._id = usernamify(user.name);
     }
     user.active = true;
     await user.save();
     this.websocketGateway.emitUserChanged();
-    return user;
+    return { ...user.toObject(), tempPassword: randomNumber };
   }
 
   async update(reqUser: User, id: string, updateQuery: UpdateQuery<User>) {
@@ -77,10 +80,12 @@ export class UserService implements OnModuleInit {
     return user.active;
   }
   async resetUserPassword(reqUser: User, id: string) {
-    const hashedNewPassword = await hash('dv', 10);
-    return this.update(reqUser, id, {
+    const randomNumber = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedNewPassword = await hash(randomNumber, 10);
+    const user = await this.update(reqUser, id, {
       password: hashedNewPassword,
     });
+    return { ...user.toObject(), tempPassword: randomNumber };
   }
   async updateUserGames(
     user: User,
