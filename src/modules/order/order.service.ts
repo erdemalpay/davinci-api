@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bull';
@@ -16,7 +16,7 @@ import {
   Connection,
   Model,
   PipelineStage,
-  UpdateQuery
+  UpdateQuery,
 } from 'mongoose';
 import { pick } from 'src/utils/tsUtils';
 import { withSession } from 'src/utils/withSession';
@@ -53,7 +53,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
-  SummaryCollectionQueryDto
+  SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -1338,7 +1338,7 @@ export class OrderService {
           this.logger.error('Error adding create order activity:', error);
         }
       })();
-      
+
       if (order.discount) {
         (async () => {
           try {
@@ -1530,7 +1530,9 @@ export class OrderService {
             const newCollection = await this.collectionModel.create({
               ...collection.toObject(),
               _id: undefined,
-              orders: [{ order: newOrder._id, paidQuantity: remainingQuantity }],
+              orders: [
+                { order: newOrder._id, paidQuantity: remainingQuantity },
+              ],
               amount: collection.amount - returnedAmount,
             });
             this.websocketGateway.emitCollectionChanged(newCollection);
@@ -1561,7 +1563,10 @@ export class OrderService {
               collection._id,
               {
                 $push: {
-                  orders: { order: newOrder._id, paidQuantity: remainingQuantity },
+                  orders: {
+                    order: newOrder._id,
+                    paidQuantity: remainingQuantity,
+                  },
                 },
               },
               { new: true },
@@ -2122,7 +2127,12 @@ export class OrderService {
 
           await this.orderModel.findByIdAndUpdate(
             order._id,
-            { $set: { quantity: remainingQuantity, paidQuantity: remainingQuantity } },
+            {
+              $set: {
+                quantity: remainingQuantity,
+                paidQuantity: remainingQuantity,
+              },
+            },
             { new: true, session },
           );
 
@@ -2134,7 +2144,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: order._id, paidQuantity: remainingQuantity }],
+                  orders: [
+                    { order: order._id, paidQuantity: remainingQuantity },
+                  ],
                   amount: collection.amount - cancelledAmount,
                   ...(shippingAmount > 0 && {
                     shopifyShippingAmount: shippingAmount,
@@ -2174,7 +2186,9 @@ export class OrderService {
             await this.collectionModel.findByIdAndUpdate(
               collection._id,
               {
-                $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $push: {
+                  orders: { order: order._id, paidQuantity: remainingQuantity },
+                },
                 $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
@@ -2185,7 +2199,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                  orders: [
+                    { order: cancelledOrder._id, paidQuantity: quantity },
+                  ],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
                   shopifyShippingAmount: 0,
@@ -2274,7 +2290,8 @@ export class OrderService {
 
       // After successful transaction: emit websocket events
       if (postCommitData) {
-        const { ordersToEmit, collectionsToEmit, cancelledOrder } = postCommitData;
+        const { ordersToEmit, collectionsToEmit, cancelledOrder } =
+          postCommitData;
 
         this.websocketGateway.emitOrderUpdated(ordersToEmit);
         for (const col of collectionsToEmit) {
@@ -2283,7 +2300,8 @@ export class OrderService {
 
         // Restore stock (outside transaction - side effect after commit)
         if (isPopulatedMenuItem(postCommitData.populatedItem)) {
-          for (const ingredient of postCommitData.populatedItem.itemProduction) {
+          for (const ingredient of postCommitData.populatedItem
+            .itemProduction) {
             if (ingredient?.isDecrementStock) {
               await this.accountingService.createStock(user, {
                 product: ingredient?.product,
@@ -2401,7 +2419,12 @@ export class OrderService {
 
           await this.orderModel.findByIdAndUpdate(
             order._id,
-            { $set: { quantity: remainingQuantity, paidQuantity: remainingQuantity } },
+            {
+              $set: {
+                quantity: remainingQuantity,
+                paidQuantity: remainingQuantity,
+              },
+            },
             { new: true, session },
           );
 
@@ -2411,7 +2434,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: order._id, paidQuantity: remainingQuantity }],
+                  orders: [
+                    { order: order._id, paidQuantity: remainingQuantity },
+                  ],
                   amount: collection.amount - cancelledAmount,
                   ...(shippingAmount > 0 && {
                     shopifyShippingAmount: shippingAmount,
@@ -2449,7 +2474,9 @@ export class OrderService {
             await this.collectionModel.findByIdAndUpdate(
               collection._id,
               {
-                $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $push: {
+                  orders: { order: order._id, paidQuantity: remainingQuantity },
+                },
                 $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
@@ -2460,7 +2487,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                  orders: [
+                    { order: cancelledOrder._id, paidQuantity: quantity },
+                  ],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
                   shopifyShippingAmount: 0,
@@ -2545,7 +2574,8 @@ export class OrderService {
       });
 
       if (postCommitData) {
-        const { ordersToEmit, collectionsToEmit, cancelledOrder } = postCommitData;
+        const { ordersToEmit, collectionsToEmit, cancelledOrder } =
+          postCommitData;
 
         this.websocketGateway.emitOrderUpdated(ordersToEmit);
         for (const col of collectionsToEmit) {
@@ -2553,7 +2583,8 @@ export class OrderService {
         }
 
         if (isPopulatedMenuItem(postCommitData.populatedItem)) {
-          for (const ingredient of postCommitData.populatedItem.itemProduction) {
+          for (const ingredient of postCommitData.populatedItem
+            .itemProduction) {
             if (ingredient?.isDecrementStock) {
               await this.accountingService.createStock(user, {
                 product: ingredient?.product,
@@ -2671,7 +2702,12 @@ export class OrderService {
 
           await this.orderModel.findByIdAndUpdate(
             order._id,
-            { $set: { quantity: remainingQuantity, paidQuantity: remainingQuantity } },
+            {
+              $set: {
+                quantity: remainingQuantity,
+                paidQuantity: remainingQuantity,
+              },
+            },
             { new: true, session },
           );
 
@@ -2681,7 +2717,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: order._id, paidQuantity: remainingQuantity }],
+                  orders: [
+                    { order: order._id, paidQuantity: remainingQuantity },
+                  ],
                   amount: collection.amount - cancelledAmount,
                   ...(shippingAmount > 0 && {
                     shopifyShippingAmount: shippingAmount,
@@ -2718,7 +2756,9 @@ export class OrderService {
             await this.collectionModel.findByIdAndUpdate(
               collection._id,
               {
-                $push: { orders: { order: order._id, paidQuantity: remainingQuantity } },
+                $push: {
+                  orders: { order: order._id, paidQuantity: remainingQuantity },
+                },
                 $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
@@ -2729,7 +2769,9 @@ export class OrderService {
                 {
                   ...collection.toObject(),
                   _id: undefined,
-                  orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
+                  orders: [
+                    { order: cancelledOrder._id, paidQuantity: quantity },
+                  ],
                   amount: cancelledAmount,
                   status: OrderCollectionStatus.CANCELLED,
                   shopifyShippingAmount: 0,
@@ -2809,7 +2851,8 @@ export class OrderService {
       });
 
       if (postCommitData) {
-        const { ordersToEmit, collectionsToEmit, cancelledOrder } = postCommitData;
+        const { ordersToEmit, collectionsToEmit, cancelledOrder } =
+          postCommitData;
 
         this.websocketGateway.emitOrderUpdated(ordersToEmit);
         for (const col of collectionsToEmit) {
@@ -2817,7 +2860,8 @@ export class OrderService {
         }
 
         if (isPopulatedMenuItem(postCommitData.populatedItem)) {
-          for (const ingredient of postCommitData.populatedItem.itemProduction) {
+          for (const ingredient of postCommitData.populatedItem
+            .itemProduction) {
             if (ingredient?.isDecrementStock) {
               await this.accountingService.createStock(user, {
                 product: ingredient?.product,
@@ -4248,17 +4292,18 @@ export class OrderService {
       collection.table = transferredTableId;
       await collection.save();
     }
-
     newTable.gameplays = [
       ...new Set([...newTable.gameplays, ...oldTable.gameplays]),
     ];
-
+    if (newTable.type === TableTypes.ACTIVITY) {
+      newTable.tables = [
+        ...new Set([...(newTable?.tables ?? []), oldTable.name]),
+      ];
+    }
     try {
       await Promise.all([newTable.save()]);
       await this.tableService.removeTable(oldTableId, user);
-      for (const order of orders) {
-        this.websocketGateway.emitOrderUpdated(orders);
-      }
+      this.websocketGateway.emitTodayOrderChanged();
     } catch (error) {
       this.logger.error('Error in order operation:', error);
       throw new HttpException(
@@ -4507,12 +4552,8 @@ export class OrderService {
       .exec();
   }
 
-  findCollectionByTrendyolShipmentPackageId(
-    trendyolShipmentPackageId: string,
-  ) {
-    return this.collectionModel
-      .findOne({ trendyolShipmentPackageId })
-      .exec();
+  findCollectionByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
+    return this.collectionModel.findOne({ trendyolShipmentPackageId }).exec();
   }
 
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {
