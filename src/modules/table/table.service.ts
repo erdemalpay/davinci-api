@@ -135,30 +135,34 @@ export class TableService {
           isWeekend ? 5 : 113,
         );
 
-      const category = await this.menuService.findCategoryById(
-        menuItem.category as number,
-      );
+        const category = await this.menuService.findCategoryById(
+          menuItem.category as number,
+        );
 
-      await this.orderService.createOrder(user, {
-        table: createdTable._id,
-        location: createdTable.location,
-        item: menuItem._id,
-        quantity: tableDto.playerCount,
-        createdAt: new Date(tableDto.date),
-        createdBy: user._id,
-        status: OrderStatus.AUTOSERVED,
-        paidQuantity: 0,
-        unitPrice: menuItem.price,
-        kitchen: category?.kitchen,
-        tableDate: new Date(tableDto.date),
-      });
-    }
-    if (createdTable.type === TableTypes.TAKEOUT) {
-      if (orders) {
-        await this.orderService.createMultipleOrder(user, orders, createdTable);
+        await this.orderService.createOrder(user, {
+          table: createdTable._id,
+          location: createdTable.location,
+          item: menuItem._id,
+          quantity: tableDto.playerCount,
+          createdAt: new Date(tableDto.date),
+          createdBy: user._id,
+          status: OrderStatus.AUTOSERVED,
+          paidQuantity: 0,
+          unitPrice: menuItem.price,
+          kitchen: category?.kitchen,
+          tableDate: new Date(tableDto.date),
+        });
       }
-    }
-    this.websocketGateway.emitTableCreated(createdTable);
+      if (createdTable.type === TableTypes.TAKEOUT) {
+        if (orders) {
+          await this.orderService.createMultipleOrder(
+            user,
+            orders,
+            createdTable,
+          );
+        }
+      }
+      this.websocketGateway.emitTableCreated(createdTable);
 
       return createdTable;
     } finally {
@@ -538,8 +542,33 @@ export class TableService {
         table: table._id,
       });
     }
-
     table.gameplays.push(gameplay);
+    if (
+      gameplayDto?.isAutoEntry &&
+      gameplayDto?.playerCount > table.playerCount
+    ) {
+      const isWeekend = await this.panelControlService.isWeekend();
+      const menuItem = await this.menuService.findItemById(isWeekend ? 5 : 113);
+
+      const category = await this.menuService.findCategoryById(
+        menuItem.category as number,
+      );
+      const difference = gameplayDto.playerCount - table.playerCount;
+      await this.orderService.createOrder(user, {
+        table: table._id,
+        location: table.location,
+        item: menuItem._id,
+        quantity: difference,
+        createdAt: new Date(table.date),
+        createdBy: user._id,
+        status: OrderStatus.AUTOSERVED,
+        paidQuantity: 0,
+        unitPrice: menuItem.price,
+        kitchen: category?.kitchen,
+        tableDate: new Date(table.date),
+      });
+      table.playerCount = gameplayDto.playerCount;
+    }
     await table.save();
     return gameplay;
   }
