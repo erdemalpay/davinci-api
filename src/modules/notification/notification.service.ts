@@ -7,7 +7,7 @@ import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateNotificationDto,
-  NotificationQueryDto
+  NotificationQueryDto,
 } from './notification.dto';
 import { Notification } from './notification.schema';
 
@@ -42,12 +42,10 @@ export class NotificationService {
 
     if (type) filter.type = type;
     if (event) {
-      const eventElements = event
-        .split(',');
+      const eventElements = event.split(',');
 
-      filter.event = eventElements.length > 1
-        ? { $in: eventElements }
-        : eventElements[0];
+      filter.event =
+        eventElements.length > 1 ? { $in: eventElements } : eventElements[0];
     }
 
     const rangeFilter: Record<string, any> = {};
@@ -159,14 +157,14 @@ export class NotificationService {
     };
 
     if (after) {
-      const startDate = new Date(after);
-      startDate.setUTCHours(0, 0, 0, 0);
+      const startDate = this.parseLocalDate(after);
+      startDate.setHours(0, 0, 0, 0);
       filterQuery['createdAt'] = { $gte: startDate };
     }
 
     if (before) {
-      const endDate = new Date(before);
-      endDate.setUTCHours(23, 59, 59, 999);
+      const endDate = this.parseLocalDate(before);
+      endDate.setHours(23, 59, 59, 999);
       filterQuery['createdAt'] = {
         ...(filterQuery['createdAt'] || {}),
         $lte: endDate,
@@ -230,9 +228,7 @@ export class NotificationService {
       ...(user && { createdBy: user._id }),
       createdAt: new Date(),
     });
-    this.websocketGateway.emitNotificationChanged(
-      [notification],
-    );
+    this.websocketGateway.emitNotificationChanged([notification]);
     return notification;
   }
 
@@ -320,9 +316,7 @@ export class NotificationService {
     if (!notification) {
       throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
     }
-    this.websocketGateway.emitNotificationChanged(
-      [notification],
-    );
+    this.websocketGateway.emitNotificationChanged([notification]);
     return notification;
   }
 

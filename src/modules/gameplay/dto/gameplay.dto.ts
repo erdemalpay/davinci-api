@@ -25,4 +25,8 @@ export class GameplayDto {
   @IsOptional()
   @IsBoolean()
   isGameplayTime?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAutoEntry?: boolean;
 }
