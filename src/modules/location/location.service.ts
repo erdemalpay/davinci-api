@@ -114,6 +114,11 @@ export class LocationService {
     const location = await this.locationModel.findOne({ name: name });
     return location;
   }
+
+  async findManyByNames(names: string[]) {
+    if (!names.length) return [];
+    return this.locationModel.find({ name: { $in: names } }).lean();
+  }
   async findByIkasId(id: string) {
     const location = await this.locationModel.findOne({ ikasId: id });
     return location;

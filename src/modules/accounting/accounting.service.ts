@@ -3999,6 +3999,35 @@ export class AccountingService {
     return count;
   }
 
+  async syncProductCountLists() {
+    const allCountLists = await this.countListModel.find();
+
+    // Build a map: productId -> countListId[]
+    const productCountListMap = new Map<string, string[]>();
+    for (const cl of allCountLists) {
+      for (const entry of cl.products ?? []) {
+        const pid = entry.product;
+        if (!productCountListMap.has(pid)) {
+          productCountListMap.set(pid, []);
+        }
+        productCountListMap.get(pid).push(cl._id);
+      }
+    }
+
+    const updatePromises = [];
+    for (const [productId, countListIds] of productCountListMap.entries()) {
+      updatePromises.push(
+        this.productModel.findByIdAndUpdate(productId, {
+          countList: countListIds,
+        }),
+      );
+    }
+
+    await Promise.all(updatePromises);
+    await this.websocketGateway.emitProductChanged();
+    return { updated: productCountListMap.size };
+  }
+
   async matchProducts() {
     const products = await this.productModel.find();
     const allMenuItems = await this.menuService.findAllUndeletedItems();
@@ -4163,13 +4192,18 @@ export class AccountingService {
                 .filter(Boolean)
             : [];
 
-          for (const clName of countListNames) {
-            const found = await this.countListModel.findOne({ name: clName });
-            if (found) countListIds.push(found._id);
+          if (countListNames.length > 0) {
+            const foundCountLists = await this.countListModel
+              .find({ name: { $in: countListNames } })
+              .select('_id')
+              .lean();
+            countListIds = foundCountLists.map((cl) => cl._id);
           }
-          for (const locName of locationNames) {
-            const found = await this.locationService.findByName(locName);
-            if (found) locationIds.push(found._id);
+          if (locationNames.length > 0) {
+            const foundLocations = await this.locationService.findManyByNames(
+              locationNames,
+            );
+            locationIds = foundLocations.map((loc) => loc._id);
           }
         }
 
@@ -4407,14 +4441,18 @@ export class AccountingService {
                   .filter(Boolean)
               : [];
 
-            for (const clName of countListNames) {
-              const found = await this.countListModel.findOne({ name: clName });
-              if (found) countListIds.push(found._id);
+            if (countListNames.length > 0) {
+              const foundCountLists = await this.countListModel
+                .find({ name: { $in: countListNames } })
+                .select('_id')
+                .lean();
+              countListIds = foundCountLists.map((cl) => cl._id);
             }
-
-            for (const locName of locationNames) {
-              const found = await this.locationService.findByName(locName);
-              if (found) locationIds.push(found._id);
+            if (locationNames.length > 0) {
+              const foundLocations = await this.locationService.findManyByNames(
+                locationNames,
+              );
+              locationIds = foundLocations.map((loc) => loc._id);
             }
 
             if (countListIds.length > 0) {
