@@ -403,7 +403,6 @@ export class AccountingService {
   }
 
   async updateProduct(user: User, id: string, updates: UpdateQuery<Product>) {
-    console.log('updateProduct called with updates:', updates);
     const product = await this.productModel.findById(id);
     if (updates?.matchedMenuItem) {
       const products = await this.productModel.find({
@@ -2291,9 +2290,6 @@ export class AccountingService {
 
   async notifyBackInStockSubscribers(menuItemId: number) {
     try {
-      console.log(
-        `Checking back-in-stock subscriptions for menu item ${menuItemId}...`,
-      );
       const menuItem = await this.menuService.findItemById(menuItemId);
 
       if (!menuItem?.shopifyId) {
@@ -3475,7 +3471,6 @@ export class AccountingService {
         quantity: -1 * productStockHistory.change,
         status: updates.status,
       });
-      await this.productStockHistoryModel.findByIdAndRemove(id);
     } else {
       productStockHistory =
         await this.productStockHistoryModel.findByIdAndUpdate(id, updates, {
@@ -4066,7 +4061,14 @@ export class AccountingService {
     let errorDatas = [];
     for (const updateDto of updateMultipleProductDto) {
       try {
-        const { name, expenseType, brand, vendor } = updateDto;
+        const {
+          name,
+          expenseType,
+          brand,
+          vendor,
+          countList,
+          locations: locationsInput,
+        } = updateDto;
         //  if name field is not provided it will not be created
         if (!name) {
           errorDatas.push({
@@ -4144,15 +4146,67 @@ export class AccountingService {
           continue;
         }
 
-        await this.productModel.findOneAndUpdate(
+        // resolve countList and location IDs before updating
+        let countListIds = [];
+        let locationIds = [];
+        if (countList !== undefined && countList !== null) {
+          const countListNames = countList?.trim()
+            ? countList
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
+          const locationNames = locationsInput?.trim()
+            ? locationsInput
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
+
+          for (const clName of countListNames) {
+            const found = await this.countListModel.findOne({ name: clName });
+            if (found) countListIds.push(found._id);
+          }
+          for (const locName of locationNames) {
+            const found = await this.locationService.findByName(locName);
+            if (found) locationIds.push(found._id);
+          }
+        }
+
+        const updatedProduct = await this.productModel.findOneAndUpdate(
           { name: name, deleted: false },
           {
             ...(newExpenseTypes.length > 0 && { expenseType: newExpenseTypes }),
             ...(newVendor.length > 0 && { vendor: newVendor }),
             ...(newBrand.length > 0 && { brand: newBrand }),
+            ...(countList !== undefined &&
+              countList !== null && { countList: countListIds }),
           },
           { new: true },
         );
+
+        if (updatedProduct && countList !== undefined && countList !== null) {
+          await this.countListModel.updateMany(
+            {},
+            { $pull: { products: { product: updatedProduct._id } } },
+          );
+
+          if (countListIds.length > 0) {
+            await this.countListModel.updateMany(
+              { _id: { $in: countListIds } },
+              {
+                $push: {
+                  products: {
+                    product: updatedProduct._id,
+                    locations: locationIds,
+                  },
+                },
+              },
+            );
+          }
+
+          this.websocketGateway.emitCountListChanged();
+        }
       } catch (e) {
         this.logger.error('Error updating product:', e);
         errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
@@ -4180,6 +4234,8 @@ export class AccountingService {
           barcode,
           description,
           image,
+          countList,
+          locations: locationsInput,
         } = addDto;
 
         //  if name field is not provided it will not be created
@@ -4335,8 +4391,54 @@ export class AccountingService {
             };
           });
           newProduct._id = usernamify(name);
+
+          // resolve countList and location IDs before saving
+          let countListIds = [];
+          let locationIds = [];
+          if (countList?.trim()) {
+            const countListNames = countList
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+            const locationNames = locationsInput?.trim()
+              ? locationsInput
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [];
+
+            for (const clName of countListNames) {
+              const found = await this.countListModel.findOne({ name: clName });
+              if (found) countListIds.push(found._id);
+            }
+
+            for (const locName of locationNames) {
+              const found = await this.locationService.findByName(locName);
+              if (found) locationIds.push(found._id);
+            }
+
+            if (countListIds.length > 0) {
+              newProduct.countList = countListIds;
+            }
+          }
+
           await newProduct.save();
           isProductCreated = true;
+
+          if (countListIds.length > 0) {
+            await this.countListModel.updateMany(
+              { _id: { $in: countListIds } },
+              {
+                $addToSet: {
+                  products: {
+                    product: newProduct._id,
+                    locations: locationIds,
+                  },
+                },
+              },
+            );
+            this.websocketGateway.emitCountListChanged();
+          }
         }
         //if category and price provided then the menuItem will be created
         if (category && price) {

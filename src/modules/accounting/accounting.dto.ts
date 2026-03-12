@@ -322,10 +322,14 @@ export class AddMultipleProductAndMenuItemDto {
   barcode?: string;
   description?: string;
   image?: string;
+  countList?: string;
+  locations?: string;
 }
 export class UpdateMultipleProduct {
   name: string;
   expenseType?: string;
   brand?: string;
   vendor?: string;
+  countList?: string;
+  locations?: string;
 }
