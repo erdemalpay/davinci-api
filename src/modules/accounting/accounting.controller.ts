@@ -9,7 +9,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
-import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import {
@@ -797,7 +796,6 @@ export class AccountingController {
     return this.accountingService.matchProducts();
   }
 
-  @Public()
   @Get('/sync-product-count-lists')
   syncProductCountLists() {
     return this.accountingService.syncProductCountLists();
