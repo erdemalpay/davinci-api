@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { compare, hash } from 'bcrypt';
+import { randomInt } from 'crypto';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { GameService } from '../game/game.service';
@@ -37,12 +38,16 @@ export class UserService implements OnModuleInit {
     this.checkDefaultRoles();
   }
 
+  private generateTempPassword(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
   async create(userProps: CreateUserDto) {
     const user = new this.userModel(
       userProps.imageUrl !== '' ? userProps : { ...userProps, imageUrl: null },
     );
 
-    const randomNumber = Math.floor(100000 + Math.random() * 900000).toString();
+    const randomNumber = this.generateTempPassword();
 
     user.password = await hash(randomNumber, 10);
     if (user._id !== 'dv') {
@@ -80,7 +85,10 @@ export class UserService implements OnModuleInit {
     return user.active;
   }
   async resetUserPassword(reqUser: User, id: string) {
-    const randomNumber = Math.floor(100000 + Math.random() * 900000).toString();
+    if (reqUser.role?._id !== 1) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+    const randomNumber = this.generateTempPassword();
     const hashedNewPassword = await hash(randomNumber, 10);
     const user = await this.update(reqUser, id, {
       password: hashedNewPassword,
