@@ -2741,6 +2741,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
@@ -2806,6 +2807,7 @@ export class OrderService {
               {
                 $pull: { orders: { order: order._id } },
                 $inc: { amount: -cancelledAmount },
+                $set: { shopifyDiscountAmount: remainingDiscount },
               },
               { new: true, session },
             );
