@@ -1413,20 +1413,20 @@ export class TrendyolService {
         );
       }
 
-      // Webhook'ta iptal edilen satırların lineId'lerini topla (kısmi iptal için)
+      // Webhook'ta iptal edilen satırların lineId → quantity map'ini oluştur
       const lineItems = data?.lines ?? [];
-      const cancelledLineIds = new Set<string>(
-        lineItems
-          .filter(
-            (line: any) =>
-              (line.orderLineItemStatusName || line.status) === 'Cancelled',
-          )
-          .map((line: any) => (line.lineId ?? line.id)?.toString())
-          .filter(Boolean),
-      );
+      const cancelledLineMap = new Map<string, number>(); // lineId → cancelledQuantity
+      for (const line of lineItems) {
+        if ((line.orderLineItemStatusName || line.status) === 'Cancelled') {
+          const lineId = (line.lineId ?? line.id)?.toString();
+          if (lineId) {
+            cancelledLineMap.set(lineId, line.quantity ?? 1);
+          }
+        }
+      }
 
       // lines varsa ve en az bir iptal edilen satır varsa kısmi iptal; yoksa tam iptal
-      const isPartialCancel = lineItems.length > 0 && cancelledLineIds.size > 0;
+      const isPartialCancel = lineItems.length > 0 && cancelledLineMap.size > 0;
 
       // shipmentPackageId ile tüm order'ları bul
       const orders = await this.orderService.findByTrendyolShipmentPackageId(
@@ -1444,18 +1444,28 @@ export class TrendyolService {
         };
       }
 
-      // Kısmi iptalda sadece iptal edilen line'a ait order'ları, tam iptalda hepsini iptal et
-      const ordersToCancel = isPartialCancel
-        ? orders.filter((order) => {
-            const lineItemId = String(order.trendyolLineItemId);
-            // Kısmi iptal sonrası yeniden oluşturulan order'lar için format: "lineId-packageId"
-            // Sadece lineId kısmını kontrol et
-            const baseLineItemId = lineItemId.includes('-')
-              ? lineItemId.split('-')[0]
-              : lineItemId;
-            return cancelledLineIds.has(baseLineItemId);
-          })
-        : orders;
+      // Kısmi iptalda sadece iptal edilen line'a ait order'ları bul, tam iptalda hepsini iptal et
+      const ordersToCancel: Array<{ order: (typeof orders)[0]; cancelQuantity: number }> =
+        isPartialCancel
+          ? orders
+              .filter((order) => {
+                const lineItemId = String(order.trendyolLineItemId);
+                const baseLineItemId = lineItemId.includes('-')
+                  ? lineItemId.split('-')[0]
+                  : lineItemId;
+                return cancelledLineMap.has(baseLineItemId);
+              })
+              .map((order) => {
+                const lineItemId = String(order.trendyolLineItemId);
+                const baseLineItemId = lineItemId.includes('-')
+                  ? lineItemId.split('-')[0]
+                  : lineItemId;
+                return {
+                  order,
+                  cancelQuantity: cancelledLineMap.get(baseLineItemId) ?? order.quantity,
+                };
+              })
+          : orders.map((order) => ({ order, cancelQuantity: order.quantity }));
 
       this.logger.log(
         `Found ${orders.length} orders in package; cancelling ${
@@ -1465,7 +1475,7 @@ export class TrendyolService {
 
       let cancelledCount = 0;
 
-      for (const order of ordersToCancel) {
+      for (const { order, cancelQuantity } of ordersToCancel) {
         try {
           if (order.status === OrderStatus.CANCELLED) {
             this.logger.log(`Order ${order._id} already cancelled, skipping`);
@@ -1475,7 +1485,7 @@ export class TrendyolService {
           await this.orderService.cancelTrendyolOrder(
             constantUser,
             order.trendyolLineItemId,
-            order.quantity,
+            cancelQuantity,
           );
 
           this.logger.log(`Order ${order._id} cancelled successfully`);
