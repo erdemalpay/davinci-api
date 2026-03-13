@@ -2064,7 +2064,10 @@ export class OrderService {
         }
 
         const collection = await this.collectionModel.findOne(
-          { shopifyId: order.shopifyOrderId },
+          {
+            shopifyId: order.shopifyOrderId,
+            status: { $ne: OrderCollectionStatus.CANCELLED },
+          },
           null,
           { session },
         );
@@ -2076,12 +2079,6 @@ export class OrderService {
         if (order.status === OrderStatus.CANCELLED) {
           throw new HttpException(
             'Order is already cancelled',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        if (collection.status === OrderCollectionStatus.CANCELLED) {
-          throw new HttpException(
-            'Collection is already cancelled',
             HttpStatus.BAD_REQUEST,
           );
         }
@@ -2357,7 +2354,10 @@ export class OrderService {
         }
 
         const collection = await this.collectionModel.findOne(
-          { trendyolShipmentPackageId: order.trendyolShipmentPackageId },
+          {
+            trendyolShipmentPackageId: order.trendyolShipmentPackageId,
+            status: { $ne: OrderCollectionStatus.CANCELLED },
+          },
           null,
           { session },
         );
@@ -2369,12 +2369,6 @@ export class OrderService {
         if (order.status === OrderStatus.CANCELLED) {
           throw new HttpException(
             'Order is already cancelled',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        if (collection.status === OrderCollectionStatus.CANCELLED) {
-          throw new HttpException(
-            'Collection is already cancelled',
             HttpStatus.BAD_REQUEST,
           );
         }
@@ -2640,7 +2634,10 @@ export class OrderService {
         }
 
         const collection = await this.collectionModel.findOne(
-          { hepsiburadaOrderNumber: order.hepsiburadaOrderNumber },
+          {
+            hepsiburadaOrderNumber: order.hepsiburadaOrderNumber,
+            status: { $ne: OrderCollectionStatus.CANCELLED },
+          },
           null,
           { session },
         );
@@ -2652,12 +2649,6 @@ export class OrderService {
         if (order.status === OrderStatus.CANCELLED) {
           throw new HttpException(
             'Order is already cancelled',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        if (collection.status === OrderCollectionStatus.CANCELLED) {
-          throw new HttpException(
-            'Collection is already cancelled',
             HttpStatus.BAD_REQUEST,
           );
         }
