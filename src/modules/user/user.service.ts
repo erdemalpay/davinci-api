@@ -83,7 +83,7 @@ export class UserService implements OnModuleInit {
   async checkUserActive(id: string) {
     const user = await this.userModel.findById(id);
     return user.active;
-  }//deneme
+  }
   async resetUserPassword(reqUser: User, id: string) {
     if (reqUser.role?._id !== 1) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
