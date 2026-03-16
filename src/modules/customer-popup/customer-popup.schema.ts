@@ -5,7 +5,6 @@ import { purifySchema } from 'src/lib/purifySchema';
 export enum TriggerType {
   PERIODIC = 'periodic',
   SPECIAL_DAY = 'special_day',
-  BOTH = 'both',
 }
 
 @Schema({ _id: false, timestamps: true })

@@ -45,13 +45,6 @@ export class CustomerPopupService {
             triggerType: TriggerType.SPECIAL_DAY,
             specialDate: todayMMDD,
           },
-          {
-            triggerType: TriggerType.BOTH,
-            $or: [
-              { periodicDays: todayWeekday },
-              { specialDate: todayMMDD },
-            ],
-          },
         ],
       })
       .exec();
