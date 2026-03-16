@@ -636,7 +636,7 @@ export class GameplayService {
         },
       },
       { $sort: { playCount: -1 } },
-      { $limit: 10 },
+      { $limit: 15 },
       {
         $lookup: {
           from: 'games',
