@@ -653,6 +653,7 @@ export class GameplayService {
           label: '$game.name',
         },
       },
+      { $sort: { label: 1 } },
     ];
 
     return this.gameplayModel.aggregate(pipeline).exec();
