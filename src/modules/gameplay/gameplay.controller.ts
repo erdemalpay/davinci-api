@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller, Get,
-  Param,
-  Patch,
-  Query
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { FieldGrouping } from './dto/gameplay-query.dto';
@@ -131,6 +125,11 @@ export class GameplayController {
   @Get('/counts-by-date')
   getGameplayCountsByDate(@Query('mentorId') mentorId: string) {
     return this.gameplayService.getGameplayCountsByDate(mentorId);
+  }
+
+  @Get('/popular-games-last-30-days')
+  getPopularGamesLast30Days() {
+    return this.gameplayService.getPopularGamesLast30Days();
   }
 
   @Get(':id')

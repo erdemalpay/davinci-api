@@ -615,4 +615,47 @@ export class GameplayService {
       .exec();
     return results;
   }
+
+  async getPopularGamesLast30Days() {
+    const endDate = format(new Date(), 'yyyy-MM-dd');
+    const startDate = format(addDays(new Date(), -30), 'yyyy-MM-dd');
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$game',
+          playCount: { $sum: 1 },
+        },
+      },
+      { $sort: { playCount: -1 } },
+      { $limit: 15 },
+      {
+        $lookup: {
+          from: 'games',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'game',
+        },
+      },
+      { $unwind: '$game' },
+      {
+        $project: {
+          _id: 0,
+          value: '$game._id',
+          label: '$game.name',
+        },
+      },
+      { $sort: { label: 1 } },
+    ];
+
+    return this.gameplayModel.aggregate(pipeline).exec();
+  }
 }
