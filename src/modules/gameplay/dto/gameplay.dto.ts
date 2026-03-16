@@ -30,3 +30,30 @@ export class GameplayDto {
   @IsBoolean()
   isAutoEntry?: boolean;
 }
+export class CreateGameplayDto {
+  @IsNumber()
+  location: number;
+
+  @IsNumber()
+  playerCount: number;
+
+  @IsString()
+  mentor: string;
+
+  @IsString()
+  date: string;
+
+  @IsString()
+  startHour: string;
+
+  @IsNumber()
+  game: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isGameplayTime?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAutoEntry?: boolean;
+}

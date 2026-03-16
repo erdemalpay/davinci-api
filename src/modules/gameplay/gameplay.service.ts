@@ -11,7 +11,7 @@ import {
   GameplayQueryDto,
   GameplayQueryGroupDto,
 } from './dto/gameplay-query.dto';
-import { GameplayDto } from './dto/gameplay.dto';
+import { CreateGameplayDto } from './dto/gameplay.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 import { Gameplay } from './gameplay.schema';
 
@@ -27,7 +27,11 @@ export class GameplayService {
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
-  async create(user: User, createGameplayDto: GameplayDto, tableId: number) {
+  async create(
+    user: User,
+    createGameplayDto: CreateGameplayDto,
+    tableId: number,
+  ) {
     const gameplay = await this.gameplayModel.create({
       ...createGameplayDto,
       createdBy: user,
