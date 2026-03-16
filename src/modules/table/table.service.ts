@@ -13,7 +13,7 @@ import { DailyPlayerCount } from 'src/types';
 import { pick, pickWith } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { CreateGameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { GameplayTimeService } from '../gameplaytime/gameplaytime.service';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -503,7 +503,7 @@ export class TableService {
     }
   }
 
-  async addGameplay(user: User, id: number, gameplayDto: GameplayDto) {
+  async addGameplay(user: User, id: number, gameplayDto: CreateGameplayDto) {
     const table = await this.tableModel.findById(id);
 
     if (!table) {
