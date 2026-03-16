@@ -140,6 +140,11 @@ export class OrderController {
   ) {
     return this.orderService.findDailySummary(date, location);
   }
+
+  @Get('/popular-items-last-30-days')
+  getPopularItemsLast30Days(@Query('location') location?: number) {
+    return this.orderService.getPopularItemsLast30Days(location);
+  }
   @Post('/dedupe-ikas-duplicates')
   dedupeIkasDuplicates() {
     return this.orderService.dedupeIkasDuplicates();
