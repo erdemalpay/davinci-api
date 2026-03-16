@@ -11,7 +11,7 @@ import {
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
-import { GameplayDto } from '../gameplay/dto/gameplay.dto';
+import { CreateGameplayDto } from '../gameplay/dto/gameplay.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './../order/order.dto';
@@ -79,7 +79,11 @@ export class TableController {
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
   ) {
-    return this.tableService.getOpenTableDatesByRange(location, dateFrom, dateTo);
+    return this.tableService.getOpenTableDatesByRange(
+      location,
+      dateFrom,
+      dateTo,
+    );
   }
 
   @Public()
@@ -132,7 +136,7 @@ export class TableController {
   addGameplayToTable(
     @ReqUser() user: User,
     @Param('id') id: number,
-    @Body() gameplayDto: GameplayDto,
+    @Body() gameplayDto: CreateGameplayDto,
   ) {
     return this.tableService.addGameplay(user, id, gameplayDto);
   }
