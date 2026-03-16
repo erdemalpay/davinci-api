@@ -175,7 +175,7 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   shopifyOrderId: string;
 
-  @Prop({ required: false, type: String, unique: true, sparse: true })
+  @Prop({ required: false, type: String })
   shopifyOrderLineItemId: string;
 
   @Prop({ required: false, type: String })
@@ -239,8 +239,8 @@ OrderSchema.index(
   { partialFilterExpression: { ikasId: { $type: 'string' } } },
 );
 OrderSchema.index(
-  { shopifyId: 1 },
-  { unique: true, partialFilterExpression: { shopifyId: { $type: 'string' } } },
+  { shopifyOrderLineItemId: 1 },
+  { unique: true, partialFilterExpression: { shopifyOrderLineItemId: { $type: 'string' } } },
 );
 OrderSchema.index(
   { trendyolLineItemId: 1 },
@@ -256,7 +256,7 @@ OrderSchema.index(
 );
 OrderSchema.index(
   { hepsiburadaLineItemId: 1 },
-  { partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } } },
+  { unique: true, partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } } },
 );
 
 // Indexes for frequent queries - optimized to reduce write overhead
