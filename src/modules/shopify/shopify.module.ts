@@ -1,6 +1,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { UserModule } from 'src/modules/user/user.module';
+import { LockModule } from '../lock/lock.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
 import { RedisModule } from '../redis/redis.module';
@@ -17,6 +18,7 @@ import { ShopifyService } from './shopify.service';
   imports: [
     WebSocketModule,
     RedisModule,
+    LockModule,
     HttpModule,
     UserModule,
     LocationModule,

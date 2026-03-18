@@ -66,44 +66,4 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.flushall();
   }
 
-  // Acquire multiple locks atomically using a Lua script.
-  // Returns true if all locks were acquired, false if any lock already exists.
-  async acquireTableLocks(
-    keys: string[],
-    lockValue: string,
-    ttlSeconds: number,
-  ): Promise<boolean> {
-    const luaScript = `
-      for i = 1, #KEYS do
-        if redis.call('EXISTS', KEYS[i]) == 1 then
-          return 0
-        end
-      end
-      for i = 1, #KEYS do
-        redis.call('SET', KEYS[i], ARGV[1], 'EX', ARGV[2])
-      end
-      return 1
-    `;
-    const result = await this.client.eval(
-      luaScript,
-      keys.length,
-      ...keys,
-      lockValue,
-      ttlSeconds,
-    );
-    return result === 1;
-  }
-
-  // Release locks that belong to us (matched by lockValue).
-  async releaseTableLocks(keys: string[], lockValue: string): Promise<void> {
-    const luaScript = `
-      for i = 1, #KEYS do
-        if redis.call('GET', KEYS[i]) == ARGV[1] then
-          redis.call('DEL', KEYS[i])
-        end
-      end
-      return 1
-    `;
-    await this.client.eval(luaScript, keys.length, ...keys, lockValue);
-  }
 }
