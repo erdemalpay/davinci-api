@@ -14,7 +14,7 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, password: string) {
-    return this.userService.validateCredentials(username, password);
+    return this.userService.validateCredentials(username.trim(), password);
   }
 
   async login(user: User) {
