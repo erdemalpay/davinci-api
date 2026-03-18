@@ -33,10 +33,8 @@ export class LockService {
     ttlSeconds: number,
   ): Promise<boolean> {
     const luaScript = `
-      for i = 1, #KEYS do
-        if redis.call('EXISTS', KEYS[i]) == 1 then
-          return 0
-        end
+      if redis.call('EXISTS', unpack(KEYS)) > 0 then
+        return 0
       end
       for i = 1, #KEYS do
         redis.call('SET', KEYS[i], ARGV[1], 'EX', ARGV[2])
@@ -81,12 +79,16 @@ export class LockService {
    */
   async releaseMultiple(keys: string[], lockValue: string): Promise<void> {
     const luaScript = `
+      local keys_to_delete = {}
       for i = 1, #KEYS do
         if redis.call('GET', KEYS[i]) == ARGV[1] then
-          redis.call('DEL', KEYS[i])
+          table.insert(keys_to_delete, KEYS[i])
         end
       end
-      return 1
+      if #keys_to_delete > 0 then
+        return redis.call('DEL', unpack(keys_to_delete))
+      end
+      return 0
     `;
     await this.redisService
       .getClient()
