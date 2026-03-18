@@ -145,8 +145,13 @@ export class TableController {
   getAfterGivenDateCreatedNumbers(
     @Query('after') after: string,
     @Query('before') before?: string,
+    @Query('location') location?: number,
   ) {
-    return this.tableService.getAfterGivenDateCreatedNumbers(after, before);
+    return this.tableService.getAfterGivenDateCreatedNumbers(
+      after,
+      before,
+      location,
+    );
   }
 
   @Delete('/:tableId/gameplay/:gameplayId')

@@ -397,11 +397,13 @@ export class OrderController {
     @Query('after') after: string,
     @Query('before') before?: string,
     @Query('eliminatedDiscounts') eliminatedDiscounts?: string,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findPersonalDatas({
       after: after,
       before: before,
       eliminatedDiscounts: eliminatedDiscounts,
+      location: location,
     });
   }
 
@@ -409,10 +411,12 @@ export class OrderController {
   findPersonalCollectionNumbers(
     @Query('after') after: string,
     @Query('before') before?: string,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findPersonalCollectionNumbers({
       after: after,
       before: before,
+      location: location,
     });
   }
   @Get('/table/:id')
