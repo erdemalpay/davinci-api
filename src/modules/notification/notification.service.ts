@@ -210,17 +210,22 @@ export class NotificationService {
   ) {
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();
-      const foundNotification = eventNotifications.find(
+      const assignedTemplate = eventNotifications.find(
         (notification) =>
           notification.event === createNotificationDto.event &&
-          notification?.isAssigned &&
-          createNotificationDto?.isAssigned,
+          notification?.isAssigned,
       );
-      if (foundNotification) {
+      if (createNotificationDto?.isAssigned && assignedTemplate) {
         throw new HttpException(
           'Event notification already exists',
           HttpStatus.CONFLICT,
         );
+      }
+      if (
+        !createNotificationDto?.isAssigned &&
+        assignedTemplate?.isActive === false
+      ) {
+        return null;
       }
     }
     const notification = await this.notificationModel.create({
