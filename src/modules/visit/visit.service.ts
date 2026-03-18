@@ -1,4 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
@@ -28,6 +33,7 @@ export class VisitService {
     private cafeActivityModel: Model<CafeActivity>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly shiftService: ShiftService,
     private readonly activityService: ActivityService,

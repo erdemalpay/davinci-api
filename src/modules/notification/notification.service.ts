@@ -1,9 +1,16 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
+import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   CreateNotificationDto,
@@ -19,6 +26,8 @@ export class NotificationService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => VisitService))
+    private readonly visitService: VisitService,
   ) {}
 
   parseLocalDate(dateString: string): Date {
@@ -208,6 +217,8 @@ export class NotificationService {
     createNotificationDto: CreateNotificationDto,
     user?: User,
   ) {
+    let finalCreateDto: CreateNotificationDto = { ...createNotificationDto };
+
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();
       const assignedTemplate = eventNotifications.find(
@@ -227,9 +238,76 @@ export class NotificationService {
       ) {
         return null;
       }
+      if (!createNotificationDto?.isAssigned && assignedTemplate) {
+        finalCreateDto.selectedLocations = assignedTemplate.selectedLocations;
+
+        if (assignedTemplate.selectedLocations?.length) {
+          const today = new Date().toISOString().split('T')[0];
+          const visitGroups = await Promise.all(
+            assignedTemplate.selectedLocations.map((location) =>
+              this.visitService.findByDateAndLocation(today, Number(location)),
+            ),
+          );
+          const visits = visitGroups.flat();
+
+          let selectedUsersList =
+            visits
+              ?.reduce(
+                (
+                  acc: {
+                    unique: typeof visits;
+                    seenUsers: Record<string, boolean>;
+                  },
+                  visit,
+                ) => {
+                  acc.seenUsers = acc.seenUsers || {};
+                  const userId = String((visit as any).user ?? '');
+                  if (userId && !acc.seenUsers[userId]) {
+                    acc.seenUsers[userId] = true;
+                    acc.unique.push(visit);
+                  }
+                  return acc;
+                },
+                { unique: [], seenUsers: {} },
+              )
+              ?.unique?.map((visit) => String((visit as any).user)) ?? [];
+
+          if (assignedTemplate.selectedRoles?.length) {
+            const users = await this.userService.findUsersByIds(
+              selectedUsersList,
+            );
+            selectedUsersList = users
+              .filter((user) =>
+                assignedTemplate.selectedRoles?.some(
+                  (roleId) => String(user.role?._id) === String(roleId),
+                ),
+              )
+              .map((user) => String(user._id));
+            finalCreateDto.selectedRoles = [];
+          } else {
+            finalCreateDto.selectedRoles = assignedTemplate.selectedRoles;
+          }
+
+          if (assignedTemplate.selectedUsers?.length) {
+            selectedUsersList = [
+              ...new Set([
+                ...selectedUsersList,
+                ...assignedTemplate.selectedUsers.map((u) => String(u)),
+              ]),
+            ];
+          }
+
+          finalCreateDto.selectedUsers = selectedUsersList;
+        } else {
+          finalCreateDto.selectedRoles = assignedTemplate.selectedRoles;
+          if (assignedTemplate.selectedUsers?.length) {
+            finalCreateDto.selectedUsers = assignedTemplate.selectedUsers;
+          }
+        }
+      }
     }
     const notification = await this.notificationModel.create({
-      ...createNotificationDto,
+      ...finalCreateDto,
       ...(user && { createdBy: user._id }),
       createdAt: new Date(),
     });
