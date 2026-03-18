@@ -261,7 +261,7 @@ export class NotificationService {
                   visit,
                 ) => {
                   acc.seenUsers = acc.seenUsers || {};
-                  const userId = String((visit as any).user ?? '');
+                  const userId = String(visit.user ?? '');
                   if (userId && !acc.seenUsers[userId]) {
                     acc.seenUsers[userId] = true;
                     acc.unique.push(visit);
@@ -270,7 +270,7 @@ export class NotificationService {
                 },
                 { unique: [], seenUsers: {} },
               )
-              ?.unique?.map((visit) => String((visit as any).user)) ?? [];
+              ?.unique?.map((visit) => String(visit.user)) ?? [];
 
           if (assignedTemplate.selectedRoles?.length) {
             const users = await this.userService.findUsersByIds(
