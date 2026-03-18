@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
 import '@shopify/shopify-api/adapters/node';
 import { firstValueFrom } from 'rxjs';
+import { LockService } from '../lock/lock.service';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -82,6 +83,7 @@ export class ShopifyService {
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
     private readonly webhookLogService: WebhookLogService,
+    private readonly lockService: LockService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -2018,9 +2020,7 @@ export class ShopifyService {
       if (shopifyOrderId) {
         const lockKey = `${RedisKeys.ShopifyOrderLock}:${shopifyOrderId}`;
         // SET NX → sadece key yoksa set eder (atomik), varsa null döner
-        const lockAcquired = await this.redisService
-          .getClient()
-          .set(lockKey, '1', 'EX', 86400, 'NX'); // 24 saat TTL (Shopify 48h retry yapabilir)
+        const lockAcquired = await this.lockService.acquire(lockKey, 86400); // 24 saat TTL (Shopify 48h retry yapabilir)
         this.logger.log(
           `[LOCK] Order-level Redis lock for ${shopifyOrderId}: ${lockAcquired ? 'ACQUIRED' : 'ALREADY_EXISTS (duplicate blocked)'}`,
         );
@@ -2218,9 +2218,11 @@ export class ShopifyService {
           // eş zamanlı işlenmesini önler (order-level lock'a ek savunma katmanı).
           itemLockKey = `${RedisKeys.ShopifyLineItemLock}:${lineItemId}`;
           itemLockValue = randomUUID();
-          const itemLockAcquired = await this.redisService
-            .getClient()
-            .set(itemLockKey, itemLockValue, 'EX', 86400, 'NX');
+          const itemLockAcquired = await this.lockService.acquire(
+            itemLockKey,
+            86400,
+            itemLockValue,
+          );
           if (!itemLockAcquired) {
             this.logger.warn(
               `[LOCK] Line item ${lineItemId} already locked — concurrent webhook detected, skipping.`,
@@ -2317,8 +2319,8 @@ export class ShopifyService {
             this.logError('Error creating order', orderError);
             // Order oluşturulamadı → per-item lock serbest bırak ki Shopify retry bu item'ı tekrar işleyebilsin
             if (itemLockKey && itemLockValue && itemLockHeld) {
-              await this.redisService
-                .releaseTableLocks([itemLockKey], itemLockValue)
+              await this.lockService
+                .release(itemLockKey, itemLockValue)
                 .catch((e) =>
                   this.logger.error(
                     'Failed to release item lock on order error:',
@@ -2332,8 +2334,8 @@ export class ShopifyService {
           this.logError('Error processing line item', itemError);
           // Lock alındıktan sonra beklenmedik hata → serbest bırak ki retry işleyebilsin
           if (itemLockKey && itemLockValue && itemLockHeld) {
-            await this.redisService
-              .releaseTableLocks([itemLockKey], itemLockValue)
+            await this.lockService
+              .release(itemLockKey, itemLockValue)
               .catch((e) =>
                 this.logger.error('Failed to release item lock on item error:', e),
               );
@@ -2497,9 +2499,11 @@ export class ShopifyService {
 
       // İşlem tamamen başarısız oldu → order-level lock serbest bırak ki Shopify retry yapabilsin
       if (orderLockKey) {
-        await this.redisService.getClient().del(orderLockKey).catch((e) =>
-          this.logger.error('Failed to release order lock on error:', e),
-        );
+        await this.lockService
+          .release(orderLockKey)
+          .catch((e) =>
+            this.logger.error('Failed to release order lock on error:', e),
+          );
       }
 
       // Update webhook log with error response (fire-and-forget)

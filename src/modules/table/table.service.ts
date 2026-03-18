@@ -19,6 +19,7 @@ import { GameplayTimeService } from '../gameplaytime/gameplaytime.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
+import { LockService } from '../lock/lock.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
@@ -64,6 +65,7 @@ export class TableService {
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
+    private readonly lockService: LockService,
   ) {}
 
   async searchTableIds(search: string) {
@@ -82,10 +84,10 @@ export class TableService {
 
     const lockValue = `${user._id}-${Date.now()}`;
     const lockKeys = individualNames.map(
-      (name) => `table_lock:${tableDto.location}:${tableDto.date}:${name}`,
+      (name) => `${RedisKeys.TableLock}:${tableDto.location}:${tableDto.date}:${name}`,
     );
 
-    const acquired = await this.redisService.acquireTableLocks(
+    const acquired = await this.lockService.acquireMultiple(
       lockKeys,
       lockValue,
       10,
@@ -166,7 +168,7 @@ export class TableService {
 
       return createdTable;
     } finally {
-      await this.redisService.releaseTableLocks(lockKeys, lockValue);
+      await this.lockService.releaseMultiple(lockKeys, lockValue);
     }
   }
 

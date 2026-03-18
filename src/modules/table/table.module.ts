@@ -4,6 +4,7 @@ import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityModule } from '../activity/activity.module';
 import { GameplayModule } from '../gameplay/gameplay.module';
 import { GameplayTimeModule } from '../gameplaytime/gameplaytime.module';
+import { LockModule } from '../lock/lock.module';
 import { MenuModule } from '../menu/menu.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
@@ -26,6 +27,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   imports: [
     WebSocketModule,
     RedisModule,
+    LockModule,
     mongooseModule,
     GameplayModule,
     ActivityModule,
