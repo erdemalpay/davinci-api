@@ -47,6 +47,9 @@ export class Notification extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   isAssigned: boolean;
+
+  @Prop({ required: false, type: Boolean, default: true })
+  isActive: boolean;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

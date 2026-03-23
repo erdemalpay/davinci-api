@@ -11,6 +11,7 @@ export class CreateNotificationDto {
   seenBy?: string[];
   event?: string;
   isAssigned?: boolean;
+  isActive?: boolean;
 }
 
 export enum NotificationType {

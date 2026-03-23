@@ -391,7 +391,7 @@ export class OrderService {
   }
   async findPersonalCollectionNumbers(query: OrderQueryDto) {
     const filterQuery: Record<string, unknown> = {};
-    const { after, before } = query;
+    const { after, before, location } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
       const start = this.parseLocalDate(after);
@@ -405,6 +405,9 @@ export class OrderService {
 
     if (Object.keys(dateFilter).length) {
       filterQuery.createdAt = dateFilter;
+    }
+    if (location && Number(location) !== 0) {
+      filterQuery['location'] = Number(location);
     }
     filterQuery['status'] = { $ne: OrderCollectionStatus.CANCELLED };
     try {
@@ -436,7 +439,7 @@ export class OrderService {
 
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: Record<string, unknown> = {};
-    const { after, before, eliminatedDiscounts } = query;
+    const { after, before, eliminatedDiscounts, location } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
       const start = this.parseLocalDate(after);
@@ -456,6 +459,9 @@ export class OrderService {
         ? eliminatedDiscounts.split(',').map(Number)
         : [];
       filterQuery['discount'] = { $nin: discountArray };
+    }
+    if (location) {
+      filterQuery['location'] = Number(location);
     }
 
     try {
