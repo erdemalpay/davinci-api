@@ -107,11 +107,6 @@ interface OrderDocument {
   [key: string]: unknown;
 }
 
-interface PaidOrderItem {
-  order: number;
-  paidQuantity: number;
-}
-
 // Type guard helpers
 function isPopulatedMenuItem(
   item: number | PopulatedMenuItem,
@@ -3473,22 +3468,6 @@ export class OrderService {
       );
     }
   }
-  aggregatePaidQuantities(collections: Collection[]) {
-    const orderSums = collections.reduce((acc, collection) => {
-      collection.orders.forEach((orderItem) => {
-        if (acc[orderItem.order]) {
-          acc[orderItem.order].paidQuantity += orderItem.paidQuantity;
-        } else {
-          acc[orderItem.order] = { ...orderItem };
-        }
-      });
-      return acc;
-    }, {});
-
-    // Convert the resulting object back to an array
-    return Object.values(orderSums);
-  }
-
   private splitCollectionDiscount(
     collection: Collection,
     cancelledAmount: number,
@@ -3515,60 +3494,129 @@ export class OrderService {
     return { cancelledDiscount, remainingDiscount };
   }
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
-    let tableCollections: Collection[] = [];
-    if (createCollectionDto.table) {
-      tableCollections = await this.collectionModel
-        .find({
-          table: createCollectionDto.table,
-          status: OrderCollectionStatus.PAID,
-        })
-        .exec();
-    }
-    const { newOrders, ...filteredCollectionDto } = createCollectionDto;
-    if (tableCollections?.length > 0) {
-      const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
-      if (newOrders && newOrders?.length > 0) {
-        filteredCollectionDto.orders.forEach((orderCollectionItem) => {
-          const foundNewOrder = newOrders.find(
-            (newOrder) => newOrder._id === orderCollectionItem.order,
-          );
-          const existingOrder = tablePaidOrders?.find(
-            (paidOrder: PaidOrderItem) =>
-              paidOrder.order === orderCollectionItem.order,
-          ) as PaidOrderItem | undefined;
-          const expectedPaidQuantity =
-            (existingOrder?.paidQuantity ?? 0) +
-            orderCollectionItem.paidQuantity;
+    const { newOrders: _ignoredNewOrders, ...filteredCollectionDto } =
+      createCollectionDto;
+    const session = await this.conn.startSession();
 
-          if (foundNewOrder.paidQuantity !== expectedPaidQuantity) {
+    let collection: Collection | null = null;
+    let updatedOrdersForEmit: Order[] = [];
+
+    try {
+      await session.withTransaction(async () => {
+        const requestedOrders = filteredCollectionDto.orders ?? [];
+        const paidByOrder = new Map<number, number>();
+
+        for (const item of requestedOrders) {
+          if (!item?.order) {
             throw new HttpException(
-              `The quantity of order  is exceeded`,
+              'Order id is required in collection orders',
               HttpStatus.BAD_REQUEST,
             );
           }
+          if (!item?.paidQuantity || item.paidQuantity <= 0) {
+            throw new HttpException(
+              'Paid quantity must be greater than 0',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+          paidByOrder.set(
+            item.order,
+            (paidByOrder.get(item.order) ?? 0) + item.paidQuantity,
+          );
+        }
+
+        const conflictingOrderIds: number[] = [];
+        for (const [orderId, requestedPaidQuantity] of paidByOrder.entries()) {
+          const updateResult = await this.orderModel.updateOne(
+            {
+              _id: orderId,
+              status: {
+                $nin: [
+                  OrderStatus.CANCELLED,
+                  OrderStatus.RETURNED,
+                  OrderStatus.WASTED,
+                ],
+              },
+              $expr: {
+                $gte: [
+                  { $subtract: ['$quantity', '$paidQuantity'] },
+                  requestedPaidQuantity,
+                ],
+              },
+            },
+            { $inc: { paidQuantity: requestedPaidQuantity } },
+            { session },
+          );
+
+          if (updateResult.modifiedCount === 0) {
+            conflictingOrderIds.push(orderId);
+          }
+        }
+
+        if (conflictingOrderIds.length > 0) {
+          const conflictingOrders = await this.orderModel
+            .find(
+              { _id: { $in: conflictingOrderIds } },
+              { _id: 1, quantity: 1, paidQuantity: 1, status: 1 },
+              { session },
+            )
+            .lean();
+
+          const conflictDetails = conflictingOrders
+            .map((order) => {
+              const requested = paidByOrder.get(order._id as number) ?? 0;
+              const remaining = Math.max(
+                0,
+                (order.quantity ?? 0) - (order.paidQuantity ?? 0),
+              );
+              return `order ${order._id}: requested=${requested}, remaining=${remaining}, status=${order.status}`;
+            })
+            .join('; ');
+
+          throw new HttpException(
+            `Order quantity changed, refresh and retry. ${conflictDetails}`,
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        if (paidByOrder.size > 0) {
+          const updatedOrderIds = Array.from(paidByOrder.keys());
+          updatedOrdersForEmit = await this.orderModel.find(
+            { _id: { $in: updatedOrderIds } },
+            null,
+            { session },
+          );
+        }
+
+        collection = new this.collectionModel({
+          ...filteredCollectionDto,
+          createdBy: createCollectionDto.createdBy ?? user._id,
+          createdAt: new Date(),
         });
-      }
-    }
-    const collection = new this.collectionModel({
-      ...filteredCollectionDto, // Use the filtered object
-      createdBy: createCollectionDto.createdBy ?? user._id,
-      createdAt: new Date(),
-    });
 
-    if (newOrders && newOrders?.length > 0) {
-      await this.updateOrders(user, newOrders, { deferEmit: false });
-    }
-
-    try {
-      await collection.save();
+        await collection.save({ session });
+      });
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Failed to create collection transaction:', error);
+      throw new HttpException(
+        'Failed to create collection',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await session.endSession();
+    }
+
+    if (!collection) {
       throw new HttpException(
         'Failed to create collection',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
 
-    // Consume points if pointUser is provided (collection._id is now assigned)
+    // Point operations are executed only after a successful commit.
     if (createCollectionDto.pointUser) {
       await this.pointService.consumePoint(
         createCollectionDto.pointUser,
@@ -3586,6 +3634,10 @@ export class OrderService {
         createCollectionDto.createdBy ?? user._id,
         createCollectionDto.pointConsumer,
       );
+    }
+
+    if (updatedOrdersForEmit.length > 0) {
+      this.websocketGateway.emitOrderUpdated(updatedOrdersForEmit);
     }
 
     try {
