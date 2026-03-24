@@ -11,6 +11,7 @@ export class VisitDto {
   user?: string;
   visitStartSource?: VisitSource;
   visitFinishSource?: VisitSource;
+  status?: string;
 }
 export class CafeVisitDto {
   location: number;
@@ -18,6 +19,7 @@ export class CafeVisitDto {
   userData: string;
   date: string;
   hour: string;
+  status?: string;
 }
 export class CafeActivityDto {
   date: string;
@@ -34,4 +36,7 @@ export class CafeActivityDto {
 export enum VisitTypes {
   ENTRY = 'entry',
   EXIT = 'exit',
+}
+export enum VisitStatus {
+  WRONG_ENTRY = 'wrong_entry',
 }
