@@ -3574,7 +3574,10 @@ export class OrderService {
             .join('; ');
 
           throw new HttpException(
-            `Order quantity changed, refresh and retry. ${conflictDetails}`,
+            {
+              message: `Order quantity changed, refresh and retry. ${conflictDetails}`,
+              conflictingOrderIds,
+            },
             HttpStatus.CONFLICT,
           );
         }
@@ -3598,6 +3601,37 @@ export class OrderService {
       });
     } catch (error) {
       if (error instanceof HttpException) {
+        if (error.getStatus() === HttpStatus.CONFLICT) {
+          const response = error.getResponse() as
+            | string
+            | { message?: string; conflictingOrderIds?: number[] };
+          const conflictingOrderIds =
+            typeof response === 'object' && response?.conflictingOrderIds
+              ? response.conflictingOrderIds
+              : [];
+
+          if (conflictingOrderIds.length > 0) {
+            const latestOrders = await this.orderModel.find({
+              _id: { $in: conflictingOrderIds },
+            });
+
+            if (latestOrders.length > 0) {
+              await this.websocketGateway.emitOrderUpdated(latestOrders);
+            }
+
+            throw new HttpException(
+              {
+                message:
+                  (typeof response === 'object' && response?.message) ||
+                  'Order quantity changed, refresh and retry.',
+                conflictingOrderIds,
+                latestOrders,
+              },
+              HttpStatus.CONFLICT,
+            );
+          }
+        }
+
         throw error;
       }
       this.logger.error('Failed to create collection transaction:', error);
