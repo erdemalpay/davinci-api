@@ -3596,7 +3596,6 @@ export class OrderService {
           createdBy: createCollectionDto.createdBy ?? user._id,
           createdAt: new Date(),
         });
-
         await collection.save({ session });
       });
     } catch (error) {
