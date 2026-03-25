@@ -9,7 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { randomUUID } from 'crypto';
 import { Observable, from } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
-import { WITH_LOCK_METADATA, WithLockOptions } from './race-condition-lock.decorator';
+import { RACE_CONDITION_LOCK_METADATA, RaceConditionLockOptions } from './race-condition-lock.decorator';
 import { LockService } from './lock.service';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class LockInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const options = this.reflector.getAllAndOverride<WithLockOptions>(
-      WITH_LOCK_METADATA,
+    const options = this.reflector.getAllAndOverride<RaceConditionLockOptions>(
+      RACE_CONDITION_LOCK_METADATA,
       [context.getHandler(), context.getClass()],
     );
 
