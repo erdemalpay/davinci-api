@@ -9,7 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { randomUUID } from 'crypto';
 import { Observable, from } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
-import { WITH_LOCK_METADATA, WithLockOptions } from './with-lock.decorator';
+import { WITH_LOCK_METADATA, WithLockOptions } from './race-condition-lock.decorator';
 import { LockService } from './lock.service';
 
 @Injectable()
