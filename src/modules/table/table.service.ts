@@ -19,7 +19,6 @@ import { GameplayTimeService } from '../gameplaytime/gameplaytime.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
-import { LockService } from '../lock/lock.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { ReservationStatusEnum } from '../reservation/reservation.schema';
@@ -65,7 +64,6 @@ export class TableService {
     private readonly panelControlService: PanelControlService,
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
-    private readonly lockService: LockService,
   ) {}
 
   async searchTableIds(search: string) {
@@ -76,100 +74,80 @@ export class TableService {
     return searchTableIds;
   }
 
+  // Race condition koruması bu metodun içinde değil, TableController'daki
+  // @WithLock dekoratörü + LockInterceptor katmanında sağlanmaktadır.
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
     // Include both tableDto.name and tableDto.tables to cover all relevant names
     const individualNames = [
       ...new Set([tableDto.name, ...(tableDto.tables || [])].filter(Boolean)),
     ];
 
-    const lockValue = `${user._id}-${Date.now()}`;
-    const lockKeys = individualNames.map(
-      (name) => `${RedisKeys.TableLock}:${tableDto.location}:${tableDto.date}:${name}`,
-    );
-
-    const acquired = await this.lockService.acquireMultiple(
-      lockKeys,
-      lockValue,
-      10,
-    );
-
-    if (!acquired) {
+    const foundTable = await this.tableModel.findOne({
+      location: tableDto.location,
+      date: tableDto.date,
+      status: { $ne: TableStatus.CANCELLED },
+      finishHour: { $exists: false },
+      $or: [
+        { name: { $in: individualNames } },
+        { tables: { $in: individualNames } },
+      ],
+    });
+    if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
       throw new HttpException(
-        'Bu masalar şu anda başka bir işlem tarafından kullanılıyor. Lütfen tekrar deneyin.',
-        HttpStatus.CONFLICT,
+        'Table with the same name already exists for the given date and location',
+        HttpStatus.BAD_REQUEST,
       );
     }
+    const createdTable = await this.tableModel.create({
+      ...tableDto,
+      createdBy: user._id,
+    });
+    this.activityService.addActivity(
+      user,
+      ActivityType.CREATE_TABLE,
+      createdTable,
+    );
+    // Add auto entry for the table
+    if (
+      tableDto.isAutoEntryAdded &&
+      !tableDto?.isOnlineSale &&
+      tableDto.playerCount > 0
+    ) {
+      const isWeekend = await this.panelControlService.isWeekend();
+      const menuItem = await this.menuService.findItemById(
+        isWeekend ? 5 : 113,
+      );
 
-    try {
-      const foundTable = await this.tableModel.findOne({
-        location: tableDto.location,
-        date: tableDto.date,
-        status: { $ne: TableStatus.CANCELLED },
-        finishHour: { $exists: false },
-        $or: [
-          { name: { $in: individualNames } },
-          { tables: { $in: individualNames } },
-        ],
-      });
-      if (foundTable && foundTable.type !== TableTypes.TAKEOUT) {
-        throw new HttpException(
-          'Table with the same name already exists for the given date and location',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const createdTable = await this.tableModel.create({
-        ...tableDto,
+      const category = await this.menuService.findCategoryById(
+        menuItem.category as number,
+      );
+
+      await this.orderService.createOrder(user, {
+        table: createdTable._id,
+        location: createdTable.location,
+        item: menuItem._id,
+        quantity: tableDto.playerCount,
+        createdAt: new Date(tableDto.date),
         createdBy: user._id,
+        status: OrderStatus.AUTOSERVED,
+        paidQuantity: 0,
+        unitPrice: menuItem.price,
+        kitchen: category?.kitchen,
+        tableDate: new Date(tableDto.date),
       });
-      this.activityService.addActivity(
-        user,
-        ActivityType.CREATE_TABLE,
-        createdTable,
-      );
-      // Add auto entry for the table
-      if (
-        tableDto.isAutoEntryAdded &&
-        !tableDto?.isOnlineSale &&
-        tableDto.playerCount > 0
-      ) {
-        const isWeekend = await this.panelControlService.isWeekend();
-        const menuItem = await this.menuService.findItemById(
-          isWeekend ? 5 : 113,
-        );
-
-        const category = await this.menuService.findCategoryById(
-          menuItem.category as number,
-        );
-
-        await this.orderService.createOrder(user, {
-          table: createdTable._id,
-          location: createdTable.location,
-          item: menuItem._id,
-          quantity: tableDto.playerCount,
-          createdAt: new Date(tableDto.date),
-          createdBy: user._id,
-          status: OrderStatus.AUTOSERVED,
-          paidQuantity: 0,
-          unitPrice: menuItem.price,
-          kitchen: category?.kitchen,
-          tableDate: new Date(tableDto.date),
-        });
-      }
-      if (createdTable.type === TableTypes.TAKEOUT) {
-        if (orders) {
-          await this.orderService.createMultipleOrder(
-            user,
-            orders,
-            createdTable,
-          );
-        }
-      }
-      this.websocketGateway.emitTableCreated(createdTable);
-
-      return createdTable;
-    } finally {
-      await this.lockService.releaseMultiple(lockKeys, lockValue);
     }
+    if (createdTable.type === TableTypes.TAKEOUT) {
+      if (orders) {
+        await this.orderService.createMultipleOrder(
+          user,
+          orders,
+          createdTable,
+        );
+      }
+    }
+    this.websocketGateway.emitTableCreated(createdTable);
+
+    return createdTable;
   }
 
   async update(user: User, id: number, updates: TableDto) {
