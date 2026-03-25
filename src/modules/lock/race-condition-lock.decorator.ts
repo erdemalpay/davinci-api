@@ -13,5 +13,5 @@ export interface WithLockOptions {
   ttlSeconds?: number;
 }
 
-export const WithLock = (options: WithLockOptions) =>
+export const RaceConditionLockDecorator = (options: WithLockOptions) =>
   SetMetadata(WITH_LOCK_METADATA, options);

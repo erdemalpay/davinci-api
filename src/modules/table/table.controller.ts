@@ -14,7 +14,7 @@ import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { CreateGameplayDto } from '../gameplay/dto/gameplay.dto';
 import { LockInterceptor } from '../lock/lock.interceptor';
-import { WithLock } from '../lock/with-lock.decorator';
+import { RaceConditionLockDecorator } from '../lock/race-condition-lock.decorator';
 import { RedisKeys } from '../redis/redis.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -102,7 +102,7 @@ export class TableController {
   @Post()
   @ApiResponse({ type: TableResponse })
   @UseInterceptors(LockInterceptor)
-  @WithLock({
+  @RaceConditionLockDecorator({
     key: (req) => {
       const { tableDto } = req.body as { tableDto: TableDto };
       const names = [
