@@ -3507,8 +3507,10 @@ export class OrderService {
     const inFlightTtlSec = 30;
 
     if (tableId) {
-      const noOrderLockKey = `lock:createCollection:no-orders:${tableId}`;
-      const ordersInFlightKey = `lock:createCollection:orders-inflight:${tableId}`;
+      // Keep both keys in the same Redis hash slot for clustered Redis.
+      const redisKeySlot = `{createCollection:${tableId}}`;
+      const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+      const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
 
       if (hasOrders) {
         const result = await this.redisService.getClient().eval(
@@ -3727,8 +3729,9 @@ export class OrderService {
       await session.endSession();
 
       if (tableId) {
-        const noOrderLockKey = `lock:createCollection:no-orders:${tableId}`;
-        const ordersInFlightKey = `lock:createCollection:orders-inflight:${tableId}`;
+        const redisKeySlot = `{createCollection:${tableId}}`;
+        const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+        const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
 
         if (acquiredNoOrderLock) {
           await this.redisService.releaseTableLocks(
