@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as config from 'config';
 import Redis from 'ioredis';
@@ -15,14 +10,9 @@ export interface DBConfig {
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: Redis;
-  private readonly logger = new Logger(RedisService.name);
-  private readonly redisHost: string;
-  private readonly redisPort: number;
 
   constructor(private configService: ConfigService) {
     const { host, port }: DBConfig = config.get('redis');
-    this.redisHost = host;
-    this.redisPort = Number(port);
 
     this.client = new Redis({
       host,
@@ -31,25 +21,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit() {
-    this.logger.log(
-      `Initializing Redis client host=${this.redisHost} port=${this.redisPort} env=${process.env.NODE_ENV}`,
-    );
-    this.client.on('connect', () =>
-      this.logger.log(
-        `Redis client connected host=${this.redisHost} port=${this.redisPort}`,
-      ),
-    );
-    this.client.on('ready', () =>
-      this.logger.log(
-        `Redis client ready host=${this.redisHost} port=${this.redisPort}`,
-      ),
-    );
+    this.client.on('connect', () => console.log('Redis client connected'));
     this.client.on('error', (error) =>
-      this.logger.error(
-        `Redis client error host=${this.redisHost} port=${
-          this.redisPort
-        } code=${(error as any)?.code ?? 'unknown'} message=${error?.message}`,
-      ),
+      console.error('Redis client error', error),
     );
   }
 
