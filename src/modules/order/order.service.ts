@@ -3609,6 +3609,24 @@ export class OrderService {
               ? response.conflictingOrderIds
               : [];
 
+          const requestedOrderIds =
+            filteredCollectionDto.orders?.map((o) => o.order) ?? [];
+          const latestCollection = await this.collectionModel
+            .findOne({
+              status: OrderCollectionStatus.PAID,
+              ...(createCollectionDto.table
+                ? { table: createCollectionDto.table }
+                : {}),
+              ...(requestedOrderIds.length > 0
+                ? { 'orders.order': { $in: requestedOrderIds } }
+                : {}),
+            })
+            .sort({ createdAt: -1 });
+
+          if (latestCollection) {
+            this.websocketGateway.emitCollectionChanged(latestCollection);
+          }
+
           if (conflictingOrderIds.length > 0) {
             const latestOrders = await this.orderModel.find({
               _id: { $in: conflictingOrderIds },
@@ -3625,6 +3643,7 @@ export class OrderService {
                   'Order quantity changed, refresh and retry.',
                 conflictingOrderIds,
                 latestOrders,
+                latestCollection,
               },
               HttpStatus.CONFLICT,
             );
