@@ -3522,7 +3522,8 @@ export class OrderService {
       const redisKeySlot = `{createCollection:${tableId}}`;
       const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
       const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
-      const mixedGuardKey = `lock:${redisKeySlot}:mixed-guard`;
+      const withOrdersGuardKey = `lock:${redisKeySlot}:with-orders-guard`;
+      const noOrdersGuardKey = `lock:${redisKeySlot}:no-orders-guard`;
 
       try {
         const beforeNoOrderLock = await this.redisService
@@ -3531,34 +3532,46 @@ export class OrderService {
         const beforeOrdersInFlight = await this.redisService
           .getClient()
           .get(ordersInFlightKey);
-        const beforeMixedGuard = await this.redisService
+        const beforeWithOrdersGuard = await this.redisService
           .getClient()
-          .get(mixedGuardKey);
-        const beforeMixedGuardTtl = await this.redisService
+          .get(withOrdersGuardKey);
+        const beforeNoOrdersGuard = await this.redisService
           .getClient()
-          .ttl(mixedGuardKey);
+          .get(noOrdersGuardKey);
+        const beforeWithOrdersGuardTtl = await this.redisService
+          .getClient()
+          .ttl(withOrdersGuardKey);
+        const beforeNoOrdersGuardTtl = await this.redisService
+          .getClient()
+          .ttl(noOrdersGuardKey);
         this.logger.log(
           `[createCollection:${traceId}] redis-before noOrderLock=${
             beforeNoOrderLock ? 'set' : 'empty'
-          } ordersInFlight=${beforeOrdersInFlight ?? '0'} mixedGuard=${
-            beforeMixedGuard ? 'set' : 'empty'
-          } mixedGuardTtl=${beforeMixedGuardTtl}`,
+          } ordersInFlight=${beforeOrdersInFlight ?? '0'} withOrdersGuard=${
+            beforeWithOrdersGuard ? 'set' : 'empty'
+          } withOrdersGuardTtl=${beforeWithOrdersGuardTtl} noOrdersGuard=${
+            beforeNoOrdersGuard ? 'set' : 'empty'
+          } noOrdersGuardTtl=${beforeNoOrdersGuardTtl}`,
         );
 
         if (hasOrders) {
-          // WITH-ORDERS: Check if no-order lock exists, then increment counter
+          // WITH-ORDERS: Block when no-order lock exists or recent no-orders guard exists, then increment counter
           const result = await this.redisService.getClient().eval(
             `
               if redis.call('EXISTS', KEYS[1]) == 1 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
                 return 0
               end
               local active = redis.call('INCR', KEYS[2])
               redis.call('EXPIRE', KEYS[2], ARGV[1])
               return active
             `,
-            2,
+            3,
             noOrderLockKey,
             ordersInFlightKey,
+            noOrdersGuardKey,
             inFlightTtlSec,
           );
 
@@ -3573,7 +3586,7 @@ export class OrderService {
 
           if (!result || Number(result) <= 0) {
             this.logger.warn(
-              `[createCollection:${traceId}] denied with-orders because no-orders lock is active`,
+              `[createCollection:${traceId}] denied with-orders because no-orders lock/guard is active`,
             );
             throw new HttpException(
               'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
@@ -3584,12 +3597,12 @@ export class OrderService {
           // Keep a short-lived guard so no-orders requests right after this still get blocked.
           await this.redisService
             .getClient()
-            .set(mixedGuardKey, '1', 'EX', mixedGuardTtlSec);
-          const mixedGuardTtl = await this.redisService
+            .set(withOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+          const withOrdersGuardTtl = await this.redisService
             .getClient()
-            .ttl(mixedGuardKey);
+            .ttl(withOrdersGuardKey);
           this.logger.log(
-            `[createCollection:${traceId}] mixed-guard set ttl=${mixedGuardTtl}`,
+            `[createCollection:${traceId}] with-orders-guard set ttl=${withOrdersGuardTtl}`,
           );
 
           incrementedOrdersInFlight = true;
@@ -3613,7 +3626,7 @@ export class OrderService {
             3,
             noOrderLockKey,
             ordersInFlightKey,
-            mixedGuardKey,
+            withOrdersGuardKey,
             noOrderLockValue,
             noOrderLockTtlSec,
           );
@@ -3636,6 +3649,18 @@ export class OrderService {
               HttpStatus.CONFLICT,
             );
           }
+
+          // Keep a short-lived guard so with-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(noOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+          const noOrdersGuardTtl = await this.redisService
+            .getClient()
+            .ttl(noOrdersGuardKey);
+          this.logger.log(
+            `[createCollection:${traceId}] no-orders-guard set ttl=${noOrdersGuardTtl}`,
+          );
+
           acquiredNoOrderLock = true;
         }
       } catch (redisError: any) {
