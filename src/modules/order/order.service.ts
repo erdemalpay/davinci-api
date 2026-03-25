@@ -3496,6 +3496,73 @@ export class OrderService {
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     const { newOrders: _ignoredNewOrders, ...filteredCollectionDto } =
       createCollectionDto;
+    const requestedOrders = filteredCollectionDto.orders ?? [];
+    const hasOrders = requestedOrders.length > 0;
+    const tableId = createCollectionDto.table;
+
+    let acquiredNoOrderLock = false;
+    let incrementedOrdersInFlight = false;
+    const noOrderLockValue = `${user._id}-${Date.now()}-${Math.random()}`;
+    const noOrderLockTtlSec = 30;
+    const inFlightTtlSec = 30;
+
+    if (tableId) {
+      const noOrderLockKey = `lock:createCollection:no-orders:${tableId}`;
+      const ordersInFlightKey = `lock:createCollection:orders-inflight:${tableId}`;
+
+      if (hasOrders) {
+        const result = await this.redisService.getClient().eval(
+          `
+            if redis.call('EXISTS', KEYS[1]) == 1 then
+              return 0
+            end
+            local active = redis.call('INCR', KEYS[2])
+            redis.call('EXPIRE', KEYS[2], ARGV[1])
+            return active
+          `,
+          2,
+          noOrderLockKey,
+          ordersInFlightKey,
+          inFlightTtlSec,
+        );
+
+        if (!result || Number(result) <= 0) {
+          throw new HttpException(
+            'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        incrementedOrdersInFlight = true;
+      } else {
+        const result = await this.redisService.getClient().eval(
+          `
+            if redis.call('EXISTS', KEYS[1]) == 1 then
+              return 0
+            end
+            local active = tonumber(redis.call('GET', KEYS[2]) or '0')
+            if active > 0 then
+              return 0
+            end
+            redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+            return 1
+          `,
+          2,
+          noOrderLockKey,
+          ordersInFlightKey,
+          noOrderLockValue,
+          noOrderLockTtlSec,
+        );
+
+        if (Number(result) !== 1) {
+          throw new HttpException(
+            'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        acquiredNoOrderLock = true;
+      }
+    }
+
     const session = await this.conn.startSession();
 
     let collection: Collection | null = null;
@@ -3503,7 +3570,6 @@ export class OrderService {
 
     try {
       await session.withTransaction(async () => {
-        const requestedOrders = filteredCollectionDto.orders ?? [];
         const paidByOrder = new Map<number, number>();
 
         for (const item of requestedOrders) {
@@ -3659,6 +3725,36 @@ export class OrderService {
       );
     } finally {
       await session.endSession();
+
+      if (tableId) {
+        const noOrderLockKey = `lock:createCollection:no-orders:${tableId}`;
+        const ordersInFlightKey = `lock:createCollection:orders-inflight:${tableId}`;
+
+        if (acquiredNoOrderLock) {
+          await this.redisService.releaseTableLocks(
+            [noOrderLockKey],
+            noOrderLockValue,
+          );
+        }
+
+        if (incrementedOrdersInFlight) {
+          await this.redisService.getClient().eval(
+            `
+              local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+              if current <= 1 then
+                redis.call('DEL', KEYS[1])
+                return 0
+              end
+              local next = redis.call('DECR', KEYS[1])
+              redis.call('EXPIRE', KEYS[1], ARGV[1])
+              return next
+            `,
+            1,
+            ordersInFlightKey,
+            inFlightTtlSec,
+          );
+        }
+      }
     }
 
     if (!collection) {
