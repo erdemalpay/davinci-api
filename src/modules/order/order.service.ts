@@ -3508,6 +3508,7 @@ export class OrderService {
     const noOrderLockValue = `${user._id}-${Date.now()}-${Math.random()}`;
     const noOrderLockTtlSec = 30;
     const inFlightTtlSec = 30;
+    const mixedGuardTtlSec = 5;
 
     this.logger.log(
       `[createCollection:${traceId}] start env=${process.env.NODE_ENV} table=${
@@ -3519,6 +3520,7 @@ export class OrderService {
       const redisKeySlot = `{createCollection:${tableId}}`;
       const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
       const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
+      const mixedGuardKey = `lock:${redisKeySlot}:mixed-guard`;
 
       try {
         if (hasOrders) {
@@ -3553,9 +3555,18 @@ export class OrderService {
               HttpStatus.CONFLICT,
             );
           }
+
+          // Keep a short-lived guard so no-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(mixedGuardKey, '1', 'EX', mixedGuardTtlSec);
+          this.logger.log(
+            `[createCollection:${traceId}] set mixed guard key=${mixedGuardKey} ttl=${mixedGuardTtlSec}s`,
+          );
+
           incrementedOrdersInFlight = true;
         } else {
-          // NO-ORDERS: Check if no-order lock exists or orders-inflight > 0
+          // NO-ORDERS: Check if no-order lock exists, orders-inflight > 0, or recent with-orders guard exists
           const result = await this.redisService.getClient().eval(
             `
               if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -3565,12 +3576,16 @@ export class OrderService {
               if active > 0 then
                 return 0
               end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
+                return 0
+              end
               redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
               return 1
             `,
-            2,
+            3,
             noOrderLockKey,
             ordersInFlightKey,
+            mixedGuardKey,
             noOrderLockValue,
             noOrderLockTtlSec,
           );
