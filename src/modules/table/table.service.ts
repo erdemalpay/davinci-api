@@ -75,7 +75,7 @@ export class TableService {
   }
 
   // Race condition koruması bu metodun içinde değil, TableController'daki
-  // @WithLock dekoratörü + LockInterceptor katmanında sağlanmaktadır.
+  // @RaceConditionLockDecorator dekoratörü + LockInterceptor katmanında sağlanmaktadır.
   async create(user: User, tableDto: TableDto, orders?: CreateOrderDto[]) {
     // Include both tableDto.name and tableDto.tables to cover all relevant names
     const individualNames = [
