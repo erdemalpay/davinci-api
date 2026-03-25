@@ -7,11 +7,15 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { CreateGameplayDto } from '../gameplay/dto/gameplay.dto';
+import { LockInterceptor } from '../lock/lock.interceptor';
+import { WithLock } from '../lock/with-lock.decorator';
+import { RedisKeys } from '../redis/redis.dto';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { CreateOrderDto } from './../order/order.dto';
@@ -97,6 +101,22 @@ export class TableController {
   }
   @Post()
   @ApiResponse({ type: TableResponse })
+  @UseInterceptors(LockInterceptor)
+  @WithLock({
+    key: (req) => {
+      const { tableDto } = req.body as { tableDto: TableDto };
+      const names = [
+        ...new Set(
+          [tableDto.name, ...(tableDto.tables || [])].filter(Boolean),
+        ),
+      ];
+      return names.map(
+        (name) =>
+          `${RedisKeys.TableLock}:${tableDto.location}:${tableDto.date}:${name}`,
+      );
+    },
+    ttlSeconds: 10,
+  })
   createTable(
     @ReqUser() user: User,
     @Body()
