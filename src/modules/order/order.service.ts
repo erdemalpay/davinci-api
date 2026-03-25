@@ -3607,7 +3607,8 @@ export class OrderService {
 
           incrementedOrdersInFlight = true;
         } else {
-          // NO-ORDERS: Check if no-order lock exists, orders-inflight > 0, or recent with-orders guard exists
+          // NO-ORDERS: Check if no-order lock exists, orders-inflight > 0, recent with-orders guard exists,
+          // or recent no-orders guard exists.
           const result = await this.redisService.getClient().eval(
             `
               if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -3620,13 +3621,17 @@ export class OrderService {
               if redis.call('EXISTS', KEYS[3]) == 1 then
                 return 0
               end
+              if redis.call('EXISTS', KEYS[4]) == 1 then
+                return 0
+              end
               redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
               return 1
             `,
-            3,
+            4,
             noOrderLockKey,
             ordersInFlightKey,
             withOrdersGuardKey,
+            noOrdersGuardKey,
             noOrderLockValue,
             noOrderLockTtlSec,
           );
@@ -3642,7 +3647,7 @@ export class OrderService {
 
           if (Number(result) !== 1) {
             this.logger.warn(
-              `[createCollection:${traceId}] denied no-orders because lock/inflight/mixed-guard is active`,
+              `[createCollection:${traceId}] denied no-orders because lock/inflight/with-orders-guard/no-orders-guard is active`,
             );
             throw new HttpException(
               'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
