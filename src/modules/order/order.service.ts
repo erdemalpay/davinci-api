@@ -3499,9 +3499,6 @@ export class OrderService {
     const requestedOrders = filteredCollectionDto.orders ?? [];
     const hasOrders = requestedOrders.length > 0;
     const tableId = createCollectionDto.table;
-    const traceId = `cc-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
 
     let acquiredNoOrderLock = false;
     let incrementedOrdersInFlight = false;
@@ -3509,14 +3506,6 @@ export class OrderService {
     const noOrderLockTtlSec = 30;
     const inFlightTtlSec = 30;
     const mixedGuardTtlSec = 5;
-
-    this.logger.log(
-      `[createCollection:${traceId}] start env=${process.env.NODE_ENV} table=${
-        tableId ?? 'none'
-      } hasOrders=${hasOrders} ordersLen=${
-        requestedOrders.length
-      } newOrdersLen=${createCollectionDto?.newOrders?.length ?? 0}`,
-    );
 
     if (tableId) {
       const redisKeySlot = `{createCollection:${tableId}}`;
@@ -3526,34 +3515,6 @@ export class OrderService {
       const noOrdersGuardKey = `lock:${redisKeySlot}:no-orders-guard`;
 
       try {
-        const beforeNoOrderLock = await this.redisService
-          .getClient()
-          .get(noOrderLockKey);
-        const beforeOrdersInFlight = await this.redisService
-          .getClient()
-          .get(ordersInFlightKey);
-        const beforeWithOrdersGuard = await this.redisService
-          .getClient()
-          .get(withOrdersGuardKey);
-        const beforeNoOrdersGuard = await this.redisService
-          .getClient()
-          .get(noOrdersGuardKey);
-        const beforeWithOrdersGuardTtl = await this.redisService
-          .getClient()
-          .ttl(withOrdersGuardKey);
-        const beforeNoOrdersGuardTtl = await this.redisService
-          .getClient()
-          .ttl(noOrdersGuardKey);
-        this.logger.log(
-          `[createCollection:${traceId}] redis-before noOrderLock=${
-            beforeNoOrderLock ? 'set' : 'empty'
-          } ordersInFlight=${beforeOrdersInFlight ?? '0'} withOrdersGuard=${
-            beforeWithOrdersGuard ? 'set' : 'empty'
-          } withOrdersGuardTtl=${beforeWithOrdersGuardTtl} noOrdersGuard=${
-            beforeNoOrdersGuard ? 'set' : 'empty'
-          } noOrdersGuardTtl=${beforeNoOrdersGuardTtl}`,
-        );
-
         if (hasOrders) {
           // WITH-ORDERS: Block when no-order lock exists or recent no-orders guard exists, then increment counter
           const result = await this.redisService.getClient().eval(
@@ -3575,19 +3536,7 @@ export class OrderService {
             inFlightTtlSec,
           );
 
-          const afterOrdersInFlight = await this.redisService
-            .getClient()
-            .get(ordersInFlightKey);
-          this.logger.log(
-            `[createCollection:${traceId}] redis-gate with-orders result=${String(
-              result,
-            )} ordersInFlightAfter=${afterOrdersInFlight ?? '0'}`,
-          );
-
           if (!result || Number(result) <= 0) {
-            this.logger.warn(
-              `[createCollection:${traceId}] denied with-orders because no-orders lock/guard is active`,
-            );
             throw new HttpException(
               'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
               HttpStatus.CONFLICT,
@@ -3598,12 +3547,6 @@ export class OrderService {
           await this.redisService
             .getClient()
             .set(withOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
-          const withOrdersGuardTtl = await this.redisService
-            .getClient()
-            .ttl(withOrdersGuardKey);
-          this.logger.log(
-            `[createCollection:${traceId}] with-orders-guard set ttl=${withOrdersGuardTtl}`,
-          );
 
           incrementedOrdersInFlight = true;
         } else {
@@ -3636,19 +3579,7 @@ export class OrderService {
             noOrderLockTtlSec,
           );
 
-          const afterNoOrderLock = await this.redisService
-            .getClient()
-            .get(noOrderLockKey);
-          this.logger.log(
-            `[createCollection:${traceId}] redis-gate no-orders result=${String(
-              result,
-            )} noOrderLockAfter=${afterNoOrderLock ? 'set' : 'empty'}`,
-          );
-
           if (Number(result) !== 1) {
-            this.logger.warn(
-              `[createCollection:${traceId}] denied no-orders because lock/inflight/with-orders-guard/no-orders-guard is active`,
-            );
             throw new HttpException(
               'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
               HttpStatus.CONFLICT,
@@ -3659,12 +3590,6 @@ export class OrderService {
           await this.redisService
             .getClient()
             .set(noOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
-          const noOrdersGuardTtl = await this.redisService
-            .getClient()
-            .ttl(noOrdersGuardKey);
-          this.logger.log(
-            `[createCollection:${traceId}] no-orders-guard set ttl=${noOrdersGuardTtl}`,
-          );
 
           acquiredNoOrderLock = true;
         }
@@ -3673,7 +3598,7 @@ export class OrderService {
         if (redisError instanceof HttpException) throw redisError;
         // Otherwise log and allow graceful degradation
         this.logger.warn(
-          `[createCollection:${traceId}] Redis concurrency gate failed code=${
+          `Redis concurrency gate failed code=${
             redisError?.code ?? 'unknown'
           } message=${
             redisError?.message || String(redisError)
@@ -3691,8 +3616,6 @@ export class OrderService {
       await session.withTransaction(async () => {
         // // Temporary delay for concurrency testing. Remove after verification.
         // await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        this.logger.log(`[createCollection:${traceId}] transaction started`);
 
         const paidByOrder = new Map<number, number>();
 
@@ -3744,11 +3667,6 @@ export class OrderService {
         }
 
         if (conflictingOrderIds.length > 0) {
-          this.logger.warn(
-            `[createCollection:${traceId}] order-level conflict ids=${conflictingOrderIds.join(
-              ',',
-            )}`,
-          );
           const conflictingOrders = await this.orderModel
             .find(
               { _id: { $in: conflictingOrderIds } },
@@ -3792,18 +3710,9 @@ export class OrderService {
           createdAt: new Date(),
         });
         await collection.save({ session });
-        this.logger.log(
-          `[createCollection:${traceId}] transaction saved collectionId=${collection._id}`,
-        );
       });
-      this.logger.log(`[createCollection:${traceId}] transaction committed`);
     } catch (error) {
       if (error instanceof HttpException) {
-        this.logger.warn(
-          `[createCollection:${traceId}] HttpException status=${error.getStatus()} response=${JSON.stringify(
-            error.getResponse(),
-          )}`,
-        );
         if (error.getStatus() === HttpStatus.CONFLICT) {
           const response = error.getResponse() as
             | string
@@ -3856,10 +3765,7 @@ export class OrderService {
 
         throw error;
       }
-      this.logger.error(
-        `[createCollection:${traceId}] Failed to create collection transaction`,
-        error,
-      );
+      this.logger.error('Failed to create collection transaction:', error);
       throw new HttpException(
         'Failed to create collection',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -3876,12 +3782,9 @@ export class OrderService {
         if (acquiredNoOrderLock) {
           try {
             await this.redisService.getClient().del(noOrderLockKey);
-            this.logger.log(
-              `[createCollection:${traceId}] cleanup released no-orders lock`,
-            );
           } catch (err: any) {
             this.logger.warn(
-              `[createCollection:${traceId}] Failed to release no-orders lock: ${
+              `Failed to release no-orders lock: ${
                 err?.message || String(err)
               }`,
             );
@@ -3894,20 +3797,14 @@ export class OrderService {
             const count = await this.redisService
               .getClient()
               .decr(ordersInFlightKey);
-            this.logger.log(
-              `[createCollection:${traceId}] cleanup decremented orders-inflight to ${count}`,
-            );
             if (count <= 0) {
               // Delete the key if counter reaches 0 or below
               await this.redisService.getClient().del(ordersInFlightKey);
-              this.logger.log(
-                `[createCollection:${traceId}] cleanup deleted orders-inflight key`,
-              );
             }
           } catch (err: any) {
             // Log but don't fail on cleanup
             this.logger.warn(
-              `[createCollection:${traceId}] Failed to decrement orders-inflight: ${
+              `Failed to decrement orders-inflight: ${
                 err?.message || String(err)
               }`,
             );
