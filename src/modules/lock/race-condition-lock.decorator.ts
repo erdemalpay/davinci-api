@@ -1,8 +1,8 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const WITH_LOCK_METADATA = 'with_lock_metadata';
+export const RACE_CONDITION_LOCK_METADATA = 'race_condition_lock_metadata';
 
-export interface WithLockOptions {
+export interface RaceConditionLockOptions {
   /**
    * Lock key ya da key listesi.
    * Fonksiyon verilirse request objesi parametre olarak geçirilir.
@@ -13,5 +13,5 @@ export interface WithLockOptions {
   ttlSeconds?: number;
 }
 
-export const RaceConditionLockDecorator = (options: WithLockOptions) =>
-  SetMetadata(WITH_LOCK_METADATA, options);
+export const RaceConditionLockDecorator = (options: RaceConditionLockOptions) =>
+  SetMetadata(RACE_CONDITION_LOCK_METADATA, options);
