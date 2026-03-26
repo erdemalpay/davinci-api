@@ -9,6 +9,7 @@ import { Break } from '../break/break.schema';
 import { Middleman } from '../middleman/middleman.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
+import { ShiftValues } from '../shift/shift.schema';
 import { ShiftChangeRequest } from '../shift/shiftChange/shiftChangeRequest.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Collection } from '../order/collection.schema';
@@ -94,6 +95,11 @@ export enum ActivityType {
   START_MIDDLEMAN = 'START_MIDDLEMAN',
   FINISH_MIDDLEMAN = 'FINISH_MIDDLEMAN',
   FINISH_MIDDLEMAN_BY_MANAGER = 'FINISH_MIDDLEMAN_BY_MANAGER',
+  CREATE_SHIFT = 'CREATE_SHIFT',
+  UPDATE_SHIFT = 'UPDATE_SHIFT',
+  DELETE_SHIFT = 'DELETE_SHIFT',
+  ASSIGN_CHEF = 'ASSIGN_CHEF',
+  ASSIGN_MIDDLEMAN = 'ASSIGN_MIDDLEMAN',
 }
 
 export type ActivityTypePayload = {
@@ -193,6 +199,28 @@ export type ActivityTypePayload = {
   [ActivityType.START_MIDDLEMAN]: Middleman;
   [ActivityType.FINISH_MIDDLEMAN]: Middleman;
   [ActivityType.FINISH_MIDDLEMAN_BY_MANAGER]: Middleman;
+  [ActivityType.CREATE_SHIFT]: { day: string; location: number; shifts: ShiftValues[] };
+  [ActivityType.UPDATE_SHIFT]: {
+    day: string;
+    location: number;
+    previousShifts: ShiftValues[];
+    updatedShifts: ShiftValues[];
+  };
+  [ActivityType.DELETE_SHIFT]: { day: string; location: number };
+  [ActivityType.ASSIGN_CHEF]: {
+    day: string;
+    location: number;
+    shift: string;
+    previousChefUserId: string;
+    chefUserId: string;
+  };
+  [ActivityType.ASSIGN_MIDDLEMAN]: {
+    day: string;
+    location: number;
+    shift: string;
+    previousMiddlemanUserId: string;
+    middlemanUserId: string;
+  };
 };
 
 export class ActivityQueryDto {
