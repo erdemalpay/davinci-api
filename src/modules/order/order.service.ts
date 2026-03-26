@@ -3496,6 +3496,117 @@ export class OrderService {
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
     const { newOrders: _ignoredNewOrders, ...filteredCollectionDto } =
       createCollectionDto;
+    const requestedOrders = filteredCollectionDto.orders ?? [];
+    const hasOrders = requestedOrders.length > 0;
+    const tableId = createCollectionDto.table;
+
+    let acquiredNoOrderLock = false;
+    let incrementedOrdersInFlight = false;
+    const noOrderLockValue = `${user._id}-${Date.now()}-${Math.random()}`;
+    const noOrderLockTtlSec = 30;
+    const inFlightTtlSec = 30;
+    const mixedGuardTtlSec = 5;
+
+    if (tableId) {
+      const redisKeySlot = `{createCollection:${tableId}}`;
+      const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+      const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
+      const withOrdersGuardKey = `lock:${redisKeySlot}:with-orders-guard`;
+      const noOrdersGuardKey = `lock:${redisKeySlot}:no-orders-guard`;
+
+      try {
+        if (hasOrders) {
+          // WITH-ORDERS: Block when no-order lock exists or recent no-orders guard exists, then increment counter
+          const result = await this.redisService.getClient().eval(
+            `
+              if redis.call('EXISTS', KEYS[1]) == 1 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
+                return 0
+              end
+              local active = redis.call('INCR', KEYS[2])
+              redis.call('EXPIRE', KEYS[2], ARGV[1])
+              return active
+            `,
+            3,
+            noOrderLockKey,
+            ordersInFlightKey,
+            noOrdersGuardKey,
+            inFlightTtlSec,
+          );
+
+          if (!result || Number(result) <= 0) {
+            throw new HttpException(
+              'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+              HttpStatus.CONFLICT,
+            );
+          }
+
+          // Keep a short-lived guard so no-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(withOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+
+          incrementedOrdersInFlight = true;
+        } else {
+          // NO-ORDERS: Check if no-order lock exists, orders-inflight > 0, recent with-orders guard exists,
+          // or recent no-orders guard exists.
+          const result = await this.redisService.getClient().eval(
+            `
+              if redis.call('EXISTS', KEYS[1]) == 1 then
+                return 0
+              end
+              local active = tonumber(redis.call('GET', KEYS[2]) or '0')
+              if active > 0 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[4]) == 1 then
+                return 0
+              end
+              redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+              return 1
+            `,
+            4,
+            noOrderLockKey,
+            ordersInFlightKey,
+            withOrdersGuardKey,
+            noOrdersGuardKey,
+            noOrderLockValue,
+            noOrderLockTtlSec,
+          );
+
+          if (Number(result) !== 1) {
+            throw new HttpException(
+              'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+              HttpStatus.CONFLICT,
+            );
+          }
+
+          // Keep a short-lived guard so with-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(noOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+
+          acquiredNoOrderLock = true;
+        }
+      } catch (redisError: any) {
+        // If it's an HttpException, rethrow it
+        if (redisError instanceof HttpException) throw redisError;
+        // Otherwise log and allow graceful degradation
+        this.logger.warn(
+          `Redis concurrency gate failed code=${
+            redisError?.code ?? 'unknown'
+          } message=${
+            redisError?.message || String(redisError)
+          }. Proceeding without concurrency control.`,
+        );
+      }
+    }
+
     const session = await this.conn.startSession();
 
     let collection: Collection | null = null;
@@ -3503,7 +3614,9 @@ export class OrderService {
 
     try {
       await session.withTransaction(async () => {
-        const requestedOrders = filteredCollectionDto.orders ?? [];
+        // // Temporary delay for concurrency testing. Remove after verification.
+        // await new Promise((resolve) => setTimeout(resolve, 5000));
+
         const paidByOrder = new Map<number, number>();
 
         for (const item of requestedOrders) {
@@ -3659,6 +3772,45 @@ export class OrderService {
       );
     } finally {
       await session.endSession();
+
+      if (tableId) {
+        const redisKeySlot = `{createCollection:${tableId}}`;
+        const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+        const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
+
+        // Release no-orders lock if we acquired it
+        if (acquiredNoOrderLock) {
+          try {
+            await this.redisService.getClient().del(noOrderLockKey);
+          } catch (err: any) {
+            this.logger.warn(
+              `Failed to release no-orders lock: ${
+                err?.message || String(err)
+              }`,
+            );
+          }
+        }
+
+        // Decrement orders-inflight counter if we incremented it
+        if (incrementedOrdersInFlight) {
+          try {
+            const count = await this.redisService
+              .getClient()
+              .decr(ordersInFlightKey);
+            if (count <= 0) {
+              // Delete the key if counter reaches 0 or below
+              await this.redisService.getClient().del(ordersInFlightKey);
+            }
+          } catch (err: any) {
+            // Log but don't fail on cleanup
+            this.logger.warn(
+              `Failed to decrement orders-inflight: ${
+                err?.message || String(err)
+              }`,
+            );
+          }
+        }
+      }
     }
 
     if (!collection) {
