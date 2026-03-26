@@ -67,8 +67,8 @@ export class ShiftService {
         });
       }
 
-      const prevUsersSorted = prevUsersArr.slice().sort().join(',');
-      const newUsersSorted = newUsersArr.slice().sort().join(',');
+      const prevUsersSorted = prevUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
+      const newUsersSorted = newUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
       if (prevUsersSorted !== newUsersSorted) hasUserChanges = true;
     }
 
