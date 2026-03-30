@@ -272,7 +272,7 @@ export class OrderService {
       let startUtc: Date;
       if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
         const [y, m, d] = after.split('-').map(Number);
-        const istStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+        const istStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
         startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
       } else {
         const dt = new Date(after);
@@ -285,7 +285,7 @@ export class OrderService {
       let endUtc: Date;
       if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
         const [y, m, d] = before.split('-').map(Number);
-        const istEnd = new Date(y, m - 1, d, 23, 59, 59, 999);
+        const istEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
         endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
       } else {
         const dt = new Date(before);
@@ -3231,7 +3231,7 @@ export class OrderService {
       let startUtc: Date;
       if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
         const [y, m, d] = after.split('-').map(Number);
-        const istStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+        const istStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
         startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
       } else {
         const dt = new Date(after);
@@ -3244,7 +3244,7 @@ export class OrderService {
       let endUtc: Date;
       if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
         const [y, m, d] = before.split('-').map(Number);
-        const istEnd = new Date(y, m - 1, d, 23, 59, 59, 999);
+        const istEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
         endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
       } else {
         const dt = new Date(before);
