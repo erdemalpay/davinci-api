@@ -253,10 +253,61 @@ export class EventSurveyService {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+    const now = new Date();
+
     const [data, total] = await Promise.all([
-      this.responseModel.find(filter).sort({ _id: -1 }).skip(skip).limit(Number(limit)).exec(),
+      this.responseModel.aggregate([
+        { $match: filter },
+        { $sort: { _id: -1 } },
+        { $skip: skip },
+        { $limit: Number(limit) },
+        {
+          $lookup: {
+            from: 'rewardcodes',
+            localField: '_id',
+            foreignField: 'responseId',
+            as: 'rewardCodes',
+          },
+        },
+        {
+          $addFields: {
+            rewardCode: {
+              $let: {
+                vars: { rc: { $arrayElemAt: ['$rewardCodes', 0] } },
+                in: {
+                  $cond: {
+                    if: { $eq: [{ $type: '$$rc' }, 'missing'] },
+                    then: null,
+                    else: {
+                      code: '$$rc.code',
+                      status: {
+                        $cond: {
+                          if: {
+                            $and: [
+                              { $eq: ['$$rc.status', RewardCodeStatus.ISSUED] },
+                              { $lt: ['$$rc.expiresAt', now] },
+                            ],
+                          },
+                          then: RewardCodeStatus.EXPIRED,
+                          else: '$$rc.status',
+                        },
+                      },
+                      redeemChannel: '$$rc.redeemChannel',
+                      redeemedAt: '$$rc.redeemedAt',
+                      expiresAt: '$$rc.expiresAt',
+                      rewardLabel: '$$rc.rewardLabel',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { $unset: 'rewardCodes' },
+      ]).exec(),
       this.responseModel.countDocuments(filter),
     ]);
+
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
