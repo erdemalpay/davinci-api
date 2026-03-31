@@ -122,6 +122,11 @@ export class EventSurveyController {
     return this.eventSurveyService.queryResponses(query);
   }
 
+  @Get('/analytics/marketing-consent')
+  getMarketingConsentStats(@Query('eventId') eventId: number) {
+    return this.eventSurveyService.getMarketingConsentStats(Number(eventId));
+  }
+
   @Get('/analytics/question-answers')
   getQuestionAnswers(
     @Query('eventId') eventId: number,
