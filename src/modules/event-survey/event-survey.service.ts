@@ -311,6 +311,25 @@ export class EventSurveyService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
+  async getQuestionAnswers(eventId: number, questionId: number) {
+    const responses = await this.responseModel
+      .find({ eventId })
+      .select('email answers createdAt')
+      .exec();
+
+    return responses.flatMap((r) => {
+      const ans = r.answers.find((a) => a.questionId === questionId);
+      if (!ans) return [];
+      return [
+        {
+          email: r.email,
+          answer: Array.isArray(ans.answer) ? ans.answer.join(', ') : ans.answer,
+          createdAt: (r as any).createdAt,
+        },
+      ];
+    });
+  }
+
   async getAnalyticsSummary(eventId?: number) {
     const baseFilter: Record<string, unknown> = {};
     if (eventId) baseFilter.eventId = Number(eventId);

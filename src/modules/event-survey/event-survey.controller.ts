@@ -122,6 +122,14 @@ export class EventSurveyController {
     return this.eventSurveyService.queryResponses(query);
   }
 
+  @Get('/analytics/question-answers')
+  getQuestionAnswers(
+    @Query('eventId') eventId: number,
+    @Query('questionId') questionId: number,
+  ) {
+    return this.eventSurveyService.getQuestionAnswers(Number(eventId), Number(questionId));
+  }
+
   @Get('/analytics/summary')
   getAnalyticsSummary(@Query('eventId') eventId?: number) {
     return this.eventSurveyService.getAnalyticsSummary(eventId);
