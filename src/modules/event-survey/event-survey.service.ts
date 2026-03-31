@@ -311,6 +311,15 @@ export class EventSurveyService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
+  async getMarketingConsentStats(eventId: number) {
+    const filter: Record<string, unknown> = { eventId };
+    const [yes, no] = await Promise.all([
+      this.responseModel.countDocuments({ ...filter, emailMarketingConsent: true }),
+      this.responseModel.countDocuments({ ...filter, emailMarketingConsent: false }),
+    ]);
+    return { yes, no };
+  }
+
   async getQuestionAnswers(eventId: number, questionId: number) {
     const responses = await this.responseModel
       .find({ eventId })
