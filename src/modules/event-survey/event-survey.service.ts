@@ -242,7 +242,7 @@ export class EventSurveyService {
   // ─── Analytics ───────────────────────────────────────────────────────────────
 
   async queryResponses(query: SurveyResponseQueryDto) {
-    const { page = 1, limit = 20, eventId, startDate, endDate } = query;
+    const { page = 1, limit = 20, eventId, startDate, endDate, sortBy, sortOrder } = query;
     const filter: Record<string, unknown> = {};
     if (eventId) filter.eventId = Number(eventId);
     if (startDate || endDate) {
@@ -255,10 +255,16 @@ export class EventSurveyService {
     const skip = (Number(page) - 1) * Number(limit);
     const now = new Date();
 
+    const ALLOWED_SORT_FIELDS: Record<string, string> = {
+      emailMarketingConsent: 'emailMarketingConsent',
+    };
+    const sortField = sortBy && ALLOWED_SORT_FIELDS[sortBy] ? ALLOWED_SORT_FIELDS[sortBy] : '_id';
+    const sortDir = sortOrder === 'asc' ? 1 : -1;
+
     const [data, total] = await Promise.all([
       this.responseModel.aggregate([
         { $match: filter },
-        { $sort: { _id: -1 } },
+        { $sort: { [sortField]: sortDir, _id: -1 } },
         { $skip: skip },
         { $limit: Number(limit) },
         {
