@@ -23,8 +23,9 @@ export class SubmitSurveyDto {
   @IsNumber()
   eventId: number;
 
+  @IsOptional()
   @IsString()
-  fullName: string;
+  fullName?: string;
 
   @IsEmail()
   email: string;

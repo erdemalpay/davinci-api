@@ -16,7 +16,7 @@ export class SurveyResponse extends Document {
   @Prop({ required: true, type: Number })
   eventId: number;
 
-  @Prop({ required: true, type: String })
+  @Prop({ required: false, type: String, default: '' })
   fullName: string;
 
   @Prop({ required: true, type: String })
