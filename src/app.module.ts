@@ -14,6 +14,7 @@ import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
+import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
 import { EducationModule } from './modules/education/education.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
@@ -87,6 +88,7 @@ const modules = [
   AccountingModule,
   CheckoutModule,
   CustomerPopupModule,
+  EventSurveyModule,
   ConsumerModule,
   PanelControlModule,
   PointModule,
