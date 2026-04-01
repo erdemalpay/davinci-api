@@ -122,6 +122,19 @@ export class EventSurveyController {
     return this.eventSurveyService.queryResponses(query);
   }
 
+  @Get('/analytics/cross')
+  getCrossAnalysis(
+    @Query('eventId') eventId: number,
+    @Query('questionIdA') questionIdA: number,
+    @Query('questionIdB') questionIdB: number,
+  ) {
+    return this.eventSurveyService.getCrossAnalysis(
+      Number(eventId),
+      Number(questionIdA),
+      Number(questionIdB),
+    );
+  }
+
   @Get('/analytics/marketing-consent')
   getMarketingConsentStats(@Query('eventId') eventId: number) {
     return this.eventSurveyService.getMarketingConsentStats(Number(eventId));

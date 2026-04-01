@@ -317,6 +317,36 @@ export class EventSurveyService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
+  async getCrossAnalysis(eventId: number, questionIdA: number, questionIdB: number) {
+    const responses = await this.responseModel
+      .find({ eventId })
+      .select('answers')
+      .exec();
+
+    const counts = new Map<string, number>();
+
+    for (const r of responses) {
+      const ansA = r.answers.find((a) => a.questionId === questionIdA);
+      const ansB = r.answers.find((a) => a.questionId === questionIdB);
+      if (!ansA || !ansB) continue;
+
+      const valuesA = Array.isArray(ansA.answer) ? ansA.answer : [ansA.answer];
+      const valuesB = Array.isArray(ansB.answer) ? ansB.answer : [ansB.answer];
+
+      for (const a of valuesA) {
+        for (const b of valuesB) {
+          const key = JSON.stringify({ a, b });
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+      }
+    }
+
+    return Array.from(counts.entries()).map(([key, count]) => {
+      const { a, b } = JSON.parse(key);
+      return { answerA: a, answerB: b, count };
+    });
+  }
+
   async getMarketingConsentStats(eventId: number) {
     const filter: Record<string, unknown> = { eventId };
     const [yes, no] = await Promise.all([
