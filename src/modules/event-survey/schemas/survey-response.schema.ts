@@ -30,4 +30,5 @@ export class SurveyResponse extends Document {
 }
 
 export const SurveyResponseSchema = SchemaFactory.createForClass(SurveyResponse);
+SurveyResponseSchema.index({ eventId: 1, email: 1 }, { unique: true });
 purifySchema(SurveyResponseSchema);

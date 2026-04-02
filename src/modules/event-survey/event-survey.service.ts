@@ -132,10 +132,18 @@ export class EventSurveyService {
       throw new BadRequestException('Bu e-posta adresiyle bu etkinliğe zaten katıldınız');
     }
 
-    const response = await this.responseModel.create({
-      ...dto,
-      email: dto.email.toLowerCase(),
-    });
+    let response: SurveyResponse;
+    try {
+      response = await this.responseModel.create({
+        ...dto,
+        email: dto.email.toLowerCase(),
+      });
+    } catch (err: unknown) {
+      if (this.isMongoDuplicateKey(err)) {
+        throw new BadRequestException('Bu e-posta adresiyle bu etkinliğe zaten katıldınız');
+      }
+      throw err;
+    }
 
     const code = await this.generateUniqueCode();
     const expiresAt = new Date();
@@ -318,33 +326,77 @@ export class EventSurveyService {
   }
 
   async getCrossAnalysis(eventId: number, questionIdA: number, questionIdB: number) {
-    const responses = await this.responseModel
-      .find({ eventId })
-      .select('answers')
+    return this.responseModel
+      .aggregate<{
+        answerA: string;
+        answerB: string;
+        count: number;
+      }>([
+        { $match: { eventId } },
+        {
+          $project: {
+            ansA: {
+              $first: {
+                $filter: {
+                  input: { $ifNull: ['$answers', []] },
+                  as: 'x',
+                  cond: { $eq: ['$$x.questionId', questionIdA] },
+                },
+              },
+            },
+            ansB: {
+              $first: {
+                $filter: {
+                  input: { $ifNull: ['$answers', []] },
+                  as: 'x',
+                  cond: { $eq: ['$$x.questionId', questionIdB] },
+                },
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            ansA: { $ne: null },
+            ansB: { $ne: null },
+          },
+        },
+        {
+          $project: {
+            valuesA: {
+              $cond: {
+                if: { $isArray: '$ansA.answer' },
+                then: '$ansA.answer',
+                else: ['$ansA.answer'],
+              },
+            },
+            valuesB: {
+              $cond: {
+                if: { $isArray: '$ansB.answer' },
+                then: '$ansB.answer',
+                else: ['$ansB.answer'],
+              },
+            },
+          },
+        },
+        { $unwind: '$valuesA' },
+        { $unwind: '$valuesB' },
+        {
+          $group: {
+            _id: { a: '$valuesA', b: '$valuesB' },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            answerA: '$_id.a',
+            answerB: '$_id.b',
+            count: 1,
+          },
+        },
+      ])
       .exec();
-
-    const counts = new Map<string, number>();
-
-    for (const r of responses) {
-      const ansA = r.answers.find((a) => a.questionId === questionIdA);
-      const ansB = r.answers.find((a) => a.questionId === questionIdB);
-      if (!ansA || !ansB) continue;
-
-      const valuesA = Array.isArray(ansA.answer) ? ansA.answer : [ansA.answer];
-      const valuesB = Array.isArray(ansB.answer) ? ansB.answer : [ansB.answer];
-
-      for (const a of valuesA) {
-        for (const b of valuesB) {
-          const key = JSON.stringify({ a, b });
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-      }
-    }
-
-    return Array.from(counts.entries()).map(([key, count]) => {
-      const { a, b } = JSON.parse(key);
-      return { answerA: a, answerB: b, count };
-    });
   }
 
   async getMarketingConsentStats(eventId: number) {
@@ -357,22 +409,39 @@ export class EventSurveyService {
   }
 
   async getQuestionAnswers(eventId: number, questionId: number) {
-    const responses = await this.responseModel
-      .find({ eventId })
-      .select('email answers createdAt')
-      .exec();
-
-    return responses.flatMap((r) => {
-      const ans = r.answers.find((a) => a.questionId === questionId);
-      if (!ans) return [];
-      return [
+    return this.responseModel
+      .aggregate<{ email: string; answer: string; createdAt?: Date }>([
+        { $match: { eventId } },
+        { $unwind: { path: '$answers', preserveNullAndEmptyArrays: false } },
+        { $match: { 'answers.questionId': questionId } },
         {
-          email: r.email,
-          answer: Array.isArray(ans.answer) ? ans.answer.join(', ') : ans.answer,
-          createdAt: (r as any).createdAt,
+          $project: {
+            _id: 0,
+            email: 1,
+            createdAt: 1,
+            answer: {
+              $cond: {
+                if: { $isArray: '$answers.answer' },
+                then: {
+                  $reduce: {
+                    input: '$answers.answer',
+                    initialValue: '',
+                    in: {
+                      $cond: {
+                        if: { $eq: ['$$value', ''] },
+                        then: '$$this',
+                        else: { $concat: ['$$value', ', ', '$$this'] },
+                      },
+                    },
+                  },
+                },
+                else: { $ifNull: ['$answers.answer', ''] },
+              },
+            },
+          },
         },
-      ];
-    });
+      ])
+      .exec();
   }
 
   async getAnalyticsSummary(eventId?: number) {
@@ -433,12 +502,17 @@ export class EventSurveyService {
       code = String(randomInt(100000, 999999));
       attempts++;
       if (attempts > 50) throw new BadRequestException('Kod üretilemedi, lütfen tekrar deneyin');
-    } while (
-      await this.rewardCodeModel
-        .findOne({ code, status: RewardCodeStatus.ISSUED })
-        .exec()
-    );
+    } while (await this.rewardCodeModel.findOne({ code }).exec());
     return code;
+  }
+
+  private isMongoDuplicateKey(err: unknown): boolean {
+    return (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: number }).code === 11000
+    );
   }
 
   private async assertEventExists(eventId: number): Promise<void> {
