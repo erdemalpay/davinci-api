@@ -107,11 +107,6 @@ interface OrderDocument {
   [key: string]: unknown;
 }
 
-interface PaidOrderItem {
-  order: number;
-  paidQuantity: number;
-}
-
 // Type guard helpers
 function isPopulatedMenuItem(
   item: number | PopulatedMenuItem,
@@ -391,7 +386,7 @@ export class OrderService {
   }
   async findPersonalCollectionNumbers(query: OrderQueryDto) {
     const filterQuery: Record<string, unknown> = {};
-    const { after, before } = query;
+    const { after, before, location } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
       const start = this.parseLocalDate(after);
@@ -405,6 +400,9 @@ export class OrderService {
 
     if (Object.keys(dateFilter).length) {
       filterQuery.createdAt = dateFilter;
+    }
+    if (location && Number(location) !== 0) {
+      filterQuery['location'] = Number(location);
     }
     filterQuery['status'] = { $ne: OrderCollectionStatus.CANCELLED };
     try {
@@ -436,7 +434,7 @@ export class OrderService {
 
   async findPersonalDatas(query: OrderQueryDto) {
     const filterQuery: Record<string, unknown> = {};
-    const { after, before, eliminatedDiscounts } = query;
+    const { after, before, eliminatedDiscounts, location } = query;
     const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (after) {
       const start = this.parseLocalDate(after);
@@ -456,6 +454,9 @@ export class OrderService {
         ? eliminatedDiscounts.split(',').map(Number)
         : [];
       filterQuery['discount'] = { $nin: discountArray };
+    }
+    if (location) {
+      filterQuery['location'] = Number(location);
     }
 
     try {
@@ -3467,22 +3468,6 @@ export class OrderService {
       );
     }
   }
-  aggregatePaidQuantities(collections: Collection[]) {
-    const orderSums = collections.reduce((acc, collection) => {
-      collection.orders.forEach((orderItem) => {
-        if (acc[orderItem.order]) {
-          acc[orderItem.order].paidQuantity += orderItem.paidQuantity;
-        } else {
-          acc[orderItem.order] = { ...orderItem };
-        }
-      });
-      return acc;
-    }, {});
-
-    // Convert the resulting object back to an array
-    return Object.values(orderSums);
-  }
-
   private splitCollectionDiscount(
     collection: Collection,
     cancelledAmount: number,
@@ -3509,60 +3494,333 @@ export class OrderService {
     return { cancelledDiscount, remainingDiscount };
   }
   async createCollection(user: User, createCollectionDto: CreateCollectionDto) {
-    let tableCollections: Collection[] = [];
-    if (createCollectionDto.table) {
-      tableCollections = await this.collectionModel
-        .find({
-          table: createCollectionDto.table,
-          status: OrderCollectionStatus.PAID,
-        })
-        .exec();
-    }
-    const { newOrders, ...filteredCollectionDto } = createCollectionDto;
-    if (tableCollections?.length > 0) {
-      const tablePaidOrders = this.aggregatePaidQuantities(tableCollections);
-      if (newOrders && newOrders?.length > 0) {
-        filteredCollectionDto.orders.forEach((orderCollectionItem) => {
-          const foundNewOrder = newOrders.find(
-            (newOrder) => newOrder._id === orderCollectionItem.order,
-          );
-          const existingOrder = tablePaidOrders?.find(
-            (paidOrder: PaidOrderItem) =>
-              paidOrder.order === orderCollectionItem.order,
-          ) as PaidOrderItem | undefined;
-          const expectedPaidQuantity =
-            (existingOrder?.paidQuantity ?? 0) +
-            orderCollectionItem.paidQuantity;
+    const { newOrders: _ignoredNewOrders, ...filteredCollectionDto } =
+      createCollectionDto;
+    const requestedOrders = filteredCollectionDto.orders ?? [];
+    const hasOrders = requestedOrders.length > 0;
+    const tableId = createCollectionDto.table;
 
-          if (foundNewOrder.paidQuantity !== expectedPaidQuantity) {
+    let acquiredNoOrderLock = false;
+    let incrementedOrdersInFlight = false;
+    const noOrderLockValue = `${user._id}-${Date.now()}-${Math.random()}`;
+    const noOrderLockTtlSec = 30;
+    const inFlightTtlSec = 30;
+    const mixedGuardTtlSec = 5;
+
+    if (tableId) {
+      const redisKeySlot = `{createCollection:${tableId}}`;
+      const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+      const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
+      const withOrdersGuardKey = `lock:${redisKeySlot}:with-orders-guard`;
+      const noOrdersGuardKey = `lock:${redisKeySlot}:no-orders-guard`;
+
+      try {
+        if (hasOrders) {
+          // WITH-ORDERS: Block when no-order lock exists or recent no-orders guard exists, then increment counter
+          const result = await this.redisService.getClient().eval(
+            `
+              if redis.call('EXISTS', KEYS[1]) == 1 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
+                return 0
+              end
+              local active = redis.call('INCR', KEYS[2])
+              redis.call('EXPIRE', KEYS[2], ARGV[1])
+              return active
+            `,
+            3,
+            noOrderLockKey,
+            ordersInFlightKey,
+            noOrdersGuardKey,
+            inFlightTtlSec,
+          );
+
+          if (!result || Number(result) <= 0) {
             throw new HttpException(
-              `The quantity of order  is exceeded`,
+              'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+              HttpStatus.CONFLICT,
+            );
+          }
+
+          // Keep a short-lived guard so no-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(withOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+
+          incrementedOrdersInFlight = true;
+        } else {
+          // NO-ORDERS: Check if no-order lock exists, orders-inflight > 0, recent with-orders guard exists,
+          // or recent no-orders guard exists.
+          const result = await this.redisService.getClient().eval(
+            `
+              if redis.call('EXISTS', KEYS[1]) == 1 then
+                return 0
+              end
+              local active = tonumber(redis.call('GET', KEYS[2]) or '0')
+              if active > 0 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[3]) == 1 then
+                return 0
+              end
+              if redis.call('EXISTS', KEYS[4]) == 1 then
+                return 0
+              end
+              redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+              return 1
+            `,
+            4,
+            noOrderLockKey,
+            ordersInFlightKey,
+            withOrdersGuardKey,
+            noOrdersGuardKey,
+            noOrderLockValue,
+            noOrderLockTtlSec,
+          );
+
+          if (Number(result) !== 1) {
+            throw new HttpException(
+              'Concurrent collection creation is not allowed when one request has no orders. Please retry.',
+              HttpStatus.CONFLICT,
+            );
+          }
+
+          // Keep a short-lived guard so with-orders requests right after this still get blocked.
+          await this.redisService
+            .getClient()
+            .set(noOrdersGuardKey, '1', 'EX', mixedGuardTtlSec);
+
+          acquiredNoOrderLock = true;
+        }
+      } catch (redisError: any) {
+        // If it's an HttpException, rethrow it
+        if (redisError instanceof HttpException) throw redisError;
+        // Otherwise log and allow graceful degradation
+        this.logger.warn(
+          `Redis concurrency gate failed code=${
+            redisError?.code ?? 'unknown'
+          } message=${
+            redisError?.message || String(redisError)
+          }. Proceeding without concurrency control.`,
+        );
+      }
+    }
+
+    const session = await this.conn.startSession();
+
+    let collection: Collection | null = null;
+    let updatedOrdersForEmit: Order[] = [];
+
+    try {
+      await session.withTransaction(async () => {
+        // // Temporary delay for concurrency testing. Remove after verification.
+        // await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        const paidByOrder = new Map<number, number>();
+
+        for (const item of requestedOrders) {
+          if (!item?.order) {
+            throw new HttpException(
+              'Order id is required in collection orders',
               HttpStatus.BAD_REQUEST,
             );
           }
+          if (!item?.paidQuantity || item.paidQuantity <= 0) {
+            throw new HttpException(
+              'Paid quantity must be greater than 0',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+          paidByOrder.set(
+            item.order,
+            (paidByOrder.get(item.order) ?? 0) + item.paidQuantity,
+          );
+        }
+
+        const conflictingOrderIds: number[] = [];
+        for (const [orderId, requestedPaidQuantity] of paidByOrder.entries()) {
+          const updateResult = await this.orderModel.updateOne(
+            {
+              _id: orderId,
+              status: {
+                $nin: [
+                  OrderStatus.CANCELLED,
+                  OrderStatus.RETURNED,
+                  OrderStatus.WASTED,
+                ],
+              },
+              $expr: {
+                $gte: [
+                  { $subtract: ['$quantity', '$paidQuantity'] },
+                  requestedPaidQuantity,
+                ],
+              },
+            },
+            { $inc: { paidQuantity: requestedPaidQuantity } },
+            { session },
+          );
+
+          if (updateResult.modifiedCount === 0) {
+            conflictingOrderIds.push(orderId);
+          }
+        }
+
+        if (conflictingOrderIds.length > 0) {
+          const conflictingOrders = await this.orderModel
+            .find(
+              { _id: { $in: conflictingOrderIds } },
+              { _id: 1, quantity: 1, paidQuantity: 1, status: 1 },
+              { session },
+            )
+            .lean();
+
+          const conflictDetails = conflictingOrders
+            .map((order) => {
+              const requested = paidByOrder.get(order._id as number) ?? 0;
+              const remaining = Math.max(
+                0,
+                (order.quantity ?? 0) - (order.paidQuantity ?? 0),
+              );
+              return `order ${order._id}: requested=${requested}, remaining=${remaining}, status=${order.status}`;
+            })
+            .join('; ');
+
+          throw new HttpException(
+            {
+              message: `Order quantity changed, refresh and retry. ${conflictDetails}`,
+              conflictingOrderIds,
+            },
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        if (paidByOrder.size > 0) {
+          const updatedOrderIds = Array.from(paidByOrder.keys());
+          updatedOrdersForEmit = await this.orderModel.find(
+            { _id: { $in: updatedOrderIds } },
+            null,
+            { session },
+          );
+        }
+
+        collection = new this.collectionModel({
+          ...filteredCollectionDto,
+          createdBy: createCollectionDto.createdBy ?? user._id,
+          createdAt: new Date(),
         });
+        await collection.save({ session });
+      });
+    } catch (error) {
+      if (error instanceof HttpException) {
+        if (error.getStatus() === HttpStatus.CONFLICT) {
+          const response = error.getResponse() as
+            | string
+            | { message?: string; conflictingOrderIds?: number[] };
+          const conflictingOrderIds =
+            typeof response === 'object' && response?.conflictingOrderIds
+              ? response.conflictingOrderIds
+              : [];
+
+          const requestedOrderIds =
+            filteredCollectionDto.orders?.map((o) => o.order) ?? [];
+          const latestCollection = await this.collectionModel
+            .findOne({
+              status: OrderCollectionStatus.PAID,
+              ...(createCollectionDto.table
+                ? { table: createCollectionDto.table }
+                : {}),
+              ...(requestedOrderIds.length > 0
+                ? { 'orders.order': { $in: requestedOrderIds } }
+                : {}),
+            })
+            .sort({ createdAt: -1 });
+
+          if (latestCollection) {
+            this.websocketGateway.emitCollectionChanged(latestCollection);
+          }
+
+          if (conflictingOrderIds.length > 0) {
+            const latestOrders = await this.orderModel.find({
+              _id: { $in: conflictingOrderIds },
+            });
+
+            if (latestOrders.length > 0) {
+              await this.websocketGateway.emitOrderUpdated(latestOrders);
+            }
+
+            throw new HttpException(
+              {
+                message:
+                  (typeof response === 'object' && response?.message) ||
+                  'Order quantity changed, refresh and retry.',
+                conflictingOrderIds,
+                latestOrders,
+                latestCollection,
+              },
+              HttpStatus.CONFLICT,
+            );
+          }
+        }
+
+        throw error;
+      }
+      this.logger.error('Failed to create collection transaction:', error);
+      throw new HttpException(
+        'Failed to create collection',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await session.endSession();
+
+      if (tableId) {
+        const redisKeySlot = `{createCollection:${tableId}}`;
+        const noOrderLockKey = `lock:${redisKeySlot}:no-orders`;
+        const ordersInFlightKey = `lock:${redisKeySlot}:orders-inflight`;
+
+        // Release no-orders lock if we acquired it
+        if (acquiredNoOrderLock) {
+          try {
+            await this.redisService.getClient().del(noOrderLockKey);
+          } catch (err: any) {
+            this.logger.warn(
+              `Failed to release no-orders lock: ${
+                err?.message || String(err)
+              }`,
+            );
+          }
+        }
+
+        // Decrement orders-inflight counter if we incremented it
+        if (incrementedOrdersInFlight) {
+          try {
+            const count = await this.redisService
+              .getClient()
+              .decr(ordersInFlightKey);
+            if (count <= 0) {
+              // Delete the key if counter reaches 0 or below
+              await this.redisService.getClient().del(ordersInFlightKey);
+            }
+          } catch (err: any) {
+            // Log but don't fail on cleanup
+            this.logger.warn(
+              `Failed to decrement orders-inflight: ${
+                err?.message || String(err)
+              }`,
+            );
+          }
+        }
       }
     }
-    const collection = new this.collectionModel({
-      ...filteredCollectionDto, // Use the filtered object
-      createdBy: createCollectionDto.createdBy ?? user._id,
-      createdAt: new Date(),
-    });
 
-    if (newOrders && newOrders?.length > 0) {
-      await this.updateOrders(user, newOrders, { deferEmit: false });
-    }
-
-    try {
-      await collection.save();
-    } catch (error) {
+    if (!collection) {
       throw new HttpException(
         'Failed to create collection',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
 
-    // Consume points if pointUser is provided (collection._id is now assigned)
+    // Point operations are executed only after a successful commit.
     if (createCollectionDto.pointUser) {
       await this.pointService.consumePoint(
         createCollectionDto.pointUser,
@@ -3580,6 +3838,10 @@ export class OrderService {
         createCollectionDto.createdBy ?? user._id,
         createCollectionDto.pointConsumer,
       );
+    }
+
+    if (updatedOrdersForEmit.length > 0) {
+      this.websocketGateway.emitOrderUpdated(updatedOrdersForEmit);
     }
 
     try {
@@ -5096,5 +5358,66 @@ export class OrderService {
       data,
       totalRevenue,
     };
+  }
+
+  async getPopularItemsLast30Days(location?: number) {
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - 30);
+
+    const matchQuery: Record<string, unknown> = {
+      createdAt: { $gte: startDate, $lte: now },
+      status: {
+        $nin: [
+          OrderStatus.CANCELLED,
+          OrderStatus.WASTED,
+          OrderStatus.RETURNED,
+          OrderStatus.AUTOSERVED,
+        ],
+      },
+    };
+
+    if (
+      location !== undefined &&
+      location !== null &&
+      `${location}` !== '' &&
+      !Number.isNaN(location) &&
+      Number(location) !== 0
+    ) {
+      matchQuery.location = Number(location);
+    }
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: matchQuery,
+      },
+      {
+        $group: {
+          _id: '$item',
+          totalQuantity: { $sum: '$quantity' },
+        },
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: 30 },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'item',
+        },
+      },
+      { $unwind: '$item' },
+      {
+        $project: {
+          _id: 0,
+          value: '$item._id',
+          label: '$item.name',
+        },
+      },
+      { $sort: { label: 1 } },
+    ];
+
+    return this.orderModel.aggregate(pipeline).exec();
   }
 }

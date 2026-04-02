@@ -643,7 +643,11 @@ export class TableService {
 
     return table;
   }
-  async getAfterGivenDateCreatedNumbers(after: string, before?: string) {
+  async getAfterGivenDateCreatedNumbers(
+    after: string,
+    before?: string,
+    location?: number,
+  ) {
     const aggregationPipeline: PipelineStage[] = [
       {
         $match: {
@@ -654,6 +658,9 @@ export class TableService {
                 ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
                 : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
           },
+          ...(location && Number(location) !== 0
+            ? { location: Number(location) }
+            : {}),
           status: { $ne: TableStatus.CANCELLED },
         },
       },

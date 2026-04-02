@@ -19,6 +19,9 @@ export class Visit extends Document {
   @Prop({ required: true })
   date: string;
 
+  @Prop({ required: false, type: String })
+  status: string;
+
   @Prop()
   startHour: string;
 

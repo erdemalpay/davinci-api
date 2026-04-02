@@ -1,4 +1,11 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
@@ -17,6 +24,7 @@ import {
   CafeVisitDto,
   VisitDto,
   VisitSource,
+  VisitStatus,
   VisitTypes,
 } from './visit.dto';
 import { Visit } from './visit.schema';
@@ -28,6 +36,7 @@ export class VisitService {
     private cafeActivityModel: Model<CafeActivity>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly shiftService: ShiftService,
     private readonly activityService: ActivityService,
@@ -203,6 +212,18 @@ export class VisitService {
     this.websocketGateway.emitVisitChanged();
     return visit;
   }
+
+  async update(user: User, id: number, updates: UpdateQuery<Visit>) {
+    const visit = await this.visitModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!visit) {
+      throw new HttpException('Visit not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitVisitChanged();
+    return visit;
+  }
+
   async remove(user: User, id: number) {
     const visit = await this.visitModel.findByIdAndDelete(id);
     if (!visit) {
@@ -224,13 +245,17 @@ export class VisitService {
   }
 
   async getVisits(startDate: string, endDate?: string, user?: string) {
-    let query: any = { date: { $gte: startDate } };
+    let query: any = {
+      date: { $gte: startDate },
+      status: { $ne: VisitStatus.WRONG_ENTRY },
+    };
     if (endDate) {
       query = { ...query, date: { ...query.date, $lte: endDate } };
     }
     if (user) {
       query = { ...query, user };
     }
+
     const visits = await this.visitModel
       .find(query)
       .populate({
@@ -288,6 +313,7 @@ export class VisitService {
           date: 1,
           startHour: 1,
           finishHour: 1,
+          status: 1,
         },
       },
     ]);

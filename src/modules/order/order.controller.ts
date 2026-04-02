@@ -140,6 +140,11 @@ export class OrderController {
   ) {
     return this.orderService.findDailySummary(date, location);
   }
+
+  @Get('/popular-items-last-30-days')
+  getPopularItemsLast30Days(@Query('location') location?: number) {
+    return this.orderService.getPopularItemsLast30Days(location);
+  }
   @Post('/dedupe-ikas-duplicates')
   dedupeIkasDuplicates() {
     return this.orderService.dedupeIkasDuplicates();
@@ -392,11 +397,13 @@ export class OrderController {
     @Query('after') after: string,
     @Query('before') before?: string,
     @Query('eliminatedDiscounts') eliminatedDiscounts?: string,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findPersonalDatas({
       after: after,
       before: before,
       eliminatedDiscounts: eliminatedDiscounts,
+      location: location,
     });
   }
 
@@ -404,10 +411,12 @@ export class OrderController {
   findPersonalCollectionNumbers(
     @Query('after') after: string,
     @Query('before') before?: string,
+    @Query('location') location?: string,
   ) {
     return this.orderService.findPersonalCollectionNumbers({
       after: after,
       before: before,
+      location: location,
     });
   }
   @Get('/table/:id')

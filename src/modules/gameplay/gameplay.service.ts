@@ -357,7 +357,11 @@ export class GameplayService {
 
     return this.gameplayModel.aggregate(aggregation).exec();
   }
-  async getAfterGivenDateCreatedByCounts(after: string, before?: string) {
+  async getAfterGivenDateCreatedByCounts(
+    after: string,
+    before?: string,
+    location?: number,
+  ) {
     const endDate =
       before !== '' && before !== undefined && before !== null
         ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
@@ -370,6 +374,9 @@ export class GameplayService {
             $gte: after,
             $lte: endDate,
           },
+          ...(location && Number(location) !== 0
+            ? { location: Number(location) }
+            : {}),
         },
       },
       {
@@ -392,7 +399,11 @@ export class GameplayService {
       .exec();
     return results;
   }
-  async getAfterGivenDateMentoredCounts(after: string, before?: string) {
+  async getAfterGivenDateMentoredCounts(
+    after: string,
+    before?: string,
+    location?: number,
+  ) {
     const endDate =
       before !== '' && before !== undefined && before !== null
         ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
@@ -405,6 +416,9 @@ export class GameplayService {
             $gte: after,
             $lte: endDate,
           },
+          ...(location && Number(location) !== 0
+            ? { location: Number(location) }
+            : {}),
         },
       },
       {

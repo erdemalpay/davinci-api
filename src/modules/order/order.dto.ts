@@ -199,6 +199,10 @@ export class CreateOrderDto {
   shopifyOrderNumber?: string;
 
   @IsOptional()
+  @IsBoolean()
+  isShopifyPickUpOrderBrought?: boolean;
+
+  @IsOptional()
   @IsString()
   trendyolOrderId?: string;
 
@@ -233,52 +237,6 @@ export class CreateOrderDto {
   @IsBoolean()
   isTrendyolCustomerPicked?: boolean;
 }
-
-// TODO: Buna ihtiyacimiz var mi? order.schema'daki Order yeterli degil mi?
-export type OrderType = {
-  _id: number;
-  location: number;
-  item: number;
-  table?: number;
-  quantity: number;
-  kitchen?: string;
-  status: string;
-  note?: string;
-  unitPrice: number;
-  createdAt: Date;
-  createdBy: string;
-  confirmedAt?: Date;
-  confirmedBy?: string;
-  preparedAt?: Date;
-  preparedBy?: string;
-  deliveredAt?: Date;
-  deliveredBy?: string;
-  cancelledAt?: Date;
-  cancelledBy?: string;
-  paidQuantity: number;
-  discount?: number;
-  discountPercentage?: number;
-  discountAmount?: number;
-  division?: number;
-  isOnlinePrice?: boolean;
-  isReturned?: boolean;
-  stockLocation?: number;
-  discountNote?: string;
-  stockNote?: string;
-  ikasId?: string;
-  shopifyId?: string;
-  activityTableName?: string;
-  activityPlayer?: string;
-  paymentMethod?: string;
-  tableDate?: Date;
-  isPaymentMade?: boolean;
-  ikasCustomer?: IkasCustomerDto;
-  isIkasCustomerPicked?: boolean;
-  shopifyCustomer?: ShopifyCustomer;
-  isShopifyCustomerPicked?: boolean;
-  ikasOrderNumber?: string;
-  shopifyOrderNumber?: string;
-};
 
 export class CreateCollectionDto {
   @IsNumber()
