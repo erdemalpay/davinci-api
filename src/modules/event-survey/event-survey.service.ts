@@ -3,9 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'crypto';
-import { Model, UpdateQuery } from 'mongoose';
+import { ClientSession, Connection, Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
 import { User } from '../user/user.schema';
 import {
@@ -27,6 +27,8 @@ import { SurveyResponse } from './schemas/survey-response.schema';
 @Injectable()
 export class EventSurveyService {
   constructor(
+    @InjectConnection()
+    private readonly connection: Connection,
     @InjectModel(SurveyEvent.name)
     private readonly eventModel: Model<SurveyEvent>,
     @InjectModel(SurveyQuestion.name)
@@ -152,51 +154,58 @@ export class EventSurveyService {
     if (!event)
       throw new NotFoundException('Etkinlik bulunamadı veya aktif değil');
 
-    // Aynı email aynı etkinlikte 1 kez katılabilir
-    const existing = await this.responseModel
-      .findOne({ eventId: dto.eventId, email: dto.email.toLowerCase() })
-      .exec();
-
-    if (existing) {
-      throw new BadRequestException(
-        'Bu e-posta adresiyle bu etkinliğe zaten katıldınız',
-      );
-    }
-
-    let response: SurveyResponse;
+    const session = await this.connection.startSession();
     try {
-      response = await this.responseModel.create({
-        ...dto,
-        email: dto.email.toLowerCase(),
+      const rewardCode = await session.withTransaction(async () => {
+        const [response] = await this.responseModel.create(
+          [
+            {
+              ...dto,
+              email: dto.email.toLowerCase(),
+            },
+          ],
+          { session },
+        );
+
+        const code = await this.generateUniqueCode(session);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + event.codeValidityDays);
+
+        const [created] = await this.rewardCodeModel.create(
+          [
+            {
+              code,
+              responseId: response._id,
+              eventId: event._id,
+              expiresAt,
+              rewardLabel: event.rewardLabel,
+            },
+          ],
+          { session },
+        );
+        return created;
       });
+
+      return {
+        code: rewardCode.code,
+        expiresAt: rewardCode.expiresAt,
+        rewardLabel: rewardCode.rewardLabel,
+        eventName: event.name,
+        codeValidityDays: event.codeValidityDays,
+      };
     } catch (err: unknown) {
-      if (this.isMongoDuplicateKey(err)) {
+      if (
+        this.isMongoDuplicateKey(err) &&
+        this.isSurveyResponseDuplicateKey(err)
+      ) {
         throw new BadRequestException(
           'Bu e-posta adresiyle bu etkinliğe zaten katıldınız',
         );
       }
       throw err;
+    } finally {
+      await session.endSession();
     }
-
-    const code = await this.generateUniqueCode();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + event.codeValidityDays);
-
-    const rewardCode = await this.rewardCodeModel.create({
-      code,
-      responseId: response._id,
-      eventId: event._id,
-      expiresAt,
-      rewardLabel: event.rewardLabel,
-    });
-
-    return {
-      code: rewardCode.code,
-      expiresAt: rewardCode.expiresAt,
-      rewardLabel: rewardCode.rewardLabel,
-      eventName: event.name,
-      codeValidityDays: event.codeValidityDays,
-    };
   }
 
   // ─── Kod Doğrulama ───────────────────────────────────────────────────────────
@@ -565,7 +574,7 @@ export class EventSurveyService {
     return slug;
   }
 
-  private async generateUniqueCode(): Promise<string> {
+  private async generateUniqueCode(session: ClientSession): Promise<string> {
     let code: string;
     let attempts = 0;
     do {
@@ -573,7 +582,9 @@ export class EventSurveyService {
       attempts++;
       if (attempts > 50)
         throw new BadRequestException('Kod üretilemedi, lütfen tekrar deneyin');
-    } while (await this.rewardCodeModel.findOne({ code }).exec());
+    } while (
+      await this.rewardCodeModel.findOne({ code }).session(session).exec()
+    );
     return code;
   }
 
@@ -584,6 +595,17 @@ export class EventSurveyService {
       'code' in err &&
       (err as { code: number }).code === 11000
     );
+  }
+
+  /** (eventId, email) unique index — ödül kodu 11000 ile karışmasın */
+  private isSurveyResponseDuplicateKey(err: unknown): boolean {
+    const kp =
+      typeof err === 'object' &&
+      err !== null &&
+      'keyPattern' in err &&
+      (err as { keyPattern?: Record<string, unknown> }).keyPattern;
+    if (!kp) return false;
+    return 'email' in kp && 'eventId' in kp;
   }
 
   private async assertEventExists(eventId: number): Promise<void> {
