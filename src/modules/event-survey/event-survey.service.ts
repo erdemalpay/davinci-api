@@ -7,15 +7,22 @@ import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'crypto';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
-import { CreateEventDto, EventQueryDto, UpdateEventStatusDto } from './dto/event.dto';
+import { User } from '../user/user.schema';
+import {
+  CreateEventDto,
+  EventQueryDto,
+  UpdateEventStatusDto,
+} from './dto/event.dto';
 import { RedeemCodeDto, ValidateCodeDto } from './dto/redeem.dto';
 import { CreateSurveyQuestionDto } from './dto/survey-question.dto';
-import { SurveyResponseQueryDto, SubmitSurveyDto } from './dto/survey-response.dto';
+import {
+  SubmitSurveyDto,
+  SurveyResponseQueryDto,
+} from './dto/survey-response.dto';
 import { EventStatus, SurveyEvent } from './schemas/event.schema';
-import { RedeemChannel, RewardCode, RewardCodeStatus } from './schemas/reward-code.schema';
+import { RewardCode, RewardCodeStatus } from './schemas/reward-code.schema';
 import { SurveyQuestion } from './schemas/survey-question.schema';
 import { SurveyResponse } from './schemas/survey-response.schema';
-import { User } from '../user/user.schema';
 
 @Injectable()
 export class EventSurveyService {
@@ -40,11 +47,17 @@ export class EventSurveyService {
     return this.eventModel.create({ ...dto, slug });
   }
 
-  async updateEvent(id: number, updates: UpdateQuery<SurveyEvent>): Promise<SurveyEvent> {
+  async updateEvent(
+    id: number,
+    updates: UpdateQuery<SurveyEvent>,
+  ): Promise<SurveyEvent> {
     return this.eventModel.findByIdAndUpdate(id, updates, { new: true }).exec();
   }
 
-  async updateEventStatus(id: number, dto: UpdateEventStatusDto): Promise<SurveyEvent> {
+  async updateEventStatus(
+    id: number,
+    dto: UpdateEventStatusDto,
+  ): Promise<SurveyEvent> {
     return this.eventModel
       .findByIdAndUpdate(id, { status: dto.status }, { new: true })
       .exec();
@@ -93,7 +106,10 @@ export class EventSurveyService {
       .exec();
   }
 
-  async createQuestion(eventId: number, dto: CreateSurveyQuestionDto): Promise<SurveyQuestion> {
+  async createQuestion(
+    eventId: number,
+    dto: CreateSurveyQuestionDto,
+  ): Promise<SurveyQuestion> {
     await this.assertEventExists(eventId);
     return this.questionModel.create({ ...dto, eventId });
   }
@@ -108,9 +124,16 @@ export class EventSurveyService {
       .exec();
   }
 
-  async removeQuestion(eventId: number, questionId: number): Promise<SurveyQuestion> {
+  async removeQuestion(
+    eventId: number,
+    questionId: number,
+  ): Promise<SurveyQuestion> {
     return this.questionModel
-      .findOneAndUpdate({ _id: questionId, eventId }, { isActive: false }, { new: true })
+      .findOneAndUpdate(
+        { _id: questionId, eventId },
+        { isActive: false },
+        { new: true },
+      )
       .exec();
   }
 
@@ -118,10 +141,16 @@ export class EventSurveyService {
 
   async submitSurvey(dto: SubmitSurveyDto) {
     const event = await this.eventModel
-      .findOne({ _id: dto.eventId, isDeleted: { $ne: true }, status: EventStatus.PUBLISHED, isActive: true })
+      .findOne({
+        _id: dto.eventId,
+        isDeleted: { $ne: true },
+        status: EventStatus.PUBLISHED,
+        isActive: true,
+      })
       .exec();
 
-    if (!event) throw new NotFoundException('Etkinlik bulunamadı veya aktif değil');
+    if (!event)
+      throw new NotFoundException('Etkinlik bulunamadı veya aktif değil');
 
     // Aynı email aynı etkinlikte 1 kez katılabilir
     const existing = await this.responseModel
@@ -129,7 +158,9 @@ export class EventSurveyService {
       .exec();
 
     if (existing) {
-      throw new BadRequestException('Bu e-posta adresiyle bu etkinliğe zaten katıldınız');
+      throw new BadRequestException(
+        'Bu e-posta adresiyle bu etkinliğe zaten katıldınız',
+      );
     }
 
     let response: SurveyResponse;
@@ -140,7 +171,9 @@ export class EventSurveyService {
       });
     } catch (err: unknown) {
       if (this.isMongoDuplicateKey(err)) {
-        throw new BadRequestException('Bu e-posta adresiyle bu etkinliğe zaten katıldınız');
+        throw new BadRequestException(
+          'Bu e-posta adresiyle bu etkinliğe zaten katıldınız',
+        );
       }
       throw err;
     }
@@ -169,7 +202,9 @@ export class EventSurveyService {
   // ─── Kod Doğrulama ───────────────────────────────────────────────────────────
 
   async validateCode(dto: ValidateCodeDto) {
-    const rewardCode = await this.rewardCodeModel.findOne({ code: dto.code }).exec();
+    const rewardCode = await this.rewardCodeModel
+      .findOne({ code: dto.code })
+      .exec();
     if (!rewardCode) throw new NotFoundException('Kod bulunamadı');
 
     const [event, response, redeemedByUser] = await Promise.all([
@@ -181,7 +216,9 @@ export class EventSurveyService {
     ]);
 
     const now = new Date();
-    const isExpired = rewardCode.status === RewardCodeStatus.ISSUED && rewardCode.expiresAt < now;
+    const isExpired =
+      rewardCode.status === RewardCodeStatus.ISSUED &&
+      rewardCode.expiresAt < now;
 
     return {
       code: rewardCode.code,
@@ -194,7 +231,8 @@ export class EventSurveyService {
       eventStartAt: event?.startAt ?? null,
       eventEndAt: event?.endAt ?? null,
       fullName: response?.fullName ?? null,
-      redeemedByUserName: redeemedByUser?.fullName ?? redeemedByUser?.name ?? null,
+      redeemedByUserName:
+        redeemedByUser?.fullName ?? redeemedByUser?.name ?? null,
       createdAt: (rewardCode as { createdAt?: Date }).createdAt,
     };
   }
@@ -222,7 +260,9 @@ export class EventSurveyService {
 
     if (!rewardCode) {
       // Kodun mevcut durumunu kontrol et
-      const existing = await this.rewardCodeModel.findOne({ code: dto.code }).exec();
+      const existing = await this.rewardCodeModel
+        .findOne({ code: dto.code })
+        .exec();
       if (!existing) throw new NotFoundException('Kod bulunamadı');
       if (existing.status === RewardCodeStatus.REDEEMED)
         throw new BadRequestException('Bu kod zaten kullanılmış');
@@ -243,14 +283,23 @@ export class EventSurveyService {
       redeemChannel: rewardCode.redeemChannel,
       eventName: event?.name ?? null,
       fullName: response?.fullName ?? null,
-      redeemedByUserName: redeemedByUser?.fullName ?? redeemedByUser?.name ?? null,
+      redeemedByUserName:
+        redeemedByUser?.fullName ?? redeemedByUser?.name ?? null,
     };
   }
 
   // ─── Analytics ───────────────────────────────────────────────────────────────
 
   async queryResponses(query: SurveyResponseQueryDto) {
-    const { page = 1, limit = 20, eventId, startDate, endDate, sortBy, sortOrder } = query;
+    const {
+      page = 1,
+      limit = 20,
+      eventId,
+      startDate,
+      endDate,
+      sortBy,
+      sortOrder,
+    } = query;
     const filter: Record<string, unknown> = {};
     if (eventId) filter.eventId = Number(eventId);
     if (startDate || endDate) {
@@ -266,66 +315,77 @@ export class EventSurveyService {
     const ALLOWED_SORT_FIELDS: Record<string, string> = {
       emailMarketingConsent: 'emailMarketingConsent',
     };
-    const sortField = sortBy && ALLOWED_SORT_FIELDS[sortBy] ? ALLOWED_SORT_FIELDS[sortBy] : '_id';
+    const sortField =
+      sortBy && ALLOWED_SORT_FIELDS[sortBy]
+        ? ALLOWED_SORT_FIELDS[sortBy]
+        : '_id';
     const sortDir = sortOrder === 'asc' ? 1 : -1;
 
     const [data, total] = await Promise.all([
-      this.responseModel.aggregate([
-        { $match: filter },
-        { $sort: { [sortField]: sortDir, _id: -1 } },
-        { $skip: skip },
-        { $limit: Number(limit) },
-        {
-          $lookup: {
-            from: 'rewardcodes',
-            localField: '_id',
-            foreignField: 'responseId',
-            as: 'rewardCodes',
+      this.responseModel
+        .aggregate([
+          { $match: filter },
+          { $sort: { [sortField]: sortDir, _id: -1 } },
+          { $skip: skip },
+          { $limit: Number(limit) },
+          {
+            $lookup: {
+              from: 'rewardcodes',
+              localField: '_id',
+              foreignField: 'responseId',
+              as: 'rewardCodes',
+            },
           },
-        },
-        {
-          $addFields: {
-            rewardCode: {
-              $let: {
-                vars: { rc: { $arrayElemAt: ['$rewardCodes', 0] } },
-                in: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$$rc' }, 'missing'] },
-                    then: null,
-                    else: {
-                      code: '$$rc.code',
-                      status: {
-                        $cond: {
-                          if: {
-                            $and: [
-                              { $eq: ['$$rc.status', RewardCodeStatus.ISSUED] },
-                              { $lt: ['$$rc.expiresAt', now] },
-                            ],
+          {
+            $addFields: {
+              rewardCode: {
+                $let: {
+                  vars: { rc: { $arrayElemAt: ['$rewardCodes', 0] } },
+                  in: {
+                    $cond: {
+                      if: { $eq: [{ $type: '$$rc' }, 'missing'] },
+                      then: null,
+                      else: {
+                        code: '$$rc.code',
+                        status: {
+                          $cond: {
+                            if: {
+                              $and: [
+                                {
+                                  $eq: ['$$rc.status', RewardCodeStatus.ISSUED],
+                                },
+                                { $lt: ['$$rc.expiresAt', now] },
+                              ],
+                            },
+                            then: RewardCodeStatus.EXPIRED,
+                            else: '$$rc.status',
                           },
-                          then: RewardCodeStatus.EXPIRED,
-                          else: '$$rc.status',
                         },
+                        redeemChannel: '$$rc.redeemChannel',
+                        redeemedAt: '$$rc.redeemedAt',
+                        expiresAt: '$$rc.expiresAt',
+                        rewardLabel: '$$rc.rewardLabel',
                       },
-                      redeemChannel: '$$rc.redeemChannel',
-                      redeemedAt: '$$rc.redeemedAt',
-                      expiresAt: '$$rc.expiresAt',
-                      rewardLabel: '$$rc.rewardLabel',
                     },
                   },
                 },
               },
             },
           },
-        },
-        { $unset: 'rewardCodes' },
-      ]).exec(),
+          { $unset: 'rewardCodes' },
+        ])
+        .exec(),
       this.responseModel.countDocuments(filter),
     ]);
 
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async getCrossAnalysis(eventId: number, questionIdA: number, questionIdB: number) {
+  async getCrossAnalysis(
+    eventId: number,
+    questionIdA: number,
+    questionIdB: number,
+  ) {
     return this.responseModel
       .aggregate<{
         answerA: string;
@@ -402,8 +462,14 @@ export class EventSurveyService {
   async getMarketingConsentStats(eventId: number) {
     const filter: Record<string, unknown> = { eventId };
     const [yes, no] = await Promise.all([
-      this.responseModel.countDocuments({ ...filter, emailMarketingConsent: true }),
-      this.responseModel.countDocuments({ ...filter, emailMarketingConsent: false }),
+      this.responseModel.countDocuments({
+        ...filter,
+        emailMarketingConsent: true,
+      }),
+      this.responseModel.countDocuments({
+        ...filter,
+        emailMarketingConsent: false,
+      }),
     ]);
     return { yes, no };
   }
@@ -451,7 +517,10 @@ export class EventSurveyService {
     const [totalResponses, totalIssued, totalRedeemed] = await Promise.all([
       this.responseModel.countDocuments(baseFilter),
       this.rewardCodeModel.countDocuments({ ...baseFilter }),
-      this.rewardCodeModel.countDocuments({ ...baseFilter, status: RewardCodeStatus.REDEEMED }),
+      this.rewardCodeModel.countDocuments({
+        ...baseFilter,
+        status: RewardCodeStatus.REDEEMED,
+      }),
     ]);
 
     // Günlük form gönderimi (son 30 gün)
@@ -478,7 +547,8 @@ export class EventSurveyService {
       totalResponses,
       totalIssued,
       totalRedeemed,
-      redeemRate: totalIssued > 0 ? Math.round((totalRedeemed / totalIssued) * 100) : 0,
+      redeemRate:
+        totalIssued > 0 ? Math.round((totalRedeemed / totalIssued) * 100) : 0,
       dailyTrend,
     };
   }
@@ -499,9 +569,10 @@ export class EventSurveyService {
     let code: string;
     let attempts = 0;
     do {
-      code = String(randomInt(100000, 999999));
+      code = String(randomInt(100000, 1_000_000));
       attempts++;
-      if (attempts > 50) throw new BadRequestException('Kod üretilemedi, lütfen tekrar deneyin');
+      if (attempts > 50)
+        throw new BadRequestException('Kod üretilemedi, lütfen tekrar deneyin');
     } while (await this.rewardCodeModel.findOne({ code }).exec());
     return code;
   }
@@ -517,6 +588,7 @@ export class EventSurveyService {
 
   private async assertEventExists(eventId: number): Promise<void> {
     const event = await this.eventModel.findById(eventId).exec();
-    if (!event || event.isDeleted) throw new NotFoundException('Etkinlik bulunamadı');
+    if (!event || event.isDeleted)
+      throw new NotFoundException('Etkinlik bulunamadı');
   }
 }
