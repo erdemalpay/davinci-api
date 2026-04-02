@@ -156,9 +156,9 @@ export class EventSurveyService {
 
     const session = await this.connection.startSession();
     try {
-      let result:
-        | { code: string; expiresAt: Date; rewardLabel: string }
-        | undefined;
+      let issuedCode!: string;
+      let issuedExpiresAt!: Date;
+      let issuedRewardLabel!: string;
 
       await session.withTransaction(async () => {
         const [response] = await this.responseModel.create(
@@ -189,7 +189,9 @@ export class EventSurveyService {
           { session },
         );
 
-        result = { code, expiresAt, rewardLabel };
+        issuedCode = code;
+        issuedExpiresAt = expiresAt;
+        issuedRewardLabel = rewardLabel;
       });
 
       if (!result) {
@@ -199,9 +201,9 @@ export class EventSurveyService {
       }
 
       return {
-        code: result.code,
-        expiresAt: result.expiresAt,
-        rewardLabel: result.rewardLabel,
+        code: issuedCode,
+        expiresAt: issuedExpiresAt,
+        rewardLabel: issuedRewardLabel,
         eventName: event.name,
         codeValidityDays: event.codeValidityDays,
       };
