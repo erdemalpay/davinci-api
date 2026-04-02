@@ -14,7 +14,7 @@ export class SurveyQuestion extends Document {
   @Prop({ type: Number })
   _id: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, index: true })
   eventId: number;
 
   @Prop({ required: true, type: String })

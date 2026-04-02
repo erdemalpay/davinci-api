@@ -21,10 +21,10 @@ export class RewardCode extends Document {
   @Prop({ required: true, type: String, unique: true })
   code: string;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, index: true })
   responseId: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, index: true })
   eventId: number;
 
   @Prop({ required: true, type: Date })
