@@ -156,7 +156,11 @@ export class EventSurveyService {
 
     const session = await this.connection.startSession();
     try {
-      const rewardCode = await session.withTransaction(async () => {
+      let issuedCode!: string;
+      let issuedExpiresAt!: Date;
+      let issuedRewardLabel!: string;
+
+      await session.withTransaction(async () => {
         const [response] = await this.responseModel.create(
           [
             {
@@ -170,26 +174,30 @@ export class EventSurveyService {
         const code = await this.generateUniqueCode(session);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + event.codeValidityDays);
+        const rewardLabel = event.rewardLabel;
 
-        const [created] = await this.rewardCodeModel.create(
+        await this.rewardCodeModel.create(
           [
             {
               code,
               responseId: response._id,
               eventId: event._id,
               expiresAt,
-              rewardLabel: event.rewardLabel,
+              rewardLabel,
             },
           ],
           { session },
         );
-        return created;
+
+        issuedCode = code;
+        issuedExpiresAt = expiresAt;
+        issuedRewardLabel = rewardLabel;
       });
 
       return {
-        code: rewardCode.code,
-        expiresAt: rewardCode.expiresAt,
-        rewardLabel: rewardCode.rewardLabel,
+        code: issuedCode,
+        expiresAt: issuedExpiresAt,
+        rewardLabel: issuedRewardLabel,
         eventName: event.name,
         codeValidityDays: event.codeValidityDays,
       };
