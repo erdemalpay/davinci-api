@@ -865,7 +865,7 @@ export class HepsiburadaService {
             quantity: quantity,
             status: OrderStatus.AUTOSERVED,
             unitPrice: pricePerUnit,
-            paidQuantity: quantity,
+            paidQuantity: 0,
             createdAt: new Date(orderDate || Date.now()),
             createdBy: constantUser._id,
             paymentMethod: 'hepsiburada',
