@@ -156,9 +156,9 @@ export class EventSurveyService {
 
     const session = await this.connection.startSession();
     try {
-      let issuedCode!: string;
-      let issuedExpiresAt!: Date;
-      let issuedRewardLabel!: string;
+      let result:
+        | { code: string; expiresAt: Date; rewardLabel: string }
+        | undefined;
 
       await session.withTransaction(async () => {
         const [response] = await this.responseModel.create(
@@ -189,15 +189,19 @@ export class EventSurveyService {
           { session },
         );
 
-        issuedCode = code;
-        issuedExpiresAt = expiresAt;
-        issuedRewardLabel = rewardLabel;
+        result = { code, expiresAt, rewardLabel };
       });
 
+      if (!result) {
+        throw new BadRequestException(
+          'İşlem tamamlanamadı, lütfen tekrar deneyin',
+        );
+      }
+
       return {
-        code: issuedCode,
-        expiresAt: issuedExpiresAt,
-        rewardLabel: issuedRewardLabel,
+        code: result.code,
+        expiresAt: result.expiresAt,
+        rewardLabel: result.rewardLabel,
         eventName: event.name,
         codeValidityDays: event.codeValidityDays,
       };
@@ -215,8 +219,6 @@ export class EventSurveyService {
       await session.endSession();
     }
   }
-
-  // ─── Kod Doğrulama ───────────────────────────────────────────────────────────
 
   async validateCode(dto: ValidateCodeDto) {
     const rewardCode = await this.rewardCodeModel
@@ -257,7 +259,6 @@ export class EventSurveyService {
   async redeemCode(dto: RedeemCodeDto, userId: string) {
     const now = new Date();
 
-    // Atomik güncelleme: yalnızca status=issued ve süresi dolmamış kodlar alınır
     const rewardCode = await this.rewardCodeModel
       .findOneAndUpdate(
         {
@@ -304,8 +305,6 @@ export class EventSurveyService {
         redeemedByUser?.fullName ?? redeemedByUser?.name ?? null,
     };
   }
-
-  // ─── Analytics ───────────────────────────────────────────────────────────────
 
   async queryResponses(query: SurveyResponseQueryDto) {
     const {
@@ -540,7 +539,6 @@ export class EventSurveyService {
       }),
     ]);
 
-    // Günlük form gönderimi (son 30 gün)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -569,8 +567,6 @@ export class EventSurveyService {
       dailyTrend,
     };
   }
-
-  // ─── Yardımcı metodlar ───────────────────────────────────────────────────────
 
   private async generateUniqueSlug(base: string): Promise<string> {
     let slug = base;
@@ -605,7 +601,6 @@ export class EventSurveyService {
     );
   }
 
-  /** (eventId, email) unique index — ödül kodu 11000 ile karışmasın */
   private isSurveyResponseDuplicateKey(err: unknown): boolean {
     const kp =
       typeof err === 'object' &&
