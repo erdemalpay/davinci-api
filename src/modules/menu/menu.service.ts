@@ -244,6 +244,25 @@ export class MenuService {
     return inStock;
   }
 
+  async findOyunAlItemsWithoutStockFilter() {
+    return this.itemModel
+      .find(
+        { category: { $in: [25, 26] }, deleted: { $ne: true } },
+        {
+          _id: 1,
+          name: 1,
+          description: 1,
+          imageUrl: 1,
+          order: 1,
+          price: 1,
+          category: 1,
+          onlinePrice: 1,
+          matchedProduct: 1,
+        },
+      )
+      .lean();
+  }
+
   async findItemsWithIkasId() {
     return this.itemModel.find({
       ikasId: { $nin: [null, ''] },
