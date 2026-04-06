@@ -1216,8 +1216,9 @@ export class HepsiburadaService {
           if (
             message.includes('already cancelled') ||
             message.includes('Order not found') ||
-            cancelErr?.status === HttpStatus.NOT_FOUND ||
-            cancelErr?.status === HttpStatus.BAD_REQUEST
+            (cancelErr instanceof HttpException &&
+              (cancelErr.getStatus() === HttpStatus.NOT_FOUND ||
+                cancelErr.getStatus() === HttpStatus.BAD_REQUEST))
           ) {
             this.logger.warn(
               `Cancel webhook for line item ${lineItemId} skipped: ${message}`,
