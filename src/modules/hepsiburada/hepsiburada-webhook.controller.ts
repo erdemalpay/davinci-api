@@ -32,7 +32,7 @@ export class HepsiburadaWebhookController {
       `Received Hepsiburada cancel webhook for line item: ${lineitemid}`,
     );
     this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
-    return await this.hepsiburadaService.handleCancelOrder(data);
+    return await this.hepsiburadaService.handleCancelOrder(data, lineitemid);
   }
 
   @Public()
