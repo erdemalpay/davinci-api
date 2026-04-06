@@ -1215,10 +1215,7 @@ export class HepsiburadaService {
           // Sipariş zaten iptal edilmişse veya bulunamıyorsa başarılı say (idempotency)
           if (
             message.includes('already cancelled') ||
-            message.includes('Order not found') ||
-            (cancelErr instanceof HttpException &&
-              (cancelErr.getStatus() === HttpStatus.NOT_FOUND ||
-                cancelErr.getStatus() === HttpStatus.BAD_REQUEST))
+            message.includes('Order not found')
           ) {
             this.logger.warn(
               `Cancel webhook for line item ${lineItemId} skipped: ${message}`,
