@@ -32,6 +32,9 @@ export class LockService {
     lockValue: string,
     ttlSeconds: number,
   ): Promise<boolean> {
+    if (keys.length === 0) {
+      return true;
+    }
     const luaScript = `
       if redis.call('EXISTS', unpack(KEYS)) > 0 then
         return 0
@@ -78,6 +81,9 @@ export class LockService {
    * Sadece lockValue eşleşen key'leri siler.
    */
   async releaseMultiple(keys: string[], lockValue: string): Promise<void> {
+    if (keys.length === 0) {
+      return;
+    }
     const luaScript = `
       local keys_to_delete = {}
       for i = 1, #KEYS do
