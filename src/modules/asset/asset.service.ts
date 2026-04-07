@@ -5,12 +5,15 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
+import { Model } from 'mongoose';
 import * as streamifier from 'streamifier';
 import { MenuService } from '../menu/menu.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { UploadLog } from './upload-log.schema';
 
 const api = cloudinary.v2;
 
@@ -21,6 +24,8 @@ export class AssetService {
     private readonly websocketGateway: AppWebSocketGateway,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
+    @InjectModel(UploadLog.name)
+    private readonly uploadLogModel: Model<UploadLog>,
   ) {
     // Require the cloudinary library
 
@@ -174,8 +179,8 @@ export class AssetService {
     foldername: string,
     itemId?: number,
   ) => {
-    try {
-      const uploadPromises = files.map((file) => {
+    const uploadResults = await Promise.all(
+      files.map(async (file) => {
         const options = {
           public_id: `${file.originalname}`,
           use_filename: true,
@@ -189,32 +194,54 @@ export class AssetService {
           },
         };
 
-        return new Promise((resolve, reject) => {
-          const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
-            options,
-            (error, result) => {
-              if (error) {
-                console.log('Upload Error:', error);
-                reject(error);
-              } else {
-                console.log('Upload Result:', result);
-                resolve(result?.secure_url); // Return only the image URL
-              }
-            },
-          );
+        try {
+          const url = await new Promise<string>((resolve, reject) => {
+            const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+              options,
+              (error, result) => {
+                if (error) {
+                  console.log('Upload Error:', error);
+                  reject(error);
+                } else {
+                  console.log('Upload Result:', result);
+                  resolve(result?.secure_url);
+                }
+              },
+            );
+            streamifier.createReadStream(file.buffer).pipe(cld_upload_stream);
+          });
 
-          streamifier.createReadStream(file.buffer).pipe(cld_upload_stream);
-        });
-      });
+          await this.uploadLogModel.create({
+            fileName: file.originalname,
+            status: 'success',
+            message: '',
+            uploadedBy: user?.name ?? '',
+            folder: foldername,
+          });
 
-      const imageUrls = await Promise.all(uploadPromises);
+          return url;
+        } catch (error) {
+          await this.uploadLogModel.create({
+            fileName: file.originalname,
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+            uploadedBy: user?.name ?? '',
+            folder: foldername,
+          });
 
+          return null;
+        }
+      }),
+    );
+
+    const imageUrls = uploadResults.filter((url): url is string => url !== null);
+
+    try {
       if (itemId) {
         const foundItem = await this.menuService.findItemById(itemId);
         if (!foundItem) {
           throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
         }
-        // Update the item with the new image URLs
         console.log('Updating item with new images:', imageUrls);
         await this.menuService.updateItem(user, itemId, {
           ...foundItem.toObject(),
@@ -224,9 +251,17 @@ export class AssetService {
 
       return imageUrls;
     } catch (error) {
-      console.error('Error uploading images or updating item:', error);
+      console.error('Error updating item:', error);
       throw error;
     }
+  };
+
+  getUploadLogs = async () => {
+    return this.uploadLogModel
+      .find()
+      .sort({ _id: -1 })
+      .limit(50)
+      .lean();
   };
 
   async getImageWithPublicID(publicId: string) {
