@@ -7,8 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { LockInterceptor } from '../lock/lock.interceptor';
+import { RaceConditionLockDecorator } from '../lock/race-condition-lock.decorator';
+import { RedisKeys } from '../redis/redis.dto';
 import { Table } from '../table/table.schema';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
@@ -440,6 +444,11 @@ export class OrderController {
   }
 
   @Patch('/:id')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.OrderLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
   updateOrder(
     @ReqUser() user: User,
     @Param('id') id: number,
