@@ -237,7 +237,7 @@ export class AssetService {
     const imageUrls = uploadResults.filter((url): url is string => url !== null);
 
     try {
-      if (itemId) {
+      if (itemId && imageUrls.length > 0) {
         const foundItem = await this.menuService.findItemById(itemId);
         if (!foundItem) {
           throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
