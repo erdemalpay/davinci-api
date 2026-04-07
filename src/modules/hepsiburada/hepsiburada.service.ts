@@ -865,7 +865,7 @@ export class HepsiburadaService {
             quantity: quantity,
             status: OrderStatus.AUTOSERVED,
             unitPrice: pricePerUnit,
-            paidQuantity: quantity,
+            paidQuantity: 0,
             createdAt: new Date(orderDate || Date.now()),
             createdBy: constantUser._id,
             paymentMethod: 'hepsiburada',
@@ -1167,7 +1167,7 @@ export class HepsiburadaService {
   /**
    * Handle order cancellation from Hepsiburada
    */
-  async handleCancelOrder(data?: any) {
+  async handleCancelOrder(data?: any, lineitemIdFromUrl?: string) {
     this.logger.log('Processing Hepsiburada order cancellation...');
     this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
 
@@ -1180,8 +1180,15 @@ export class HepsiburadaService {
         );
       }
 
-      const lineItemId = data?.id?.toString?.() ?? data?.id;
-      const cancelQuantity = Number(data?.quantity ?? 0);
+      // Webhook body'de alan adı '_id' (alt çizgili), ayrıca URL parametresi de kullanılabilir
+      const lineItemId =
+        lineitemIdFromUrl ||
+        (data?._id?.toString?.() ?? data?._id) ||
+        (data?.id?.toString?.() ?? data?.id);
+      // Webhook body'de 'Quantity' (PascalCase) olarak geliyor
+      const cancelQuantity = Number(
+        data?.Quantity ?? data?.quantity ?? 0,
+      );
       const orderNumber =
         data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
       const orderNumberString =
@@ -1192,28 +1199,42 @@ export class HepsiburadaService {
         return { success: false, message: 'No order number provided' };
       }
 
-      this.logger.log(`Cancelling Hepsiburada order: ${orderNumberString}`);
+      this.logger.log(`Cancelling Hepsiburada order: ${orderNumberString}, lineItemId: ${lineItemId}, quantity: ${cancelQuantity}`);
 
       if (lineItemId) {
-        if (!cancelQuantity || cancelQuantity <= 0) {
-          this.logger.warn(
-            `Invalid cancel quantity for line item ${lineItemId}: ${cancelQuantity}`,
-          );
-          return { success: false, message: 'Invalid cancel quantity' };
-        }
+        const qty = cancelQuantity > 0 ? cancelQuantity : 1;
 
-        await this.orderService.cancelHepsiburadaOrder(
-          constantUser,
-          lineItemId,
-          cancelQuantity,
-        );
+        try {
+          await this.orderService.cancelHepsiburadaOrder(
+            constantUser,
+            lineItemId,
+            qty,
+          );
+        } catch (cancelErr) {
+          const message = cancelErr?.message || '';
+          // Sipariş zaten iptal edilmişse veya bulunamıyorsa başarılı say (idempotency)
+          if (
+            message.includes('already cancelled') ||
+            message.includes('Order not found')
+          ) {
+            this.logger.warn(
+              `Cancel webhook for line item ${lineItemId} skipped: ${message}`,
+            );
+            return {
+              success: true,
+              message: 'Order already processed',
+              ordersCancelled: 0,
+            };
+          }
+          throw cancelErr;
+        }
 
         this.websocketGateway.emitOrderGroupChanged();
 
         return {
           success: true,
           message: 'Order cancellation processed',
-          cancelledQuantity: cancelQuantity,
+          cancelledQuantity: qty,
           ordersCancelled: 1,
         };
       }

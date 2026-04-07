@@ -1051,7 +1051,7 @@ export class TrendyolService {
             isOnlinePrice: false,
             location: locationId,
             unitPrice: parseFloat(amount),
-            paidQuantity: quantity,
+            paidQuantity: 0,
             status: OrderStatus.AUTOSERVED,
             stockLocation: stockLocationId,
             createdAt: new Date(data?.orderDate || new Date()),

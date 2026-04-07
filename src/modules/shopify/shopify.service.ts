@@ -2211,7 +2211,7 @@ export class ShopifyService {
             isOnlinePrice: false,
             location: 4,
             unitPrice: parseFloat(price),
-            paidQuantity: quantity,
+            paidQuantity: 0,
             status: OrderStatus.AUTOSERVED,
             stockLocation: 6, //TO-DO BURAYA 1444. SATIRDAKI BLOKTAN LOKASYON ID'SINI ALAMADIGIMIZ ICIN 6 GIRDIK, DAHA SONRA DUZELTILECEK
             createdAt: new Date(data?.created_at || new Date()),

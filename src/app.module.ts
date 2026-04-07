@@ -13,9 +13,10 @@ import { BreakModule } from './modules/break/break.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
-import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
+import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
 import { EducationModule } from './modules/education/education.module';
+import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
@@ -32,6 +33,7 @@ import { MigrationModule } from './modules/oldDbModules/migration/migration.modu
 import { OrderModule } from './modules/order/order.module';
 import { PanelControlModule } from './modules/panelControl/panelControl.module';
 import { PointModule } from './modules/point/point.module';
+import { PriceCompareModule } from './modules/price-compare/price-compare.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
 import { RewardModule } from './modules/reward/reward.module';
@@ -87,9 +89,11 @@ const modules = [
   AccountingModule,
   CheckoutModule,
   CustomerPopupModule,
+  EventSurveyModule,
   ConsumerModule,
   PanelControlModule,
   PointModule,
+  PriceCompareModule,
   OrderModule,
   RedisModule,
   ButtonCallModule,
