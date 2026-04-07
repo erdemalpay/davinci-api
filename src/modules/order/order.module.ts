@@ -20,6 +20,7 @@ import { BullModuleOptions } from './../../../node_modules/@nestjs/bull/dist/int
 import { DBConfig } from './../../app.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { LockModule } from './../lock/lock.module';
 import { MenuModule } from './../menu/menu.module';
 import { Collection, CollectionSchema } from './collection.schema';
 import { Discount, DiscountSchema } from './discount.schema';
@@ -75,6 +76,7 @@ const { host, port } = config.get<DBConfig>('redis');
         removeOnFail: 50,
       },
     }),
+    LockModule,
     forwardRef(() => AccountingModule),
     forwardRef(() => TableModule),
     forwardRef(() => MenuModule),

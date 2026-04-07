@@ -20,4 +20,5 @@ export enum RedisKeys {
   Tables = 'tables',
   Shifts = 'shifts',
   TableLock = 'table-lock',
+  OrderLock = 'order-lock',
 }
