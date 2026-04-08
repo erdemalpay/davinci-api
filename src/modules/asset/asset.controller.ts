@@ -24,6 +24,11 @@ export class AssetController {
     return this.assetService.getAllFolders();
   }
 
+  @Get('/upload-logs')
+  getUploadLogs() {
+    return this.assetService.getUploadLogs();
+  }
+
   @Get('/folder/images')
   getFolderImages(@Query('folderName') folderName: string) {
     return this.assetService.getFolderImages(folderName);
