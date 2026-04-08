@@ -72,6 +72,7 @@ export class AppWebSocketGateway {
 
   async emitBulkProductAndMenuItemChanged() {
     await this.redisService.reset(RedisKeys.AccountingAllProducts);
+    await this.redisService.reset(RedisKeys.AccountingProducts);
     await this.redisService.reset(RedisKeys.MenuItems);
     this.server.emit('bulkProductAndMenuItemChanged');
   }
