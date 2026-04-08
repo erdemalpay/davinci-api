@@ -568,19 +568,19 @@ export class AccountingController {
     return this.accountingService.consumptStock(user, consumptStockDto);
   }
 
-  // @Post('/stocks/notify-back-in-stock')
-  // notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
-  //   return this.accountingService.notifyBackInStockSubscribers(
-  //     payload.menuItemId,
-  //   );
-  // }
+  @Post('/stocks/notify-back-in-stock')
+  notifyBackInStockSubscribers(@Body() payload: { menuItemId: number }) {
+    return this.accountingService.notifyBackInStockSubscribers(
+      payload.menuItemId,
+    );
+  }
 
-  // @Post('/stocks/notify-back-in-stock-bulk')
-  // notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
-  //   return this.accountingService.notifyBackInStockSubscribersBulk(
-  //     payload.menuItemIds,
-  //   );
-  // }
+  @Post('/stocks/notify-back-in-stock-bulk')
+  notifyBackInStockSubscribersBulk(@Body() payload: { menuItemIds: number[] }) {
+    return this.accountingService.notifyBackInStockSubscribersBulk(
+      payload.menuItemIds,
+    );
+  }
 
   // Product Stock History
   @Get('/product-stock-histories')
