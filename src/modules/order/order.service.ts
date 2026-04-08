@@ -1219,6 +1219,12 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    if (createOrderDto.isCafeOrder && !createOrderDto.table) {
+      throw new HttpException(
+        'Cafe orders require a table',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     if (Array.isArray(createOrderDto.discountNote)) {
       createOrderDto.discountNote = createOrderDto.discountNote.join(',');
     }
