@@ -1219,9 +1219,9 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    if (createOrderDto.isCafeOrder && !createOrderDto.table) {
+    if (!createOrderDto.isOnlineSale && !createOrderDto.table) {
       throw new HttpException(
-        'Cafe orders require a table',
+        'Non-online orders require a table',
         HttpStatus.BAD_REQUEST,
       );
     }

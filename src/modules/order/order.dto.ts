@@ -131,7 +131,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsBoolean()
-  isCafeOrder?: boolean;
+  isOnlineSale?: boolean;
 
   @IsOptional()
   @IsBoolean()
