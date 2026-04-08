@@ -1,11 +1,28 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
+import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateShiftDto, ShiftQueryDto, ShiftUserQueryDto } from './shift.dto';
-import { Shift } from './shift.schema';
+import { Shift, ShiftValues } from './shift.schema';
+
+type ShiftDiff = {
+  chefChanges: {
+    shift: string;
+    previousChefUserId: string;
+    chefUserId: string;
+  }[];
+  middlemanChanges: {
+    shift: string;
+    previousMiddlemanUserId: string;
+    middlemanUserId: string;
+  }[];
+  hasUserChanges: boolean;
+};
 
 @Injectable()
 export class ShiftService {
@@ -13,16 +30,69 @@ export class ShiftService {
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
+    private readonly activityService: ActivityService,
   ) {}
 
-  async createShift(createShiftDto: CreateShiftDto) {
+  private diffShifts(
+    prevShifts: ShiftValues[],
+    newShifts: ShiftValues[],
+  ): ShiftDiff {
+    const chefChanges: ShiftDiff['chefChanges'] = [];
+    const middlemanChanges: ShiftDiff['middlemanChanges'] = [];
+    let hasUserChanges = false;
+
+    for (const newVal of newShifts) {
+      const prevVal = prevShifts.find((s) => s.shift === newVal.shift);
+
+      const prevUsersArr = prevVal?.user ?? [];
+      const newUsersArr = newVal?.user ?? [];
+
+      const prevChef = prevVal?.chefUser ?? '';
+      const newChef = newVal?.chefUser ?? '';
+      if (newChef !== prevChef) {
+        chefChanges.push({
+          shift: newVal.shift,
+          previousChefUserId: prevChef,
+          chefUserId: newChef,
+        });
+      }
+
+      const prevMiddleman = prevVal?.middlemanUser ?? '';
+      const newMiddleman = newVal?.middlemanUser ?? '';
+      if (newMiddleman !== prevMiddleman) {
+        middlemanChanges.push({
+          shift: newVal.shift,
+          previousMiddlemanUserId: prevMiddleman,
+          middlemanUserId: newMiddleman,
+        });
+      }
+
+      const prevUsersSorted = prevUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
+      const newUsersSorted = newUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
+      if (prevUsersSorted !== newUsersSorted) hasUserChanges = true;
+    }
+
+    return { chefChanges, middlemanChanges, hasUserChanges };
+  }
+
+  async createShift(user: User, createShiftDto: CreateShiftDto) {
     const createdShift = new this.shiftModel(createShiftDto);
     await createdShift.save();
     this.websocketGateway.emitShiftChanged();
+    try {
+      await this.activityService.addActivity(user, ActivityType.CREATE_SHIFT, {
+        day: createdShift.day,
+        location: createdShift.location,
+        shifts: createdShift.shifts,
+      });
+    } catch (e) {
+      console.error('Failed to log create shift activity', e);
+    }
     return createdShift;
   }
 
-  async updateShift(id: number, updates: UpdateQuery<Shift>) {
+  async updateShift(user: User, id: number, updates: UpdateQuery<Shift>) {
+    const previousShift = await this.shiftModel.findById(id).exec();
     const updatedShift = await this.shiftModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -30,15 +100,67 @@ export class ShiftService {
       throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitShiftChanged();
+
+    const prevShifts: ShiftValues[] = previousShift?.shifts ?? [];
+    const newShifts: ShiftValues[] = (updates.shifts ?? []) as ShiftValues[];
+    const { chefChanges, middlemanChanges, hasUserChanges } = this.diffShifts(
+      prevShifts,
+      newShifts,
+    );
+
+    const base = { day: updatedShift.day, location: updatedShift.location };
+
+    try {
+      await Promise.all([
+        ...chefChanges.map((c) =>
+          this.activityService.addActivity(user, ActivityType.ASSIGN_CHEF, {
+            ...base,
+            shift: c.shift,
+            previousChefUserId: c.previousChefUserId,
+            chefUserId: c.chefUserId,
+          }),
+        ),
+        ...middlemanChanges.map((c) =>
+          this.activityService.addActivity(
+            user,
+            ActivityType.ASSIGN_MIDDLEMAN,
+            {
+              ...base,
+              shift: c.shift,
+              previousMiddlemanUserId: c.previousMiddlemanUserId,
+              middlemanUserId: c.middlemanUserId,
+            },
+          ),
+        ),
+        hasUserChanges
+          ? this.activityService.addActivity(user, ActivityType.UPDATE_SHIFT, {
+              ...base,
+              previousShifts: prevShifts,
+              updatedShifts: updatedShift.shifts,
+            })
+          : Promise.resolve(),
+      ]);
+    } catch (e) {
+      console.error('Failed to log shift update activity', e);
+    }
+
     return updatedShift;
   }
 
-  async removeShift(id: number) {
+  async removeShift(user: User, id: number) {
     const removedShift = await this.shiftModel.findByIdAndRemove(id);
     if (!removedShift) {
       throw new HttpException('Shift not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitShiftChanged();
+    try {
+      await this.activityService.addActivity(user, ActivityType.DELETE_SHIFT, {
+        day: removedShift.day,
+        location: removedShift.location,
+      });
+    } catch (e) {
+      console.error('Failed to log delete shift activity', e);
+    }
     return removedShift;
   }
 
