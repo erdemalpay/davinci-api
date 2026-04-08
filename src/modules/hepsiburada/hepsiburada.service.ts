@@ -1,26 +1,24 @@
 import {
-  Inject,
-  Injectable,
-  Logger,
   forwardRef,
   HttpException,
   HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
+import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { AccountingService } from '../accounting/accounting.service';
 import { MenuService } from '../menu/menu.service';
+import { OrderCollectionStatus, OrderStatus } from '../order/order.dto';
+import { Order } from '../order/order.schema';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
-import { OrderStatus, OrderCollectionStatus } from '../order/order.dto';
-import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
-import { Order } from '../order/order.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import {
-  ProcessedHepsiburadaClaim,
-} from './processed-hepsiburada-claim.schema';
+import { ProcessedHepsiburadaClaim } from './processed-hepsiburada-claim.schema';
 
 interface PopulatedMenuItem {
   itemProduction?: Array<{
@@ -812,8 +810,10 @@ export class HepsiburadaService {
           const quantity = lineItem.quantity || lineItem.Quantity;
           const unitPrice = lineItem.unitPrice || lineItem.Price;
           const totalPrice = lineItem.totalPrice || lineItem.TotalPrice;
-          const orderNumber = lineItem.orderNumber || data?.orderNumber || data?.OrderNumber;
-          const orderDate = lineItem.orderDate || data?.orderDate || data?.OrderDate;
+          const orderNumber =
+            lineItem.orderNumber || data?.orderNumber || data?.OrderNumber;
+          const orderDate =
+            lineItem.orderDate || data?.orderDate || data?.OrderDate;
 
           if (!sku || !quantity) {
             this.logger.warn(
@@ -824,12 +824,12 @@ export class HepsiburadaService {
           }
 
           // Find menu item by Hepsiburada SKU
-          const foundMenuItem = await this.menuService.findByHepsiBuradaSku(sku);
+          const foundMenuItem = await this.menuService.findByHepsiBuradaSku(
+            sku,
+          );
 
           if (!foundMenuItem) {
-            this.logger.warn(
-              `No menu item found with Hepsiburada SKU: ${sku}`,
-            );
+            this.logger.warn(`No menu item found with Hepsiburada SKU: ${sku}`);
             continue;
           }
 
@@ -840,11 +840,11 @@ export class HepsiburadaService {
           if (totalPrice?.amount !== undefined) {
             // Format: { amount: 100, currency: "TRY" }
             itemAmount = totalPrice.amount;
-            pricePerUnit = unitPrice?.amount || (itemAmount / quantity);
+            pricePerUnit = unitPrice?.amount || itemAmount / quantity;
           } else if (totalPrice?.Amount !== undefined) {
             // Format: { Amount: 100, Currency: "TRY" }
             itemAmount = totalPrice.Amount;
-            pricePerUnit = unitPrice?.Amount || (itemAmount / quantity);
+            pricePerUnit = unitPrice?.Amount || itemAmount / quantity;
           } else if (unitPrice?.amount !== undefined) {
             pricePerUnit = unitPrice.amount;
             itemAmount = pricePerUnit * quantity;
@@ -892,7 +892,10 @@ export class HepsiburadaService {
 
       // Create a single collection for all orders from this Hepsiburada order
       if (createdOrders.length > 0) {
-        const hepsiburadaOrderNumber = data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
+        const hepsiburadaOrderNumber =
+          data?.orderNumber ||
+          data?.OrderNumber ||
+          data?.items?.[0]?.orderNumber;
 
         const createdCollection = {
           location: this.OnlineStoreLocation,
@@ -969,10 +972,10 @@ export class HepsiburadaService {
         const items: any[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.content)
-              ? data.content
-              : [];
+          ? data.items
+          : Array.isArray(data?.content)
+          ? data.content
+          : [];
 
         allClaims.push(...items);
 
@@ -988,7 +991,9 @@ export class HepsiburadaService {
         }
       }
 
-      this.logger.log(`Completed fetching ${allClaims.length} Hepsiburada claims`);
+      this.logger.log(
+        `Completed fetching ${allClaims.length} Hepsiburada claims`,
+      );
       return allClaims;
     } catch (error) {
       this.logger.error('Error fetching Hepsiburada claims:', error.message);
@@ -999,7 +1004,9 @@ export class HepsiburadaService {
         );
       }
       throw new HttpException(
-        `Failed to fetch Hepsiburada claims: ${error?.response?.data?.message || error?.message || 'Unknown error'}`,
+        `Failed to fetch Hepsiburada claims: ${
+          error?.response?.data?.message || error?.message || 'Unknown error'
+        }`,
         error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -1046,7 +1053,9 @@ export class HepsiburadaService {
           if (!claimNumber || !orderNumber) {
             skippedCount++;
             this.logger.warn(
-              `Skipping claim without claimNumber or orderNumber: ${JSON.stringify(claim)}`,
+              `Skipping claim without claimNumber or orderNumber: ${JSON.stringify(
+                claim,
+              )}`,
             );
             continue;
           }
@@ -1074,7 +1083,9 @@ export class HepsiburadaService {
           if (!isAcceptedOrRefunded) {
             skippedCount++;
             this.logger.debug(
-              `Skipping claim ${claimNumber} due to status: ${status ?? 'unknown'}`,
+              `Skipping claim ${claimNumber} due to status: ${
+                status ?? 'unknown'
+              }`,
             );
             continue;
           }
@@ -1101,7 +1112,7 @@ export class HepsiburadaService {
           const lineItemId = claim.lineItemId ?? claim.LineItemId;
           const quantity = claim.quantity ?? claim.Quantity ?? 1;
           const cancelData = {
-            id: lineItemId,       // handleCancelOrder lineItemId'yi data.id'den okuyor
+            id: lineItemId, // handleCancelOrder lineItemId'yi data.id'den okuyor
             orderNumber: orderNumber,
             quantity: quantity,
           };
@@ -1122,12 +1133,14 @@ export class HepsiburadaService {
               claimType,
               explanation: claim.explanation ?? claim.Explanation,
               quantity: claim.quantity ?? claim.Quantity,
-              cancelledOrdersCount: result?.ordersCancelled ?? (result?.success ? 1 : 0),
+              cancelledOrdersCount:
+                result?.ordersCancelled ?? (result?.success ? 1 : 0),
             },
           });
 
           processedCount++;
-          cancelledCount += result?.ordersCancelled ?? (result?.success ? 1 : 0);
+          cancelledCount +=
+            result?.ordersCancelled ?? (result?.success ? 1 : 0);
 
           this.logger.log(
             `Claim ${claimNumber} processed successfully (orderNumber: ${orderNumber})`,
@@ -1154,7 +1167,9 @@ export class HepsiburadaService {
       };
 
       this.logger.log(
-        `Hepsiburada claims processing completed: ${JSON.stringify(summary.stats)}`,
+        `Hepsiburada claims processing completed: ${JSON.stringify(
+          summary.stats,
+        )}`,
       );
 
       return summary;
@@ -1186,20 +1201,19 @@ export class HepsiburadaService {
         (data?._id?.toString?.() ?? data?._id) ||
         (data?.id?.toString?.() ?? data?.id);
       // Webhook body'de 'Quantity' (PascalCase) olarak geliyor
-      const cancelQuantity = Number(
-        data?.Quantity ?? data?.quantity ?? 0,
-      );
+      const cancelQuantity = Number(data?.Quantity ?? data?.quantity ?? 0);
       const orderNumber =
         data?.orderNumber || data?.OrderNumber || data?.items?.[0]?.orderNumber;
-      const orderNumberString =
-        orderNumber?.toString?.() ?? orderNumber;
+      const orderNumberString = orderNumber?.toString?.() ?? orderNumber;
 
       if (!orderNumber) {
         this.logger.warn('No order number provided in cancel webhook');
         return { success: false, message: 'No order number provided' };
       }
 
-      this.logger.log(`Cancelling Hepsiburada order: ${orderNumberString}, lineItemId: ${lineItemId}, quantity: ${cancelQuantity}`);
+      this.logger.log(
+        `Cancelling Hepsiburada order: ${orderNumberString}, lineItemId: ${lineItemId}, quantity: ${cancelQuantity}`,
+      );
 
       if (lineItemId) {
         const qty = cancelQuantity > 0 ? cancelQuantity : 1;
@@ -1215,7 +1229,10 @@ export class HepsiburadaService {
           // Sipariş zaten iptal edilmişse veya bulunamıyorsa başarılı say (idempotency)
           if (
             message.includes('already cancelled') ||
-            message.includes('Order not found')
+            message.includes('Order not found') ||
+            (cancelErr instanceof HttpException &&
+              (cancelErr.getStatus() === HttpStatus.NOT_FOUND ||
+                cancelErr.getStatus() === HttpStatus.BAD_REQUEST))
           ) {
             this.logger.warn(
               `Cancel webhook for line item ${lineItemId} skipped: ${message}`,
