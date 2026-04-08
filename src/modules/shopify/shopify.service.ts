@@ -1,5 +1,4 @@
 import { HttpService } from '@nestjs/axios';
-import { randomUUID } from 'crypto';
 import {
   forwardRef,
   HttpException,
@@ -2003,37 +2002,11 @@ export class ShopifyService {
     this.logger.debug('Webhook data:', data);
 
     let webhookLog: any = null;
-    let orderLockKey: string | null = null; // hata durumunda serbest bırakmak için try dışında tutuyoruz
     try {
       if (!data) {
         throw new HttpException(
           'Invalid request: Missing data',
           HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Idempotency lock: aynı Shopify order_id için tekrar işlem yapılmasın.
-      // Shopify timeout durumunda retry yaptığında veya duplicate webhook geldiğinde koruma sağlar.
-      const shopifyOrderId = data?.id?.toString();
-      if (shopifyOrderId) {
-        const lockKey = `${RedisKeys.ShopifyOrderLock}:${shopifyOrderId}`;
-        // SET NX → sadece key yoksa set eder (atomik), varsa null döner
-        const lockAcquired = await this.redisService
-          .getClient()
-          .set(lockKey, '1', 'EX', 86400, 'NX'); // 24 saat TTL (Shopify 48h retry yapabilir)
-        this.logger.log(
-          `[LOCK] Order-level Redis lock for ${shopifyOrderId}: ${lockAcquired ? 'ACQUIRED' : 'ALREADY_EXISTS (duplicate blocked)'}`,
-        );
-        if (!lockAcquired) {
-          this.logger.warn(
-            `Duplicate webhook ignored for Shopify order ${shopifyOrderId}`,
-          );
-          return { success: false, message: 'Duplicate webhook ignored' };
-        }
-        orderLockKey = lockKey; // başarıyla alındı, hata olursa catch'te serbest bırakacağız
-      } else {
-        this.logger.warn(
-          `[LOCK] No shopifyOrderId found in webhook data — order-level lock skipped! data.id=${data?.id}`,
         );
       }
 
@@ -2190,9 +2163,6 @@ export class ShopifyService {
       const menuItems = await Promise.all(menuItemPromises);
 
       for (let i = 0; i < lineItems.length; i++) {
-        let itemLockKey: string | null = null; // try dışında tanımlıyoruz ki catch(itemError) erişebilsin
-        let itemLockValue: string | null = null;
-        let itemLockHeld = false;
         try {
           const lineItem = lineItems[i];
           const {
@@ -2213,24 +2183,6 @@ export class ShopifyService {
             this.logger.log(`Menu item not found for productId: ${product_id}`);
             continue;
           }
-
-          // Per-line-item Redis lock: aynı line item'ın birden fazla webhook tarafından
-          // eş zamanlı işlenmesini önler (order-level lock'a ek savunma katmanı).
-          itemLockKey = `${RedisKeys.ShopifyLineItemLock}:${lineItemId}`;
-          itemLockValue = randomUUID();
-          const itemLockAcquired = await this.redisService
-            .getClient()
-            .set(itemLockKey, itemLockValue, 'EX', 86400, 'NX');
-          if (!itemLockAcquired) {
-            this.logger.warn(
-              `[LOCK] Line item ${lineItemId} already locked — concurrent webhook detected, skipping.`,
-            );
-            continue;
-          }
-          itemLockHeld = true;
-          this.logger.log(
-            `[LOCK] Line item lock acquired for ${lineItemId}`,
-          );
 
           // Check if this specific line item order already exists (fresh DB query)
           const foundShopifyOrder =
@@ -2315,30 +2267,9 @@ export class ShopifyService {
             totalAmount += itemAmount;
           } catch (orderError) {
             this.logError('Error creating order', orderError);
-            // Order oluşturulamadı → per-item lock serbest bırak ki Shopify retry bu item'ı tekrar işleyebilsin
-            if (itemLockKey && itemLockValue && itemLockHeld) {
-              await this.redisService
-                .releaseTableLocks([itemLockKey], itemLockValue)
-                .catch((e) =>
-                  this.logger.error(
-                    'Failed to release item lock on order error:',
-                    e,
-                  ),
-                );
-              itemLockHeld = false;
-            }
           }
         } catch (itemError) {
           this.logError('Error processing line item', itemError);
-          // Lock alındıktan sonra beklenmedik hata → serbest bırak ki retry işleyebilsin
-          if (itemLockKey && itemLockValue && itemLockHeld) {
-            await this.redisService
-              .releaseTableLocks([itemLockKey], itemLockValue)
-              .catch((e) =>
-                this.logger.error('Failed to release item lock on item error:', e),
-              );
-            itemLockHeld = false;
-          }
         }
       }
 
@@ -2494,13 +2425,6 @@ export class ShopifyService {
       return response;
     } catch (error) {
       this.logError('Error in orderCreateWebHook', error);
-
-      // İşlem tamamen başarısız oldu → order-level lock serbest bırak ki Shopify retry yapabilsin
-      if (orderLockKey) {
-        await this.redisService.getClient().del(orderLockKey).catch((e) =>
-          this.logger.error('Failed to release order lock on error:', e),
-        );
-      }
 
       // Update webhook log with error response (fire-and-forget)
       if (webhookLog) {
