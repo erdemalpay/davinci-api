@@ -32,12 +32,11 @@ export class LockService {
     lockValue: string,
     ttlSeconds: number,
   ): Promise<boolean> {
-    if (keys.length === 0) {
-      return true;
-    }
     const luaScript = `
-      if redis.call('EXISTS', unpack(KEYS)) > 0 then
-        return 0
+      for i = 1, #KEYS do
+        if redis.call('EXISTS', KEYS[i]) == 1 then
+          return 0
+        end
       end
       for i = 1, #KEYS do
         redis.call('SET', KEYS[i], ARGV[1], 'EX', ARGV[2])
@@ -57,9 +56,10 @@ export class LockService {
    */
   async release(key: string, lockValue?: string): Promise<void> {
     if (!lockValue) {
-      await this.redisService.getClient().del(key).catch((e) =>
-        this.logger.error(`Failed to release lock [${key}]:`, e),
-      );
+      await this.redisService
+        .getClient()
+        .del(key)
+        .catch((e) => this.logger.error(`Failed to release lock [${key}]:`, e));
       return;
     }
     const luaScript = `
@@ -71,9 +71,7 @@ export class LockService {
     await this.redisService
       .getClient()
       .eval(luaScript, 1, key, lockValue)
-      .catch((e) =>
-        this.logger.error(`Failed to release lock [${key}]:`, e),
-      );
+      .catch((e) => this.logger.error(`Failed to release lock [${key}]:`, e));
   }
 
   /**
@@ -81,10 +79,8 @@ export class LockService {
    * Sadece lockValue eşleşen key'leri siler.
    */
   async releaseMultiple(keys: string[], lockValue: string): Promise<void> {
-    if (keys.length === 0) {
-      return;
-    }
     const luaScript = `
+<<<<<<< HEAD
       local keys_to_delete = {}
       for i = 1, #KEYS do
         if redis.call('GET', KEYS[i]) == ARGV[1] then
@@ -95,6 +91,14 @@ export class LockService {
         return redis.call('DEL', unpack(keys_to_delete))
       end
       return 0
+=======
+      for i = 1, #KEYS do
+        if redis.call('GET', KEYS[i]) == ARGV[1] then
+          redis.call('DEL', KEYS[i])
+        end
+      end
+      return 1
+>>>>>>> 27181d8 (Generic lock servisi oluşturuldu ve halihazırda lock kullanan servisler de buna göre refactor edildi)
     `;
     await this.redisService
       .getClient()
@@ -103,5 +107,4 @@ export class LockService {
         this.logger.error(`Failed to release locks [${keys.join(', ')}]:`, e),
       );
   }
-
 }
