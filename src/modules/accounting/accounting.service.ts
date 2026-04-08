@@ -150,7 +150,7 @@ export class AccountingService {
     let products: Product[] | undefined;
     try {
       const redisProducts = await this.redisService.get(
-        RedisKeys.AccountingProducts,
+        RedisKeys.AccountingAllProducts,
       );
       if (redisProducts) {
         products = redisProducts as Product[];
@@ -163,7 +163,7 @@ export class AccountingService {
       try {
         products = await this.productModel.find().exec();
         if (products.length > 0) {
-          await this.redisService.set(RedisKeys.AccountingProducts, products);
+          await this.redisService.set(RedisKeys.AccountingAllProducts, products);
         }
       } catch (error) {
         this.logger.error(
