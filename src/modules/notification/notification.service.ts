@@ -285,7 +285,7 @@ export class NotificationService {
           const today = new Date().toISOString().split('T')[0];
           const visitGroups = await Promise.all(
             selectedLocations.map((location) =>
-              this.visitService.findByDateAndLocation(today, Number(location)),
+              this.visitService.findByDateAndLocation(today, location),
             ),
           );
           const visits = visitGroups.flat();
