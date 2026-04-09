@@ -30,6 +30,43 @@ export class NotificationService {
     private readonly visitService: VisitService,
   ) {}
 
+  private sanitizeSelectedLocations(locations: unknown): number[] {
+    if (!Array.isArray(locations)) return [];
+
+    return locations
+      .filter(
+        (location) =>
+          location !== null &&
+          location !== undefined &&
+          String(location).trim() !== '',
+      )
+      .map((location) => Number(location))
+      .filter((location) => Number.isFinite(location));
+  }
+
+  private sanitizeNotificationUpdates(
+    updates: UpdateQuery<Notification>,
+  ): UpdateQuery<Notification> {
+    const result: UpdateQuery<Notification> = { ...updates };
+
+    if (result.selectedLocations !== undefined) {
+      result.selectedLocations = this.sanitizeSelectedLocations(
+        result.selectedLocations,
+      );
+    }
+
+    if (result.$set?.selectedLocations !== undefined) {
+      result.$set = {
+        ...result.$set,
+        selectedLocations: this.sanitizeSelectedLocations(
+          result.$set.selectedLocations,
+        ),
+      };
+    }
+
+    return result;
+  }
+
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -239,12 +276,15 @@ export class NotificationService {
         return null;
       }
       if (!createNotificationDto?.isAssigned && assignedTemplate) {
-        finalCreateDto.selectedLocations = assignedTemplate.selectedLocations;
+        const selectedLocations = this.sanitizeSelectedLocations(
+          assignedTemplate.selectedLocations,
+        );
+        finalCreateDto.selectedLocations = selectedLocations;
 
-        if (assignedTemplate.selectedLocations?.length) {
+        if (selectedLocations.length > 0) {
           const today = new Date().toISOString().split('T')[0];
           const visitGroups = await Promise.all(
-            assignedTemplate.selectedLocations.map((location) =>
+            selectedLocations.map((location) =>
               this.visitService.findByDateAndLocation(today, Number(location)),
             ),
           );
@@ -306,6 +346,9 @@ export class NotificationService {
         }
       }
     }
+    finalCreateDto.selectedLocations = this.sanitizeSelectedLocations(
+      finalCreateDto.selectedLocations,
+    );
     const notification = await this.notificationModel.create({
       ...finalCreateDto,
       ...(user && { createdBy: user._id }),
@@ -393,7 +436,7 @@ export class NotificationService {
   ) {
     const notification = await this.notificationModel.findByIdAndUpdate(
       id,
-      updates,
+      this.sanitizeNotificationUpdates(updates),
       { new: true },
     );
     if (!notification) {
