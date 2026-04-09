@@ -40,7 +40,7 @@ export class NotificationService {
           location !== undefined &&
           String(location).trim() !== '',
       )
-      .map((location) => Number(location))
+      .map(Number)
       .filter((location) => Number.isFinite(location));
   }
 
