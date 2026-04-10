@@ -81,33 +81,17 @@ export class UnsubscribeByEmailDto {
 }
 
 export class BackInStockQueryDto {
-  @IsNumber()
-  @IsOptional()
-  page?: number;
-
-  @IsNumber()
-  @IsOptional()
-  limit?: number;
-
-  @IsEmail()
+  @IsString()
   @IsOptional()
   email?: string;
-
-  @IsString()
-  @IsOptional()
-  shop?: string;
-
-  @IsString()
-  @IsOptional()
-  productId?: string;
-
-  @IsString()
-  @IsOptional()
-  variantId?: string;
 
   @IsEnum(SubscriptionStatus)
   @IsOptional()
   status?: SubscriptionStatus;
+
+  @IsString()
+  @IsOptional()
+  productId?: string;
 
   @IsString()
   @IsOptional()
