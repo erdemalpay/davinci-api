@@ -1787,8 +1787,15 @@ export class MenuService {
     if (!item) {
       return;
     }
-    if (isOpen && !item.locations.includes(changedLocationId)) {
-      await this.openItemLocation(item._id, changedLocationId);
+    const category = await this.findCategoryById(item.category as number);
+    if (!category?.disableWhenOutOfStock) {
+      return;
+    }
+
+    if (isOpen) {
+      if (!item.locations.includes(changedLocationId)) {
+        await this.openItemLocation(item._id, changedLocationId);
+      }
     } else {
       await this.closeItemLocation(item._id, changedLocationId);
     }
