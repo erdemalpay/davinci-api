@@ -116,27 +116,19 @@ export class BackInStockService {
 
   async getSubscriptions(query: BackInStockQueryDto) {
     const {
-      page = 1,
-      limit = 10,
       email,
-      shop,
-      productId,
-      variantId,
       status,
       after,
       before,
+      productId,
       sort = 'createdAt',
       asc = -1,
     } = query;
 
     const filter: Record<string, any> = {};
-
-    if (email) filter.email = email;
-    if (shop) filter.shop = shop;
-    if (productId) filter.productId = productId;
-    if (variantId) filter.variantId = variantId;
+    if (email) filter.email = { $regex: email, $options: 'i' };
     if (status) filter.status = status;
-
+    if (productId) filter.productId = productId;
     if (after || before) {
       const rangeFilter: Record<string, any> = {};
       if (after) {
@@ -153,24 +145,13 @@ export class BackInStockService {
       }
     }
 
-    const total = await this.backInStockModel.countDocuments(filter);
-    const skip = (page - 1) * limit;
-
     const subscriptions = await this.backInStockModel
       .find(filter)
       .sort({ [sort]: asc as 1 | -1 })
-      .skip(skip)
-      .limit(limit)
       .populate('menuItemId')
       .exec();
 
-    return {
-      subscriptions,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return subscriptions;
   }
 
   async getSubscriptionById(id: number): Promise<BackInStockSubscription> {
