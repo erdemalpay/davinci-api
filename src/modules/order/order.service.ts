@@ -313,6 +313,13 @@ export class OrderService {
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
     }
+    if (query.stockLocation) {
+      const stockLocationArray = query.stockLocation
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['stockLocation'] = { $in: stockLocationArray };
+    }
     if (query.discount) {
       const discountArray = query.discount
         .split(',')

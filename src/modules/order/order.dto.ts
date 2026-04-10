@@ -422,6 +422,10 @@ export class OrderQueryDto {
   location?: string;
 
   @IsOptional()
+  @IsString()
+  stockLocation?: string;
+
+  @IsOptional()
   @IsBoolean()
   isIkasPickUp?: boolean;
 
