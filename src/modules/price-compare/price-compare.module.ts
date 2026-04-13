@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MenuModule } from '../menu/menu.module';
+import { PriceCompareLogModule } from '../price-compare-log/price-compare-log.module';
 import {
   LocalComparison,
   LocalComparisonSchema,
@@ -15,7 +16,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 ]);
 
 @Module({
-  imports: [HttpModule, MenuModule, mongooseModule],
+  imports: [HttpModule, MenuModule, PriceCompareLogModule, mongooseModule],
   controllers: [PriceCompareController],
   providers: [PriceCompareService, PriceCompareCronService],
   exports: [PriceCompareService],

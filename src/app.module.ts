@@ -33,6 +33,7 @@ import { MigrationModule } from './modules/oldDbModules/migration/migration.modu
 import { OrderModule } from './modules/order/order.module';
 import { PanelControlModule } from './modules/panelControl/panelControl.module';
 import { PointModule } from './modules/point/point.module';
+import { PriceCompareLogModule } from './modules/price-compare-log/price-compare-log.module';
 import { PriceCompareModule } from './modules/price-compare/price-compare.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
@@ -94,6 +95,7 @@ const modules = [
   PanelControlModule,
   PointModule,
   PriceCompareModule,
+  PriceCompareLogModule,
   OrderModule,
   RedisModule,
   ButtonCallModule,
