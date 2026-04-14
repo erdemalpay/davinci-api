@@ -13,6 +13,7 @@ import { Public } from '../auth/public.decorator';
 import { GameDto } from './game.dto';
 import { Game } from './game.schema';
 import { GameService } from './game.service';
+import { RequestGameDto } from './requested-game.dto';
 
 @Controller('games')
 export class GameController {
@@ -21,6 +22,23 @@ export class GameController {
   @Get('/details/:id')
   async getDetails(@Param('id') id: number) {
     return this.gameService.getGameDetails(id);
+  }
+
+  @Public()
+  @Get('/bgg')
+  async getBggGamesOnly() {
+    return this.gameService.getBggGamesOnly();
+  }
+
+  @Get('/requested')
+  async getRequestedGames() {
+    return this.gameService.getRequestedGames();
+  }
+
+  @Public()
+  @Post('/requested')
+  async requestGame(@Body() requestGameDto: RequestGameDto) {
+    return this.gameService.requestGame(requestGameDto);
   }
 
   @Public()
