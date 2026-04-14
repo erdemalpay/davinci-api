@@ -44,6 +44,7 @@ import { TableModule } from './modules/table/table.module';
 import { TrendyolModule } from './modules/trendyol/trendyol.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
+import { ConcurrencyLogModule } from './modules/concurrency-log/concurrency-log.module';
 import { WebhookLogModule } from './modules/webhook-log/webhook-log.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 
@@ -105,6 +106,7 @@ const modules = [
   GameplayTimeModule,
   MiddlemanModule,
   WebhookLogModule,
+  ConcurrencyLogModule,
 ];
 
 if (config.get('migrationEnabled')) {
