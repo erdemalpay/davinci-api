@@ -80,7 +80,6 @@ export class LockService {
    */
   async releaseMultiple(keys: string[], lockValue: string): Promise<void> {
     const luaScript = `
-<<<<<<< HEAD
       local keys_to_delete = {}
       for i = 1, #KEYS do
         if redis.call('GET', KEYS[i]) == ARGV[1] then
@@ -91,14 +90,6 @@ export class LockService {
         return redis.call('DEL', unpack(keys_to_delete))
       end
       return 0
-=======
-      for i = 1, #KEYS do
-        if redis.call('GET', KEYS[i]) == ARGV[1] then
-          redis.call('DEL', KEYS[i])
-        end
-      end
-      return 1
->>>>>>> 27181d8 (Generic lock servisi oluşturuldu ve halihazırda lock kullanan servisler de buna göre refactor edildi)
     `;
     await this.redisService
       .getClient()
