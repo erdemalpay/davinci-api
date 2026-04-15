@@ -31,4 +31,5 @@ export class ConcurrencyLog extends Document {
 
 export const ConcurrencyLogSchema =
   SchemaFactory.createForClass(ConcurrencyLog);
+ConcurrencyLogSchema.index({ createdAt: -1 });
 purifySchema(ConcurrencyLogSchema);
