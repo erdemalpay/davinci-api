@@ -58,4 +58,8 @@ export class ConcurrencyLogService {
 
     return { logs, total, page, limit };
   }
+
+  async findDistinctEndpoints(): Promise<string[]> {
+    return this.concurrencyLogModel.distinct('endpoint');
+  }
 }

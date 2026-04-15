@@ -7,6 +7,11 @@ export class ConcurrencyLogController {
     private readonly concurrencyLogService: ConcurrencyLogService,
   ) {}
 
+  @Get('/endpoints')
+  findDistinctEndpoints() {
+    return this.concurrencyLogService.findDistinctEndpoints();
+  }
+
   @Get('/query')
   findAll(
     @Query('page') page?: number,
