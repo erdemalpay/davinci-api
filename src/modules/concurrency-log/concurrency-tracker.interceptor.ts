@@ -17,6 +17,12 @@ export class ConcurrencyTrackerInterceptor implements NestInterceptor {
     private readonly concurrencyLogService: ConcurrencyLogService,
   ) {}
 
+  private truncateBody(body: any, maxLength = 500): any {
+    const str = JSON.stringify(body ?? {});
+    if (str.length <= maxLength) return body;
+    return { _truncated: true, preview: str.slice(0, maxLength) };
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
     if (!req) return next.handle();
@@ -31,7 +37,7 @@ export class ConcurrencyTrackerInterceptor implements NestInterceptor {
     const entry: ConcurrentRequest = {
       userId: user?._id?.toString(),
       userName: user?.name,
-      requestBody: req.body,
+      requestBody: this.truncateBody(req.body),
     };
 
     const list = this.inFlight.get(key) ?? [];
