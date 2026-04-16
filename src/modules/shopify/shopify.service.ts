@@ -2221,6 +2221,7 @@ export class ShopifyService {
             shopifyOrderId: data?.id?.toString(),
             shopifyOrderLineItemId: lineItemId?.toString(),
             paymentMethod: resolvedPaymentMethod,
+            isOnlineSale: true,
             ...(shopifyOrderNumber && {
               shopifyOrderNumber: shopifyOrderNumber.toString(),
             }),

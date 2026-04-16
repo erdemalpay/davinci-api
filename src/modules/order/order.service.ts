@@ -1226,6 +1226,12 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    if (!createOrderDto.isOnlineSale && !createOrderDto.table) {
+      throw new HttpException(
+        'Non-online orders require a table',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     if (Array.isArray(createOrderDto.discountNote)) {
       createOrderDto.discountNote = createOrderDto.discountNote.join(',');
     }

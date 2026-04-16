@@ -158,6 +158,9 @@ export class Order extends Document {
   isOnlinePrice: boolean;
 
   @Prop({ required: false, type: Boolean })
+  isOnlineSale: boolean;
+
+  @Prop({ required: false, type: Boolean })
   isReturned: boolean;
 
   @Prop({ required: false, type: Number, ref: Location.name })
