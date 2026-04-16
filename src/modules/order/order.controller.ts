@@ -443,12 +443,21 @@ export class OrderController {
     return this.orderService.simpleOrderUpdate(user, id, updates);
   }
 
-  @Patch('/:id')
+  @Patch('/:id/cancel')
   @UseInterceptors(LockInterceptor)
   @RaceConditionLockDecorator({
     key: (req) => `${RedisKeys.OrderLock}:${req.params.id}`,
     ttlSeconds: 10,
   })
+  cancelOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Order>,
+  ) {
+    return this.orderService.updateOrder(user, id, updates);
+  }
+
+  @Patch('/:id')
   updateOrder(
     @ReqUser() user: User,
     @Param('id') id: number,
