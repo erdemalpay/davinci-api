@@ -360,6 +360,17 @@ export class CreateDiscountDto {
   @IsString()
   note?: string;
 }
+
+export class CreateRetailerDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  orders?: number[];
+}
+
 export enum OrderDiscountStatus {
   DELETED = 'deleted',
 }

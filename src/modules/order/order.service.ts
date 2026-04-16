@@ -50,6 +50,7 @@ import {
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
+  CreateRetailerDto,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
@@ -58,6 +59,7 @@ import {
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
 import { OrderNotes } from './orderNotes.schema';
+import { Retailer } from './retailer.schema';
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -136,6 +138,7 @@ export class OrderService {
     @InjectModel(OrderNotes.name) private orderNotesModel: Model<OrderNotes>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
+    @InjectModel(Retailer.name) private retailerModel: Model<Retailer>,
     @InjectModel(OrderGroup.name) private orderGroupModel: Model<OrderGroup>,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
@@ -4078,6 +4081,56 @@ export class OrderService {
     this.websocketGateway.emitDiscountChanged();
     return discount;
   }
+
+  // retailer
+  async getAllRetailers() {
+    try {
+      return await this.retailerModel.find().sort({ _id: 1 }).lean().exec();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch retailers',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async createRetailer(user: User, createRetailerDto: CreateRetailerDto) {
+    const retailer = new this.retailerModel({
+      ...createRetailerDto,
+      orders: createRetailerDto.orders ?? [],
+    });
+    try {
+      await retailer.save();
+      this.websocketGateway.emitRetailerChanged();
+      return retailer;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateRetailer(user: User, id: number, updates: UpdateQuery<Retailer>) {
+    const retailer = await this.retailerModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitRetailerChanged();
+    return retailer;
+  }
+
+  async removeRetailer(user: User, id: number) {
+    const retailer = await this.retailerModel.findByIdAndRemove(id);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitRetailerChanged();
+    return retailer;
+  }
+
   async createOrderForDivide(
     user: User,
     orders: {
