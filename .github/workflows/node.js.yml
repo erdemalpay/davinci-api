@@ -81,9 +81,16 @@ jobs:
       - name: Adding Known Hosts
         run: ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
+      - name: Pre-clean remote disk usage
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
+          "set -e; mkdir -p app; cd app; \
+          sudo docker system prune -af || true; \
+          df -h"
+
       - name: Rsync files
         run: |
-          rsync -avz -r -e "ssh -i ~/.ssh/id_rsa" \
+          rsync -avz --delete -r -e "ssh -i ~/.ssh/id_rsa" \
             ./dist ./config .env Dockerfile.production Dockerfile.staging docker-compose.yml yarn.lock package.json \
             ${{ secrets.USERNAME }}@${{ secrets.HOST }}:app
 
