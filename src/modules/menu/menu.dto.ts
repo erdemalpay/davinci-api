@@ -62,6 +62,11 @@ export class CreateItemDto {
   @IsNumber()
   category: number;
 
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  additionalCategories?: number[];
+
   @IsNumber()
   price: number;
 

@@ -51,6 +51,14 @@ export class MenuItem extends Document {
   @Prop({ required: true, type: Number, ref: MenuCategory.name })
   category: MenuCategory | number;
 
+  /** Menü panelinde ek sekmelerde göstermek için; birincil category hariç ID'ler */
+  @Prop({
+    required: false,
+    type: [{ type: Number, ref: MenuCategory.name }],
+    default: [],
+  })
+  additionalCategories: number[];
+
   @Prop({ required: true, type: Number, default: 0 })
   price: number;
 
