@@ -3497,7 +3497,6 @@ export class AccountingService {
     await this.websocketGateway.emitProductStockHistoryChanged();
     return productStockHistory;
   }
-
   async getGameBatchesWithFIFO(location?: string) {
     const locationIds = location
       .split(',')
