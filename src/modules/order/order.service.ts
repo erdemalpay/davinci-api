@@ -3458,9 +3458,51 @@ export class OrderService {
           'table',
           'date _id name isOnlineSale finishHour type startHour',
         )
+        .lean()
         .exec();
 
-      return tableCollection;
+      const orderIds = Array.from(
+        new Set(
+          tableCollection
+            .flatMap((collection) => collection?.orders ?? [])
+            .map((orderEntry) => orderEntry?.order)
+            .filter(
+              (orderId): orderId is number => typeof orderId === 'number',
+            ),
+        ),
+      );
+
+      if (orderIds.length === 0) {
+        return tableCollection;
+      }
+
+      const orders = await this.orderModel
+        .find({ _id: { $in: orderIds } })
+        .select('_id item')
+        .populate({
+          path: 'item',
+          select: '_id name',
+        })
+        .lean()
+        .exec();
+
+      const orderMap = new Map(
+        orders.map((order) => [
+          order._id,
+          { _id: order._id, item: order.item },
+        ]),
+      );
+
+      return tableCollection.map((collection) => ({
+        ...collection,
+        orders: (collection?.orders ?? []).map((orderEntry) => ({
+          ...orderEntry,
+          order:
+            typeof orderEntry?.order === 'number'
+              ? orderMap.get(orderEntry.order) ?? orderEntry.order
+              : orderEntry.order,
+        })),
+      }));
     } catch (error) {
       throw new HttpException(
         "Failed to fetch given day's collections",
