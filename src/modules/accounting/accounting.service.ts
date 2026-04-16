@@ -3498,7 +3498,12 @@ export class AccountingService {
     return productStockHistory;
   }
 
-  async getGameBatchesWithFIFO(location?: number) {
+  async getGameBatchesWithFIFO(location?: string) {
+    const locationIds = location
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value) => !Number.isNaN(value));
+
     const gameProducts = await this.productModel
       .find({
         expenseType: GameExpenseType,
@@ -3514,7 +3519,7 @@ export class AccountingService {
     const allStockHistory = await this.productStockHistoryModel
       .find({
         product: { $in: productIds },
-        ...(location && { location }),
+        ...(locationIds.length > 0 && { location: { $in: locationIds } }),
       })
       .sort({ createdAt: 1, _id: 1 })
       .exec();
