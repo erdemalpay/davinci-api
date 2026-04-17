@@ -1229,7 +1229,11 @@ export class OrderService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    if (!createOrderDto.isOnlineSale && !createOrderDto.table) {
+    if (
+      !createOrderDto.isOnlineSale &&
+      !createOrderDto.table &&
+      ![OrderStatus.WASTED].includes(createOrderDto.status as OrderStatus)
+    ) {
       throw new HttpException(
         'Non-online orders require a table',
         HttpStatus.BAD_REQUEST,
