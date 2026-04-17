@@ -135,6 +135,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsBoolean()
+  isLossProduct?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isReturned?: boolean;
 
   @IsOptional()
