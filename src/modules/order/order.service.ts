@@ -4411,9 +4411,11 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
-    // Verify all orders exist
-    const orders = await this.orderModel.find({ _id: { $in: orderIds } });
-    if (orders.length !== orderIds.length) {
+    const uniqueOrderIds = Array.from(new Set(orderIds));
+
+    // Verify all requested order IDs exist in order collection.
+    const orders = await this.orderModel.find({ _id: { $in: uniqueOrderIds } });
+    if (orders.length !== uniqueOrderIds.length) {
       throw new HttpException(
         'One or more orders not found',
         HttpStatus.NOT_FOUND,
@@ -4424,19 +4426,14 @@ export class OrderService {
       retailer.orders = [];
     }
 
-    // Filter out orders that already exist in the retailer
-    const newOrderIds = orderIds.filter(
+    // Skip orders already linked to retailer and add only new ones.
+    const newOrderIds = uniqueOrderIds.filter(
       (orderId) => !retailer.orders.includes(orderId),
     );
 
-    if (newOrderIds.length === 0) {
-      throw new HttpException(
-        'All orders already exist in retailer',
-        HttpStatus.BAD_REQUEST,
-      );
+    if (newOrderIds.length > 0) {
+      retailer.orders.push(...newOrderIds);
     }
-
-    retailer.orders.push(...newOrderIds);
 
     try {
       await retailer.save();
@@ -4444,7 +4441,7 @@ export class OrderService {
       return {
         retailer,
         added: newOrderIds.length,
-        skipped: orderIds.length - newOrderIds.length,
+        skipped: uniqueOrderIds.length - newOrderIds.length,
       };
     } catch (error) {
       throw new HttpException(
