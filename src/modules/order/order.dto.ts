@@ -371,6 +371,28 @@ export class CreateRetailerDto {
   orders?: number[];
 }
 
+export class AddOrderToRetailerDto {
+  @IsNumber()
+  orderId: number;
+}
+
+export class RemoveOrderFromRetailerDto {
+  @IsNumber()
+  orderId: number;
+}
+
+export class BulkAddOrdersToRetailerDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  orderIds: number[];
+}
+
+export class BulkRemoveOrdersFromRetailerDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  orderIds: number[];
+}
+
 export enum OrderDiscountStatus {
   DELETED = 'deleted',
 }
@@ -482,6 +504,17 @@ export class CollectionQueryDto {
   @IsString()
   hepsiburadaOrderNumber?: string;
 }
+
+export class RetailerOrdersQueryDto {
+  @IsOptional()
+  @IsString()
+  after?: string;
+
+  @IsOptional()
+  @IsString()
+  before?: string;
+}
+
 export class SummaryCollectionQueryDto {
   @IsOptional()
   @IsString()

@@ -19,6 +19,9 @@ import { User } from '../user/user.schema';
 import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
+  AddOrderToRetailerDto,
+  BulkAddOrdersToRetailerDto,
+  BulkRemoveOrdersFromRetailerDto,
   CancelHepsiburadaOrderDto,
   CancelIkasOrderDto,
   CancelShopifyOrderDto,
@@ -29,6 +32,7 @@ import {
   CreateOrderNotesDto,
   CreateRetailerDto,
   OrderQueryDto,
+  RetailerOrdersQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -572,6 +576,22 @@ export class OrderController {
     return this.orderService.getAllRetailers();
   }
 
+  @Get('/retailer/:id/orders')
+  getRetailerOrders(
+    @Param('id') id: number,
+    @Query() query: RetailerOrdersQueryDto,
+  ) {
+    return this.orderService.getRetailerOrders(id, query);
+  }
+
+  @Get('/retailer/:id/item-summary')
+  getRetailerItemSummary(
+    @Param('id') id: number,
+    @Query() query: RetailerOrdersQueryDto,
+  ) {
+    return this.orderService.getRetailerItemSummary(id, query);
+  }
+
   @Post('/retailer')
   createRetailer(
     @ReqUser() user: User,
@@ -592,6 +612,50 @@ export class OrderController {
   @Delete('/retailer/:id')
   removeRetailer(@ReqUser() user: User, @Param('id') id: number) {
     return this.orderService.removeRetailer(user, id);
+  }
+
+  @Post('/retailer/:id/orders')
+  addOrderToRetailer(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() payload: AddOrderToRetailerDto,
+  ) {
+    return this.orderService.addOrderToRetailer(user, id, payload.orderId);
+  }
+
+  @Delete('/retailer/:id/orders/:orderId')
+  removeOrderFromRetailer(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Param('orderId') orderId: number,
+  ) {
+    return this.orderService.removeOrderFromRetailer(user, id, orderId);
+  }
+
+  @Post('/retailer/:id/orders/bulk-add')
+  bulkAddOrdersToRetailer(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() payload: BulkAddOrdersToRetailerDto,
+  ) {
+    return this.orderService.bulkAddOrdersToRetailer(
+      user,
+      id,
+      payload.orderIds,
+    );
+  }
+
+  @Delete('/retailer/:id/orders/bulk-remove')
+  bulkRemoveOrdersFromRetailer(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() payload: BulkRemoveOrdersFromRetailerDto,
+  ) {
+    return this.orderService.bulkRemoveOrdersFromRetailer(
+      user,
+      id,
+      payload.orderIds,
+    );
   }
 
   // order notes
