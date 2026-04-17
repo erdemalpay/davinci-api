@@ -163,7 +163,10 @@ export class AccountingService {
       try {
         products = await this.productModel.find().exec();
         if (products.length > 0) {
-          await this.redisService.set(RedisKeys.AccountingAllProducts, products);
+          await this.redisService.set(
+            RedisKeys.AccountingAllProducts,
+            products,
+          );
         }
       } catch (error) {
         this.logger.error(
@@ -2418,11 +2421,16 @@ export class AccountingService {
         existingStock,
         newStock,
       );
-      await this.menuService.updateProductVisibilityAfterStockChange(
-        createStockDto.product,
-        createStockDto.location,
-      );
-
+      if (
+        (oldQuantity <= 0 && newStock.quantity > 0) ||
+        (oldQuantity > 0 && newStock.quantity <= 0)
+      ) {
+        await this.menuService.updateProductVisibilityAfterStockChange(
+          createStockDto.product,
+          createStockDto.location,
+          oldQuantity <= 0 && newStock.quantity > 0,
+        );
+      }
       // // Back-in-stock email notifications for online store
       // if (
       //   createStockDto.location === ONlINESTORELOCATIONID &&
@@ -2584,6 +2592,13 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
+
+      await this.menuService.updateProductVisibilityAfterStockChange(
+        createStockDto.product,
+        createStockDto.location,
+        stockData.quantity > 0,
+      );
+
       this.websocketGateway.emitStockChanged();
 
       await this.activityService.addActivity(
@@ -2843,6 +2858,7 @@ export class AccountingService {
       await this.menuService.updateProductVisibilityAfterStockChange(
         stock.product?._id,
         stock.location,
+        false,
       );
       // Remove the stock item
       this.websocketGateway.emitStockChanged();
@@ -2882,7 +2898,7 @@ export class AccountingService {
         { new: true },
       );
       const newQuantity = stock.quantity - consumptStockDto.quantity;
-      if (newQuantity <= 0) {
+      if (stock.quantity > 0 && newQuantity <= 0) {
         const foundProduct = await this.findProductById(stock.product as any);
         if (!foundProduct) {
           throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
@@ -2890,6 +2906,7 @@ export class AccountingService {
         await this.menuService.updateProductVisibilityAfterStockChange(
           stock.product as any,
           stock.location,
+          false,
         );
         const locations = await this.locationService.findAllLocations();
         const stockLocation = locations.find(
@@ -3480,8 +3497,12 @@ export class AccountingService {
     await this.websocketGateway.emitProductStockHistoryChanged();
     return productStockHistory;
   }
+  async getGameBatchesWithFIFO(location?: string) {
+    const locationIds = location
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value) => !Number.isNaN(value));
 
-  async getGameBatchesWithFIFO(location?: number) {
     const gameProducts = await this.productModel
       .find({
         expenseType: GameExpenseType,
@@ -3497,7 +3518,7 @@ export class AccountingService {
     const allStockHistory = await this.productStockHistoryModel
       .find({
         product: { $in: productIds },
-        ...(location && { location }),
+        ...(locationIds.length > 0 && { location: { $in: locationIds } }),
       })
       .sort({ createdAt: 1, _id: 1 })
       .exec();

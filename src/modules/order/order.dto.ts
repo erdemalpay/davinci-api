@@ -131,6 +131,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsBoolean()
+  isOnlineSale?: boolean; //cafeOrder isOnlineSale olarak değiştirildi
+
+  @IsOptional()
+  @IsBoolean()
   isReturned?: boolean;
 
   @IsOptional()
@@ -356,6 +360,17 @@ export class CreateDiscountDto {
   @IsString()
   note?: string;
 }
+
+export class CreateRetailerDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  orders?: number[];
+}
+
 export enum OrderDiscountStatus {
   DELETED = 'deleted',
 }
@@ -420,6 +435,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @IsOptional()
+  @IsString()
+  stockLocation?: string;
 
   @IsOptional()
   @IsBoolean()

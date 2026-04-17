@@ -27,11 +27,13 @@ import {
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
+  CreateRetailerDto,
   OrderQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderNotes } from './orderNotes.schema';
+import { Retailer } from './retailer.schema';
 
 @Controller('order')
 export class OrderController {
@@ -443,12 +445,21 @@ export class OrderController {
     return this.orderService.simpleOrderUpdate(user, id, updates);
   }
 
-  @Patch('/:id')
+  @Patch('/:id/cancel')
   @UseInterceptors(LockInterceptor)
   @RaceConditionLockDecorator({
     key: (req) => `${RedisKeys.OrderLock}:${req.params.id}`,
     ttlSeconds: 10,
   })
+  cancelOrder(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Order>,
+  ) {
+    return this.orderService.updateOrder(user, id, updates);
+  }
+
+  @Patch('/:id')
   updateOrder(
     @ReqUser() user: User,
     @Param('id') id: number,
@@ -554,6 +565,35 @@ export class OrderController {
   deleteDiscount(@ReqUser() user: User, @Param('id') id: number) {
     return this.orderService.removeDiscount(user, id);
   }
+
+  // retailer
+  @Get('/retailer')
+  getAllRetailers() {
+    return this.orderService.getAllRetailers();
+  }
+
+  @Post('/retailer')
+  createRetailer(
+    @ReqUser() user: User,
+    @Body() createRetailerDto: CreateRetailerDto,
+  ) {
+    return this.orderService.createRetailer(user, createRetailerDto);
+  }
+
+  @Patch('/retailer/:id')
+  updateRetailer(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() updates: UpdateQuery<Retailer>,
+  ) {
+    return this.orderService.updateRetailer(user, id, updates);
+  }
+
+  @Delete('/retailer/:id')
+  removeRetailer(@ReqUser() user: User, @Param('id') id: number) {
+    return this.orderService.removeRetailer(user, id);
+  }
+
   // order notes
   @Get('/notes')
   findOrderNotes() {

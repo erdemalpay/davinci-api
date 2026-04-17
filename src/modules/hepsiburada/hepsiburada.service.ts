@@ -874,6 +874,7 @@ export class HepsiburadaService {
             hepsiburadaLineItemId: lineItemId,
             hepsiburadaLineItemSku: sku,
             stockNote: StockHistoryStatusEnum.HEPSIBURADAORDERCREATE,
+            isOnlineSale: true,
           });
 
           this.logger.log('Order created:', order._id);

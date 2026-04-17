@@ -39,6 +39,7 @@ import {
   CreatePopularDto,
   CreateUpperCategoryDto,
 } from './menu.dto';
+import { normalizeAdditionalCategories } from './menu-item.util';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
@@ -347,7 +348,9 @@ export class MenuService {
       new: true,
     });
     if (updates.locations) {
-      const items = await this.itemModel.find({ category: id });
+      const items = await this.itemModel.find({
+        $or: [{ category: id }, { additionalCategories: id }],
+      });
       await Promise.all(
         items.map(async (item) => {
           const filteredLocations = item.locations.filter((location) =>
@@ -389,7 +392,9 @@ export class MenuService {
 
     // Sync menu items with current stock when disableWhenOutOfStock is enabled
     if (updates.disableWhenOutOfStock === true) {
-      const items = await this.itemModel.find({ category: id });
+      const items = await this.itemModel.find({
+        $or: [{ category: id }, { additionalCategories: id }],
+      });
       const locations = await this.locationService.findAllLocations();
 
       await Promise.all(
@@ -721,6 +726,10 @@ export class MenuService {
   }
   async createItem(user: User, createItemDto: CreateItemDto) {
     try {
+      const additionalCategories = normalizeAdditionalCategories(
+        createItemDto.category,
+        createItemDto.additionalCategories,
+      );
       const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
       const deletedItem = await this.itemModel.findOne({
         deleted: true,
@@ -729,6 +738,7 @@ export class MenuService {
       if (deletedItem) {
         await this.itemModel.findByIdAndUpdate(deletedItem._id, {
           ...createItemDto,
+          additionalCategories,
           matchedProduct: null,
           deleted: false,
         });
@@ -737,6 +747,7 @@ export class MenuService {
       }
       const item = new this.itemModel({
         ...createItemDto,
+        additionalCategories,
         order: lastItem ? lastItem.order + 1 : 1,
       });
 
@@ -1003,6 +1014,21 @@ export class MenuService {
       ];
       updates.priceHistory = this.prunePriceHistory(updates.priceHistory);
     }
+
+    const primaryCategoryId =
+      updates.category !== undefined
+        ? Number(updates.category)
+        : typeof item.category === 'number'
+          ? item.category
+          : (item.category as MenuCategory)._id;
+    const additionalSource =
+      updates.additionalCategories !== undefined
+        ? (updates.additionalCategories as number[])
+        : (item.additionalCategories ?? []);
+    updates.additionalCategories = normalizeAdditionalCategories(
+      primaryCategoryId,
+      additionalSource,
+    );
 
     const updatedItem = await this.itemModel.findByIdAndUpdate(
       id,
@@ -1779,46 +1805,25 @@ export class MenuService {
   async updateProductVisibilityAfterStockChange(
     productId: string,
     changedLocationId: number,
+    isOpen: boolean,
   ) {
-    const menuItem = await this.findByMatchedProduct(productId);
-    if (!menuItem) {
+    const item = await this.itemModel.findOne({
+      matchedProduct: productId,
+    });
+    if (!item) {
       return;
     }
-
-    const category = await this.findCategoryById(menuItem.category as number);
+    const category = await this.findCategoryById(item.category as number);
     if (!category?.disableWhenOutOfStock) {
       return;
     }
 
-    const allLocations = await this.locationService.findAllLocations();
-    const affectedLocations = allLocations.filter(
-      (loc) =>
-        loc._id === changedLocationId ||
-        loc.fallbackStockLocation === changedLocationId,
-    );
-
-    for (const location of affectedLocations) {
-      const primaryStocks =
-        await this.accountingService.findProductStockByLocation(
-          productId,
-          location._id,
-        );
-      let totalStock = primaryStocks.reduce((sum, s) => sum + s.quantity, 0);
-
-      if (location.fallbackStockLocation) {
-        const fallbackStocks =
-          await this.accountingService.findProductStockByLocation(
-            productId,
-            location.fallbackStockLocation,
-          );
-        totalStock += fallbackStocks.reduce((sum, s) => sum + s.quantity, 0);
+    if (isOpen) {
+      if (!item.locations.includes(changedLocationId)) {
+        await this.openItemLocation(item._id, changedLocationId);
       }
-
-      if (totalStock > 0) {
-        await this.openItemLocation(menuItem._id, location._id);
-      } else {
-        await this.closeItemLocation(menuItem._id, location._id);
-      }
+    } else {
+      await this.closeItemLocation(item._id, changedLocationId);
     }
   }
 }

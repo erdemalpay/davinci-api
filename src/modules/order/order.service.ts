@@ -50,6 +50,7 @@ import {
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
+  CreateRetailerDto,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
@@ -58,6 +59,7 @@ import {
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
 import { OrderNotes } from './orderNotes.schema';
+import { Retailer } from './retailer.schema';
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -136,6 +138,7 @@ export class OrderService {
     @InjectModel(OrderNotes.name) private orderNotesModel: Model<OrderNotes>,
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
+    @InjectModel(Retailer.name) private retailerModel: Model<Retailer>,
     @InjectModel(OrderGroup.name) private orderGroupModel: Model<OrderGroup>,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
@@ -312,6 +315,13 @@ export class OrderService {
         .map((item) => item.trim())
         .map(Number);
       filterQuery['location'] = { $in: locationArray };
+    }
+    if (query.stockLocation) {
+      const stockLocationArray = query.stockLocation
+        .split(',')
+        .map((item) => item.trim())
+        .map(Number);
+      filterQuery['stockLocation'] = { $in: stockLocationArray };
     }
     if (query.discount) {
       const discountArray = query.discount
@@ -1216,6 +1226,12 @@ export class OrderService {
     if (createOrderDto.quantity <= 0) {
       throw new HttpException(
         'Quantity must be greater than 0',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!createOrderDto.isOnlineSale && !createOrderDto.table) {
+      throw new HttpException(
+        'Non-online orders require a table',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -3458,9 +3474,51 @@ export class OrderService {
           'table',
           'date _id name isOnlineSale finishHour type startHour',
         )
+        .lean()
         .exec();
 
-      return tableCollection;
+      const orderIds = Array.from(
+        new Set(
+          tableCollection
+            .flatMap((collection) => collection?.orders ?? [])
+            .map((orderEntry) => orderEntry?.order)
+            .filter(
+              (orderId): orderId is number => typeof orderId === 'number',
+            ),
+        ),
+      );
+
+      if (orderIds.length === 0) {
+        return tableCollection;
+      }
+
+      const orders = await this.orderModel
+        .find({ _id: { $in: orderIds } })
+        .select('_id item')
+        .populate({
+          path: 'item',
+          select: '_id name',
+        })
+        .lean()
+        .exec();
+
+      const orderMap = new Map(
+        orders.map((order) => [
+          order._id,
+          { _id: order._id, item: order.item },
+        ]),
+      );
+
+      return tableCollection.map((collection) => ({
+        ...collection,
+        orders: (collection?.orders ?? []).map((orderEntry) => ({
+          ...orderEntry,
+          order:
+            typeof orderEntry?.order === 'number'
+              ? orderMap.get(orderEntry.order) ?? orderEntry.order
+              : orderEntry.order,
+        })),
+      }));
     } catch (error) {
       throw new HttpException(
         "Failed to fetch given day's collections",
@@ -4023,6 +4081,56 @@ export class OrderService {
     this.websocketGateway.emitDiscountChanged();
     return discount;
   }
+
+  // retailer
+  async getAllRetailers() {
+    try {
+      return await this.retailerModel.find().sort({ _id: 1 }).lean().exec();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch retailers',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async createRetailer(user: User, createRetailerDto: CreateRetailerDto) {
+    const retailer = new this.retailerModel({
+      ...createRetailerDto,
+      orders: createRetailerDto.orders ?? [],
+    });
+    try {
+      await retailer.save();
+      this.websocketGateway.emitRetailerChanged();
+      return retailer;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateRetailer(user: User, id: number, updates: UpdateQuery<Retailer>) {
+    const retailer = await this.retailerModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitRetailerChanged();
+    return retailer;
+  }
+
+  async removeRetailer(user: User, id: number) {
+    const retailer = await this.retailerModel.findByIdAndRemove(id);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+    this.websocketGateway.emitRetailerChanged();
+    return retailer;
+  }
+
   async createOrderForDivide(
     user: User,
     orders: {

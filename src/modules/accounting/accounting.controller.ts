@@ -479,7 +479,7 @@ export class AccountingController {
   }
 
   @Get('/game-batches')
-  getGameBatches(@Query('location') location?: number) {
+  getGameBatches(@Query('location') location?: string) {
     return this.accountingService.getGameBatchesWithFIFO(location);
   }
 

@@ -326,6 +326,10 @@ export class AppWebSocketGateway {
     this.server.emit('rewardChanged');
   }
 
+  emitRetailerChanged() {
+    this.server.emit('retailerChanged');
+  }
+
   emitServiceChanged() {
     this.server.emit('serviceChanged');
   }

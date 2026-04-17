@@ -1,8 +1,13 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MenuService } from '../menu/menu.service';
+import {
+  PriceCompareLogStatus,
+  PriceCompareLogType,
+} from '../price-compare-log/price-compare-log.schema';
+import { PriceCompareLogService } from '../price-compare-log/price-compare-log.service';
 import { LocalComparison } from './local-comparison.schema';
 
 export interface SiteItemPrice {
@@ -37,6 +42,13 @@ export interface LocalComparisonSyncResult {
   inserted: number;
   updated: number;
   unchanged: number;
+  failedSites: number;
+  siteResults: SiteFetchResult[];
+}
+
+interface SiteFetchResult extends SiteItemsResponse {
+  success: boolean;
+  errorMessage?: string;
 }
 
 interface NeotroyAjaxResponse {
@@ -111,6 +123,8 @@ interface SimurgSearchProductsRequestBody {
 
 @Injectable()
 export class PriceCompareService {
+  private readonly logger = new Logger(PriceCompareService.name);
+
   private readonly neotroySiteName = 'neotroy';
   private readonly neotroyUrl =
     'https://neotroygames.com/kutu-oyunlari/?product_cat=tum-oyunlar';
@@ -216,6 +230,7 @@ export class PriceCompareService {
   constructor(
     private readonly httpService: HttpService,
     private readonly menuService: MenuService,
+    private readonly priceCompareLogService: PriceCompareLogService,
     @InjectModel(LocalComparison.name)
     private readonly localComparisonModel: Model<LocalComparison>,
   ) {}
@@ -481,22 +496,132 @@ export class PriceCompareService {
   }
 
   async fetchAllSiteItems(): Promise<SiteItemsResponse[]> {
-    // Add new website providers here and they will be merged into one hashmap.
-    const results = await Promise.allSettled([
-      this.fetchNeotroyItems(),
-      this.fetchKutugoItems(),
-      this.fetchDaVinciItems(),
-      this.fetchD20TabletopItems(),
-      this.fetchGoblinItems(),
-      this.fetchSimurgItems(),
-    ]);
+    const results = await this.fetchAllSiteItemsWithResults();
 
     return results
-      .filter(
-        (result): result is PromiseFulfilledResult<SiteItemsResponse> =>
-          result.status === 'fulfilled',
-      )
-      .map((result) => result.value);
+      .filter((result) => result.success)
+      .map(({ success, errorMessage, ...siteResult }) => siteResult);
+  }
+
+  async fetchAllSiteItemsWithResults(): Promise<SiteFetchResult[]> {
+    return await Promise.all([
+      this.fetchSiteItemsWithLogging(
+        this.neotroySiteName,
+        this.fetchNeotroyItems.bind(this),
+      ),
+      this.fetchSiteItemsWithLogging(
+        this.kutugoSiteName,
+        this.fetchKutugoItems.bind(this),
+      ),
+      this.fetchSiteItemsWithLogging(
+        this.daVinciSiteName,
+        this.fetchDaVinciItems.bind(this),
+      ),
+      this.fetchSiteItemsWithLogging(
+        this.d20TabletopSiteName,
+        this.fetchD20TabletopItems.bind(this),
+      ),
+      this.fetchSiteItemsWithLogging(
+        this.goblinSiteName,
+        this.fetchGoblinItems.bind(this),
+      ),
+      this.fetchSiteItemsWithLogging(
+        this.simurgSiteName,
+        this.fetchSimurgItems.bind(this),
+      ),
+    ]);
+  }
+
+  private async fetchSiteItemsWithLogging(
+    site: string,
+    fetcher: () => Promise<SiteItemsResponse>,
+  ): Promise<SiteFetchResult> {
+    const startedAt = Date.now();
+    let logId: number | null = null;
+
+    try {
+      const logEntry = await this.priceCompareLogService.createLog(
+        PriceCompareLogType.SITE,
+        site,
+        {
+          startedAt: new Date(startedAt),
+        },
+      );
+      logId = logEntry._id;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to create price compare log for ${site}: ${
+          error?.message || error
+        }`,
+      );
+    }
+
+    try {
+      const result = await fetcher();
+
+      if (logId) {
+        try {
+          await this.priceCompareLogService.updateLog(
+            logId,
+            {
+              site,
+              totalItems: result.totalItems,
+            },
+            PriceCompareLogStatus.SUCCESS,
+            undefined,
+            result.totalItems,
+            startedAt,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to update success log for ${site}: ${
+              error?.message || error
+            }`,
+          );
+        }
+      }
+
+      return {
+        ...result,
+        success: true,
+      };
+    } catch (error) {
+      const errorMessage = error?.message || 'Unknown error';
+
+      this.logger.error(
+        `Price compare site fetch failed for ${site}: ${errorMessage}`,
+      );
+
+      if (logId) {
+        try {
+          await this.priceCompareLogService.updateLog(
+            logId,
+            {
+              site,
+              errorMessage,
+            },
+            PriceCompareLogStatus.FAILED,
+            errorMessage,
+            0,
+            startedAt,
+          );
+        } catch (logError) {
+          this.logger.warn(
+            `Failed to update failed log for ${site}: ${
+              logError?.message || logError
+            }`,
+          );
+        }
+      }
+
+      return {
+        site,
+        totalItems: 0,
+        items: [],
+        success: false,
+        errorMessage,
+      };
+    }
   }
 
   async fetchLocalComparisonHashmap(): Promise<GlobalHashmapResponse> {
@@ -543,93 +668,184 @@ export class PriceCompareService {
   }
 
   async syncLocalComparisonToDb(): Promise<LocalComparisonSyncResult> {
-    const siteResults = await this.fetchAllSiteItems();
-    const allItems = siteResults.flatMap((result) => result.items);
-    const hashmap = this.buildPriceHashmap(allItems);
-    const keys = Object.keys(hashmap);
+    const runStartedAt = Date.now();
+    let runLogId: number | null = null;
 
-    const existingDocuments = await this.localComparisonModel
-      .find({ _id: { $in: keys } })
-      .select('_id name normalizedName prices')
-      .lean();
+    try {
+      const runLog = await this.priceCompareLogService.createLog(
+        PriceCompareLogType.CRON,
+        'daily-local-comparison-sync',
+        {
+          startedAt: new Date(runStartedAt),
+        },
+      );
+      runLogId = runLog._id;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to create price compare run log: ${error?.message || error}`,
+      );
+    }
 
-    const existingMap = new Map(
-      existingDocuments.map((document) => [document._id, document]),
-    );
+    try {
+      const siteResults = await this.fetchAllSiteItemsWithResults();
+      const allItems = siteResults.flatMap((result) => result.items);
+      const failedSites = siteResults.filter((result) => !result.success);
+      const hashmap = this.buildPriceHashmap(allItems);
+      const keys = Object.keys(hashmap);
 
-    const bulkOperations: any[] = [];
-    let inserted = 0;
-    let updated = 0;
-    let unchanged = 0;
+      const existingDocuments = await this.localComparisonModel
+        .find({ _id: { $in: keys } })
+        .select('_id name normalizedName prices')
+        .lean();
 
-    for (const [normalizedName, value] of Object.entries(hashmap)) {
-      const existing = existingMap.get(normalizedName) as
-        | {
-            name?: string;
-            normalizedName?: string;
-            prices?: Record<string, number>;
-          }
-        | undefined;
+      const existingMap = new Map(
+        existingDocuments.map((document) => [document._id, document]),
+      );
 
-      if (!existing) {
-        bulkOperations.push({
-          updateOne: {
-            filter: { _id: normalizedName },
-            update: {
-              $set: {
-                _id: normalizedName,
-                normalizedName,
-                name: value.name,
-                prices: value.prices,
-                lastSyncedAt: new Date(),
+      const bulkOperations: any[] = [];
+      let inserted = 0;
+      let updated = 0;
+      let unchanged = 0;
+
+      for (const [normalizedName, value] of Object.entries(hashmap)) {
+        const existing = existingMap.get(normalizedName) as
+          | {
+              name?: string;
+              normalizedName?: string;
+              prices?: Record<string, number>;
+            }
+          | undefined;
+
+        if (!existing) {
+          bulkOperations.push({
+            updateOne: {
+              filter: { _id: normalizedName },
+              update: {
+                $set: {
+                  _id: normalizedName,
+                  normalizedName,
+                  name: value.name,
+                  prices: value.prices,
+                  lastSyncedAt: new Date(),
+                },
               },
+              upsert: true,
             },
-            upsert: true,
-          },
-        });
-        inserted += 1;
-        continue;
-      }
+          });
+          inserted += 1;
+          continue;
+        }
 
-      const setUpdates: Record<string, unknown> = {};
+        const setUpdates: Record<string, unknown> = {};
 
-      if ((!existing.name || existing.name.trim() === '') && value.name) {
-        setUpdates.name = value.name;
-      }
+        if ((!existing.name || existing.name.trim() === '') && value.name) {
+          setUpdates.name = value.name;
+        }
 
-      for (const [site, price] of Object.entries(value.prices)) {
-        if (existing.prices?.[site] !== price) {
-          setUpdates[`prices.${site}`] = price;
+        for (const [site, price] of Object.entries(value.prices)) {
+          if (existing.prices?.[site] !== price) {
+            setUpdates[`prices.${site}`] = price;
+          }
+        }
+
+        if (Object.keys(setUpdates).length > 0) {
+          setUpdates.lastSyncedAt = new Date();
+          bulkOperations.push({
+            updateOne: {
+              filter: { _id: normalizedName },
+              update: { $set: setUpdates },
+            },
+          });
+          updated += 1;
+        } else {
+          unchanged += 1;
         }
       }
 
-      if (Object.keys(setUpdates).length > 0) {
-        setUpdates.lastSyncedAt = new Date();
-        bulkOperations.push({
-          updateOne: {
-            filter: { _id: normalizedName },
-            update: { $set: setUpdates },
-          },
+      if (bulkOperations.length > 0) {
+        await this.localComparisonModel.bulkWrite(bulkOperations, {
+          ordered: false,
         });
-        updated += 1;
-      } else {
-        unchanged += 1;
       }
-    }
 
-    if (bulkOperations.length > 0) {
-      await this.localComparisonModel.bulkWrite(bulkOperations, {
-        ordered: false,
-      });
-    }
+      const syncResult: LocalComparisonSyncResult = {
+        totalItems: allItems.length,
+        totalKeys: keys.length,
+        inserted,
+        updated,
+        unchanged,
+        failedSites: failedSites.length,
+        siteResults,
+      };
+      const summaryLogPayload = {
+        totalItems: syncResult.totalItems,
+        totalKeys: syncResult.totalKeys,
+        inserted: syncResult.inserted,
+        updated: syncResult.updated,
+        unchanged: syncResult.unchanged,
+        failedSites: syncResult.failedSites,
+        siteResults: siteResults.map(
+          ({ site, success, totalItems, errorMessage }) => ({
+            site,
+            success,
+            totalItems,
+            errorMessage,
+          }),
+        ),
+      };
 
-    return {
-      totalItems: allItems.length,
-      totalKeys: keys.length,
-      inserted,
-      updated,
-      unchanged,
-    };
+      if (runLogId) {
+        try {
+          await this.priceCompareLogService.updateLog(
+            runLogId,
+            summaryLogPayload,
+            failedSites.length > 0
+              ? PriceCompareLogStatus.PARTIAL_SUCCESS
+              : PriceCompareLogStatus.SUCCESS,
+            failedSites.length > 0
+              ? `Some site fetches failed: ${failedSites
+                  .map((result) => `${result.site}: ${result.errorMessage}`)
+                  .join('; ')}`
+              : undefined,
+            allItems.length,
+            runStartedAt,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to update price compare run log: ${
+              error?.message || error
+            }`,
+          );
+        }
+      }
+
+      return syncResult;
+    } catch (error) {
+      const errorMessage = error?.message || 'Unknown error';
+
+      if (runLogId) {
+        try {
+          await this.priceCompareLogService.updateLog(
+            runLogId,
+            {
+              errorMessage,
+            },
+            PriceCompareLogStatus.FAILED,
+            errorMessage,
+            0,
+            runStartedAt,
+          );
+        } catch (logError) {
+          this.logger.warn(
+            `Failed to mark price compare run log as failed: ${
+              logError?.message || logError
+            }`,
+          );
+        }
+      }
+
+      throw error;
+    }
   }
 
   async fetchNeotroyHashmap(): Promise<{

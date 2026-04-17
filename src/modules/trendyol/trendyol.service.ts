@@ -1062,6 +1062,7 @@ export class TrendyolService {
             trendyolShipmentPackageId: shipmentPackageId?.toString(),
             trendyolLineItemId: uniqueLineItemId,
             paymentMethod: 'trendyol',
+            isOnlineSale: true,
             ...(trendyolOrderNumber && {
               trendyolOrderNumber: trendyolOrderNumber.toString(),
             }),
