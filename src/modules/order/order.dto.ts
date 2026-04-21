@@ -364,11 +364,6 @@ export class CreateDiscountDto {
 export class CreateRetailerDto {
   @IsString()
   name: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsNumber({}, { each: true })
-  orders?: number[];
 }
 
 export class AddOrderToRetailerDto {

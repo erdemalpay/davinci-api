@@ -4105,16 +4105,8 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
-    const orderIds = retailer.orders ?? [];
-    if (orderIds.length === 0) {
-      return {
-        retailer: { _id: retailer._id, name: retailer.name },
-        groupedOrders: [],
-      };
-    }
-
     const filterQuery: Record<string, unknown> = {
-      _id: { $in: orderIds },
+      retailer: id,
     };
 
     const { after, before } = query;
@@ -4201,16 +4193,8 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
-    const orderIds = retailer.orders ?? [];
-    if (orderIds.length === 0) {
-      return {
-        retailer: { _id: retailer._id, name: retailer.name },
-        items: [],
-      };
-    }
-
     const filterQuery: Record<string, unknown> = {
-      _id: { $in: orderIds },
+      retailer: id,
     };
 
     const { after, before } = query;
@@ -4299,10 +4283,7 @@ export class OrderService {
   }
 
   async createRetailer(user: User, createRetailerDto: CreateRetailerDto) {
-    const retailer = new this.retailerModel({
-      ...createRetailerDto,
-      orders: createRetailerDto.orders ?? [],
-    });
+    const retailer = new this.retailerModel(createRetailerDto);
     try {
       await retailer.save();
       this.websocketGateway.emitRetailerChanged();
@@ -4327,10 +4308,17 @@ export class OrderService {
   }
 
   async removeRetailer(user: User, id: number) {
-    const retailer = await this.retailerModel.findByIdAndRemove(id);
+    const retailer = await this.retailerModel.findById(id);
     if (!retailer) {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
+
+    await this.orderModel.updateMany(
+      { retailer: id },
+      { $unset: { retailer: 1 } },
+    );
+
+    await retailer.deleteOne();
     this.websocketGateway.emitRetailerChanged();
     return retailer;
   }
@@ -4346,20 +4334,23 @@ export class OrderService {
       throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
     }
 
-    if (retailer.orders && retailer.orders.includes(orderId)) {
+    if (order.retailer === retailerId) {
       throw new HttpException(
         'Order already exists in retailer',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    if (!retailer.orders) {
-      retailer.orders = [];
+    if (order.retailer && order.retailer !== retailerId) {
+      throw new HttpException(
+        'Order already linked to another retailer',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    retailer.orders.push(orderId);
 
     try {
-      await retailer.save();
+      order.retailer = retailerId;
+      await order.save();
       this.websocketGateway.emitRetailerChanged();
       return retailer;
     } catch (error) {
@@ -4380,17 +4371,19 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
-    if (!retailer.orders || !retailer.orders.includes(orderId)) {
+    const order = await this.orderModel.findById(orderId);
+    if (!order || order.retailer !== retailerId) {
       throw new HttpException(
         'Order not found in retailer',
         HttpStatus.NOT_FOUND,
       );
     }
 
-    retailer.orders = retailer.orders.filter((id) => id !== orderId);
-
     try {
-      await retailer.save();
+      await this.orderModel.updateOne(
+        { _id: orderId, retailer: retailerId },
+        { $unset: { retailer: 1 } },
+      );
       this.websocketGateway.emitRetailerChanged();
       return retailer;
     } catch (error) {
@@ -4422,26 +4415,39 @@ export class OrderService {
       );
     }
 
-    if (!retailer.orders) {
-      retailer.orders = [];
+    const alreadyLinkedIds = orders
+      .filter((order) => order.retailer === retailerId)
+      .map((order) => order._id);
+
+    const linkedToOtherRetailerIds = orders
+      .filter((order) => order.retailer && order.retailer !== retailerId)
+      .map((order) => order._id);
+
+    if (linkedToOtherRetailerIds.length > 0) {
+      throw new HttpException(
+        'One or more orders are already linked to another retailer',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    // Skip orders already linked to retailer and add only new ones.
     const newOrderIds = uniqueOrderIds.filter(
-      (orderId) => !retailer.orders.includes(orderId),
+      (orderId) =>
+        !alreadyLinkedIds.includes(orderId) &&
+        !linkedToOtherRetailerIds.includes(orderId),
     );
 
-    if (newOrderIds.length > 0) {
-      retailer.orders.push(...newOrderIds);
-    }
-
     try {
-      await retailer.save();
+      if (newOrderIds.length > 0) {
+        await this.orderModel.updateMany(
+          { _id: { $in: newOrderIds } },
+          { $set: { retailer: retailerId } },
+        );
+      }
       this.websocketGateway.emitRetailerChanged();
       return {
         retailer,
         added: newOrderIds.length,
-        skipped: uniqueOrderIds.length - newOrderIds.length,
+        skipped: alreadyLinkedIds.length,
       };
     } catch (error) {
       throw new HttpException(
@@ -4461,23 +4467,20 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
-    if (!retailer.orders || retailer.orders.length === 0) {
-      throw new HttpException('Retailer has no orders', HttpStatus.BAD_REQUEST);
-    }
-
-    const initialCount = retailer.orders.length;
-    retailer.orders = retailer.orders.filter((id) => !orderIds.includes(id));
-    const removedCount = initialCount - retailer.orders.length;
-
-    if (removedCount === 0) {
-      throw new HttpException(
-        'None of the specified orders found in retailer',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     try {
-      await retailer.save();
+      const result = await this.orderModel.updateMany(
+        { _id: { $in: orderIds }, retailer: retailerId },
+        { $unset: { retailer: 1 } },
+      );
+
+      const removedCount = result.modifiedCount ?? 0;
+      if (removedCount === 0) {
+        throw new HttpException(
+          'None of the specified orders found in retailer',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       this.websocketGateway.emitRetailerChanged();
       return {
         retailer,
