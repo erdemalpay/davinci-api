@@ -106,7 +106,7 @@ export class TableController {
   @RaceConditionLockDecorator({
     key: (req) => {
       const { tableDto } = req.body as { tableDto: TableDto };
-      if (tableDto.type === TableTypes.TAKEOUT) {
+      if (tableDto?.type === TableTypes.TAKEOUT) {
         return [];
       }
       const names = [
