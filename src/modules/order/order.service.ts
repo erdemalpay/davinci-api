@@ -54,6 +54,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
+  RetailerOrdersQueryDto,
   SummaryCollectionQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
@@ -4098,11 +4099,191 @@ export class OrderService {
     }
   }
 
+  async getRetailerOrders(id: number, query: RetailerOrdersQueryDto) {
+    const retailer = await this.retailerModel.findById(id).lean();
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    const filterQuery: Record<string, unknown> = {
+      retailer: id,
+    };
+
+    const { after, before } = query;
+    const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+    if (after) {
+      let startUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
+        const [y, m, d] = after.split('-').map(Number);
+        const istStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+        startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(after);
+        startUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = { $gte: startUtc };
+    }
+
+    if (before) {
+      let endUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
+        const [y, m, d] = before.split('-').map(Number);
+        const istEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+        endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(before);
+        endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = {
+        ...(typeof filterQuery.tableDate === 'object' &&
+        filterQuery.tableDate !== null
+          ? filterQuery.tableDate
+          : {}),
+        $lte: endUtc,
+      };
+    }
+
+    try {
+      const orders = await this.orderModel
+        .find(filterQuery)
+        .populate('item')
+        .populate('kitchen')
+        .populate(
+          'table',
+          'date _id name isOnlineSale finishHour type startHour',
+        )
+        .sort({ tableDate: -1, createdAt: -1 })
+        .lean()
+        .exec();
+
+      const groupedOrdersMap = new Map<string, typeof orders>();
+
+      for (const order of orders) {
+        const groupingDate = order.tableDate ?? order.createdAt;
+        const dateKey = format(new Date(groupingDate), 'yyyy-MM-dd');
+
+        if (!groupedOrdersMap.has(dateKey)) {
+          groupedOrdersMap.set(dateKey, []);
+        }
+        groupedOrdersMap.get(dateKey)?.push(order);
+      }
+
+      const groupedOrders = Array.from(groupedOrdersMap.entries())
+        .sort(([firstDate], [secondDate]) =>
+          secondDate.localeCompare(firstDate),
+        )
+        .map(([date, dateOrders]) => ({ date, orders: dateOrders }));
+
+      return {
+        retailer: { _id: retailer._id, name: retailer.name },
+        groupedOrders,
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch retailer orders',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getRetailerItemSummary(id: number, query: RetailerOrdersQueryDto) {
+    const retailer = await this.retailerModel.findById(id).lean();
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    const filterQuery: Record<string, unknown> = {
+      retailer: id,
+    };
+
+    const { after, before } = query;
+    const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+    if (after) {
+      let startUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(after)) {
+        const [y, m, d] = after.split('-').map(Number);
+        const istStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+        startUtc = new Date(istStart.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(after);
+        startUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = { $gte: startUtc };
+    }
+
+    if (before) {
+      let endUtc: Date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
+        const [y, m, d] = before.split('-').map(Number);
+        const istEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+        endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
+      } else {
+        const dt = new Date(before);
+        endUtc = new Date(dt.getTime() - IST_OFFSET_MS);
+      }
+      filterQuery.tableDate = {
+        ...(typeof filterQuery.tableDate === 'object' &&
+        filterQuery.tableDate !== null
+          ? filterQuery.tableDate
+          : {}),
+        $lte: endUtc,
+      };
+    }
+
+    try {
+      const items = await this.orderModel
+        .aggregate([
+          {
+            $match: {
+              ...filterQuery,
+              quantity: { $gt: 0 },
+            },
+          },
+          {
+            $group: {
+              _id: '$item',
+              orderedQuantity: { $sum: '$quantity' },
+              orderedCount: { $sum: 1 },
+            },
+          },
+          {
+            $lookup: {
+              from: 'menuitems',
+              localField: '_id',
+              foreignField: '_id',
+              as: 'item',
+            },
+          },
+          { $unwind: '$item' },
+          {
+            $project: {
+              _id: 0,
+              itemId: '$item._id',
+              itemName: '$item.name',
+              orderedQuantity: 1,
+              orderedCount: 1,
+            },
+          },
+          { $sort: { orderedQuantity: -1, itemName: 1 } },
+        ])
+        .exec();
+
+      return {
+        retailer: { _id: retailer._id, name: retailer.name },
+        items,
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch retailer item summary',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async createRetailer(user: User, createRetailerDto: CreateRetailerDto) {
-    const retailer = new this.retailerModel({
-      ...createRetailerDto,
-      orders: createRetailerDto.orders ?? [],
-    });
+    const retailer = new this.retailerModel(createRetailerDto);
     try {
       await retailer.save();
       this.websocketGateway.emitRetailerChanged();
@@ -4127,12 +4308,190 @@ export class OrderService {
   }
 
   async removeRetailer(user: User, id: number) {
-    const retailer = await this.retailerModel.findByIdAndRemove(id);
+    const retailer = await this.retailerModel.findById(id);
     if (!retailer) {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
+
+    await this.orderModel.updateMany(
+      { retailer: id },
+      { $unset: { retailer: 1 } },
+    );
+
+    await retailer.deleteOne();
     this.websocketGateway.emitRetailerChanged();
     return retailer;
+  }
+
+  async addOrderToRetailer(user: User, retailerId: number, orderId: number) {
+    const retailer = await this.retailerModel.findById(retailerId);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    const order = await this.orderModel.findById(orderId);
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (order.retailer === retailerId) {
+      throw new HttpException(
+        'Order already exists in retailer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (order.retailer && order.retailer !== retailerId) {
+      throw new HttpException(
+        'Order already linked to another retailer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      order.retailer = retailerId;
+      await order.save();
+      this.websocketGateway.emitRetailerChanged();
+      return retailer;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to add order to retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async removeOrderFromRetailer(
+    user: User,
+    retailerId: number,
+    orderId: number,
+  ) {
+    const retailer = await this.retailerModel.findById(retailerId);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    const order = await this.orderModel.findById(orderId);
+    if (!order || order.retailer !== retailerId) {
+      throw new HttpException(
+        'Order not found in retailer',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    try {
+      await this.orderModel.updateOne(
+        { _id: orderId, retailer: retailerId },
+        { $unset: { retailer: 1 } },
+      );
+      this.websocketGateway.emitRetailerChanged();
+      return retailer;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to remove order from retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async bulkAddOrdersToRetailer(
+    user: User,
+    retailerId: number,
+    orderIds: number[],
+  ) {
+    const retailer = await this.retailerModel.findById(retailerId);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    const uniqueOrderIds = Array.from(new Set(orderIds));
+
+    // Verify all requested order IDs exist in order collection.
+    const orders = await this.orderModel.find({ _id: { $in: uniqueOrderIds } });
+    if (orders.length !== uniqueOrderIds.length) {
+      throw new HttpException(
+        'One or more orders not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const alreadyLinkedIds = orders
+      .filter((order) => order.retailer === retailerId)
+      .map((order) => order._id);
+
+    const linkedToOtherRetailerIds = orders
+      .filter((order) => order.retailer && order.retailer !== retailerId)
+      .map((order) => order._id);
+
+    if (linkedToOtherRetailerIds.length > 0) {
+      throw new HttpException(
+        'One or more orders are already linked to another retailer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const newOrderIds = uniqueOrderIds.filter(
+      (orderId) =>
+        !alreadyLinkedIds.includes(orderId) &&
+        !linkedToOtherRetailerIds.includes(orderId),
+    );
+
+    try {
+      if (newOrderIds.length > 0) {
+        await this.orderModel.updateMany(
+          { _id: { $in: newOrderIds } },
+          { $set: { retailer: retailerId } },
+        );
+      }
+      this.websocketGateway.emitRetailerChanged();
+      return {
+        retailer,
+        added: newOrderIds.length,
+        skipped: alreadyLinkedIds.length,
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to add orders to retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async bulkRemoveOrdersFromRetailer(
+    user: User,
+    retailerId: number,
+    orderIds: number[],
+  ) {
+    const retailer = await this.retailerModel.findById(retailerId);
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      const result = await this.orderModel.updateMany(
+        { _id: { $in: orderIds }, retailer: retailerId },
+        { $unset: { retailer: 1 } },
+      );
+
+      const removedCount = result.modifiedCount ?? 0;
+      if (removedCount === 0) {
+        throw new HttpException(
+          'None of the specified orders found in retailer',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      this.websocketGateway.emitRetailerChanged();
+      return {
+        retailer,
+        removed: removedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to remove orders from retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async createOrderForDivide(

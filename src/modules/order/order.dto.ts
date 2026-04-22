@@ -364,11 +364,28 @@ export class CreateDiscountDto {
 export class CreateRetailerDto {
   @IsString()
   name: string;
+}
 
-  @IsOptional()
+export class AddOrderToRetailerDto {
+  @IsNumber()
+  orderId: number;
+}
+
+export class RemoveOrderFromRetailerDto {
+  @IsNumber()
+  orderId: number;
+}
+
+export class BulkAddOrdersToRetailerDto {
   @IsArray()
   @IsNumber({}, { each: true })
-  orders?: number[];
+  orderIds: number[];
+}
+
+export class BulkRemoveOrdersFromRetailerDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  orderIds: number[];
 }
 
 export enum OrderDiscountStatus {
@@ -482,6 +499,17 @@ export class CollectionQueryDto {
   @IsString()
   hepsiburadaOrderNumber?: string;
 }
+
+export class RetailerOrdersQueryDto {
+  @IsOptional()
+  @IsString()
+  after?: string;
+
+  @IsOptional()
+  @IsString()
+  before?: string;
+}
+
 export class SummaryCollectionQueryDto {
   @IsOptional()
   @IsString()

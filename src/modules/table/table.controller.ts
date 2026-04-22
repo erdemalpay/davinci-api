@@ -26,6 +26,7 @@ import {
   TableDto,
   TableResponse,
   TableStatus,
+  TableTypes,
 } from './table.dto';
 import { TableService } from './table.service';
 
@@ -105,6 +106,9 @@ export class TableController {
   @RaceConditionLockDecorator({
     key: (req) => {
       const { tableDto } = req.body as { tableDto: TableDto };
+      if (tableDto?.type === TableTypes.TAKEOUT) {
+        return [];
+      }
       const names = [
         ...new Set(
           [tableDto.name, ...(tableDto.tables || [])].filter(Boolean),

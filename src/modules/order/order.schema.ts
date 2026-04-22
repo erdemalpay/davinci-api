@@ -237,6 +237,9 @@ export class Order extends Document {
 
   @Prop({ required: false, type: String })
   hepsiburadaLineItemSku: string;
+
+  @Prop({ required: false, type: Number, ref: 'Retailer' })
+  retailer?: number;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
@@ -246,15 +249,23 @@ OrderSchema.index(
 );
 OrderSchema.index(
   { shopifyOrderLineItemId: 1 },
-  { unique: true, partialFilterExpression: { shopifyOrderLineItemId: { $type: 'string' } } },
+  {
+    unique: true,
+    partialFilterExpression: { shopifyOrderLineItemId: { $type: 'string' } },
+  },
 );
 OrderSchema.index(
   { trendyolLineItemId: 1 },
-  { unique: true, partialFilterExpression: { trendyolLineItemId: { $type: 'string' } } },
+  {
+    unique: true,
+    partialFilterExpression: { trendyolLineItemId: { $type: 'string' } },
+  },
 );
 OrderSchema.index(
   { trendyolShipmentPackageId: 1 },
-  { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
+  {
+    partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } },
+  },
 );
 OrderSchema.index(
   { hepsiburadaOrderNumber: 1 },
@@ -262,8 +273,12 @@ OrderSchema.index(
 );
 OrderSchema.index(
   { hepsiburadaLineItemId: 1 },
-  { unique: true, partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } } },
+  {
+    unique: true,
+    partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } },
+  },
 );
+OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });
 
 // Indexes for frequent queries - optimized to reduce write overhead
 // For findQueryOrders() - tableDate range queries with location (most common)
