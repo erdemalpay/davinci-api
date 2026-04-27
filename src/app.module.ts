@@ -15,6 +15,7 @@ import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
+import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
@@ -91,6 +92,7 @@ const modules = [
   AccountingModule,
   CheckoutModule,
   CustomerPopupModule,
+  MonthlyActivityModule,
   EventSurveyModule,
   ConsumerModule,
   PanelControlModule,
