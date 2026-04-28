@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
+import { AiModule } from './modules/ai/ai.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
@@ -62,6 +63,7 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 
 const modules = [
   ConfigModule.forRoot({ isGlobal: true }),
+  AiModule,
   ScheduleModule.forRoot(),
   WebSocketModule, // Centralized WebSocket gateway
   ActivityModule,
