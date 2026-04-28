@@ -55,14 +55,16 @@ export class ConcurrencyTrackerInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       finalize(() => {
-        const current = this.inFlight.get(key);
-        if (current) {
-          const idx = current.indexOf(entry);
-          if (idx !== -1) current.splice(idx, 1);
-          if (current.length === 0) {
-            this.inFlight.delete(key);
+        setTimeout(() => {
+          const current = this.inFlight.get(key);
+          if (current) {
+            const idx = current.indexOf(entry);
+            if (idx !== -1) current.splice(idx, 1);
+            if (current.length === 0) {
+              this.inFlight.delete(key);
+            }
           }
-        }
+        }, 500);
       }),
     );
   }
