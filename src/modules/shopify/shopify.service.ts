@@ -2215,7 +2215,7 @@ export class ShopifyService {
             status: OrderStatus.AUTOSERVED,
             stockLocation: 6, //TO-DO BURAYA 1444. SATIRDAKI BLOKTAN LOKASYON ID'SINI ALAMADIGIMIZ ICIN 6 GIRDIK, DAHA SONRA DUZELTILECEK
             createdAt: new Date(data?.created_at || new Date()),
-            tableDate: new Date(),
+            tableDate: new Date(), //bu branch masterin 28.04.2026 / 10:00'daki yedegidir
             createdBy: constantUser?._id,
             stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
             shopifyOrderId: data?.id?.toString(),
