@@ -53,6 +53,20 @@ export class AssetController {
     return this.assetService.uploadImage(file.buffer, filename, foldername);
   }
 
+  @Post('upload/popup')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 * 5 },
+    }),
+  )
+  uploadPopupFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('filename') filename: string,
+    @Body('foldername') foldername: string,
+  ) {
+    return this.assetService.uploadPopupImage(file.buffer, filename, foldername);
+  }
+
   @Post('uploads')
   @UseInterceptors(
     FilesInterceptor('files', 250, {
