@@ -53,7 +53,7 @@ export class AssetController {
     return this.assetService.uploadImage(file.buffer, filename, foldername);
   }
 
-  @Post('upload/popup')
+  @Post('upload/original')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 1024 * 1024 * 5 },
