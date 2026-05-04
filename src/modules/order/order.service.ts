@@ -380,7 +380,6 @@ export class OrderService {
           'table',
           'date _id name isOnlineSale finishHour type startHour',
         )
-        .populate('shopifyCustomer', 'firstName lastName email')
         .sort({ createdAt: -1 })
         .exec();
       return orders;
@@ -4150,18 +4149,39 @@ export class OrderService {
     try {
       const collections = await this.collectionModel
         .find(filterQuery)
-        .populate({
-          path: 'orders.order',
-          populate: {
-            path: 'item',
-          },
-        })
         .sort({ createdAt: -1 })
+        .lean()
         .exec();
+
+      // Fetch all order IDs and populate them with items
+      const orderIds = Array.from(
+        new Set(
+          collections
+            .flatMap((col) => col.orders ?? [])
+            .map((orderEntry) => orderEntry.order),
+        ),
+      );
+
+      const orders = await this.orderModel
+        .find({ _id: { $in: orderIds } })
+        .populate('item')
+        .lean()
+        .exec();
+
+      const orderMap = new Map(orders.map((order) => [order._id, order]));
+
+      // Reconstruct collections with populated orders
+      const enrichedCollections = collections.map((collection) => ({
+        ...collection,
+        orders: collection.orders.map((orderEntry) => ({
+          ...orderEntry,
+          order: orderMap.get(orderEntry.order),
+        })),
+      }));
 
       return {
         retailer: { _id: retailer._id, name: retailer.name },
-        collections,
+        collections: enrichedCollections,
       };
     } catch (error) {
       throw new HttpException(
@@ -4269,7 +4289,6 @@ export class OrderService {
           { $sort: { orderedQuantity: -1, itemName: 1 } },
         ])
         .exec();
-
       return {
         retailer: { _id: retailer._id, name: retailer.name },
         items,
