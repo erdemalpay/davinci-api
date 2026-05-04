@@ -366,27 +366,34 @@ export class CreateRetailerDto {
   name: string;
 }
 
-export class AddOrderToRetailerDto {
+export class AddCollectionToRetailerDto {
   @IsNumber()
-  orderId: number;
+  collectionId: number;
 }
 
-export class RemoveOrderFromRetailerDto {
+export class RemoveCollectionFromRetailerDto {
   @IsNumber()
-  orderId: number;
+  collectionId: number;
 }
 
-export class BulkAddOrdersToRetailerDto {
+export class BulkAddCollectionsToRetailerDto {
   @IsArray()
   @IsNumber({}, { each: true })
-  orderIds: number[];
+  collectionIds: number[];
 }
 
-export class BulkRemoveOrdersFromRetailerDto {
+export class BulkRemoveCollectionsFromRetailerDto {
   @IsArray()
   @IsNumber({}, { each: true })
-  orderIds: number[];
+  collectionIds: number[];
 }
+
+// Backward compatibility aliases
+export type AddOrderToRetailerDto = AddCollectionToRetailerDto;
+export type RemoveOrderFromRetailerDto = RemoveCollectionFromRetailerDto;
+export type BulkAddOrdersToRetailerDto = BulkAddCollectionsToRetailerDto;
+export type BulkRemoveOrdersFromRetailerDto =
+  BulkRemoveCollectionsFromRetailerDto;
 
 export enum OrderDiscountStatus {
   DELETED = 'deleted',
@@ -498,6 +505,10 @@ export class CollectionQueryDto {
   @IsOptional()
   @IsString()
   hepsiburadaOrderNumber?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isShopify?: boolean;
 }
 
 export class RetailerOrdersQueryDto {
