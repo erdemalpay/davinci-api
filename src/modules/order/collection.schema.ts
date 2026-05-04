@@ -91,6 +91,9 @@ export class Collection extends Document {
 
   @Prop({ required: false, type: Date })
   tableDate: Date;
+
+  @Prop({ required: false, type: Number, ref: 'Retailer' })
+  retailer?: number;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
@@ -107,7 +110,9 @@ CollectionSchema.index({ status: 1, location: 1 });
 // For Trendyol shipment package queries
 CollectionSchema.index(
   { trendyolShipmentPackageId: 1 },
-  { partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } } },
+  {
+    partialFilterExpression: { trendyolShipmentPackageId: { $type: 'string' } },
+  },
 );
 // For Hepsiburada order number queries
 CollectionSchema.index(
