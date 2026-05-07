@@ -5,10 +5,15 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { getBggThing } from 'bgg-xml-api-client';
 import { Model, UpdateQuery } from 'mongoose';
 import { mapGames } from 'src/lib/mappers';
 import { getItems } from 'src/lib/mongo';
-import { getGameDetails } from '../../lib/bgg';
+import {
+  ensureBggHeaders,
+  getGameDetails,
+  searchBggGames,
+} from '../../lib/bgg';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -40,7 +45,7 @@ export class GameService {
   }
 
   getGames() {
-    return this.gameModel.find();
+    return this.gameModel.find().populate('bggId');
   }
 
   async getGamesMinimal() {
@@ -75,7 +80,7 @@ export class GameService {
   }
 
   getGameById(gameId: number) {
-    return this.gameModel.findById(gameId);
+    return this.gameModel.findById(gameId).populate('bggId');
   }
 
   async getGameDetails(gameId: number) {
@@ -89,15 +94,17 @@ export class GameService {
   }
 
   async addGameByDetails(gameDetails: GameDto) {
-    const game = await this.gameModel.create(gameDetails);
+    const game = await (
+      await this.gameModel.create(gameDetails)
+    ).populate('bggId');
     this.websocketGateway.emitGameChanged();
     return game;
   }
 
   async update(id: number, gameDetails: UpdateQuery<Game>) {
-    const game = await this.gameModel.findByIdAndUpdate(id, gameDetails, {
-      new: true,
-    });
+    const game = await this.gameModel
+      .findByIdAndUpdate(id, gameDetails, { new: true })
+      .populate('bggId');
     this.websocketGateway.emitGameChanged();
     return game;
   }
@@ -117,6 +124,193 @@ export class GameService {
   async getBggGamesOnly() {
     return this.bggGameModel.find();
   }
+
+  async getBggCandidates(gameId: number, query?: string) {
+    const game = await this.gameModel
+      .findById(gameId)
+      .select('_id name bggId')
+      .lean();
+
+    if (!game) {
+      throw new HttpException(
+        `Oyun bulunamadı: ${gameId}`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const searchQuery = query?.trim() || game.name;
+    const candidates = await searchBggGames(searchQuery, 8);
+
+    return {
+      gameId: Number(game._id),
+      gameName: game.name,
+      searchedWith: searchQuery,
+      currentBggId: game.bggId ?? null,
+      candidates,
+    };
+  }
+
+  private val(v: any): number | undefined {
+    return v?.value !== undefined && v.value !== 'N/A'
+      ? Number(v.value)
+      : undefined;
+  }
+
+  async assignBggId(gameId: number, bggId: number) {
+    let bggGame = await this.bggGameModel.findById(bggId).lean();
+    const isIncomplete = bggGame && bggGame.playersMin === undefined;
+
+    if (!bggGame || isIncomplete) {
+      let response;
+      try {
+        ensureBggHeaders();
+        response = await getBggThing({ id: bggId, stats: 1 } as any);
+      } catch {
+        if (!bggGame) {
+          throw new HttpException(
+            `BGG'de oyun bulunamadı: ${bggId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+      }
+
+      if (response) {
+        const raw = response.data?.item;
+        const item = Array.isArray(raw) ? raw[0] : raw;
+
+        if (!item && !bggGame) {
+          throw new HttpException(
+            `BGG'de oyun bulunamadı: ${bggId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        if (item) {
+          const ratings = item.statistics?.ratings;
+          const names = Array.isArray(item.name) ? item.name : [item.name];
+          const primaryName =
+            names.find((n: any) => n?.type === 'primary')?.value ??
+            names[0]?.value ??
+            bggGame?.name;
+
+          await this.bggGameModel.updateOne(
+            { _id: bggId },
+            {
+              $set: {
+                name: primaryName,
+                playersMin: this.val(item.minplayers),
+                playersMax: this.val(item.maxplayers),
+                playingTime: this.val(item.playingtime),
+                playTimeMin: this.val(item.minplaytime),
+                playTimeMax: this.val(item.maxplaytime),
+                geekRating: this.val(ratings?.bayesaverage),
+                avgWeight: this.val(ratings?.averageweight),
+                avgRating: this.val(ratings?.average),
+                ratingVotes: this.val(ratings?.usersrated),
+              },
+            },
+            { upsert: true },
+          );
+
+          bggGame = (await this.bggGameModel.findById(bggId).lean()) as any;
+        }
+      }
+    }
+
+    const game = await this.gameModel.findByIdAndUpdate(
+      gameId,
+      { $set: { bggId } },
+      { new: true },
+    );
+
+    if (!game) {
+      throw new HttpException(
+        `Oyun bulunamadı: ${gameId}`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return {
+      gameId: Number(game._id),
+      gameName: game.name,
+      bggId,
+      bggName: bggGame.name,
+      addedToBggCollection: true,
+    };
+  }
+
+  async refetchMissingBggData() {
+    const gamesWithBggId = await this.gameModel
+      .find({ bggId: { $exists: true, $ne: null } })
+      .select('bggId')
+      .lean();
+
+    const bggIds = gamesWithBggId.map((g) => Number(g.bggId));
+
+    const incomplete = await this.bggGameModel
+      .find({ _id: { $in: bggIds }, playersMin: { $exists: false } })
+      .select('_id name')
+      .lean();
+
+    const updated: { id: number; name: string }[] = [];
+    const failed: { id: number; name: string }[] = [];
+
+    for (const bggGame of incomplete) {
+      try {
+        ensureBggHeaders();
+        const response = await getBggThing({
+          id: Number(bggGame._id),
+          stats: 1,
+        } as any);
+
+        const raw = response.data?.item;
+        const item = Array.isArray(raw) ? raw[0] : raw;
+
+        if (!item) {
+          failed.push({ id: Number(bggGame._id), name: bggGame.name });
+          continue;
+        }
+
+        const ratings = item.statistics?.ratings;
+
+        await this.bggGameModel.updateOne(
+          { _id: Number(bggGame._id) },
+          {
+            $set: {
+              playersMin: this.val(item.minplayers),
+              playersMax: this.val(item.maxplayers),
+              playingTime: this.val(item.playingtime),
+              playTimeMin: this.val(item.minplaytime),
+              playTimeMax: this.val(item.maxplaytime),
+              geekRating: this.val(ratings?.bayesaverage),
+              avgWeight: this.val(ratings?.averageweight),
+              avgRating: this.val(ratings?.average),
+              ratingVotes: this.val(ratings?.usersrated),
+            },
+          },
+        );
+
+        updated.push({ id: Number(bggGame._id), name: bggGame.name });
+
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      } catch (err) {
+        console.error(
+          `BGG refetch failed for ${bggGame._id} (${bggGame.name}):`,
+          (err as any)?.message ?? err,
+        );
+        failed.push({ id: Number(bggGame._id), name: bggGame.name });
+      }
+    }
+
+    return {
+      total: incomplete.length,
+      updatedCount: updated.length,
+      failedCount: failed.length,
+      updated,
+      failed,
+    };
+  }
+
   async getBggGamesAutocompleteOptions() {
     const games = await this.bggGameModel.find().select('name -_id').lean();
     return games.map((game) => ({ value: game.name }));

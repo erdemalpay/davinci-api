@@ -34,6 +34,7 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 davinci-data
+bgg-data-20260413.json
 
 .env
 config

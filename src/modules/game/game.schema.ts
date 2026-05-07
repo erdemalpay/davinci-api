@@ -23,6 +23,9 @@ export class Game extends Document {
 
   @Prop({ required: false, type: Number })
   narrationDurationPoint: number;
+
+  @Prop({ required: false, type: Number, ref: 'BggGame', index: true })
+  bggId: number;
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);
