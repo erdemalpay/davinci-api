@@ -49,6 +49,17 @@ interface ShopifyToken {
   createdAt: number;
 }
 
+interface WebhookLogUpdateParams {
+  webhookLog: any;
+  response: any;
+  httpStatus: number;
+  status: WebhookStatus;
+  startTime: number;
+  shopifyId?: string;
+  message?: string;
+  orderIds?: number[];
+}
+
 @Injectable()
 export class ShopifyService {
   private readonly logger = new Logger(ShopifyService.name);
@@ -148,6 +159,69 @@ export class ShopifyService {
     const currentTime = new Date().getTime();
     // Add 5 minute buffer before expiration
     return currentTime >= expiresAt - 5 * 60 * 1000;
+  }
+
+  private updateWebhookLogInBackground({
+    webhookLog,
+    response,
+    httpStatus,
+    status,
+    startTime,
+    shopifyId,
+    message,
+    orderIds,
+  }: WebhookLogUpdateParams) {
+    if (!webhookLog) {
+      return;
+    }
+
+    void this.webhookLogService
+      .updateWebhookResponse(
+        webhookLog._id,
+        response,
+        httpStatus,
+        status,
+        message,
+        orderIds,
+        shopifyId,
+        startTime,
+      )
+      .catch((error) => {
+        this.logger.error('Error updating webhook log:', error);
+        void this.markWebhookLogAsFailed(
+          webhookLog,
+          error,
+          shopifyId,
+          startTime,
+        );
+      });
+  }
+
+  private async markWebhookLogAsFailed(
+    webhookLog: any,
+    error: any,
+    shopifyId: string | undefined,
+    startTime: number,
+  ) {
+    try {
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        {
+          error: `Update failed: ${error?.message || 'Unknown error'}`,
+        },
+        500,
+        WebhookStatus.FAILED,
+        `Failed to update webhook log: ${error?.message || 'Unknown error'}`,
+        undefined,
+        shopifyId,
+        startTime,
+      );
+    } catch (markFailedError) {
+      this.logger.error(
+        'Failed to mark webhook log as failed:',
+        markFailedError,
+      );
+    }
   }
 
   private async getToken(): Promise<string> {
@@ -2065,23 +2139,15 @@ export class ShopifyService {
           orderIds: [],
         };
 
-        // Update webhook log (fire-and-forget)
-        if (webhookLog) {
-          this.webhookLogService
-            .updateWebhookResponse(
-              webhookLog._id,
-              response,
-              HttpStatus.OK,
-              WebhookStatus.ORDER_NOT_CREATED,
-              'No line items to process',
-              undefined,
-              data?.id?.toString(),
-              startTime,
-            )
-            .catch((error) => {
-              this.logger.error('Error updating webhook log:', error);
-            });
-        }
+        this.updateWebhookLogInBackground({
+          webhookLog,
+          response,
+          httpStatus: HttpStatus.OK,
+          status: WebhookStatus.ORDER_NOT_CREATED,
+          message: 'No line items to process',
+          shopifyId: data?.id?.toString(),
+          startTime,
+        });
 
         return response;
       }
@@ -2148,23 +2214,15 @@ export class ShopifyService {
           orderIds: [],
         };
 
-        // Update webhook log (fire-and-forget)
-        if (webhookLog) {
-          this.webhookLogService
-            .updateWebhookResponse(
-              webhookLog._id,
-              response,
-              HttpStatus.OK,
-              WebhookStatus.ORDER_NOT_CREATED,
-              `Financial status: ${data?.financial_status}`,
-              undefined,
-              data?.id?.toString(),
-              startTime,
-            )
-            .catch((error) => {
-              this.logger.error('Error updating webhook log:', error);
-            });
-        }
+        this.updateWebhookLogInBackground({
+          webhookLog,
+          response,
+          httpStatus: HttpStatus.OK,
+          status: WebhookStatus.ORDER_NOT_CREATED,
+          message: `Financial status: ${data?.financial_status}`,
+          shopifyId: data?.id?.toString(),
+          startTime,
+        });
 
         return response;
       }
@@ -2436,91 +2494,30 @@ export class ShopifyService {
         orderIds,
       };
 
-      // Update webhook log (fire-and-forget)
-      if (webhookLog) {
-        this.webhookLogService
-          .updateWebhookResponse(
-            webhookLog._id,
-            response,
-            HttpStatus.OK,
-            status,
-            orderIds.length === 0 ? 'No orders were created' : undefined,
-            orderIds.length > 0 ? orderIds : undefined,
-            data?.id?.toString(),
-            startTime,
-          )
-          .catch(async (error) => {
-            this.logger.error('Error updating webhook log:', error);
-            // Mark as failed if update fails
-            try {
-              await this.webhookLogService.updateWebhookResponse(
-                webhookLog._id,
-                {
-                  error: `Update failed: ${error?.message || 'Unknown error'}`,
-                },
-                500,
-                WebhookStatus.FAILED,
-                `Failed to update webhook log: ${
-                  error?.message || 'Unknown error'
-                }`,
-                undefined,
-                data?.id?.toString(),
-                startTime,
-              );
-            } catch (markFailedError) {
-              this.logger.error(
-                'Failed to mark webhook log as failed:',
-                markFailedError,
-              );
-            }
-          });
-      }
+      this.updateWebhookLogInBackground({
+        webhookLog,
+        response,
+        httpStatus: HttpStatus.OK,
+        status,
+        message: orderIds.length === 0 ? 'No orders were created' : undefined,
+        orderIds: orderIds.length > 0 ? orderIds : undefined,
+        shopifyId: data?.id?.toString(),
+        startTime,
+      });
 
       return response;
     } catch (error) {
       this.logError('Error in orderCreateWebHook', error);
 
-      // Update webhook log with error response (fire-and-forget)
-      if (webhookLog) {
-        this.webhookLogService
-          .updateWebhookResponse(
-            webhookLog._id,
-            { error: error?.message || 'Unknown error' },
-            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-            WebhookStatus.ERROR,
-            error?.message || 'Unknown error',
-            undefined,
-            undefined,
-            startTime,
-          )
-          .catch(async (logError) => {
-            this.logger.error('Error updating webhook log:', logError);
-            // Mark as failed if update fails
-            try {
-              await this.webhookLogService.updateWebhookResponse(
-                webhookLog._id,
-                {
-                  error: `Update failed: ${
-                    logError?.message || 'Unknown error'
-                  }`,
-                },
-                500,
-                WebhookStatus.FAILED,
-                `Failed to update webhook log: ${
-                  logError?.message || 'Unknown error'
-                }`,
-                undefined,
-                data?.id?.toString(),
-                startTime,
-              );
-            } catch (markFailedError) {
-              this.logger.error(
-                'Failed to mark webhook log as failed:',
-                markFailedError,
-              );
-            }
-          });
-      }
+      this.updateWebhookLogInBackground({
+        webhookLog,
+        response: { error: error?.message || 'Unknown error' },
+        httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        status: WebhookStatus.ERROR,
+        message: error?.message || 'Unknown error',
+        shopifyId: data?.id?.toString(),
+        startTime,
+      });
 
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
@@ -2629,90 +2626,28 @@ export class ShopifyService {
         cancellationsProcessed,
       };
 
-      if (webhookLog) {
-        this.webhookLogService
-          .updateWebhookResponse(
-            webhookLog._id,
-            response,
-            HttpStatus.OK,
-            WebhookStatus.SUCCESS,
-            undefined,
-            undefined,
-            data?.id?.toString(),
-            startTime,
-          )
-          .catch(async (error) => {
-            this.logger.error('Error updating webhook log:', error);
-            // Mark as failed if update fails
-            try {
-              await this.webhookLogService.updateWebhookResponse(
-                webhookLog._id,
-                {
-                  error: `Update failed: ${error?.message || 'Unknown error'}`,
-                },
-                500,
-                WebhookStatus.FAILED,
-                `Failed to update webhook log: ${
-                  error?.message || 'Unknown error'
-                }`,
-                undefined,
-                data?.id?.toString(),
-                startTime,
-              );
-            } catch (markFailedError) {
-              this.logger.error(
-                'Failed to mark webhook log as failed:',
-                markFailedError,
-              );
-            }
-          });
-      }
+      this.updateWebhookLogInBackground({
+        webhookLog,
+        response,
+        httpStatus: HttpStatus.OK,
+        status: WebhookStatus.SUCCESS,
+        shopifyId: data?.id?.toString(),
+        startTime,
+      });
 
       return response;
     } catch (error) {
       this.logError('Error in orderCancelWebHook', error);
 
-      // Update webhook log with error response (fire-and-forget)
-      if (webhookLog) {
-        this.webhookLogService
-          .updateWebhookResponse(
-            webhookLog._id,
-            { error: error?.message || 'Unknown error' },
-            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-            WebhookStatus.ERROR,
-            error?.message || 'Unknown error',
-            undefined,
-            undefined,
-            startTime,
-          )
-          .catch(async (logError) => {
-            this.logger.error('Error updating webhook log:', logError);
-            // Mark as failed if update fails
-            try {
-              await this.webhookLogService.updateWebhookResponse(
-                webhookLog._id,
-                {
-                  error: `Update failed: ${
-                    logError?.message || 'Unknown error'
-                  }`,
-                },
-                500,
-                WebhookStatus.FAILED,
-                `Failed to update webhook log: ${
-                  logError?.message || 'Unknown error'
-                }`,
-                undefined,
-                data?.id?.toString(),
-                startTime,
-              );
-            } catch (markFailedError) {
-              this.logger.error(
-                'Failed to mark webhook log as failed:',
-                markFailedError,
-              );
-            }
-          });
-      }
+      this.updateWebhookLogInBackground({
+        webhookLog,
+        response: { error: error?.message || 'Unknown error' },
+        httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        status: WebhookStatus.ERROR,
+        message: error?.message || 'Unknown error',
+        shopifyId: data?.id?.toString(),
+        startTime,
+      });
 
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
