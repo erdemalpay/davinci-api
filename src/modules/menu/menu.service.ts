@@ -1818,12 +1818,31 @@ export class MenuService {
       return;
     }
 
-    if (isOpen) {
-      if (!item.locations.includes(changedLocationId)) {
-        await this.openItemLocation(item._id, changedLocationId);
+    const allLocations = await this.locationService.findAllLocations();
+    const stocks = await this.accountingService.findProductStock(productId);
+
+    const locationsToCheck = allLocations.filter(
+      (loc) =>
+        loc._id === changedLocationId ||
+        loc.fallbackStockLocation === changedLocationId,
+    );
+
+    for (const loc of locationsToCheck) {
+      if (!category.locations.includes(loc._id)) continue;
+
+      const ownStock =
+        stocks.find((s) => s.location === loc._id)?.quantity ?? 0;
+      const fallbackStock =
+        stocks.find((s) => s.location === loc.fallbackStockLocation)
+          ?.quantity ?? 0;
+      const shouldBeOpen = ownStock > 0 || fallbackStock > 0;
+      const isCurrentlyOpen = item.locations.includes(loc._id);
+
+      if (shouldBeOpen && !isCurrentlyOpen) {
+        await this.openItemLocation(item._id, loc._id);
+      } else if (!shouldBeOpen && isCurrentlyOpen) {
+        await this.closeItemLocation(item._id, loc._id);
       }
-    } else {
-      await this.closeItemLocation(item._id, changedLocationId);
     }
   }
 }
