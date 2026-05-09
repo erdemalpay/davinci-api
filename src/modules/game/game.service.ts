@@ -156,6 +156,17 @@ export class GameService {
       : undefined;
   }
 
+  private async fetchBggItem(
+    id: number,
+  ): Promise<{ item: any; ratings: any } | null> {
+    ensureBggHeaders();
+    const response = await getBggThing({ id, stats: 1 } as any);
+    const raw = response.data?.item;
+    const item = Array.isArray(raw) ? raw[0] : raw;
+    if (!item) return null;
+    return { item, ratings: item.statistics?.ratings };
+  }
+
   private buildBggSetFields(item: any, ratings: any, name?: string) {
     return {
       ...(name !== undefined ? { name } : {}),
@@ -176,10 +187,9 @@ export class GameService {
     const isIncomplete = bggGame && bggGame.playersMin === undefined;
 
     if (!bggGame || isIncomplete) {
-      let response;
+      let fetched: { item: any; ratings: any } | null = null;
       try {
-        ensureBggHeaders();
-        response = await getBggThing({ id: bggId, stats: 1 } as any);
+        fetched = await this.fetchBggItem(bggId);
       } catch {
         if (!bggGame) {
           throw new HttpException(
@@ -189,33 +199,26 @@ export class GameService {
         }
       }
 
-      if (response) {
-        const raw = response.data?.item;
-        const item = Array.isArray(raw) ? raw[0] : raw;
+      if (fetched) {
+        const { item, ratings } = fetched;
+        const names = Array.isArray(item.name) ? item.name : [item.name];
+        const primaryName =
+          names.find((n: any) => n?.type === 'primary')?.value ??
+          names[0]?.value ??
+          bggGame?.name;
 
-        if (!item && !bggGame) {
-          throw new HttpException(
-            `BGG'de oyun bulunamadı: ${bggId}`,
-            HttpStatus.NOT_FOUND,
-          );
-        }
+        await this.bggGameModel.updateOne(
+          { _id: bggId },
+          { $set: this.buildBggSetFields(item, ratings, primaryName) },
+          { upsert: true },
+        );
 
-        if (item) {
-          const ratings = item.statistics?.ratings;
-          const names = Array.isArray(item.name) ? item.name : [item.name];
-          const primaryName =
-            names.find((n: any) => n?.type === 'primary')?.value ??
-            names[0]?.value ??
-            bggGame?.name;
-
-          await this.bggGameModel.updateOne(
-            { _id: bggId },
-            { $set: this.buildBggSetFields(item, ratings, primaryName) },
-            { upsert: true },
-          );
-
-          bggGame = (await this.bggGameModel.findById(bggId).lean()) as any;
-        }
+        bggGame = (await this.bggGameModel.findById(bggId).lean()) as any;
+      } else if (!bggGame) {
+        throw new HttpException(
+          `BGG'de oyun bulunamadı: ${bggId}`,
+          HttpStatus.NOT_FOUND,
+        );
       }
     }
 
@@ -259,21 +262,14 @@ export class GameService {
 
     for (const bggGame of incomplete) {
       try {
-        ensureBggHeaders();
-        const response = await getBggThing({
-          id: Number(bggGame._id),
-          stats: 1,
-        } as any);
+        const fetched = await this.fetchBggItem(Number(bggGame._id));
 
-        const raw = response.data?.item;
-        const item = Array.isArray(raw) ? raw[0] : raw;
-
-        if (!item) {
+        if (!fetched) {
           failed.push({ id: Number(bggGame._id), name: bggGame.name });
           continue;
         }
 
-        const ratings = item.statistics?.ratings;
+        const { item, ratings } = fetched;
 
         await this.bggGameModel.updateOne(
           { _id: Number(bggGame._id) },
