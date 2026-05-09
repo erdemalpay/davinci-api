@@ -535,16 +535,20 @@ export class ShopifyService {
     const items = await this.menuService.findAllItems();
     const shopify = await this.getAllProducts();
 
+    const itemsByProduct = new Map(
+      items
+        .filter((item) => item.matchedProduct)
+        .map((item) => [item.matchedProduct, item]),
+    );
+    const shopifyById = new Map(shopify.map((p) => [p.id, p]));
+
     return games.map((game) => {
       const foundMenuItem = game.product
-        ? items.find((item) => item.matchedProduct === game.product)
+        ? itemsByProduct.get(game.product)
         : undefined;
 
       const foundShopifyProduct = foundMenuItem?.shopifyId
-        ? shopify.find(
-            (product) =>
-              product.id === `gid://shopify/Product/${foundMenuItem.shopifyId}`,
-          )
+        ? shopifyById.get(`gid://shopify/Product/${foundMenuItem.shopifyId}`)
         : undefined;
 
       const shopifyPrice =

@@ -156,6 +156,21 @@ export class GameService {
       : undefined;
   }
 
+  private buildBggSetFields(item: any, ratings: any, name?: string) {
+    return {
+      ...(name !== undefined ? { name } : {}),
+      playersMin: this.val(item.minplayers),
+      playersMax: this.val(item.maxplayers),
+      playingTime: this.val(item.playingtime),
+      playTimeMin: this.val(item.minplaytime),
+      playTimeMax: this.val(item.maxplaytime),
+      geekRating: this.val(ratings?.bayesaverage),
+      avgWeight: this.val(ratings?.averageweight),
+      avgRating: this.val(ratings?.average),
+      ratingVotes: this.val(ratings?.usersrated),
+    };
+  }
+
   async assignBggId(gameId: number, bggId: number) {
     let bggGame = await this.bggGameModel.findById(bggId).lean();
     const isIncomplete = bggGame && bggGame.playersMin === undefined;
@@ -195,20 +210,7 @@ export class GameService {
 
           await this.bggGameModel.updateOne(
             { _id: bggId },
-            {
-              $set: {
-                name: primaryName,
-                playersMin: this.val(item.minplayers),
-                playersMax: this.val(item.maxplayers),
-                playingTime: this.val(item.playingtime),
-                playTimeMin: this.val(item.minplaytime),
-                playTimeMax: this.val(item.maxplaytime),
-                geekRating: this.val(ratings?.bayesaverage),
-                avgWeight: this.val(ratings?.averageweight),
-                avgRating: this.val(ratings?.average),
-                ratingVotes: this.val(ratings?.usersrated),
-              },
-            },
+            { $set: this.buildBggSetFields(item, ratings, primaryName) },
             { upsert: true },
           );
 
@@ -275,19 +277,7 @@ export class GameService {
 
         await this.bggGameModel.updateOne(
           { _id: Number(bggGame._id) },
-          {
-            $set: {
-              playersMin: this.val(item.minplayers),
-              playersMax: this.val(item.maxplayers),
-              playingTime: this.val(item.playingtime),
-              playTimeMin: this.val(item.minplaytime),
-              playTimeMax: this.val(item.maxplaytime),
-              geekRating: this.val(ratings?.bayesaverage),
-              avgWeight: this.val(ratings?.averageweight),
-              avgRating: this.val(ratings?.average),
-              ratingVotes: this.val(ratings?.usersrated),
-            },
-          },
+          { $set: this.buildBggSetFields(item, ratings) },
         );
 
         updated.push({ id: Number(bggGame._id), name: bggGame.name });
