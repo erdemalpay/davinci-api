@@ -224,6 +224,31 @@ export class ShopifyService {
     }
   }
 
+  private handleWebhookError(
+    error: any,
+    context: string,
+    webhookLog: any,
+    data: any,
+    startTime: number,
+  ): never {
+    this.logError(context, error);
+
+    this.updateWebhookLogInBackground({
+      webhookLog,
+      response: { error: error?.message || 'Unknown error' },
+      httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      status: WebhookStatus.ERROR,
+      message: error?.message || 'Unknown error',
+      shopifyId: data?.id?.toString(),
+      startTime,
+    });
+
+    throw new HttpException(
+      `Error processing webhook: ${error?.message || 'Unknown error'}`,
+      error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+
   private async getToken(): Promise<string> {
     let shopifyToken: ShopifyToken | null = await this.redisService.get(
       RedisKeys.ShopifyToken,
@@ -2511,22 +2536,7 @@ export class ShopifyService {
 
       return response;
     } catch (error) {
-      this.logError('Error in orderCreateWebHook', error);
-
-      this.updateWebhookLogInBackground({
-        webhookLog,
-        response: { error: error?.message || 'Unknown error' },
-        httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-        status: WebhookStatus.ERROR,
-        message: error?.message || 'Unknown error',
-        shopifyId: data?.id?.toString(),
-        startTime,
-      });
-
-      throw new HttpException(
-        `Error processing webhook: ${error?.message || 'Unknown error'}`,
-        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleWebhookError(error, 'Error in orderCreateWebHook', webhookLog, data, startTime);
     }
   }
 
@@ -2641,22 +2651,7 @@ export class ShopifyService {
 
       return response;
     } catch (error) {
-      this.logError('Error in orderCancelWebHook', error);
-
-      this.updateWebhookLogInBackground({
-        webhookLog,
-        response: { error: error?.message || 'Unknown error' },
-        httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-        status: WebhookStatus.ERROR,
-        message: error?.message || 'Unknown error',
-        shopifyId: data?.id?.toString(),
-        startTime,
-      });
-
-      throw new HttpException(
-        `Error processing webhook: ${error?.message || 'Unknown error'}`,
-        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleWebhookError(error, 'Error in orderCancelWebHook', webhookLog, data, startTime);
     }
   }
 
