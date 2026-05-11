@@ -31,6 +31,9 @@ export class Discount extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   isVisibleOnPaymentScreen: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isMemberDiscount: boolean;
+
   @Prop({ required: false, type: String })
   status: string;
 }
