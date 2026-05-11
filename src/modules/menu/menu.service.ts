@@ -1820,6 +1820,7 @@ export class MenuService {
 
     const allLocations = await this.locationService.findAllLocations();
     const stocks = await this.accountingService.findProductStock(productId);
+    const stockMap = new Map(stocks.map((s) => [s.location, s.quantity]));
 
     const locationsToCheck = allLocations.filter(
       (loc) =>
@@ -1827,22 +1828,36 @@ export class MenuService {
         loc.fallbackStockLocation === changedLocationId,
     );
 
+    const locationsToOpen: number[] = [];
+    const locationsToClose: number[] = [];
+
     for (const loc of locationsToCheck) {
       if (!category.locations.includes(loc._id)) continue;
 
-      const ownStock =
-        stocks.find((s) => s.location === loc._id)?.quantity ?? 0;
-      const fallbackStock =
-        stocks.find((s) => s.location === loc.fallbackStockLocation)
-          ?.quantity ?? 0;
+      const ownStock = stockMap.get(loc._id) ?? 0;
+      const fallbackStock = stockMap.get(loc.fallbackStockLocation) ?? 0;
       const shouldBeOpen = ownStock > 0 || fallbackStock > 0;
       const isCurrentlyOpen = item.locations.includes(loc._id);
 
       if (shouldBeOpen && !isCurrentlyOpen) {
-        await this.openItemLocation(item._id, loc._id);
+        locationsToOpen.push(loc._id);
       } else if (!shouldBeOpen && isCurrentlyOpen) {
-        await this.closeItemLocation(item._id, loc._id);
+        locationsToClose.push(loc._id);
       }
+    }
+
+    if (locationsToOpen.length > 0) {
+      await this.itemModel.findByIdAndUpdate(item._id, {
+        $push: { locations: { $each: locationsToOpen } },
+      });
+    }
+    if (locationsToClose.length > 0) {
+      await this.itemModel.findByIdAndUpdate(item._id, {
+        $pull: { locations: { $in: locationsToClose } },
+      });
+    }
+    if (locationsToOpen.length > 0 || locationsToClose.length > 0) {
+      this.websocketGateway.emitItemChanged();
     }
   }
 }
