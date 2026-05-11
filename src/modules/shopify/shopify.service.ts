@@ -572,8 +572,11 @@ export class ShopifyService {
         ? itemsByProduct.get(game.product)
         : undefined;
 
-      const foundShopifyProduct = foundMenuItem?.shopifyId
-        ? shopifyById.get(`gid://shopify/Product/${foundMenuItem.shopifyId}`)
+      const shopifyProductGid = foundMenuItem?.shopifyId
+        ? this.formatShopifyId('Product', foundMenuItem.shopifyId)
+        : undefined;
+      const foundShopifyProduct = shopifyProductGid
+        ? shopifyById.get(shopifyProductGid)
         : undefined;
 
       const shopifyPrice =
@@ -581,11 +584,13 @@ export class ShopifyService {
       const shopifyUrl = foundShopifyProduct?.handle
         ? `https://kutuoyunual.com/products/${foundShopifyProduct.handle}`
         : null;
+      const onlineStoreUrl = foundShopifyProduct?.onlineStoreUrl ?? shopifyUrl;
 
       return {
         ...game.toObject(),
         shopifyPrice,
         shopifyUrl,
+        onlineStoreUrl,
       };
     });
   }
@@ -609,6 +614,7 @@ export class ShopifyService {
                 title
                 description
                 handle
+                onlineStoreUrl
                 status
                 productType
                 vendor
@@ -2536,7 +2542,13 @@ export class ShopifyService {
 
       return response;
     } catch (error) {
-      this.handleWebhookError(error, 'Error in orderCreateWebHook', webhookLog, data, startTime);
+      this.handleWebhookError(
+        error,
+        'Error in orderCreateWebHook',
+        webhookLog,
+        data,
+        startTime,
+      );
     }
   }
 
@@ -2651,7 +2663,13 @@ export class ShopifyService {
 
       return response;
     } catch (error) {
-      this.handleWebhookError(error, 'Error in orderCancelWebHook', webhookLog, data, startTime);
+      this.handleWebhookError(
+        error,
+        'Error in orderCancelWebHook',
+        webhookLog,
+        data,
+        startTime,
+      );
     }
   }
 
