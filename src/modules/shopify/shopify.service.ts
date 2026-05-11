@@ -1103,34 +1103,21 @@ export class ShopifyService {
     }
   }
 
-  async updateProductStock(
+  private async resolveInventoryContext(
     variantId: string,
     stockLocationId: number,
-    stockCount: number,
-    isInvalidateProductCache = true,
-  ): Promise<boolean> {
+  ): Promise<{ inventoryItemId: string; locationId: string } | null> {
     if (!variantId) {
-      this.logError('variantId is required for Shopify stock update', {
-        variantId,
-        stockLocationId,
-        stockCount,
-      });
-      return false;
+      this.logError('variantId is required for inventory operation', { variantId, stockLocationId });
+      return null;
     }
 
-    const foundLocation = await this.locationService.findLocationById(
-      stockLocationId,
-    );
+    const foundLocation = await this.locationService.findLocationById(stockLocationId);
     if (!foundLocation.shopifyId) {
-      this.logger.log(
-        `Stock Location with ID ${stockLocationId} does not have shopify id`,
-      );
-      return;
+      this.logger.log(`Stock Location with ID ${stockLocationId} does not have shopify id`);
+      return null;
     }
 
-    const locationId = foundLocation.shopifyId;
-
-    // First, get the inventoryItemId from the variant
     const variantQuery = `
       query GetVariant($id: ID!) {
         productVariant(id: $id) {
@@ -1142,14 +1129,11 @@ export class ShopifyService {
       }
     `;
 
-    let inventoryItemId: string;
     try {
       const variantResponse = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
         return await client.request(variantQuery, {
-          variables: {
-            id: this.formatShopifyId('ProductVariant', variantId),
-          },
+          variables: { id: this.formatShopifyId('ProductVariant', variantId) },
         });
       });
 
@@ -1157,13 +1141,24 @@ export class ShopifyService {
         this.handleGraphQLErrors(variantResponse);
       }
 
-      inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
+      return {
+        inventoryItemId: variantResponse.data.productVariant.inventoryItem.id,
+        locationId: foundLocation.shopifyId,
+      };
     } catch (error) {
-      this.logError('Error fetching variant', error);
-      // Don't throw exception, just log the error
-      // This allows the main flow to continue even if Shopify update fails
-      return false;
+      this.logError('Error fetching variant for inventory operation', error);
+      return null;
     }
+  }
+
+  async updateProductStock(
+    variantId: string,
+    stockLocationId: number,
+    stockCount: number,
+    isInvalidateProductCache = true,
+  ): Promise<boolean> {
+    const ctx = await this.resolveInventoryContext(variantId, stockLocationId);
+    if (!ctx) return false;
 
     const mutation = `
       mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!) {
@@ -1185,8 +1180,8 @@ export class ShopifyService {
               reason: 'correction',
               setQuantities: [
                 {
-                  inventoryItemId: inventoryItemId,
-                  locationId: this.formatShopifyId('Location', locationId),
+                  inventoryItemId: ctx.inventoryItemId,
+                  locationId: this.formatShopifyId('Location', ctx.locationId),
                   quantity: stockCount,
                 },
               ],
@@ -1196,10 +1191,7 @@ export class ShopifyService {
       });
 
       try {
-        this.handleGraphQLErrors(
-          response,
-          'data.inventorySetOnHandQuantities.userErrors',
-        );
+        this.handleGraphQLErrors(response, 'data.inventorySetOnHandQuantities.userErrors');
       } catch (error) {
         this.logError('Failed to update stock', error);
         return false;
@@ -1209,70 +1201,25 @@ export class ShopifyService {
       if (isInvalidateProductCache) {
         await this.websocketGateway.emitShopifyProductStockChanged();
       }
-
       return true;
     } catch (error) {
       this.logError('Error updating stock', error);
-      // Don't throw exception, just log the error
-      // This allows the main flow to continue even if Shopify update fails
       return false;
     }
   }
 
+  // Sets "available" directly; Shopify recalculates on_hand = available + committed.
+  // Use this instead of updateProductStock when syncing from internal stock changes
+  // so that pending Shopify orders (committed) are not incorrectly subtracted from on_hand.
   async setProductAvailableStock(
     variantId: string,
     stockLocationId: number,
     stockCount: number,
     isInvalidateProductCache = true,
   ): Promise<boolean> {
-    if (!variantId) {
-      this.logError('variantId is required for Shopify available stock update', {
-        variantId,
-        stockLocationId,
-        stockCount,
-      });
-      return false;
-    }
+    const ctx = await this.resolveInventoryContext(variantId, stockLocationId);
+    if (!ctx) return false;
 
-    const foundLocation = await this.locationService.findLocationById(stockLocationId);
-    if (!foundLocation.shopifyId) {
-      this.logger.log(`Stock Location with ID ${stockLocationId} does not have shopify id`);
-      return false;
-    }
-
-    const locationId = foundLocation.shopifyId;
-
-    const variantQuery = `
-      query GetVariant($id: ID!) {
-        productVariant(id: $id) {
-          id
-          inventoryItem {
-            id
-          }
-        }
-      }
-    `;
-
-    let inventoryItemId: string;
-    try {
-      const variantResponse = await this.executeGraphQLRequest(async () => {
-        const client = await this.getGraphQLClient();
-        return await client.request(variantQuery, {
-          variables: { id: this.formatShopifyId('ProductVariant', variantId) },
-        });
-      });
-
-      if (!variantResponse.data.productVariant) {
-        this.handleGraphQLErrors(variantResponse);
-      }
-
-      inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
-    } catch (error) {
-      this.logError('Error fetching variant for available stock update', error);
-      return false;
-    }
-
-    // inventorySetQuantities sets "available" directly; Shopify recalculates on_hand = available + committed
     const mutation = `
       mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
         inventorySetQuantities(input: $input) {
@@ -1302,8 +1249,8 @@ export class ShopifyService {
               ignoreCompareQuantity: true,
               quantities: [
                 {
-                  inventoryItemId: inventoryItemId,
-                  locationId: this.formatShopifyId('Location', locationId),
+                  inventoryItemId: ctx.inventoryItemId,
+                  locationId: this.formatShopifyId('Location', ctx.locationId),
                   quantity: stockCount,
                 },
               ],
@@ -1323,7 +1270,6 @@ export class ShopifyService {
       if (isInvalidateProductCache) {
         await this.websocketGateway.emitShopifyProductStockChanged();
       }
-
       return true;
     } catch (error) {
       this.logError('Error setting available stock', error);
