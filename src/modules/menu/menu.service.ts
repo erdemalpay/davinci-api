@@ -31,6 +31,7 @@ import { TrendyolService } from './../trendyol/trendyol.service';
 import { MenuCategory } from './category.schema';
 import { MenuItem, PriceHistory } from './item.schema';
 import { Kitchen } from './kitchen.schema';
+import { normalizeAdditionalCategories } from './menu-item.util';
 import {
   CreateBulkItemDto,
   CreateCategoryDto,
@@ -39,7 +40,6 @@ import {
   CreatePopularDto,
   CreateUpperCategoryDto,
 } from './menu.dto';
-import { normalizeAdditionalCategories } from './menu-item.util';
 import { Popular } from './popular.schema';
 import { UpperCategory } from './upperCategory.schema';
 
@@ -304,7 +304,10 @@ export class MenuService {
 
   async findItemsInCategoryArray(categories: number[]) {
     return this.itemModel.find({
-      category: { $in: categories },
+      $or: [
+        { category: { $in: categories } },
+        { additionalCategories: { $in: categories } },
+      ],
       deleted: { $ne: true },
     });
   }
@@ -1019,12 +1022,12 @@ export class MenuService {
       updates.category !== undefined
         ? Number(updates.category)
         : typeof item.category === 'number'
-          ? item.category
-          : (item.category as MenuCategory)._id;
+        ? item.category
+        : (item.category as MenuCategory)._id;
     const additionalSource =
       updates.additionalCategories !== undefined
         ? (updates.additionalCategories as number[])
-        : (item.additionalCategories ?? []);
+        : item.additionalCategories ?? [];
     updates.additionalCategories = normalizeAdditionalCategories(
       primaryCategoryId,
       additionalSource,
