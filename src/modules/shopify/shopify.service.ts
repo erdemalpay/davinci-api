@@ -1113,8 +1113,8 @@ export class ShopifyService {
     }
 
     const foundLocation = await this.locationService.findLocationById(stockLocationId);
-    if (!foundLocation.shopifyId) {
-      this.logger.log(`Stock Location with ID ${stockLocationId} does not have shopify id`);
+    if (!foundLocation?.shopifyId) {
+      this.logger.log(`Stock Location with ID ${stockLocationId} not found or does not have shopify id`);
       return null;
     }
 
@@ -1137,8 +1137,9 @@ export class ShopifyService {
         });
       });
 
-      if (!variantResponse.data.productVariant) {
+      if (!variantResponse.data?.productVariant) {
         this.handleGraphQLErrors(variantResponse);
+        return null;
       }
 
       return {
