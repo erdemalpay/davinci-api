@@ -2199,7 +2199,10 @@ export class AccountingService {
         .split('/')
         .pop();
 
-      await this.shopifyService.updateProductStock(
+      // Set "available" directly so Shopify recalculates on_hand = available + committed.
+      // Using updateProductStock (sets on_hand) would cause available = localStock - committed, which is wrong
+      // when there are pending (committed) Shopify orders.
+      await this.shopifyService.setProductAvailableStock(
         variantId,
         location,
         quantity,

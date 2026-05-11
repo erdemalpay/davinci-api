@@ -1219,6 +1219,118 @@ export class ShopifyService {
     }
   }
 
+  async setProductAvailableStock(
+    variantId: string,
+    stockLocationId: number,
+    stockCount: number,
+    isInvalidateProductCache = true,
+  ): Promise<boolean> {
+    if (!variantId) {
+      this.logError('variantId is required for Shopify available stock update', {
+        variantId,
+        stockLocationId,
+        stockCount,
+      });
+      return false;
+    }
+
+    const foundLocation = await this.locationService.findLocationById(stockLocationId);
+    if (!foundLocation.shopifyId) {
+      this.logger.log(`Stock Location with ID ${stockLocationId} does not have shopify id`);
+      return false;
+    }
+
+    const locationId = foundLocation.shopifyId;
+
+    const variantQuery = `
+      query GetVariant($id: ID!) {
+        productVariant(id: $id) {
+          id
+          inventoryItem {
+            id
+          }
+        }
+      }
+    `;
+
+    let inventoryItemId: string;
+    try {
+      const variantResponse = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(variantQuery, {
+          variables: { id: this.formatShopifyId('ProductVariant', variantId) },
+        });
+      });
+
+      if (!variantResponse.data.productVariant) {
+        this.handleGraphQLErrors(variantResponse);
+      }
+
+      inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
+    } catch (error) {
+      this.logError('Error fetching variant for available stock update', error);
+      return false;
+    }
+
+    // inventorySetQuantities sets "available" directly; Shopify recalculates on_hand = available + committed
+    const mutation = `
+      mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+        inventorySetQuantities(input: $input) {
+          inventoryAdjustmentGroup {
+            reason
+            changes {
+              name
+              delta
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              reason: 'correction',
+              name: 'available',
+              ignoreCompareQuantity: true,
+              quantities: [
+                {
+                  inventoryItemId: inventoryItemId,
+                  locationId: this.formatShopifyId('Location', locationId),
+                  quantity: stockCount,
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      try {
+        this.handleGraphQLErrors(response, 'data.inventorySetQuantities.userErrors');
+      } catch (error) {
+        this.logError('Failed to set available stock', error);
+        return false;
+      }
+
+      this.logger.log('Available stock set successfully.');
+      if (isInvalidateProductCache) {
+        await this.websocketGateway.emitShopifyProductStockChanged();
+      }
+
+      return true;
+    } catch (error) {
+      this.logError('Error setting available stock', error);
+      return false;
+    }
+  }
+
   async updateProductImages(itemId: number): Promise<void> {
     const item = await this.menuService.findItemById(itemId);
     if (!item) {
@@ -2700,14 +2812,16 @@ export class ShopifyService {
                   continue;
                 }
 
-                await this.updateProductStock(
+                // Set "available" directly so Shopify recalculates on_hand = available + committed.
+                // This ensures pending Shopify orders (committed) don't cause on_hand to be understated.
+                await this.setProductAvailableStock(
                   variantId,
                   stock.location,
                   stock.quantity,
                   false,
                 );
                 this.logger.log(
-                  `Stock updated for product ${item.shopifyId}, location ${stock.location}`,
+                  `Available stock set for product ${item.shopifyId}, location ${stock.location}`,
                 );
               }
             } catch (stockError) {
