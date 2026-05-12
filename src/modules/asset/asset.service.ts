@@ -141,6 +141,35 @@ export class AssetService {
     }
   }
 
+  uploadPopupImage = async (
+    buffer: Buffer,
+    fileName: string,
+    foldername: string,
+  ) => {
+    const options = {
+      public_id: fileName,
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true,
+      folder: foldername,
+      transformation: {
+        crop: 'scale',
+        width: 800,
+      },
+    };
+
+    return new Promise((resolve, reject) => {
+      const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+        options,
+        function (error, result) {
+          if (error) reject(error);
+          resolve(result);
+        },
+      );
+      streamifier.createReadStream(buffer).pipe(cld_upload_stream);
+    });
+  };
+
   deleteImage = async (url) => {
     try {
       // Step 1: Decode the URL
