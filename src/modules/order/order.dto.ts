@@ -353,6 +353,10 @@ export class CreateDiscountDto {
   isVisibleOnPaymentScreen?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isMemberDiscount?: boolean;
+
+  @IsOptional()
   @IsString()
   status?: string;
 
