@@ -10,83 +10,77 @@ export class BggGame extends Document {
   @Prop({ required: true, index: true })
   name: string;
 
-  @Prop({ type: Number, required: true })
-  GameId: number;
-
-  @Prop({ required: true })
-  Name: string;
+  @Prop({ type: Number })
+  playersMin: number;
 
   @Prop({ type: Number })
-  PlayersMin: number;
+  playersMax: number;
 
   @Prop({ type: Number })
-  PlayersMax: number;
+  playingTime: number;
 
   @Prop({ type: Number })
-  PlayingTime: number;
+  playTimeMin: number;
 
   @Prop({ type: Number })
-  PlayTimeMin: number;
+  playTimeMax: number;
 
   @Prop({ type: Number })
-  PlayTimeMax: number;
+  langDep: number;
 
   @Prop({ type: Number })
-  LangDep: number;
+  yearPublished: number;
 
   @Prop({ type: Number })
-  YearPublished: number;
+  overallRank: number;
 
   @Prop({ type: Number })
-  OverallRank: number;
+  geekRating: number;
 
   @Prop({ type: Number })
-  GeekRating: number;
+  avgWeight: number;
 
   @Prop({ type: Number })
-  AvgWeight: number;
-
-  @Prop({ type: Number })
-  AvgRating: number;
+  avgRating: number;
 
   @Prop({ type: [Number], default: [] })
-  Best: number[];
+  best: number[];
 
   @Prop({ type: [Number], default: [] })
-  Recommended: number[];
+  recommended: number[];
 
   @Prop({ type: [Number], default: [] })
-  Categories: number[];
+  categories: number[];
 
   @Prop({ type: [Number], default: [] })
-  Families: number[];
+  families: number[];
 
   @Prop({ type: [Number], default: [] })
-  Mechanics: number[];
+  mechanics: number[];
 
   @Prop({ type: [Number], default: [] })
-  Subdomains: number[];
+  subdomains: number[];
 
   @Prop({ type: String })
-  PollPlayerAge: string;
+  pollPlayerAge: string;
 
   @Prop({ type: Number })
-  PollMinAge: number;
+  pollMinAge: number;
 
   @Prop({ type: Number })
-  MinPlayerAge: number;
+  minPlayerAge: number;
 
   @Prop({ type: Number })
-  WeightVotes: number;
+  weightVotes: number;
 
   @Prop({ type: Number })
-  RatingVotes: number;
+  ratingVotes: number;
 
   @Prop({ type: [Number], default: [] })
-  Languages: number[];
+  languages: number[];
 
   @Prop({ type: Number })
-  PlyNumVotes?: number;
+  plyNumVotes?: number;
 }
 
 export const BggGameSchema = SchemaFactory.createForClass(BggGame);
