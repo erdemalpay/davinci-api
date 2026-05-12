@@ -8,7 +8,6 @@ import { VisitModule } from '../visit/visit.module';
 import { WebhookLogModule } from '../webhook-log/webhook-log.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { AccountingModule } from './../accounting/accounting.module';
-import { GameModule } from './../game/game.module';
 import { LocationModule } from './../location/location.module';
 import { MenuModule } from './../menu/menu.module';
 import { ShopifyController } from './shopify.controller';
@@ -27,7 +26,6 @@ import { ShopifyService } from './shopify.service';
     forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),
-    forwardRef(() => GameModule),
   ],
   providers: [ShopifyService],
   exports: [ShopifyService],
