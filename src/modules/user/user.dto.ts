@@ -32,6 +32,10 @@ export class CreateUserDto {
 
   @IsString()
   imageUrl: string;
+
+  @IsOptional()
+  @IsString()
+  cafeId?: string;
 }
 
 export class CreateRoleDto {
