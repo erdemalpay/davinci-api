@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getBggSearch, getBggThing } from 'bgg-xml-api-client';
+import { getBggThing } from 'bgg-xml-api-client';
 import { GameDto } from 'src/modules/game/game.dto';
 
 export type BggSimpleGameDto = {
@@ -32,7 +32,7 @@ type BggThingItem = {
   thumbnail?: string;
 };
 
-export const ensureBggHeaders = () => {
+const ensureBggHeaders = () => {
   const headers = axios.defaults.headers.common;
   headers['User-Agent'] = 'Mozilla/5.0';
 
@@ -93,50 +93,6 @@ export const getGameDetails = async (
   } catch (err) {
     console.error(`Error fetching game with id: ${id}`, err);
     return;
-  }
-};
-
-export type BggSearchResult = {
-  id: number;
-  name: string;
-  yearPublished?: number;
-};
-
-export const searchBggGames = async (
-  query: string,
-  limit = 5,
-): Promise<BggSearchResult[]> => {
-  ensureBggHeaders();
-
-  try {
-    const response = await getBggSearch({ query, type: 'boardgame' });
-    const items = response.data?.item;
-    if (!items) return [];
-
-    const list = Array.isArray(items) ? items : [items];
-
-    return list
-      .slice(0, limit)
-      .map((item: any) => {
-        const name = Array.isArray(item.name)
-          ? (item.name.find((n: any) => n.type === 'primary') ?? item.name[0])
-              ?.value
-          : item.name?.value ?? item.name;
-
-        const yearPublished = item.yearpublished?.value
-          ? Number(item.yearpublished.value)
-          : undefined;
-
-        return {
-          id: Number(item.id),
-          name: name ?? '',
-          yearPublished,
-        };
-      })
-      .filter((item) => item.name);
-  } catch (err) {
-    console.error(`Error searching BGG for: ${query}`, err);
-    return [];
   }
 };
 
