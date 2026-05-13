@@ -3512,19 +3512,13 @@ export class OrderService {
       const orderMap = new Map(
         orders.map((order) => [
           order._id,
-          { _id: order._id, item: order.item },
+          { order: order._id, paidQuantity: order.paidQuantity },
         ]),
       );
 
       return tableCollection.map((collection) => ({
         ...collection,
-        orders: (collection?.orders ?? []).map((orderEntry) => ({
-          ...orderEntry,
-          order:
-            typeof orderEntry?.order === 'number'
-              ? orderMap.get(orderEntry.order) ?? orderEntry.order
-              : orderEntry.order,
-        })),
+        orders: collection?.orders ?? [],
       }));
     } catch (error) {
       throw new HttpException(
