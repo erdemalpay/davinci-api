@@ -43,8 +43,8 @@ export class GameService {
     return this.gameModel.find();
   }
 
-  async getGamesWithBgg() {
-    return this.gameModel.find().populate('bggId');
+  getGamesWithBgg() {
+    return this.gameModel.find().populate('bggId').lean().exec();
   }
 
   async getGamesMinimal() {
