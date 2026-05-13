@@ -5,13 +5,12 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
+  Logger
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
 import '@shopify/shopify-api/adapters/node';
 import { firstValueFrom } from 'rxjs';
-import { GameService } from '../game/game.service';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -22,10 +21,7 @@ import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
-import {
-  WebhookSource,
-  WebhookStatus,
-} from '../webhook-log/webhook-log.schema';
+import { WebhookSource, WebhookStatus } from '../webhook-log/webhook-log.schema';
 import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
@@ -47,17 +43,6 @@ interface ShopifyToken {
   expiresAt?: number; // Unix timestamp in milliseconds
   refreshTokenExpiresAt?: number; // Unix timestamp in milliseconds
   createdAt: number;
-}
-
-interface WebhookLogUpdateParams {
-  webhookLog: any;
-  response: any;
-  httpStatus: number;
-  status: WebhookStatus;
-  startTime: number;
-  shopifyId?: string;
-  message?: string;
-  orderIds?: number[];
 }
 
 @Injectable()
@@ -90,8 +75,6 @@ export class ShopifyService {
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
-    @Inject(forwardRef(() => GameService))
-    private readonly gameService: GameService,
     private readonly userService: UserService,
     private readonly locationService: LocationService,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -159,94 +142,6 @@ export class ShopifyService {
     const currentTime = new Date().getTime();
     // Add 5 minute buffer before expiration
     return currentTime >= expiresAt - 5 * 60 * 1000;
-  }
-
-  private updateWebhookLogInBackground({
-    webhookLog,
-    response,
-    httpStatus,
-    status,
-    startTime,
-    shopifyId,
-    message,
-    orderIds,
-  }: WebhookLogUpdateParams) {
-    if (!webhookLog) {
-      return;
-    }
-
-    void this.webhookLogService
-      .updateWebhookResponse(
-        webhookLog._id,
-        response,
-        httpStatus,
-        status,
-        message,
-        orderIds,
-        shopifyId,
-        startTime,
-      )
-      .catch((error) => {
-        this.logger.error('Error updating webhook log:', error);
-        void this.markWebhookLogAsFailed(
-          webhookLog,
-          error,
-          shopifyId,
-          startTime,
-        );
-      });
-  }
-
-  private async markWebhookLogAsFailed(
-    webhookLog: any,
-    error: any,
-    shopifyId: string | undefined,
-    startTime: number,
-  ) {
-    try {
-      await this.webhookLogService.updateWebhookResponse(
-        webhookLog._id,
-        {
-          error: `Update failed: ${error?.message || 'Unknown error'}`,
-        },
-        500,
-        WebhookStatus.FAILED,
-        `Failed to update webhook log: ${error?.message || 'Unknown error'}`,
-        undefined,
-        shopifyId,
-        startTime,
-      );
-    } catch (markFailedError) {
-      this.logger.error(
-        'Failed to mark webhook log as failed:',
-        markFailedError,
-      );
-    }
-  }
-
-  private handleWebhookError(
-    error: any,
-    context: string,
-    webhookLog: any,
-    data: any,
-    startTime: number,
-  ): never {
-    this.logError(context, error);
-
-    this.updateWebhookLogInBackground({
-      webhookLog,
-      response: { error: error?.message || 'Unknown error' },
-      httpStatus: error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      status: WebhookStatus.ERROR,
-      message: error?.message || 'Unknown error',
-      shopifyId: data?.id?.toString(),
-      startTime,
-    });
-
-    throw new HttpException(
-      `Error processing webhook: ${error?.message || 'Unknown error'}`,
-      error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-    );
   }
 
   private async getToken(): Promise<string> {
@@ -555,48 +450,6 @@ export class ShopifyService {
     throw new Error('Max retries exceeded for GraphQL request');
   }
 
-  async getGamesForWebSite() {
-    const [games, items, shopify] = await Promise.all([
-      this.gameService.getGamesWithBgg(),
-      this.menuService.findAllItems(),
-      this.getAllProducts(),
-    ]);
-
-    const itemsByProduct = new Map(
-      items
-        .filter((item) => item.matchedProduct)
-        .map((item) => [item.matchedProduct, item]),
-    );
-    const shopifyById = new Map(shopify.map((p) => [p.id, p]));
-
-    return games.map((game) => {
-      const foundMenuItem = game.product
-        ? itemsByProduct.get(game.product)
-        : undefined;
-
-      const shopifyProductGid = foundMenuItem?.shopifyId
-        ? this.formatShopifyId('Product', foundMenuItem.shopifyId)
-        : undefined;
-      const foundShopifyProduct = shopifyProductGid
-        ? shopifyById.get(shopifyProductGid)
-        : undefined;
-
-      const shopifyPrice =
-        foundShopifyProduct?.variants?.edges?.[0]?.node?.price ?? null;
-      const shopifyUrl = foundShopifyProduct?.handle
-        ? `https://kutuoyunual.com/products/${foundShopifyProduct.handle}`
-        : null;
-      const onlineStoreUrl = foundShopifyProduct?.onlineStoreUrl ?? shopifyUrl;
-
-      return {
-        ...game.toObject(),
-        shopifyPrice,
-        shopifyUrl,
-        onlineStoreUrl,
-      };
-    });
-  }
-
   async getAllProducts() {
     const allProducts: any[] = [];
     let hasNextPage = true;
@@ -616,7 +469,6 @@ export class ShopifyService {
                 title
                 description
                 handle
-                onlineStoreUrl
                 status
                 productType
                 vendor
@@ -1251,34 +1103,21 @@ export class ShopifyService {
     }
   }
 
-  async updateProductStock(
+  private async resolveInventoryContext(
     variantId: string,
     stockLocationId: number,
-    stockCount: number,
-    isInvalidateProductCache = true,
-  ): Promise<boolean> {
+  ): Promise<{ inventoryItemId: string; locationId: string } | null> {
     if (!variantId) {
-      this.logError('variantId is required for Shopify stock update', {
-        variantId,
-        stockLocationId,
-        stockCount,
-      });
-      return false;
+      this.logError('variantId is required for inventory operation', { variantId, stockLocationId });
+      return null;
     }
 
-    const foundLocation = await this.locationService.findLocationById(
-      stockLocationId,
-    );
-    if (!foundLocation.shopifyId) {
-      this.logger.log(
-        `Stock Location with ID ${stockLocationId} does not have shopify id`,
-      );
-      return;
+    const foundLocation = await this.locationService.findLocationById(stockLocationId);
+    if (!foundLocation?.shopifyId) {
+      this.logger.log(`Stock Location with ID ${stockLocationId} not found or does not have shopify id`);
+      return null;
     }
 
-    const locationId = foundLocation.shopifyId;
-
-    // First, get the inventoryItemId from the variant
     const variantQuery = `
       query GetVariant($id: ID!) {
         productVariant(id: $id) {
@@ -1290,28 +1129,37 @@ export class ShopifyService {
       }
     `;
 
-    let inventoryItemId: string;
     try {
       const variantResponse = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
         return await client.request(variantQuery, {
-          variables: {
-            id: this.formatShopifyId('ProductVariant', variantId),
-          },
+          variables: { id: this.formatShopifyId('ProductVariant', variantId) },
         });
       });
 
-      if (!variantResponse.data.productVariant) {
+      if (!variantResponse.data?.productVariant) {
         this.handleGraphQLErrors(variantResponse);
+        return null;
       }
 
-      inventoryItemId = variantResponse.data.productVariant.inventoryItem.id;
+      return {
+        inventoryItemId: variantResponse.data.productVariant.inventoryItem.id,
+        locationId: foundLocation.shopifyId,
+      };
     } catch (error) {
-      this.logError('Error fetching variant', error);
-      // Don't throw exception, just log the error
-      // This allows the main flow to continue even if Shopify update fails
-      return false;
+      this.logError('Error fetching variant for inventory operation', error);
+      return null;
     }
+  }
+
+  async updateProductStock(
+    variantId: string,
+    stockLocationId: number,
+    stockCount: number,
+    isInvalidateProductCache = true,
+  ): Promise<boolean> {
+    const ctx = await this.resolveInventoryContext(variantId, stockLocationId);
+    if (!ctx) return false;
 
     const mutation = `
       mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!) {
@@ -1333,8 +1181,8 @@ export class ShopifyService {
               reason: 'correction',
               setQuantities: [
                 {
-                  inventoryItemId: inventoryItemId,
-                  locationId: this.formatShopifyId('Location', locationId),
+                  inventoryItemId: ctx.inventoryItemId,
+                  locationId: this.formatShopifyId('Location', ctx.locationId),
                   quantity: stockCount,
                 },
               ],
@@ -1344,10 +1192,7 @@ export class ShopifyService {
       });
 
       try {
-        this.handleGraphQLErrors(
-          response,
-          'data.inventorySetOnHandQuantities.userErrors',
-        );
+        this.handleGraphQLErrors(response, 'data.inventorySetOnHandQuantities.userErrors');
       } catch (error) {
         this.logError('Failed to update stock', error);
         return false;
@@ -1357,12 +1202,78 @@ export class ShopifyService {
       if (isInvalidateProductCache) {
         await this.websocketGateway.emitShopifyProductStockChanged();
       }
-
       return true;
     } catch (error) {
       this.logError('Error updating stock', error);
-      // Don't throw exception, just log the error
-      // This allows the main flow to continue even if Shopify update fails
+      return false;
+    }
+  }
+
+  // Sets "available" directly; Shopify recalculates on_hand = available + committed.
+  // Use this instead of updateProductStock when syncing from internal stock changes
+  // so that pending Shopify orders (committed) are not incorrectly subtracted from on_hand.
+  async setProductAvailableStock(
+    variantId: string,
+    stockLocationId: number,
+    stockCount: number,
+    isInvalidateProductCache = true,
+  ): Promise<boolean> {
+    const ctx = await this.resolveInventoryContext(variantId, stockLocationId);
+    if (!ctx) return false;
+
+    const mutation = `
+      mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+        inventorySetQuantities(input: $input) {
+          inventoryAdjustmentGroup {
+            reason
+            changes {
+              name
+              delta
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              reason: 'correction',
+              name: 'available',
+              ignoreCompareQuantity: true,
+              quantities: [
+                {
+                  inventoryItemId: ctx.inventoryItemId,
+                  locationId: this.formatShopifyId('Location', ctx.locationId),
+                  quantity: stockCount,
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      try {
+        this.handleGraphQLErrors(response, 'data.inventorySetQuantities.userErrors');
+      } catch (error) {
+        this.logError('Failed to set available stock', error);
+        return false;
+      }
+
+      this.logger.log('Available stock set successfully.');
+      if (isInvalidateProductCache) {
+        await this.websocketGateway.emitShopifyProductStockChanged();
+      }
+      return true;
+    } catch (error) {
+      this.logError('Error setting available stock', error);
       return false;
     }
   }
@@ -1830,7 +1741,10 @@ export class ShopifyService {
       );
       return false;
     } catch (error) {
-      this.logError('Error updating order with fulfillment order ID', error);
+      this.logError(
+        'Error updating order with fulfillment order ID',
+        error,
+      );
       return false;
     }
   }
@@ -1924,7 +1838,9 @@ export class ShopifyService {
         ? fulfillmentId
         : `gid://shopify/Fulfillment/${fulfillmentId}`;
 
-      this.logger.log(`Cancelling fulfillment ${formattedFulfillmentId}`);
+      this.logger.log(
+        `Cancelling fulfillment ${formattedFulfillmentId}`,
+      );
 
       const response = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
@@ -1935,7 +1851,10 @@ export class ShopifyService {
         });
       });
 
-      this.handleGraphQLErrors(response, 'data.fulfillmentCancel.userErrors');
+      this.handleGraphQLErrors(
+        response,
+        'data.fulfillmentCancel.userErrors',
+      );
 
       this.logger.log(
         'Fulfillment cancelled successfully:',
@@ -1993,7 +1912,9 @@ export class ShopifyService {
       if (fulfillment?.id) {
         try {
           await this.createFulfillmentEvent(fulfillment.id, 'DELIVERED');
-          this.logger.log(`Marked fulfillment ${fulfillment.id} as DELIVERED`);
+          this.logger.log(
+            `Marked fulfillment ${fulfillment.id} as DELIVERED`,
+          );
         } catch (eventError) {
           this.logger.error(
             'Failed to create fulfillment event, but fulfillment was created successfully',
@@ -2175,17 +2096,23 @@ export class ShopifyService {
           ordersCreated: 0,
           orderIds: [],
         };
-
-        this.updateWebhookLogInBackground({
-          webhookLog,
-          response,
-          httpStatus: HttpStatus.OK,
-          status: WebhookStatus.ORDER_NOT_CREATED,
-          message: 'No line items to process',
-          shopifyId: data?.id?.toString(),
-          startTime,
-        });
-
+        
+        // Update webhook log (fire-and-forget)
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            'No line items to process',
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
         return response;
       }
 
@@ -2202,18 +2129,14 @@ export class ShopifyService {
 
         if (fulfillmentOrders.length > 0) {
           this.logger.log(
-            `Fetched ${
-              fulfillmentOrders.length
-            } fulfillment orders on attempt ${attempt + 1}`,
+            `Fetched ${fulfillmentOrders.length} fulfillment orders on attempt ${attempt + 1}`,
           );
           break;
         }
 
         if (attempt < maxRetries - 1) {
           this.logger.log(
-            `No fulfillment orders found, retrying in ${retryDelay}ms (attempt ${
-              attempt + 1
-            }/${maxRetries})`,
+            `No fulfillment orders found, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${maxRetries})`,
           );
           await this.sleep(retryDelay);
         }
@@ -2250,17 +2173,23 @@ export class ShopifyService {
           ordersCreated: 0,
           orderIds: [],
         };
-
-        this.updateWebhookLogInBackground({
-          webhookLog,
-          response,
-          httpStatus: HttpStatus.OK,
-          status: WebhookStatus.ORDER_NOT_CREATED,
-          message: `Financial status: ${data?.financial_status}`,
-          shopifyId: data?.id?.toString(),
-          startTime,
-        });
-
+        
+        // Update webhook log (fire-and-forget)
+        if (webhookLog) {
+          this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.ORDER_NOT_CREATED,
+            `Financial status: ${data?.financial_status}`,
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          ).catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+        }
+        
         return response;
       }
 
@@ -2304,9 +2233,7 @@ export class ShopifyService {
           } = lineItem;
 
           if (!product_id || !quantity) {
-            this.logger.warn(
-              `Invalid line item data: ${JSON.stringify(lineItem)}`,
-            );
+            this.logger.warn(`Invalid line item data: ${JSON.stringify(lineItem)}`);
             continue;
           }
 
@@ -2430,8 +2357,8 @@ export class ShopifyService {
             ? discountTypeValues.has('percentage')
               ? 'PERCENTAGE'
               : discountTypeValues.has('fixed_amount')
-              ? 'AMOUNT'
-              : undefined
+                ? 'AMOUNT'
+                : undefined
             : undefined;
 
         const createdCollection = {
@@ -2510,20 +2437,13 @@ export class ShopifyService {
       }
 
       // Update webhook log with response in background
-      const orderIds = createdOrders
-        .map((o) => o.order)
-        .filter((id) => id != null);
-      const status =
-        orderIds.length > 0
-          ? WebhookStatus.SUCCESS
-          : WebhookStatus.ORDER_NOT_CREATED;
-
+      const orderIds = createdOrders.map((o) => o.order).filter((id) => id != null);
+      const status = orderIds.length > 0 ? WebhookStatus.SUCCESS : WebhookStatus.ORDER_NOT_CREATED;
+      
       this.logger.log(
-        `Webhook processing completed. Created orders: ${
-          createdOrders.length
-        }, Order IDs: ${JSON.stringify(orderIds)}`,
+        `Webhook processing completed. Created orders: ${createdOrders.length}, Order IDs: ${JSON.stringify(orderIds)}`,
       );
-
+      
       const response = {
         success: orderIds.length > 0,
         ordersCreated: orderIds.length,
@@ -2531,25 +2451,75 @@ export class ShopifyService {
         orderIds,
       };
 
-      this.updateWebhookLogInBackground({
-        webhookLog,
-        response,
-        httpStatus: HttpStatus.OK,
-        status,
-        message: orderIds.length === 0 ? 'No orders were created' : undefined,
-        orderIds: orderIds.length > 0 ? orderIds : undefined,
-        shopifyId: data?.id?.toString(),
-        startTime,
-      });
+      // Update webhook log (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          status,
+          orderIds.length === 0 ? 'No orders were created' : undefined,
+          orderIds.length > 0 ? orderIds : undefined,
+          data?.id?.toString(),
+          startTime,
+        ).catch(async (error) => {
+          this.logger.error('Error updating webhook log:', error);
+          // Mark as failed if update fails
+          try {
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              { error: `Update failed: ${error?.message || 'Unknown error'}` },
+              500,
+              WebhookStatus.FAILED,
+              `Failed to update webhook log: ${error?.message || 'Unknown error'}`,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            );
+          } catch (markFailedError) {
+            this.logger.error('Failed to mark webhook log as failed:', markFailedError);
+          }
+        });
+      }
 
       return response;
     } catch (error) {
-      this.handleWebhookError(
-        error,
-        'Error in orderCreateWebHook',
-        webhookLog,
-        data,
-        startTime,
+      this.logError('Error in orderCreateWebHook', error);
+
+      // Update webhook log with error response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        ).catch(async (logError) => {
+          this.logger.error('Error updating webhook log:', logError);
+          // Mark as failed if update fails
+          try {
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              { error: `Update failed: ${logError?.message || 'Unknown error'}` },
+              500,
+              WebhookStatus.FAILED,
+              `Failed to update webhook log: ${logError?.message || 'Unknown error'}`,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            );
+          } catch (markFailedError) {
+            this.logger.error('Failed to mark webhook log as failed:', markFailedError);
+          }
+        });
+      }
+
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -2557,7 +2527,7 @@ export class ShopifyService {
   async orderCancelWebHook(data?: any) {
     const startTime = Date.now();
     let webhookLog: any = null;
-
+    
     try {
       if (!data) {
         throw new HttpException(
@@ -2578,17 +2548,14 @@ export class ShopifyService {
       // Shopify iki farklı formatta veri gönderir:
       // 1) Order objesi (orders/cancelled): data.refunds[].refund_line_items
       // 2) Refund objesi (orders/refunds/create): data.refund_line_items root'ta, data.order_id var
-      const isRefundObject =
-        !data?.refunds && Array.isArray(data?.refund_line_items);
+      const isRefundObject = !data?.refunds && Array.isArray(data?.refund_line_items);
 
       // Tüm işlenecek refund line item'larını tek bir flat listeye topla
       let allRefundLineItems: any[] = [];
 
       if (isRefundObject) {
         // orders/refunds/create formatı
-        this.logger.log(
-          'Detected refund object format (orders/refunds/create)',
-        );
+        this.logger.log('Detected refund object format (orders/refunds/create)');
         allRefundLineItems = data.refund_line_items ?? [];
       } else {
         // orders/cancelled formatı — refunds array içinde
@@ -2654,23 +2621,74 @@ export class ShopifyService {
         cancellationsProcessed,
       };
 
-      this.updateWebhookLogInBackground({
-        webhookLog,
-        response,
-        httpStatus: HttpStatus.OK,
-        status: WebhookStatus.SUCCESS,
-        shopifyId: data?.id?.toString(),
-        startTime,
-      });
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          response,
+          HttpStatus.OK,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          data?.id?.toString(),
+          startTime,
+        ).catch(async (error) => {
+          this.logger.error('Error updating webhook log:', error);
+          // Mark as failed if update fails
+          try {
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              { error: `Update failed: ${error?.message || 'Unknown error'}` },
+              500,
+              WebhookStatus.FAILED,
+              `Failed to update webhook log: ${error?.message || 'Unknown error'}`,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            );
+          } catch (markFailedError) {
+            this.logger.error('Failed to mark webhook log as failed:', markFailedError);
+          }
+        });
+      }
 
       return response;
     } catch (error) {
-      this.handleWebhookError(
-        error,
-        'Error in orderCancelWebHook',
-        webhookLog,
-        data,
-        startTime,
+      this.logError('Error in orderCancelWebHook', error);
+      
+      // Update webhook log with error response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { error: error?.message || 'Unknown error' },
+          error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          WebhookStatus.ERROR,
+          error?.message || 'Unknown error',
+          undefined,
+          undefined,
+          startTime,
+        ).catch(async (logError) => {
+          this.logger.error('Error updating webhook log:', logError);
+          // Mark as failed if update fails
+          try {
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              { error: `Update failed: ${logError?.message || 'Unknown error'}` },
+              500,
+              WebhookStatus.FAILED,
+              `Failed to update webhook log: ${logError?.message || 'Unknown error'}`,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            );
+          } catch (markFailedError) {
+            this.logger.error('Failed to mark webhook log as failed:', markFailedError);
+          }
+        });
+      }
+
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -2741,14 +2759,16 @@ export class ShopifyService {
                   continue;
                 }
 
-                await this.updateProductStock(
+                // Set "available" directly so Shopify recalculates on_hand = available + committed.
+                // This ensures pending Shopify orders (committed) don't cause on_hand to be understated.
+                await this.setProductAvailableStock(
                   variantId,
                   stock.location,
                   stock.quantity,
                   false,
                 );
                 this.logger.log(
-                  `Stock updated for product ${item.shopifyId}, location ${stock.location}`,
+                  `Available stock set for product ${item.shopifyId}, location ${stock.location}`,
                 );
               }
             } catch (stockError) {

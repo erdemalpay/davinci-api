@@ -43,10 +43,6 @@ export class GameService {
     return this.gameModel.find();
   }
 
-  getGamesWithBgg() {
-    return this.gameModel.find().populate('bggId').lean().exec();
-  }
-
   async getGamesMinimal() {
     try {
       const redisGamesMinimal = await this.redisService.get(
@@ -121,7 +117,6 @@ export class GameService {
   async getBggGamesOnly() {
     return this.bggGameModel.find();
   }
-
   async getBggGamesAutocompleteOptions() {
     const games = await this.bggGameModel.find().select('name -_id').lean();
     return games.map((game) => ({ value: game.name }));
