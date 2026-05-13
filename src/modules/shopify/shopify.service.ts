@@ -556,9 +556,11 @@ export class ShopifyService {
   }
 
   async getGamesForWebSite() {
-    const games = await this.gameService.getGames();
-    const items = await this.menuService.findAllItems();
-    const shopify = await this.getAllProducts();
+    const [games, items, shopify] = await Promise.all([
+      this.gameService.getGamesWithBgg(),
+      this.menuService.findAllItems(),
+      this.getAllProducts(),
+    ]);
 
     const itemsByProduct = new Map(
       items
