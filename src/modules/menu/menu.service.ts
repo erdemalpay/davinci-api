@@ -1210,7 +1210,7 @@ export class MenuService {
           }
           foundItem.name = item.name;
           foundItem.price = item.price;
-          // foundItem.ikasId = item.ikasId;
+          foundItem.description = item.description;
           foundItem.sku = item?.sku;
           foundItem.barcode = item?.barcode;
           const onlinePriceChanged =
@@ -1753,24 +1753,62 @@ export class MenuService {
     return categories;
   }
   prunePriceHistory(history: PriceHistory[]): PriceHistory[] {
-    return history.filter((entry, idx) => {
+    const normalizedHistory = history.map((entry) => ({
+      ...entry,
+      price: Number(entry.price),
+    }));
+
+    return normalizedHistory.filter((entry, idx) => {
       if (idx === 0) return true;
-      return entry.price !== history[idx - 1].price;
+      return entry.price !== normalizedHistory[idx - 1].price;
     });
   }
-  async removeDublicatesPriceHistory() {
-    const items = await this.itemModel.find();
-    items.forEach(async (item) => {
-      if (item.priceHistory && item.priceHistory.length > 0) {
-        const uniquePriceHistory = this.prunePriceHistory(item.priceHistory);
-        if (uniquePriceHistory.length !== item.priceHistory.length) {
-          await this.itemModel.findByIdAndUpdate(item._id, {
-            priceHistory: uniquePriceHistory,
-          });
+
+  async removeDublicatesPriceHistory(): Promise<{
+    checkedCount: number;
+    modifiedCount: number;
+    removedDuplicateCount: number;
+  }> {
+    const items = await this.itemModel.find({ priceHistory: { $exists: true } });
+    let modifiedCount = 0;
+    let removedDuplicateCount = 0;
+
+    await Promise.all(
+      items.map(async (item) => {
+        if (!item.priceHistory?.length) {
+          return;
         }
-      }
-    });
-    this.websocketGateway.emitItemChanged();
+
+        const prunedPriceHistory = this.prunePriceHistory(item.priceHistory);
+        const hasChanged =
+          prunedPriceHistory.length !== item.priceHistory.length ||
+          prunedPriceHistory.some(
+            (entry, idx) => entry.price !== item.priceHistory[idx].price,
+          );
+
+        if (!hasChanged) {
+          return;
+        }
+
+        removedDuplicateCount +=
+          item.priceHistory.length - prunedPriceHistory.length;
+        modifiedCount++;
+
+        await this.itemModel.findByIdAndUpdate(item._id, {
+          priceHistory: prunedPriceHistory,
+        });
+      }),
+    );
+
+    if (modifiedCount > 0) {
+      await this.websocketGateway.emitItemChanged();
+    }
+
+    return {
+      checkedCount: items.length,
+      modifiedCount,
+      removedDuplicateCount,
+    };
   }
   async migrateSuggestedDiscounts(): Promise<{ modifiedCount: number }> {
     const res = await this.itemModel.updateMany({}, [
