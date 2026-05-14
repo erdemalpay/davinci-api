@@ -2391,7 +2391,7 @@ export class AccountingService {
     return results;
   }
 
-  async createStock(user: User, createStockDto: CreateStockDto) {
+  async createStock(user: User, createStockDto: CreateStockDto, isEmit = true) {
     const stockId = usernamify(
       createStockDto.product + createStockDto?.location,
     );
@@ -2405,7 +2405,9 @@ export class AccountingService {
         { new: true },
       );
 
-      this.websocketGateway.emitStockChanged();
+      if (isEmit) {
+        this.websocketGateway.emitStockChanged();
+      }
 
       if (createStockDto.quantity !== 0) {
         await this.createProductStockHistory(user, {
@@ -2701,7 +2703,9 @@ export class AccountingService {
         createStockDto.quantity,
       );
     }
-    this.websocketGateway.emitStockChanged();
+    if (isEmit) {
+      this.websocketGateway.emitStockChanged();
+    }
   }
 
   async updateStock(user: User, id: string, updates: UpdateQuery<Stock>) {
@@ -2798,25 +2802,34 @@ export class AccountingService {
     product: string,
     quantity: number,
   ) {
-    const stock = await this.stockModel.findOne({
-      product: product,
-      location: currentStockLocation,
-    });
+    const currentStockId = usernamify(product + currentStockLocation);
+    const stock = await this.stockModel.findById(currentStockId);
     if (!stock) {
       throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
     }
-    await this.createStock(user, {
-      product: product,
-      location: transferredStockLocation,
-      quantity: quantity,
-      status: StockHistoryStatusEnum.STOCKTRANSFER,
-    });
-    await this.createStock(user, {
-      product: product,
-      location: currentStockLocation,
-      quantity: -quantity,
-      status: StockHistoryStatusEnum.STOCKTRANSFER,
-    });
+    await Promise.all([
+      this.createStock(
+        user,
+        {
+          product: product,
+          location: transferredStockLocation,
+          quantity: quantity,
+          status: StockHistoryStatusEnum.STOCKTRANSFER,
+        },
+        false,
+      ),
+      this.createStock(
+        user,
+        {
+          product: product,
+          location: currentStockLocation,
+          quantity: -quantity,
+          status: StockHistoryStatusEnum.STOCKTRANSFER,
+        },
+        false,
+      ),
+    ]);
+    this.websocketGateway.emitStockChanged();
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {
