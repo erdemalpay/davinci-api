@@ -29,6 +29,7 @@ import { AccountingService } from './../accounting/accounting.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
+import { GameService } from './../game/game.service';
 import { OrderCancelReason } from './shopify.dto';
 
 const NEORAMA_DEPO_LOCATION = 6;
@@ -81,6 +82,8 @@ export class ShopifyService {
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
     private readonly webhookLogService: WebhookLogService,
+    @Inject(forwardRef(() => GameService))
+    private readonly gameService: GameService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -450,6 +453,42 @@ export class ShopifyService {
     throw new Error('Max retries exceeded for GraphQL request');
   }
 
+  async getGamesForWebSite() {
+    const [games, items, shopify] = await Promise.all([
+      this.gameService.getGamesWithBgg(),
+      this.menuService.findAllItems(),
+      this.getAllProducts(),
+    ]);
+
+    const itemsByProduct = new Map(
+      items
+        .filter((item) => item.matchedProduct)
+        .map((item) => [item.matchedProduct, item]),
+    );
+    const shopifyById = new Map(shopify.map((p) => [p.id, p]));
+
+    return games.map((game) => {
+      const foundMenuItem = game.product
+        ? itemsByProduct.get(game.product)
+        : undefined;
+      const shopifyProductGid = foundMenuItem?.shopifyId
+        ? this.formatShopifyId('Product', foundMenuItem.shopifyId)
+        : undefined;
+      const foundShopifyProduct = shopifyProductGid
+        ? shopifyById.get(shopifyProductGid)
+        : undefined;
+      const shopifyPrice =
+        foundShopifyProduct?.variants?.edges?.[0]?.node?.price ?? null;
+      const shopifyUrl = foundShopifyProduct?.handle
+        ? `https://kutuoyunual.com/products/${foundShopifyProduct.handle}`
+        : null;
+      const onlineStoreUrl =
+        foundShopifyProduct?.onlineStoreUrl ?? shopifyUrl;
+
+      return { ...game.toObject(), shopifyPrice, shopifyUrl, onlineStoreUrl };
+    });
+  }
+
   async getAllProducts() {
     const allProducts: any[] = [];
     let hasNextPage = true;
@@ -469,6 +508,7 @@ export class ShopifyService {
                 title
                 description
                 handle
+                onlineStoreUrl
                 status
                 productType
                 vendor

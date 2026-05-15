@@ -43,6 +43,10 @@ export class GameService {
     return this.gameModel.find();
   }
 
+  getGamesWithBgg() {
+    return this.gameModel.find().populate('bggId');
+  }
+
   async getGamesMinimal() {
     try {
       const redisGamesMinimal = await this.redisService.get(
