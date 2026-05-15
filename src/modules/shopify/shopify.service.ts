@@ -508,6 +508,7 @@ export class ShopifyService {
                 title
                 description
                 handle
+                onlineStoreUrl
                 status
                 productType
                 vendor
