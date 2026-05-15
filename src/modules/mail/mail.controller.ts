@@ -12,8 +12,8 @@ import {
 import { Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import {
-  CreateTemplateDto,
   CreateMailDraftDto,
+  CreateTemplateDto,
   GetMailDraftsDto,
   GetMailLogsDto,
   GetMailLogsWithPaginationDto,
@@ -59,6 +59,10 @@ export class MailController {
       const html = this.mailService.generateUnsubscribeErrorPage(error.message);
       return res.send(html);
     }
+  }
+  @Get('subscription/active')
+  async getActiveSubscriptions() {
+    return this.mailService.getActiveSubscriptions();
   }
 
   @Get('subscription/:email')
