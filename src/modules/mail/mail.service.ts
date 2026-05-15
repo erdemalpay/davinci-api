@@ -323,12 +323,9 @@ export class MailService {
   /**
    * Get all active subscriptions for a mail type
    */
-  async getActiveSubscriptions(
-    mailType: MailType,
-  ): Promise<MailSubscription[]> {
+  async getActiveSubscriptions() {
     return this.mailSubscriptionModel.find({
       status: SubscriptionStatus.ACTIVE,
-      // subscribedTypes: mailType,
     });
   }
 
