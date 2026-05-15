@@ -54,6 +54,10 @@ export class AppWebSocketGateway {
     this.server.emit('mailTemplateChanged');
   }
 
+  emitMailDraftChanged() {
+    this.server.emit('mailDraftChanged');
+  }
+
   emitBrandChanged() {
     this.server.emit('brandChanged');
   }

@@ -4,6 +4,9 @@ import { purifySchema } from 'src/lib/purifySchema';
 
 export enum MailType {
   BACK_IN_STOCK = 'back_in_stock',
+  CUSTOMER_MESSAGE = 'customer_message',
+  ORDER_UPDATE = 'order_update',
+  CAMPAIGN_ANNOUNCEMENT = 'campaign_announcement',
 }
 
 export enum SubscriptionStatus {
@@ -11,6 +14,13 @@ export enum SubscriptionStatus {
   UNSUBSCRIBED = 'unsubscribed',
   BOUNCED = 'bounced',
   COMPLAINED = 'complained',
+}
+
+export enum MailDraftStatus {
+  DRAFT = 'draft',
+  READY = 'ready',
+  SENT = 'sent',
+  ARCHIVED = 'archived',
 }
 
 @Schema({ timestamps: true, _id: false })
@@ -131,6 +141,46 @@ export class MailTemplate extends Document {
   metadata: Record<string, any>;
 }
 
+@Schema({ timestamps: true, _id: false })
+export class MailDraft extends Document {
+  @Prop({ type: Number })
+  _id: number;
+
+  @Prop({ type: String, required: true })
+  name: string;
+
+  @Prop({ type: String, required: true, enum: Object.values(MailType) })
+  mailType: MailType;
+
+  @Prop({ type: Number })
+  templateId: number;
+
+  @Prop({ type: String })
+  subject: string;
+
+  @Prop({ type: Object, default: {} })
+  variables: Record<string, any>;
+
+  @Prop({ type: [String], default: [] })
+  recipients: string[];
+
+  @Prop({
+    type: String,
+    enum: Object.values(MailDraftStatus),
+    default: MailDraftStatus.DRAFT,
+  })
+  status: MailDraftStatus;
+
+  @Prop({ type: String })
+  locale: string;
+
+  @Prop({ type: Object })
+  metadata: Record<string, any>;
+
+  @Prop({ type: Date })
+  sentAt: Date;
+}
+
 export const MailSubscriptionSchema =
   SchemaFactory.createForClass(MailSubscription);
 purifySchema(MailSubscriptionSchema);
@@ -140,3 +190,6 @@ purifySchema(MailLogSchema);
 
 export const MailTemplateSchema = SchemaFactory.createForClass(MailTemplate);
 purifySchema(MailTemplateSchema);
+
+export const MailDraftSchema = SchemaFactory.createForClass(MailDraft);
+purifySchema(MailDraftSchema);

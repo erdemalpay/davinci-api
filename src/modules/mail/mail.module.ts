@@ -6,6 +6,8 @@ import { MailController } from './mail.controller';
 import {
   MailLog,
   MailLogSchema,
+  MailDraft,
+  MailDraftSchema,
   MailSubscription,
   MailSubscriptionSchema,
   MailTemplate,
@@ -18,6 +20,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(MailSubscription.name, MailSubscriptionSchema),
   createAutoIncrementConfig(MailLog.name, MailLogSchema),
   createAutoIncrementConfig(MailTemplate.name, MailTemplateSchema),
+  createAutoIncrementConfig(MailDraft.name, MailDraftSchema),
 ]);
 
 @Module({

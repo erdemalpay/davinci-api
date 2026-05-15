@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -12,13 +13,17 @@ import { Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import {
   CreateTemplateDto,
+  CreateMailDraftDto,
+  GetMailDraftsDto,
   GetMailLogsDto,
   GetMailLogsWithPaginationDto,
   GetSubscriptionsDto,
   SendBulkMailDto,
+  SendMailDraftDto,
   SendMailDto,
   SubscribeDto,
   UnsubscribeDto,
+  UpdateMailDraftDto,
   UpdateSubscriptionDto,
   UpdateTemplateDto,
 } from './mail.dto';
@@ -108,6 +113,44 @@ export class MailController {
   @Get('templates')
   async getAllTemplates() {
     return this.mailService.getAllTemplates();
+  }
+
+  // ==================== Draft Management Endpoints ====================
+
+  @Post('draft')
+  async createMailDraft(@Body() createMailDraftDto: CreateMailDraftDto) {
+    return this.mailService.createMailDraft(createMailDraftDto);
+  }
+
+  @Get('drafts')
+  async getMailDrafts(@Query() filters: GetMailDraftsDto) {
+    return this.mailService.getMailDrafts(filters);
+  }
+
+  @Get('draft/:id')
+  async getMailDraft(@Param('id') id: string) {
+    return this.mailService.getMailDraft(id);
+  }
+
+  @Put('draft/:id')
+  async updateMailDraft(
+    @Param('id') id: string,
+    @Body() updateMailDraftDto: UpdateMailDraftDto,
+  ) {
+    return this.mailService.updateMailDraft(id, updateMailDraftDto);
+  }
+
+  @Delete('draft/:id')
+  async deleteMailDraft(@Param('id') id: string) {
+    return this.mailService.deleteMailDraft(id);
+  }
+
+  @Post('draft/:id/send')
+  async sendMailDraft(
+    @Param('id') id: string,
+    @Body() sendMailDraftDto: SendMailDraftDto,
+  ) {
+    return this.mailService.sendMailDraft(id, sendMailDraftDto);
   }
 
   // ==================== Logs Endpoints ====================

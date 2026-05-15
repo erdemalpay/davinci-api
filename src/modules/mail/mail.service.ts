@@ -11,16 +11,22 @@ import * as Handlebars from 'handlebars';
 import { Model } from 'mongoose';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
+  CreateMailDraftDto,
   CreateTemplateDto,
+  GetMailDraftsDto,
   GetMailLogsDto,
   SendBulkMailDto,
+  SendMailDraftDto,
   SendMailDto,
   SubscribeDto,
   UnsubscribeDto,
+  UpdateMailDraftDto,
   UpdateSubscriptionDto,
   UpdateTemplateDto,
 } from './mail.dto';
 import {
+  MailDraft,
+  MailDraftStatus,
   MailLog,
   MailSubscription,
   MailTemplate,
@@ -41,6 +47,8 @@ export class MailService {
     private mailLogModel: Model<MailLog>,
     @InjectModel(MailTemplate.name)
     private mailTemplateModel: Model<MailTemplate>,
+    @InjectModel(MailDraft.name)
+    private mailDraftModel: Model<MailDraft>,
     private readonly webSocketGateway: AppWebSocketGateway,
   ) {
     // Initialize AWS SES - credentials will be loaded from environment
@@ -320,7 +328,7 @@ export class MailService {
   ): Promise<MailSubscription[]> {
     return this.mailSubscriptionModel.find({
       status: SubscriptionStatus.ACTIVE,
-      subscribedTypes: mailType,
+      // subscribedTypes: mailType,
     });
   }
 
@@ -442,10 +450,10 @@ export class MailService {
    * Send email using template
    */
   async sendMail(sendMailDto: SendMailDto): Promise<MailLog> {
-    const { to, mailType, variables, locale } = sendMailDto;
+    const { to, mailType, templateId, variables, locale } = sendMailDto;
 
     // Get template
-    const template = await this.getTemplate(mailType, locale);
+    const template = await this.getTemplate(mailType, locale, templateId);
     if (!template) {
       throw new NotFoundException(`Template not found for ${mailType}`);
     }
@@ -562,7 +570,7 @@ export class MailService {
    * Send bulk emails
    */
   async sendBulkMail(bulkMailDto: SendBulkMailDto): Promise<MailLog[]> {
-    const { recipients, mailType, variables, locale } = bulkMailDto;
+    const { recipients, mailType, templateId, variables, locale } = bulkMailDto;
 
     const results: MailLog[] = [];
 
@@ -576,6 +584,7 @@ export class MailService {
           this.sendMail({
             to: email,
             mailType,
+            templateId,
             variables,
             locale,
           }),
@@ -644,7 +653,17 @@ export class MailService {
   async getTemplate(
     mailType: MailType,
     locale?: string,
+    templateId?: number,
   ): Promise<MailTemplate> {
+    if (templateId) {
+      const template = await this.mailTemplateModel.findOne({
+        _id: templateId,
+        mailType,
+        isActive: true,
+      });
+      if (template) return template;
+    }
+
     // Try to find template with specific locale
     if (locale) {
       const template = await this.mailTemplateModel.findOne({
@@ -656,9 +675,15 @@ export class MailService {
     }
 
     // Fallback to default locale
-    return this.mailTemplateModel.findOne({
+    const defaultTemplate = await this.mailTemplateModel.findOne({
       mailType,
       $or: [{ locale: 'en' }, { locale: null }],
+      isActive: true,
+    });
+    if (defaultTemplate) return defaultTemplate;
+
+    return this.mailTemplateModel.findOne({
+      mailType,
       isActive: true,
     });
   }
@@ -668,6 +693,131 @@ export class MailService {
    */
   async getAllTemplates(): Promise<MailTemplate[]> {
     return this.mailTemplateModel.find();
+  }
+
+  /**
+   * Create reusable email draft
+   */
+  async createMailDraft(
+    createMailDraftDto: CreateMailDraftDto,
+  ): Promise<MailDraft> {
+    const draft = new this.mailDraftModel({
+      ...createMailDraftDto,
+      variables: createMailDraftDto.variables || {},
+      recipients: createMailDraftDto.recipients || [],
+      status: createMailDraftDto.status || MailDraftStatus.DRAFT,
+    });
+
+    await draft.save();
+    this.logger.log(`Created mail draft: ${createMailDraftDto.name}`);
+    this.webSocketGateway.emitMailDraftChanged();
+    return draft;
+  }
+
+  /**
+   * Update reusable email draft
+   */
+  async updateMailDraft(
+    draftId: string,
+    updateMailDraftDto: UpdateMailDraftDto,
+  ): Promise<MailDraft> {
+    const draft = await this.mailDraftModel.findByIdAndUpdate(
+      draftId,
+      updateMailDraftDto,
+      { new: true },
+    );
+
+    if (!draft) {
+      throw new NotFoundException('Mail draft not found');
+    }
+
+    this.logger.log(`Updated mail draft: ${draftId}`);
+    this.webSocketGateway.emitMailDraftChanged();
+    return draft;
+  }
+
+  /**
+   * Get reusable email draft by id
+   */
+  async getMailDraft(draftId: string): Promise<MailDraft> {
+    const draft = await this.mailDraftModel.findById(draftId);
+
+    if (!draft) {
+      throw new NotFoundException('Mail draft not found');
+    }
+
+    return draft;
+  }
+
+  /**
+   * Get reusable email drafts
+   */
+  async getMailDrafts(filters: GetMailDraftsDto): Promise<MailDraft[]> {
+    const query: Record<string, any> = {};
+
+    if (filters.mailType) query.mailType = filters.mailType;
+    if (filters.status) query.status = filters.status;
+    if (filters.locale) query.locale = filters.locale;
+    if (filters.search) {
+      const searchRegex = new RegExp(filters.search, 'i');
+      query.$or = [
+        { name: { $regex: searchRegex } },
+        { subject: { $regex: searchRegex } },
+      ];
+    }
+
+    return this.mailDraftModel.find(query).sort({ updatedAt: -1 });
+  }
+
+  /**
+   * Delete reusable email draft
+   */
+  async deleteMailDraft(draftId: string): Promise<{ success: boolean }> {
+    const draft = await this.mailDraftModel.findByIdAndDelete(draftId);
+
+    if (!draft) {
+      throw new NotFoundException('Mail draft not found');
+    }
+
+    this.logger.log(`Deleted mail draft: ${draftId}`);
+    this.webSocketGateway.emitMailDraftChanged();
+    return { success: true };
+  }
+
+  /**
+   * Send reusable email draft through its selected template
+   */
+  async sendMailDraft(
+    draftId: string,
+    sendMailDraftDto: SendMailDraftDto,
+  ): Promise<MailLog[]> {
+    const draft = await this.getMailDraft(draftId);
+    const recipients = [
+      ...(sendMailDraftDto.to ? [sendMailDraftDto.to] : []),
+      ...(sendMailDraftDto.recipients || []),
+      ...(draft.recipients || []),
+    ];
+    const uniqueRecipients = [...new Set(recipients)];
+
+    if (!uniqueRecipients.length) {
+      throw new BadRequestException('At least one recipient is required');
+    }
+
+    const results = await this.sendBulkMail({
+      recipients: uniqueRecipients,
+      mailType: draft.mailType,
+      templateId: draft.templateId,
+      variables: draft.variables,
+      locale: draft.locale,
+    });
+
+    draft.recipients = uniqueRecipients;
+    draft.status = MailDraftStatus.SENT;
+    draft.sentAt = new Date();
+    await draft.save();
+    this.webSocketGateway.emitMailDraftChanged();
+
+    return results;
   }
 
   /**
