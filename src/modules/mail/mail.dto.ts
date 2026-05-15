@@ -7,7 +7,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { MailType } from './mail.schema';
+import { MailDraftStatus, MailType } from './mail.schema';
 
 export class SubscribeDto {
   @IsEmail()
@@ -66,6 +66,9 @@ export class SendMailDto {
   @IsEnum(MailType)
   mailType: MailType;
 
+  @IsOptional()
+  templateId?: number;
+
   @IsObject()
   @IsOptional()
   variables?: Record<string, any>;
@@ -82,6 +85,9 @@ export class SendBulkMailDto {
 
   @IsEnum(MailType)
   mailType: MailType;
+
+  @IsOptional()
+  templateId?: number;
 
   @IsObject()
   @IsOptional()
@@ -144,6 +150,109 @@ export class UpdateTemplateDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+}
+
+export class CreateMailDraftDto {
+  @IsString()
+  name: string;
+
+  @IsEnum(MailType)
+  mailType: MailType;
+
+  @IsOptional()
+  templateId?: number;
+
+  @IsString()
+  @IsOptional()
+  subject?: string;
+
+  @IsObject()
+  @IsOptional()
+  variables?: Record<string, any>;
+
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @IsOptional()
+  recipients?: string[];
+
+  @IsEnum(MailDraftStatus)
+  @IsOptional()
+  status?: MailDraftStatus;
+
+  @IsString()
+  @IsOptional()
+  locale?: string;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class UpdateMailDraftDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsEnum(MailType)
+  @IsOptional()
+  mailType?: MailType;
+
+  @IsOptional()
+  templateId?: number;
+
+  @IsString()
+  @IsOptional()
+  subject?: string;
+
+  @IsObject()
+  @IsOptional()
+  variables?: Record<string, any>;
+
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @IsOptional()
+  recipients?: string[];
+
+  @IsEnum(MailDraftStatus)
+  @IsOptional()
+  status?: MailDraftStatus;
+
+  @IsString()
+  @IsOptional()
+  locale?: string;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class GetMailDraftsDto {
+  @IsEnum(MailType)
+  @IsOptional()
+  mailType?: MailType;
+
+  @IsEnum(MailDraftStatus)
+  @IsOptional()
+  status?: MailDraftStatus;
+
+  @IsString()
+  @IsOptional()
+  locale?: string;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
+
+export class SendMailDraftDto {
+  @IsEmail()
+  @IsOptional()
+  to?: string;
+
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @IsOptional()
+  recipients?: string[];
 }
 
 export class GetMailLogsDto {
