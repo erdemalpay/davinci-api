@@ -21,9 +21,9 @@ import { TrendyolService } from './trendyol.service';
   imports: [
     WebSocketModule,
     HttpModule,
-    UserModule,
+    forwardRef(() => UserModule),
     LocationModule,
-    NotificationModule,
+    forwardRef(() => NotificationModule),
     WebhookLogModule,
     forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),

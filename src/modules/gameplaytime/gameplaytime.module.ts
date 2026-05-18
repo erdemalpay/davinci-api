@@ -18,7 +18,7 @@ import { GameplayTimeService } from './gameplaytime.service';
     ]),
     WebSocketModule,
     LocationModule,
-    UserModule,
+    forwardRef(() => UserModule),
     ActivityModule,
     GameplayModule,
     forwardRef(() => TableModule),

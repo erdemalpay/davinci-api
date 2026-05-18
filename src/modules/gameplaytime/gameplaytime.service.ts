@@ -35,6 +35,7 @@ export class GameplayTimeService {
     private gameplayTimeModel: Model<GameplayTime>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
     private readonly gameplayService: GameplayService,

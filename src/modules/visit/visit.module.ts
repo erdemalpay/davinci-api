@@ -22,7 +22,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   imports: [
     WebSocketModule,
     mongooseModule,
-    UserModule,
+    forwardRef(() => UserModule),
     forwardRef(() => NotificationModule),
     LocationModule,
     forwardRef(() => ShiftModule),

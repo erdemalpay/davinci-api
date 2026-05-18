@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BackInStockModule } from '../back-in-stock/back-in-stock.module';
 import { RedisModule } from '../redis/redis.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { BggGameSchema } from './bgg-game.schema';
@@ -15,9 +16,14 @@ const mongooseModule = MongooseModule.forFeature([
 ]);
 
 @Module({
-  imports: [WebSocketModule, RedisModule, mongooseModule],
+  imports: [
+    WebSocketModule,
+    RedisModule,
+    mongooseModule,
+    forwardRef(() => BackInStockModule),
+  ],
   providers: [GameService],
   controllers: [GameController],
-  exports: [mongooseModule, GameService, GameModule], // Export mongooseModule here
+  exports: [mongooseModule, GameService],
 })
 export class GameModule {}
