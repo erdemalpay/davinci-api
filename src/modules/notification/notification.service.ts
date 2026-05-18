@@ -25,6 +25,7 @@ export class NotificationService {
     private notificationModel: Model<Notification>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly locationService: LocationService,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     @Inject(forwardRef(() => VisitService))
     private readonly visitService: VisitService,

@@ -64,9 +64,11 @@ export class TrendyolService {
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly locationService: LocationService,
     private readonly websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)

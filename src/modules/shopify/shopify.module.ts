@@ -19,7 +19,7 @@ import { ShopifyService } from './shopify.service';
     WebSocketModule,
     RedisModule,
     HttpModule,
-    UserModule,
+    forwardRef(() => UserModule),
     LocationModule,
     NotificationModule,
     VisitModule,
@@ -34,4 +34,3 @@ import { ShopifyService } from './shopify.service';
   controllers: [ShopifyController],
 })
 export class ShopifyModule {}
-

@@ -57,11 +57,13 @@ export class TableService {
     private readonly gameplayTimeService: GameplayTimeService,
     private readonly activityService: ActivityService,
     private readonly reservationService: ReservationService,
+    @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     private readonly websocketGateway: AppWebSocketGateway,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly panelControlService: PanelControlService,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
   ) {}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from '../../lib/autoIncrement';
 import { GameModule } from '../game/game.module';
@@ -19,7 +19,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     mongooseModule,
-    GameModule,
+    forwardRef(() => GameModule),
     GameplayModule,
     ActivityModule,
     RedisModule,

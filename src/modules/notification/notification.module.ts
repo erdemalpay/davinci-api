@@ -18,7 +18,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     WebSocketModule,
     mongooseModule,
     LocationModule,
-    UserModule,
+    forwardRef(() => UserModule),
     forwardRef(() => VisitModule),
   ],
   providers: [NotificationService],

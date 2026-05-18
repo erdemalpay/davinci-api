@@ -121,6 +121,7 @@ export class AccountingService {
     @InjectModel(ProductStockHistory.name)
     private productStockHistoryModel: Model<ProductStockHistory>,
     @InjectModel(Stock.name) private stockModel: Model<Stock>,
+    @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     private readonly activityService: ActivityService,
     private readonly checkoutService: CheckoutService,
@@ -137,8 +138,11 @@ export class AccountingService {
     private readonly hepsiburadaService: HepsiburadaService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
+    @Inject(forwardRef(() => VisitService))
     private readonly visitService: VisitService,
     @Inject(forwardRef(() => BackInStockService))
     private readonly backInStockService: BackInStockService,
