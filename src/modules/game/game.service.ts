@@ -131,11 +131,39 @@ export class GameService {
     return games.map((game) => ({ value: game.name }));
   }
 
-  async getRequestedGames() {
+  async getRequestedGames(status?: string) {
+    const filter = status ? { status } : {};
+
     return this.requestedGameModel
-      .find()
+      .find(filter)
       .sort({ totalRequestCount: -1, updatedAt: -1 })
       .lean();
+  }
+
+  async adjustRequestedGameStatuses() {
+    const result = await this.requestedGameModel.updateMany(
+      {
+        $or: [{ status: { $exists: false } }, { status: null }],
+      },
+      {
+        $set: { status: 'requested' },
+      },
+    );
+
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
+  }
+
+  async updateRequestedGame(
+    id: string,
+    updates: UpdateQuery<RequestedGame>,
+  ) {
+    return this.requestedGameModel.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
   }
 
   async requestGame(requestGameDto: RequestGameDto) {

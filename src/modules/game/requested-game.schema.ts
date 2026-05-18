@@ -34,6 +34,9 @@ export class RequestedGame extends Document {
   @Prop({ required: true, default: 0 })
   totalRequestCount: number;
 
+  @Prop({ required: true, type: String, default: 'requested', index: true })
+  status: string;
+
   @Prop({ type: [RequestedGameRequestSchema], default: [] })
   requestList: RequestedGameRequest[];
 }
