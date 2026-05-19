@@ -1,7 +1,9 @@
 import {
   ConflictException,
+  forwardRef,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -9,6 +11,7 @@ import { Model, UpdateQuery } from 'mongoose';
 import { mapGames } from 'src/lib/mappers';
 import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
+import { BackInStockService } from '../back-in-stock/back-in-stock.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -29,6 +32,8 @@ export class GameService {
     private requestedGameModel: Model<RequestedGame>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
+    @Inject(forwardRef(() => BackInStockService))
+    private readonly backInStockService: BackInStockService,
   ) {}
 
   private normalizeGameName(name: string) {
@@ -41,6 +46,10 @@ export class GameService {
 
   getGames() {
     return this.gameModel.find();
+  }
+
+  getGamesWithBgg() {
+    return this.gameModel.find().populate('bggId');
   }
 
   async getGamesMinimal() {
@@ -122,11 +131,39 @@ export class GameService {
     return games.map((game) => ({ value: game.name }));
   }
 
-  async getRequestedGames() {
+  async getRequestedGames(status?: string) {
+    const filter = status ? { status } : {};
+
     return this.requestedGameModel
-      .find()
+      .find(filter)
       .sort({ totalRequestCount: -1, updatedAt: -1 })
       .lean();
+  }
+
+  async adjustRequestedGameStatuses() {
+    const result = await this.requestedGameModel.updateMany(
+      {
+        $or: [{ status: { $exists: false } }, { status: null }],
+      },
+      {
+        $set: { status: 'requested' },
+      },
+    );
+
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
+  }
+
+  async updateRequestedGame(
+    id: string,
+    updates: UpdateQuery<RequestedGame>,
+  ) {
+    return this.requestedGameModel.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
   }
 
   async requestGame(requestGameDto: RequestGameDto) {

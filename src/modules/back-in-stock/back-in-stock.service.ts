@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MailType } from '../mail/mail.schema';
@@ -23,7 +29,9 @@ export class BackInStockService {
   constructor(
     @InjectModel(BackInStockSubscription.name)
     private backInStockModel: Model<BackInStockSubscription>,
+    @Inject(forwardRef(() => ShopifyService))
     private readonly shopifyService: ShopifyService,
+    @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     private readonly mailService: MailService,
     private readonly webSocketGateway: AppWebSocketGateway,

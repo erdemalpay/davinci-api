@@ -19,6 +19,7 @@ import { CreateOrderDto, OrderStatus } from '../order/order.dto';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
 import {
+  WebhookLog,
   WebhookSource,
   WebhookStatus,
 } from '../webhook-log/webhook-log.schema';
@@ -63,9 +64,11 @@ export class TrendyolService {
     private readonly menuService: MenuService,
     @Inject(forwardRef(() => AccountingService))
     private readonly accountingService: AccountingService,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly locationService: LocationService,
     private readonly websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)
@@ -866,12 +869,16 @@ export class TrendyolService {
   /**
    * Trendyol webhook'tan gelen yeni sipariş bildirimini işler
    */
-  async orderCreateWebhook(data?: any) {
-    const startTime = Date.now();
+  async orderCreateWebhook(
+    data?: any,
+    existingWebhookLog?: WebhookLog,
+    existingStartTime?: number,
+  ) {
+    const startTime = existingStartTime ?? Date.now();
     this.logger.log('Processing Trendyol order create webhook...');
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
 
-    let webhookLog: any = null;
+    let webhookLog: any = existingWebhookLog ?? null;
     try {
       // If no data is provided, return success (webhook verification)
       if (!data || Object.keys(data).length === 0) {
@@ -882,12 +889,13 @@ export class TrendyolService {
         };
       }
 
-      // Log webhook request
-      webhookLog = await this.webhookLogService.logWebhookRequest(
-        WebhookSource.TRENDYOL,
-        'order-status-webhook',
-        data,
-      );
+      if (!webhookLog) {
+        webhookLog = await this.webhookLogService.logWebhookRequest(
+          WebhookSource.TRENDYOL,
+          'order-status-webhook',
+          data,
+        );
+      }
 
       const lineItems = data?.lines ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
@@ -1316,10 +1324,29 @@ export class TrendyolService {
           this.logger.log(
             'Order creation detected - processing via orderCreateWebhook',
           );
-          return await this.orderCreateWebhook(data);
+          return await this.orderCreateWebhook(data, webhookLog, startTime);
 
-        case 'Cancelled':
-          return await this.orderCancelWebhook(data, shipmentPackageId);
+        case 'Cancelled': {
+          const cancelResponse = await this.orderCancelWebhook(
+            data,
+            shipmentPackageId,
+          );
+
+          if (webhookLog) {
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              cancelResponse,
+              HttpStatus.OK,
+              WebhookStatus.SUCCESS,
+              undefined,
+              undefined,
+              data?.id?.toString(),
+              startTime,
+            );
+          }
+
+          return cancelResponse;
+        }
 
         case 'Shipped':
           this.logger.log('Order shipment detected - status logged');

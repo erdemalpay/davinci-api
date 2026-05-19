@@ -35,6 +35,7 @@ export class VisitService {
     @InjectModel(CafeActivity.name)
     private cafeActivityModel: Model<CafeActivity>,
     private readonly websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,

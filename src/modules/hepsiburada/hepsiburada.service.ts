@@ -60,6 +60,7 @@ export class HepsiburadaService {
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(ProcessedHepsiburadaClaim.name)
     private readonly processedHepsiburadaClaimModel: Model<ProcessedHepsiburadaClaim>,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly websocketGateway: AppWebSocketGateway,
   ) {

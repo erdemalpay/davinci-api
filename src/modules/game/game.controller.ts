@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { UpdateQuery } from 'mongoose';
@@ -14,6 +15,7 @@ import { GameDto } from './game.dto';
 import { Game } from './game.schema';
 import { GameService } from './game.service';
 import { RequestGameDto } from './requested-game.dto';
+import { RequestedGame } from './requested-game.schema';
 
 @Controller('games')
 export class GameController {
@@ -31,14 +33,27 @@ export class GameController {
   }
 
   @Get('/requested')
-  async getRequestedGames() {
-    return this.gameService.getRequestedGames();
+  async getRequestedGames(@Query('status') status?: string) {
+    return this.gameService.getRequestedGames(status);
+  }
+
+  @Post('/requested/adjust-statuses')
+  async adjustRequestedGameStatuses() {
+    return this.gameService.adjustRequestedGameStatuses();
   }
 
   @Public()
   @Post('/requested')
   async requestGame(@Body() requestGameDto: RequestGameDto) {
     return this.gameService.requestGame(requestGameDto);
+  }
+
+  @Patch('/requested/:id')
+  async updateRequestedGame(
+    @Param('id') id: string,
+    @Body() updates: UpdateQuery<RequestedGame>,
+  ) {
+    return this.gameService.updateRequestedGame(id, updates);
   }
 
   @Public()
