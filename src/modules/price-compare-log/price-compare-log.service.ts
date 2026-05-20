@@ -76,6 +76,10 @@ export class PriceCompareLogService {
     }
   }
 
+  async getUniqueTargets(): Promise<string[]> {
+    return this.priceCompareLogModel.distinct('target');
+  }
+
   async findById(id: number): Promise<PriceCompareLog | null> {
     return await this.priceCompareLogModel.findById(id);
   }

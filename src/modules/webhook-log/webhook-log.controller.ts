@@ -6,6 +6,11 @@ import { WebhookLogService } from './webhook-log.service';
 export class WebhookLogController {
   constructor(private readonly webhookLogService: WebhookLogService) {}
 
+  @Get('/endpoints')
+  async getUniqueEndpoints() {
+    return this.webhookLogService.getUniqueEndpoints();
+  }
+
   @Get('/query')
   async getAllWebhookLogs(@Query() query: GetWebhookLogsQueryDto) {
     const filters: any = {};
