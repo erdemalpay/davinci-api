@@ -28,6 +28,8 @@
     "https://davinci-nextjs-git-static-props-erdemalpay.vercel.app",
     "https://yervarmi-davinci-git-v2-erdemalpay.vercel.app",
     "https://yervarmi.davinciboardgame.com",
+    "https://oyunvarmi.davinciboardgame.com",
+    "https://buoyunvarmi.davinciboardgame.com",
     "https://yenimenu.davinciboardgame.com",
     "https://menu.davinciboardgame.com",
     "https://cafe.davinciboardgame.com",
@@ -36,7 +38,8 @@
     "https://davinci-react-git-*-erdemalpay.vercel.app",
     "https://kafe.davinciboardgame.com",
     "https://kutuoyunual.com",
-    "https://talep.kutuoyunual.com"
+    "https://talep.kutuoyunual.com",
+    "https://davinciboardgame.com"
   ],
   "migrationEnabled": false
 }
