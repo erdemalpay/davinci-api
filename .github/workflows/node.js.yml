@@ -27,6 +27,8 @@ jobs:
       - run: yarn build
 
       - name: Create .env file
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
         run: |
           echo CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} >> .env
           echo CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} >> .env
@@ -69,7 +71,7 @@ jobs:
           echo DEFAULT_FROM_EMAIL=${{secrets.DEFAULT_FROM_EMAIL}} >> .env
           echo STAGING_HOST_URL=${{secrets.STAGING_HOST_URL}} >> .env
           echo PRODUCTION_HOST_URL=${{secrets.PRODUCTION_HOST_URL}} >> .env
-          echo INSTAGRAM_ACCESS_TOKEN=${{secrets.INSTAGRAM_ACCESS_TOKEN}} >> .env
+          echo INSTAGRAM_ACCESS_TOKEN="$INSTAGRAM_ACCESS_TOKEN" >> .env
       - name: Create ssh folder
         run: mkdir -p ~/.ssh
 
