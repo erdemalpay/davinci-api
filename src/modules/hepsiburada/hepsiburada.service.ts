@@ -811,6 +811,16 @@ export class HepsiburadaService {
 
       if (lineItems.length === 0) {
         this.logger.log('No line items to process');
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'No line items to process' },
+          200,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          startTime,
+        );
         return { success: true, message: 'No line items to process' };
       }
 
@@ -953,7 +963,7 @@ export class HepsiburadaService {
             WebhookStatus.SUCCESS,
             undefined,
             orderIds,
-            undefined,
+            hepsiburadaOrderNumber?.toString(),
             startTime,
           );
           return {
@@ -1274,6 +1284,16 @@ export class HepsiburadaService {
 
       if (!orderNumber) {
         this.logger.warn('No order number provided in cancel webhook');
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'No order number provided' },
+          400,
+          WebhookStatus.FAILED,
+          'No order number provided in cancel webhook',
+          undefined,
+          undefined,
+          startTime,
+        );
         return { success: false, message: 'No order number provided' };
       }
 
@@ -1310,7 +1330,7 @@ export class HepsiburadaService {
               WebhookStatus.SUCCESS,
               undefined,
               undefined,
-              undefined,
+              orderNumberString,
               startTime,
             );
             return {
