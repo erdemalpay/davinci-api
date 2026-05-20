@@ -128,6 +128,10 @@ export class WebhookLogService {
   }
 
 
+  async getUniqueEndpoints(): Promise<string[]> {
+    return this.webhookLogModel.distinct('endpoint');
+  }
+
   /**
    * Finds log by ID
    */

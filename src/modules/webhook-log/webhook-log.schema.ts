@@ -5,6 +5,7 @@ import { purifySchema } from 'src/lib/purifySchema';
 export enum WebhookSource {
   SHOPIFY = 'shopify',
   TRENDYOL = 'trendyol',
+  HEPSIBURADA = 'hepsiburada',
 }
 
 export enum WebhookStatus {

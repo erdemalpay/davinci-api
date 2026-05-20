@@ -4,6 +4,7 @@ import { AccountingModule } from '../accounting/accounting.module';
 import { MenuModule } from '../menu/menu.module';
 import { OrderModule } from '../order/order.module';
 import { UserModule } from '../user/user.module';
+import { WebhookLogModule } from '../webhook-log/webhook-log.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { HepsiburadaCronService } from './hepsiburada.cron.service';
 import { HepsiburadaController } from './hepsiburada.controller';
@@ -17,6 +18,7 @@ import {
 @Module({
   imports: [
     WebSocketModule,
+    WebhookLogModule,
     forwardRef(() => MenuModule),
     forwardRef(() => AccountingModule),
     forwardRef(() => OrderModule),
