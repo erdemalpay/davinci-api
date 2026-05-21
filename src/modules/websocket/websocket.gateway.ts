@@ -261,6 +261,7 @@ export class AppWebSocketGateway {
       kitchen: extractRefId(order.kitchen),
     };
     this.server.emit('orderCreated', { order: normalizedOrder });
+    this.server.emit('printNewOrder');
   }
 
   emitOrderGroupChanged() {
