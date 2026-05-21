@@ -1,6 +1,4 @@
 import {
-  MessageBody,
-  SubscribeMessage,
   WebSocketGateway as WSGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
@@ -28,10 +26,6 @@ export class AppWebSocketGateway {
     this.server.setMaxListeners(0);
   }
 
-  @SubscribeMessage('requestPrint')
-  handleRequestPrint(@MessageBody() data: unknown) {
-    this.server.emit('printReceipt', data);
-  }
   emitActionChanged() {
     this.server.emit('actionChanged');
   }
