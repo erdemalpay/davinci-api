@@ -25,7 +25,6 @@ export class AppWebSocketGateway {
     // Disable the default EventEmitter listener limit
     this.server.setMaxListeners(0);
   }
-
   emitActionChanged() {
     this.server.emit('actionChanged');
   }
