@@ -23,6 +23,9 @@ export class Kitchen extends Document {
 
   @Prop({ required: false, type: [{ type: String, ref: User.name }] })
   selectedUsers: string[];
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isPrintEnabled: boolean;
 }
 
 export const KitchenSchema = SchemaFactory.createForClass(Kitchen);
