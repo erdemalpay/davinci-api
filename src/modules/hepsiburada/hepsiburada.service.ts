@@ -18,6 +18,11 @@ import { Order } from '../order/order.schema';
 import { OrderService } from '../order/order.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import {
+  WebhookSource,
+  WebhookStatus,
+} from '../webhook-log/webhook-log.schema';
+import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { ProcessedHepsiburadaClaim } from './processed-hepsiburada-claim.schema';
 
 interface PopulatedMenuItem {
@@ -63,6 +68,7 @@ export class HepsiburadaService {
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly webhookLogService: WebhookLogService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -765,10 +771,27 @@ export class HepsiburadaService {
     this.logger.log('Processing Hepsiburada order webhook...');
     this.logger.debug('Webhook data:', JSON.stringify(data, null, 2));
 
+    const startTime = Date.now();
+    const webhookLog = await this.webhookLogService.logWebhookRequest(
+      WebhookSource.HEPSIBURADA,
+      '/orders',
+      data,
+    );
+
     try {
       // If no data is provided, return success (webhook verification)
       if (!data || Object.keys(data).length === 0) {
         this.logger.log('Webhook verification request - no data provided');
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'Webhook endpoint is accessible' },
+          200,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          startTime,
+        );
         return {
           success: true,
           message: 'Webhook endpoint is accessible',
@@ -788,6 +811,16 @@ export class HepsiburadaService {
 
       if (lineItems.length === 0) {
         this.logger.log('No line items to process');
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'No line items to process' },
+          200,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          startTime,
+        );
         return { success: true, message: 'No line items to process' };
       }
 
@@ -922,6 +955,17 @@ export class HepsiburadaService {
           );
           this.logger.log('Collection created:', collection._id);
 
+          const orderIds = createdOrders.map((o) => o.order);
+          await this.webhookLogService.updateWebhookResponse(
+            webhookLog._id,
+            { message: 'Orders processed successfully', ordersCreated: createdOrders.length },
+            200,
+            WebhookStatus.SUCCESS,
+            undefined,
+            orderIds,
+            hepsiburadaOrderNumber?.toString(),
+            startTime,
+          );
           return {
             success: true,
             message: 'Orders processed successfully',
@@ -933,12 +977,32 @@ export class HepsiburadaService {
         }
       }
 
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        { message: 'No valid orders to create' },
+        200,
+        WebhookStatus.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        startTime,
+      );
       return {
         success: true,
         message: 'No valid orders to create',
       };
     } catch (error) {
       this.logger.error('Error in orderWebhook', error);
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        null,
+        500,
+        WebhookStatus.FAILED,
+        error?.message || 'Unknown error',
+        undefined,
+        undefined,
+        startTime,
+      );
       throw new HttpException(
         `Error processing webhook: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1188,6 +1252,16 @@ export class HepsiburadaService {
     this.logger.log('Processing Hepsiburada order cancellation...');
     this.logger.debug('Cancel data:', JSON.stringify(data, null, 2));
 
+    const startTime = Date.now();
+    const endpoint = lineitemIdFromUrl
+      ? `/lineitems/${lineitemIdFromUrl}/cancel`
+      : '/lineitems/cancel';
+    const webhookLog = await this.webhookLogService.logWebhookRequest(
+      WebhookSource.HEPSIBURADA,
+      endpoint,
+      data,
+    );
+
     try {
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
       if (!constantUser) {
@@ -1210,6 +1284,16 @@ export class HepsiburadaService {
 
       if (!orderNumber) {
         this.logger.warn('No order number provided in cancel webhook');
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'No order number provided' },
+          400,
+          WebhookStatus.FAILED,
+          'No order number provided in cancel webhook',
+          undefined,
+          undefined,
+          startTime,
+        );
         return { success: false, message: 'No order number provided' };
       }
 
@@ -1239,6 +1323,16 @@ export class HepsiburadaService {
             this.logger.warn(
               `Cancel webhook for line item ${lineItemId} skipped: ${message}`,
             );
+            await this.webhookLogService.updateWebhookResponse(
+              webhookLog._id,
+              { message: 'Order already processed' },
+              200,
+              WebhookStatus.SUCCESS,
+              undefined,
+              undefined,
+              orderNumberString,
+              startTime,
+            );
             return {
               success: true,
               message: 'Order already processed',
@@ -1250,6 +1344,16 @@ export class HepsiburadaService {
 
         this.websocketGateway.emitOrderGroupChanged();
 
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'Order cancellation processed', cancelledQuantity: qty },
+          200,
+          WebhookStatus.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          startTime,
+        );
         return {
           success: true,
           message: 'Order cancellation processed',
@@ -1266,6 +1370,16 @@ export class HepsiburadaService {
       if (!orders || orders.length === 0) {
         this.logger.warn(
           `No orders found with Hepsiburada order number: ${orderNumberString}`,
+        );
+        await this.webhookLogService.updateWebhookResponse(
+          webhookLog._id,
+          { message: 'No orders found to cancel' },
+          200,
+          WebhookStatus.FAILED,
+          'No orders found to cancel',
+          undefined,
+          undefined,
+          startTime,
         );
         return { success: false, message: 'No orders found to cancel' };
       }
@@ -1294,6 +1408,16 @@ export class HepsiburadaService {
 
       this.websocketGateway.emitOrderGroupChanged();
 
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        { message: 'Order(s) cancelled successfully', ordersCancelled: cancelledCount },
+        200,
+        WebhookStatus.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        startTime,
+      );
       return {
         success: true,
         message: 'Order(s) cancelled successfully',
@@ -1301,6 +1425,16 @@ export class HepsiburadaService {
       };
     } catch (error) {
       this.logger.error('Error in handleCancelOrder', error);
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        null,
+        500,
+        WebhookStatus.FAILED,
+        error?.message || 'Unknown error',
+        undefined,
+        undefined,
+        startTime,
+      );
       throw new HttpException(
         `Error cancelling order: ${error?.message || 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,

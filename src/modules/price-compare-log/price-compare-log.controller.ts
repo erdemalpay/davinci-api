@@ -8,6 +8,11 @@ export class PriceCompareLogController {
     private readonly priceCompareLogService: PriceCompareLogService,
   ) {}
 
+  @Get('/targets')
+  async getUniqueTargets() {
+    return this.priceCompareLogService.getUniqueTargets();
+  }
+
   @Get('/query')
   async getAllPriceCompareLogs(@Query() query: GetPriceCompareLogsQueryDto) {
     const filters: any = {};
