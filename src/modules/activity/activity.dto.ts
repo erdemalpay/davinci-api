@@ -100,6 +100,8 @@ export enum ActivityType {
   DELETE_SHIFT = 'DELETE_SHIFT',
   ASSIGN_CHEF = 'ASSIGN_CHEF',
   ASSIGN_MIDDLEMAN = 'ASSIGN_MIDDLEMAN',
+  TRANSFER_TABLE = 'TRANSFER_TABLE',
+  COMBINE_TABLE = 'COMBINE_TABLE',
 }
 
 export type ActivityTypePayload = {
@@ -221,6 +223,8 @@ export type ActivityTypePayload = {
     previousMiddlemanUserId: string;
     middlemanUserId: string;
   };
+  [ActivityType.TRANSFER_TABLE]: { oldTable: Table; newTable: Table };
+  [ActivityType.COMBINE_TABLE]: { oldTable: Table; targetTable: Table };
 };
 
 export class ActivityQueryDto {
