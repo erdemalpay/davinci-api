@@ -5059,6 +5059,18 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.COMBINE_TABLE,
+        {
+          oldTable: oldTable.toObject() as Table,
+          targetTable: newTable.toObject() as Table,
+        },
+      );
+    } catch (activityError) {
+      this.logger.warn('Failed to add COMBINE_TABLE activity', activityError);
+    }
     return orders;
   }
 
@@ -5103,6 +5115,18 @@ export class OrderService {
         'Failed to transfer orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+    try {
+      await this.activityService.addActivity(
+        user,
+        ActivityType.TRANSFER_TABLE,
+        {
+          oldTable: oldTable.toObject() as Table,
+          newTable: newTable.toObject() as Table,
+        },
+      );
+    } catch (activityError) {
+      this.logger.warn('Failed to add TRANSFER_TABLE activity', activityError);
     }
     return orders;
   }
