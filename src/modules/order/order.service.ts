@@ -1080,11 +1080,15 @@ export class OrderService {
     table: Table,
   ) {
     // Check if table is closed (finishHour exists)
-    if (table.finishHour) {
-      throw new HttpException(
-        'Cannot add orders to a closed table',
-        HttpStatus.BAD_REQUEST,
-      );
+    if (table) {
+      const foundTable = await this.tableService.findById(table._id);
+      if (foundTable && foundTable.finishHour) {
+        this.websocketGateway.emitSingleTableChanged(foundTable);
+        throw new HttpException(
+          'Cannot add orders to a closed table',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
@@ -5060,14 +5064,10 @@ export class OrderService {
       );
     }
     try {
-      await this.activityService.addActivity(
-        user,
-        ActivityType.COMBINE_TABLE,
-        {
-          oldTable: oldTable.toObject() as Table,
-          targetTable: newTable.toObject() as Table,
-        },
-      );
+      await this.activityService.addActivity(user, ActivityType.COMBINE_TABLE, {
+        oldTable: oldTable.toObject() as Table,
+        targetTable: newTable.toObject() as Table,
+      });
     } catch (activityError) {
       this.logger.warn('Failed to add COMBINE_TABLE activity', activityError);
     }
