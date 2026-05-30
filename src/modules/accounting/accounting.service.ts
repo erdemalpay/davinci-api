@@ -87,6 +87,8 @@ type ExpenseTypeId = string;
 
 type StockLocationId = number;
 
+type MenuItemIdInput = number | { _id: number };
+
 interface RollbackInfo {
   expenseId?: unknown;
   paymentId?: unknown;
@@ -2298,8 +2300,15 @@ export class AccountingService {
     }
   }
 
-  async notifyBackInStockSubscribers(menuItemId: number) {
+  async notifyBackInStockSubscribers(menuItemInput: MenuItemIdInput) {
+    const menuItemId =
+      typeof menuItemInput === 'number' ? menuItemInput : menuItemInput?._id;
+
     try {
+      if (!Number.isFinite(menuItemId)) {
+        throw new Error('Invalid menu item ID');
+      }
+
       const menuItem = await this.menuService.findItemById(menuItemId);
 
       if (!menuItem?.shopifyId) {
@@ -2365,7 +2374,7 @@ export class AccountingService {
     }
   }
 
-  async notifyBackInStockSubscribersBulk(menuItemIds: number[]) {
+  async notifyBackInStockSubscribersBulk(menuItemIds: MenuItemIdInput[]) {
     const results = [];
 
     for (const menuItemId of menuItemIds) {
