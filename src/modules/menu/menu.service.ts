@@ -554,7 +554,7 @@ export class MenuService {
   }
 
   async findItemById(id: number) {
-    const item = await this.itemModel.findById({
+    const item = await this.itemModel.findOne({
       _id: id,
       deleted: { $ne: true },
     });
