@@ -51,8 +51,9 @@ export class BreakService {
         );
       }
 
-      const activeOthersCount = await this.breakModel.countDocuments({
+      const activeOthersCount = await this.breakModel.countDocuments({ 
         location: createBreakDto.location,
+        date: createBreakDto.date,
         user: { $ne: createBreakDto.user },
         finishHour: { $exists: false },
       });
