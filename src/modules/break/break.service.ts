@@ -5,6 +5,8 @@ import { dateRanges } from 'src/utils/dateRanges';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
+import { NotificationEventType } from '../notification/notification.dto';
+import { NotificationService } from '../notification/notification.service';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { computeDurationMinutes } from 'src/utils/timeUtils';
@@ -30,6 +32,7 @@ export class BreakService {
     private readonly locationService: LocationService,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
@@ -48,6 +51,12 @@ export class BreakService {
         );
       }
 
+      const activeOthersCount = await this.breakModel.countDocuments({
+        location: createBreakDto.location,
+        user: { $ne: createBreakDto.user },
+        finishHour: { $exists: false },
+      });
+
       const breakRecord = await this.breakModel.create(createBreakDto);
       await tryAddActivity(
         this.activityService,
@@ -58,6 +67,37 @@ export class BreakService {
         'start break',
       );
       this.websocketGateway.emitBreakChanged();
+
+      if (activeOthersCount >= 2) {
+        const notificationEvents =
+          await this.notificationService.findAllEventNotifications();
+        const concurrentBreakEvent = notificationEvents.find(
+          (n) => n.event === NotificationEventType.CONCURRENTBREAK,
+        );
+        if (concurrentBreakEvent) {
+          const [breakUser, breakLocation] = await Promise.all([
+            this.userService.findById(createBreakDto.user),
+            this.locationService.findLocationById(createBreakDto.location),
+          ]);
+          await this.notificationService.createNotification({
+            type: concurrentBreakEvent.type,
+            createdBy: concurrentBreakEvent.createdBy,
+            selectedUsers: concurrentBreakEvent.selectedUsers,
+            selectedRoles: concurrentBreakEvent.selectedRoles,
+            selectedLocations: concurrentBreakEvent.selectedLocations,
+            seenBy: [],
+            event: NotificationEventType.CONCURRENTBREAK,
+            message: {
+              key: 'ConcurrentBreakWarning',
+              params: {
+                userName: breakUser?.name ?? createBreakDto.user,
+                locationName: breakLocation?.name ?? String(createBreakDto.location),
+              },
+            },
+          });
+        }
+      }
+
       return breakRecord;
     }, 'Failed to create break record');
   }
