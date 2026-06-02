@@ -98,6 +98,15 @@ export class ShiftService {
         { shifts: mergedShifts },
         { new: true },
       );
+      try {
+        await this.activityService.addActivity(user, ActivityType.CREATE_SHIFT, {
+          day: updatedShift.day,
+          location: updatedShift.location,
+          shifts: updatedShift.shifts,
+        });
+      } catch (e) {
+        console.error('Failed to log create shift activity', e);
+      }
       return updatedShift;
     }
 
