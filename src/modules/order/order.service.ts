@@ -2093,7 +2093,7 @@ export class OrderService {
           this.logger.warn(
             `Order ${shopifyOrderLineItemId} already cancelled, skipping duplicate webhook`,
           );
-          return null;
+          return order;
         }
 
         const collection = await this.collectionModel.findOne(
