@@ -98,6 +98,7 @@ export class ShiftService {
         { shifts: mergedShifts },
         { new: true },
       );
+      this.websocketGateway.emitShiftChanged();
       try {
         await this.activityService.addActivity(user, ActivityType.CREATE_SHIFT, {
           day: updatedShift.day,
