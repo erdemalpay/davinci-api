@@ -1011,6 +1011,7 @@ export class ShopifyService {
         title: productInput.title,
         descriptionHtml: productInput.descriptionHtml,
         productType: productInput.productType,
+        status: 'DRAFT',
       };
 
       const response = await this.executeGraphQLRequest(async () => {
