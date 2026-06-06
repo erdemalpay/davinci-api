@@ -190,6 +190,10 @@ export class CreateKitchenDto {
   @IsArray()
   @IsNumber({}, { each: true })
   soundRoles?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  isPrintEnabled?: boolean;
 }
 
 export class CreatePopularDto {

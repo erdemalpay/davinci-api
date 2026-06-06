@@ -41,4 +41,6 @@ export class Shift extends Document {
 
 export const ShiftSchema = SchemaFactory.createForClass(Shift);
 
+ShiftSchema.index({ day: 1, location: 1 }, { unique: true });
+
 purifySchema(ShiftSchema);

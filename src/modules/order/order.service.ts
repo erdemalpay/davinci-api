@@ -2088,6 +2088,14 @@ export class OrderService {
           throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
         }
 
+        // Duplicate webhook guard: if already cancelled, skip silently
+        if (order.status === OrderStatus.CANCELLED) {
+          this.logger.warn(
+            `Order ${shopifyOrderLineItemId} already cancelled, skipping duplicate webhook`,
+          );
+          return order;
+        }
+
         const collection = await this.collectionModel.findOne(
           {
             shopifyId: order.shopifyOrderId,
@@ -2099,13 +2107,6 @@ export class OrderService {
 
         if (!collection) {
           throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
-        }
-
-        if (order.status === OrderStatus.CANCELLED) {
-          throw new HttpException(
-            'Order is already cancelled',
-            HttpStatus.BAD_REQUEST,
-          );
         }
         if (quantity > order.quantity) {
           throw new HttpException(

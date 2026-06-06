@@ -76,6 +76,41 @@ export class ShiftService {
   }
 
   async createShift(user: User, createShiftDto: CreateShiftDto) {
+    const existing = await this.shiftModel
+      .findOne({ day: createShiftDto.day, location: createShiftDto.location })
+      .exec();
+
+    if (existing) {
+      const mergedShifts = existing.shifts.map((existingShift) => {
+        const incoming = createShiftDto.shifts?.find(
+          (s) => s.shift === existingShift.shift,
+        );
+        if (!incoming) return existingShift;
+        return {
+          ...existingShift,
+          user: Array.from(
+            new Set([...(existingShift.user ?? []), ...(incoming.user ?? [])]),
+          ),
+        };
+      });
+      const updatedShift = await this.shiftModel.findByIdAndUpdate(
+        existing._id,
+        { shifts: mergedShifts },
+        { new: true },
+      );
+      this.websocketGateway.emitShiftChanged();
+      try {
+        await this.activityService.addActivity(user, ActivityType.CREATE_SHIFT, {
+          day: updatedShift.day,
+          location: updatedShift.location,
+          shifts: updatedShift.shifts,
+        });
+      } catch (e) {
+        console.error('Failed to log create shift activity', e);
+      }
+      return updatedShift;
+    }
+
     const createdShift = new this.shiftModel(createShiftDto);
     await createdShift.save();
     this.websocketGateway.emitShiftChanged();
