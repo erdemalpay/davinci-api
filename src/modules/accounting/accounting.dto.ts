@@ -140,6 +140,7 @@ export class CreateInvoiceDto {
   isPaid: boolean;
   paymentMethod?: string;
   isStockIncrement?: boolean;
+  deposit?: number;
 }
 export class CountQueryDto {
   page?: number;
@@ -173,6 +174,7 @@ export class CreateExpenseDto {
   isAfterCount: boolean;
   vat?: number;
   discount?: number;
+  deposit?: number;
 }
 export class CreateMultipleExpenseDto {
   date: string;
@@ -186,6 +188,7 @@ export class CreateMultipleExpenseDto {
   price: number;
   vat?: number;
   discount?: number;
+  deposit?: number;
   isStockIncrement: boolean;
   note?: string;
   isAfterCount: boolean;
@@ -212,6 +215,7 @@ export class CreateServiceInvoiceDto {
   note?: string;
   isPaid: boolean;
   paymentMethod?: string;
+  deposit?: number;
 }
 
 export enum StockHistoryStatusEnum {

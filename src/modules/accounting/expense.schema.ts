@@ -31,6 +31,9 @@ export class Expense extends Document {
   discount: number;
 
   @Prop({ required: false, type: Number })
+  deposit: number;
+
+  @Prop({ required: false, type: Number })
   vat: number;
 
   @Prop({ required: true, type: Number })
