@@ -1581,8 +1581,9 @@ export class AccountingService {
           .limit(1);
 
         if (
-          !productLastExpense[0] ||
-          productLastExpense[0]?.date <= createExpenseDto.date
+          (!productLastExpense[0] ||
+            productLastExpense[0]?.date <= createExpenseDto.date) &&
+          createExpenseDto.quantity > 0
         ) {
           let updatedUnitPrice: number;
 
@@ -1592,7 +1593,7 @@ export class AccountingService {
             ),
           );
 
-          const product = await this.productModel.findByIdAndUpdate(
+          await this.productModel.findByIdAndUpdate(
             createExpenseDto.product,
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
@@ -1789,6 +1790,7 @@ export class AccountingService {
           isStockIncrement: updates?.isStockIncrement
             ? updates?.isStockIncrement
             : expense?.isStockIncrement ?? false,
+          deposit: updates?.deposit,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
