@@ -1574,16 +1574,19 @@ export class AccountingService {
   ) {
     try {
       //update the product unit price
-      if (createExpenseDto.type === ExpenseTypes.STOCKABLE) {
+      if (
+        createExpenseDto.type === ExpenseTypes.STOCKABLE &&
+        createExpenseDto.product &&
+        createExpenseDto.quantity > 0
+      ) {
         const productLastExpense = await this.expenseModel
           .find({ product: createExpenseDto.product })
           .sort({ date: -1 })
           .limit(1);
 
         if (
-          (!productLastExpense[0] ||
-            productLastExpense[0]?.date <= createExpenseDto.date) &&
-          createExpenseDto.quantity > 0
+          !productLastExpense[0] ||
+          productLastExpense[0]?.date <= createExpenseDto.date
         ) {
           let updatedUnitPrice: number;
 
@@ -1604,7 +1607,11 @@ export class AccountingService {
         }
       }
       //update the service unit price
-      else if (createExpenseDto.type === ExpenseTypes.NONSTOCKABLE) {
+      else if (
+        createExpenseDto.type === ExpenseTypes.NONSTOCKABLE &&
+        createExpenseDto.service &&
+        createExpenseDto.quantity > 0
+      ) {
         const ServiceLastInvoice = await this.expenseModel
           .find({ service: createExpenseDto.service })
           .sort({ date: -1 })
@@ -1619,7 +1626,7 @@ export class AccountingService {
             ),
           );
 
-          const service = await this.serviceModel.findByIdAndUpdate(
+          await this.serviceModel.findByIdAndUpdate(
             createExpenseDto.service,
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
