@@ -87,6 +87,10 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsNumber()
+  referencePrice?: number;
+
+  @IsOptional()
+  @IsNumber()
   ikasDiscountedPrice?: number;
 
   @IsOptional()
