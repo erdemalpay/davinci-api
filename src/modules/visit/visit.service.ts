@@ -569,8 +569,11 @@ export class VisitService {
     return activity;
   }
 
-  async findAllCafeActivity() {
-    return this.cafeActivityModel.find().exec();
+  async findAllCafeActivity(after?: string, before?: string) {
+    const filter: Record<string, any> = {};
+    if (after) filter.date = { $gte: after };
+    if (before) filter.date = { ...filter.date, $lte: before };
+    return this.cafeActivityModel.find(filter).exec();
   }
   async updateCafeActivity(id: number, updates: UpdateQuery<CafeActivityDto>) {
     const activity = await this.cafeActivityModel.findOneAndUpdate(
