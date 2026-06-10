@@ -707,6 +707,14 @@ export class AccountingController {
     return this.accountingService.findAllCounts(user);
   }
 
+  @Get('/counts/active')
+  getActiveCount(
+    @Query('location') location: string,
+    @Query('countList') countList: string,
+  ) {
+    return this.accountingService.findActiveCount(Number(location), countList);
+  }
+
   @Get('/counts/query')
   findQueryCounts(
     @ReqUser() user: User,

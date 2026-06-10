@@ -91,8 +91,11 @@ export class VisitController {
   }
 
   @Get('/cafe-activity')
-  findAllCafeActivity() {
-    return this.visitService.findAllCafeActivity();
+  findAllCafeActivity(
+    @Query('after') after?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.visitService.findAllCafeActivity(after, before);
   }
 
   @Patch('/cafe-activity/:id')

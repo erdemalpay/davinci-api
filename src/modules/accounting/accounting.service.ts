@@ -1574,7 +1574,11 @@ export class AccountingService {
   ) {
     try {
       //update the product unit price
-      if (createExpenseDto.type === ExpenseTypes.STOCKABLE) {
+      if (
+        createExpenseDto.type === ExpenseTypes.STOCKABLE &&
+        createExpenseDto.product &&
+        createExpenseDto.quantity > 0
+      ) {
         const productLastExpense = await this.expenseModel
           .find({ product: createExpenseDto.product })
           .sort({ date: -1 })
@@ -1592,7 +1596,7 @@ export class AccountingService {
             ),
           );
 
-          const product = await this.productModel.findByIdAndUpdate(
+          await this.productModel.findByIdAndUpdate(
             createExpenseDto.product,
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
@@ -1603,7 +1607,11 @@ export class AccountingService {
         }
       }
       //update the service unit price
-      else if (createExpenseDto.type === ExpenseTypes.NONSTOCKABLE) {
+      else if (
+        createExpenseDto.type === ExpenseTypes.NONSTOCKABLE &&
+        createExpenseDto.service &&
+        createExpenseDto.quantity > 0
+      ) {
         const ServiceLastInvoice = await this.expenseModel
           .find({ service: createExpenseDto.service })
           .sort({ date: -1 })
@@ -1618,7 +1626,7 @@ export class AccountingService {
             ),
           );
 
-          const service = await this.serviceModel.findByIdAndUpdate(
+          await this.serviceModel.findByIdAndUpdate(
             createExpenseDto.service,
             { $set: { unitPrice: updatedUnitPrice } },
             { new: true },
@@ -1789,6 +1797,7 @@ export class AccountingService {
           isStockIncrement: updates?.isStockIncrement
             ? updates?.isStockIncrement
             : expense?.isStockIncrement ?? false,
+          deposit: updates?.deposit,
         },
         StockHistoryStatusEnum.EXPENSEUPDATEENTRY,
       );
@@ -3779,6 +3788,14 @@ export class AccountingService {
   }
   findCountById(id: string) {
     return this.countModel.findById(id);
+  }
+
+  async findActiveCount(location: number, countList: string) {
+    return this.countModel.findOne({
+      isCompleted: false,
+      location,
+      countList,
+    });
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);

@@ -3303,6 +3303,7 @@ export class OrderService {
           'table',
           'date _id name isOnlineSale finishHour type startHour',
         )
+        .sort({ createdAt: -1 })
         .exec();
       return collections;
     } catch (error) {
@@ -3766,6 +3767,55 @@ export class OrderService {
             null,
             { session },
           );
+        }
+
+        if (tableId) {
+          const tableOrderDocs = await this.orderModel
+            .find(
+              {
+                table: tableId,
+                status: {
+                  $nin: [
+                    OrderStatus.CANCELLED,
+                    OrderStatus.RETURNED,
+                    OrderStatus.WASTED,
+                  ],
+                },
+              },
+              { quantity: 1, unitPrice: 1 },
+              { session },
+            )
+            .lean();
+
+          const totalOrderAmount = tableOrderDocs.reduce(
+            (sum, o) => sum + o.quantity * o.unitPrice,
+            0,
+          );
+
+          const existingCollectionDocs = await this.collectionModel
+            .find(
+              {
+                table: tableId,
+                status: { $ne: OrderCollectionStatus.CANCELLED },
+              },
+              { amount: 1 },
+              { session },
+            )
+            .lean();
+
+          const existingTotal = existingCollectionDocs.reduce(
+            (sum, c) => sum + (c.amount ?? 0),
+            0,
+          );
+
+          const newAmount = filteredCollectionDto.amount ?? 0;
+
+          if (existingTotal + newAmount > totalOrderAmount) {
+            throw new HttpException(
+              `Collection amount exceeds table order total. Orders total: ${totalOrderAmount}, already collected: ${existingTotal}, requested: ${newAmount}`,
+              HttpStatus.BAD_REQUEST,
+            );
+          }
         }
 
         collection = new this.collectionModel({
