@@ -3789,6 +3789,14 @@ export class AccountingService {
   findCountById(id: string) {
     return this.countModel.findById(id);
   }
+
+  async findActiveCount(location: number, countList: string) {
+    return this.countModel.findOne({
+      isCompleted: false,
+      location,
+      countList,
+    });
+  }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
