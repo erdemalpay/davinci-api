@@ -3303,6 +3303,7 @@ export class OrderService {
           'table',
           'date _id name isOnlineSale finishHour type startHour',
         )
+        .sort({ createdAt: -1 })
         .exec();
       return collections;
     } catch (error) {
