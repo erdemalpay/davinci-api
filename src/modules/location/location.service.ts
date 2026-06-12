@@ -155,13 +155,27 @@ export class LocationService {
   }
 
   async updateLocationOrder(id: number, newOrder: number) {
+    if (newOrder === undefined || newOrder === null || typeof newOrder !== 'number') {
+      throw new HttpException('Invalid new order value', HttpStatus.BAD_REQUEST);
+    }
     const location = await this.locationModel.findById(id);
     if (!location) {
       throw new HttpException('Location not found', HttpStatus.NOT_FOUND);
     }
     const currentOrder = location.order;
     if (currentOrder === newOrder) return;
-    if (currentOrder < newOrder) {
+    if (currentOrder === undefined || currentOrder === null) {
+      const conflict = await this.locationModel.findOne({
+        order: newOrder,
+        _id: { $ne: id },
+      });
+      if (conflict) {
+        await this.locationModel.updateMany(
+          { _id: { $ne: id }, order: { $gte: newOrder } },
+          { $inc: { order: 1 } },
+        );
+      }
+    } else if (currentOrder < newOrder) {
       await this.locationModel.updateMany(
         { _id: { $ne: id }, order: { $gt: currentOrder, $lte: newOrder } },
         { $inc: { order: -1 } },
