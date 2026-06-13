@@ -44,6 +44,14 @@ export class LocationController {
     return this.locationService.findStockLocations();
   }
 
+  @Patch('/order/:id')
+  updateLocationOrder(
+    @Param('id') id: number,
+    @Body() payload: { newOrder: number },
+  ) {
+    return this.locationService.updateLocationOrder(id, payload.newOrder);
+  }
+
   @Patch('/:id')
   updateLocation(
     @Param('id') id: number,

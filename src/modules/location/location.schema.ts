@@ -84,6 +84,9 @@ export class Location extends Document {
 
   @Prop({ required: false, type: Number, ref: Location.name })
   fallbackStockLocation?: number;
+
+  @Prop({ required: false, type: Number })
+  order?: number;
 }
 
 export const LocationSchema = SchemaFactory.createForClass(Location);
