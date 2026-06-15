@@ -6,6 +6,7 @@ import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { MiddlemanController } from './middleman.controller';
+import { MiddlemanCronService } from './middleman.cron.service';
 import { Middleman, MiddlemanSchema } from './middleman.schema';
 import { MiddlemanService } from './middleman.service';
 
@@ -20,7 +21,7 @@ import { MiddlemanService } from './middleman.service';
     ActivityModule,
   ],
   controllers: [MiddlemanController],
-  providers: [MiddlemanService],
+  providers: [MiddlemanService, MiddlemanCronService],
   exports: [MiddlemanService],
 })
 export class MiddlemanModule {}

@@ -95,6 +95,7 @@ export enum ActivityType {
   START_MIDDLEMAN = 'START_MIDDLEMAN',
   FINISH_MIDDLEMAN = 'FINISH_MIDDLEMAN',
   FINISH_MIDDLEMAN_BY_MANAGER = 'FINISH_MIDDLEMAN_BY_MANAGER',
+  FINISH_MIDDLEMAN_AUTO = 'FINISH_MIDDLEMAN_AUTO',
   CREATE_SHIFT = 'CREATE_SHIFT',
   UPDATE_SHIFT = 'UPDATE_SHIFT',
   DELETE_SHIFT = 'DELETE_SHIFT',
@@ -201,6 +202,7 @@ export type ActivityTypePayload = {
   [ActivityType.START_MIDDLEMAN]: Middleman;
   [ActivityType.FINISH_MIDDLEMAN]: Middleman;
   [ActivityType.FINISH_MIDDLEMAN_BY_MANAGER]: Middleman;
+  [ActivityType.FINISH_MIDDLEMAN_AUTO]: Middleman;
   [ActivityType.CREATE_SHIFT]: { day: string; location: number; shifts: ShiftValues[] };
   [ActivityType.UPDATE_SHIFT]: {
     day: string;
