@@ -2121,8 +2121,6 @@ export class ShopifyService {
         data,
       );
 
-      this.logger.log('Received Shopify order webhook data:', data);
-
       const lineItems = data?.line_items ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
@@ -2440,6 +2438,10 @@ export class ShopifyService {
           ...(discountType && {
             shopifyDiscountType: discountType,
           }),
+          ...(discountApplications.length > 0 &&
+            discountApplications[0]?.description && {
+              shopifyDiscountNote: discountApplications[0].description,
+            }),
         };
 
         try {
