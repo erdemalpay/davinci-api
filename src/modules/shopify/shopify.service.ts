@@ -2385,8 +2385,6 @@ export class ShopifyService {
         data,
       );
 
-      this.logger.log('Received Shopify order webhook data:', data);
-
       const lineItems = data?.line_items ?? [];
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 

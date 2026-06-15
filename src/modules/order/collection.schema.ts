@@ -80,6 +80,10 @@ export class Collection extends Document {
 
   @Prop({ required: false, type: String })
   shopifyDiscountType?: string;
+
+  @Prop({ required: false, type: String })
+  shopifyDiscountNote?: string;
+
   @Prop({ required: false, type: String })
   shopifyDiscountCode?: string;
 
