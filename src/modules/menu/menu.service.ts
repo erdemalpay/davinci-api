@@ -863,9 +863,18 @@ export class MenuService {
 
       let damagedItem: MenuItem;
       if (existingDamagedItem) {
+        const priceChanged = existingDamagedItem.price !== price;
         damagedItem = await this.itemModel.findByIdAndUpdate(
           existingDamagedItem._id,
-          { price },
+          {
+            price,
+            ...(priceChanged && {
+              priceHistory: [
+                ...(existingDamagedItem.priceHistory || []),
+                { price, date: new Date().toISOString() },
+              ],
+            }),
+          },
           { new: true },
         );
       } else {
@@ -875,7 +884,7 @@ export class MenuService {
           name,
           category,
           price,
-          priceHistory: [{ price: objectItem.price, date: new Date() }],
+          priceHistory: [{ price, date: new Date().toISOString() }],
           ...(matchedProduct && {
             matchedProduct: matchedProduct._id,
             itemProduction: [
