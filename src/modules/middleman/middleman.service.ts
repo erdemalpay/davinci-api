@@ -200,8 +200,13 @@ export class MiddlemanService {
   }
 
   async autoCloseStale(): Promise<number> {
-    const turkeyNow = new Date(new Date().getTime() + 3 * 60 * 60 * 1000);
-    const yesterday = format(subDays(turkeyNow, 1), 'yyyy-MM-dd');
+    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterday = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(yesterdayDate);
 
     const stale = await this.middlemanModel.find({
       finishHour: { $exists: false },
