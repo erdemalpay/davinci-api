@@ -209,6 +209,9 @@ export class Order extends Document {
   isShopifyCustomerPicked: boolean;
 
   @Prop({ required: false, type: Boolean })
+  isShopifyPickUp: boolean;
+
+  @Prop({ required: false, type: Boolean })
   isShopifyPickUpOrderBrought: boolean;
 
   @Prop({ required: false, type: String })
