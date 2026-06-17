@@ -914,6 +914,9 @@ export class ShopifyService {
     const query = `
       query GetOrderCustomer($id: ID!) {
         order(id: $id) {
+          shippingAddress {
+            address1
+          }
           customer {
             id
             firstName
@@ -939,6 +942,8 @@ export class ShopifyService {
           continue;
         }
 
+        const isPickUp = !response?.data?.order?.shippingAddress;
+
         const customerData = {
           id: customer.id.split('/').pop(),
           firstName: customer.firstName ?? '',
@@ -951,6 +956,7 @@ export class ShopifyService {
         const count = await this.orderService.bulkSetShopifyCustomer(
           shopifyOrderId,
           customerData,
+          isPickUp,
         );
         updated += count;
       } catch (e) {
@@ -2601,6 +2607,8 @@ export class ShopifyService {
             }),
           };
 
+          const isPickUp = !data?.shipping_address;
+
           if (data?.customer?.id) {
             createOrderObject = {
               ...createOrderObject,
@@ -2612,6 +2620,7 @@ export class ShopifyService {
                 phone: data?.customer?.phone,
                 location: 6,
               },
+              ...(isPickUp && { isShopifyPickUp: true }),
             };
           }
 

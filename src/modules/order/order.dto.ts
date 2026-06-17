@@ -204,6 +204,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsBoolean()
+  isShopifyPickUp?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isShopifyPickUpOrderBrought?: boolean;
 
   @IsOptional()

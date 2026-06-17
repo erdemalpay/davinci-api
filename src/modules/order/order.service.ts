@@ -224,10 +224,11 @@ export class OrderService {
       phone: string;
       location: number;
     },
+    isPickUp: boolean,
   ): Promise<number> {
     const result = await this.orderModel.updateMany(
       { shopifyOrderId },
-      { $set: { shopifyCustomer: customer } },
+      { $set: { shopifyCustomer: customer, isShopifyPickUp: isPickUp } },
     );
     return result.modifiedCount;
   }
@@ -403,7 +404,7 @@ export class OrderService {
     }
     if (isShopifyPickUp) {
       filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
-      filterQuery['shopifyCustomer'] = { $exists: true };
+      filterQuery['isShopifyPickUp'] = true;
     }
 
     try {
