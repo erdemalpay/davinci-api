@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { format, subDays } from 'date-fns';
 import { FilterQuery, Model } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -196,5 +197,42 @@ export class MiddlemanService {
     assertFound(deleted, 'Middleman record not found');
     this.websocketGateway.emitMiddlemanChanged();
     return deleted;
+  }
+
+  async autoCloseStale(): Promise<number> {
+    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterday = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(yesterdayDate);
+
+    const stale = await this.middlemanModel.find({
+      finishHour: { $exists: false },
+      date: yesterday,
+    });
+
+    if (stale.length === 0) return 0;
+
+    await this.middlemanModel.updateMany(
+      { _id: { $in: stale.map((s) => s._id) } },
+      { $set: { finishHour: '23:59' } },
+    );
+
+    for (const record of stale) {
+      record.finishHour = '23:59';
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        record.user,
+        ActivityType.FINISH_MIDDLEMAN_AUTO,
+        toPlainObject(record),
+        'auto-close stale middleman',
+      );
+    }
+
+    this.websocketGateway.emitMiddlemanChanged();
+    return stale.length;
   }
 }
