@@ -22,4 +22,6 @@ export enum RedisKeys {
   Shifts = 'shifts',
   TableLock = 'table-lock',
   OrderLock = 'order-lock',
+  ShopifyCustomerCursors = 'shopify-customer-cursors',
+  ShopifyCustomerCount = 'shopify-customer-count',
 }

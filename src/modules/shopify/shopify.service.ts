@@ -66,6 +66,7 @@ export class ShopifyService {
     'write_inventory',
     'read_publications',
     'write_publications',
+    'read_customers',
   ];
 
   constructor(
@@ -706,6 +707,264 @@ export class ShopifyService {
     }
 
     return allOrders;
+  }
+
+  private async fetchCustomersPage(
+    cursor: string | null,
+    limit: number,
+    search?: string,
+  ): Promise<{ customers: any[]; endCursor: string | null; hasNextPage: boolean }> {
+    const query = `
+      query GetCustomersPaginated($cursor: String, $limit: Int!, $query: String) {
+        customers(
+          first: $limit
+          after: $cursor
+          sortKey: CREATED_AT
+          reverse: true
+          query: $query
+        ) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              id
+              firstName
+              lastName
+              defaultEmailAddress { emailAddress }
+              defaultPhoneNumber { phoneNumber }
+              createdAt
+              updatedAt
+              numberOfOrders
+              amountSpent { amount currencyCode }
+              tags
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(query, {
+        variables: { cursor: cursor || null, limit, query: search || null },
+      });
+    });
+
+    this.handleGraphQLErrors(response);
+
+    return {
+      customers: response.data.customers.edges.map((e: any) => e.node),
+      endCursor: response.data.customers.pageInfo.endCursor || null,
+      hasNextPage: response.data.customers.pageInfo.hasNextPage,
+    };
+  }
+
+  private async fetchCustomersCount(search?: string): Promise<number> {
+    const query = `
+      query GetCustomersCount($query: String) {
+        customersCount(query: $query) {
+          count
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(query, {
+        variables: { query: search || null },
+      });
+    });
+
+    this.handleGraphQLErrors(response);
+    return response.data.customersCount.count;
+  }
+
+  async getCustomersPaginated(page: number, limit: number, search?: string) {
+    const CURSOR_TTL = 1800;
+    const searchKey = encodeURIComponent(search || '');
+    const cursorCacheKey = `${RedisKeys.ShopifyCustomerCursors}:${searchKey}`;
+    const countCacheKey = `${RedisKeys.ShopifyCustomerCount}:${searchKey}`;
+
+    let cursors: Record<number, string> =
+      (await this.redisService.get(cursorCacheKey)) || {};
+
+    let cursor: string | null = null;
+    if (page > 1) {
+      if (cursors[page]) {
+        cursor = cursors[page];
+      } else {
+        // Find last known cursor and traverse forward
+        for (let p = page - 1; p >= 2; p--) {
+          if (cursors[p]) {
+            cursor = cursors[p];
+            for (let traverse = p; traverse < page; traverse++) {
+              const result = await this.fetchCustomersPage(cursor, limit, search);
+              if (!result.endCursor) break;
+              cursor = result.endCursor;
+              cursors[traverse + 1] = cursor;
+            }
+            break;
+          }
+        }
+        // No known cursor at all — traverse from the start
+        if (!cursor) {
+          let traverseCursor: string | null = null;
+          for (let traverse = 1; traverse < page; traverse++) {
+            const result = await this.fetchCustomersPage(traverseCursor, limit, search);
+            if (!result.endCursor) break;
+            traverseCursor = result.endCursor;
+            cursors[traverse + 1] = traverseCursor;
+          }
+          cursor = traverseCursor;
+        }
+        await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
+      }
+    }
+
+    const pageResult = await this.fetchCustomersPage(cursor, limit, search);
+
+    if (pageResult.endCursor && pageResult.hasNextPage) {
+      cursors[page + 1] = pageResult.endCursor;
+      await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
+    }
+
+    let totalCount: number = await this.redisService.get(countCacheKey);
+    if (!totalCount) {
+      try {
+        totalCount = await this.fetchCustomersCount(search);
+        await this.redisService.set(countCacheKey, totalCount, CURSOR_TTL);
+      } catch {
+        totalCount = 0;
+      }
+    }
+
+    // Fetch matching orders from our DB for all customers on this page
+    const numericIds = pageResult.customers.map((c: any) =>
+      c.id.split('/').pop(),
+    );
+    const orders = await this.orderService.findByShopifyCustomerIds(numericIds);
+
+    const ordersByCustomerId = orders.reduce(
+      (acc: Record<string, any[]>, order: any) => {
+        const cid = order.shopifyCustomer?.id;
+        if (cid) {
+          if (!acc[cid]) acc[cid] = [];
+          acc[cid].push({
+            shopifyOrderNumber: order.shopifyOrderNumber ?? null,
+            itemName: (order.item as any)?.name ?? null,
+            quantity: order.quantity,
+            unitPrice: order.unitPrice,
+            createdAt: order.createdAt,
+          });
+        }
+        return acc;
+      },
+      {},
+    );
+
+    const data = pageResult.customers.map((c: any) => ({
+      ...c,
+      orders: ordersByCustomerId[c.id.split('/').pop()] ?? [],
+    }));
+
+    return {
+      data,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      page,
+      limit,
+    };
+  }
+
+  async refreshCustomerCache(): Promise<{ success: boolean }> {
+    await this.redisService.resetByPattern('shopify-customer-*');
+    return { success: true };
+  }
+
+  async backfillShopifyCustomers(
+    fromDate?: Date,
+    toDate?: Date,
+  ): Promise<{
+    processed: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+  }> {
+    const orders = await this.orderService.findShopifyOrdersMissingCustomer(
+      fromDate,
+      toDate,
+    );
+
+    const byShopifyOrderId = orders.reduce(
+      (acc: Record<string, number[]>, o) => {
+        if (!acc[o.shopifyOrderId]) acc[o.shopifyOrderId] = [];
+        acc[o.shopifyOrderId].push(o._id);
+        return acc;
+      },
+      {},
+    );
+
+    const uniqueShopifyOrderIds = Object.keys(byShopifyOrderId);
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    const query = `
+      query GetOrderCustomer($id: ID!) {
+        order(id: $id) {
+          customer {
+            id
+            firstName
+            lastName
+            defaultEmailAddress { emailAddress }
+            defaultPhoneNumber { phoneNumber }
+          }
+        }
+      }
+    `;
+
+    for (const shopifyOrderId of uniqueShopifyOrderIds) {
+      try {
+        const gid = `gid://shopify/Order/${shopifyOrderId}`;
+        const response = await this.executeGraphQLRequest(async () => {
+          const client = await this.getGraphQLClient();
+          return await client.request(query, { variables: { id: gid } });
+        });
+
+        const customer = response?.data?.order?.customer;
+        if (!customer?.id) {
+          skipped++;
+          continue;
+        }
+
+        const customerData = {
+          id: customer.id.split('/').pop(),
+          firstName: customer.firstName ?? '',
+          lastName: customer.lastName ?? '',
+          email: customer.defaultEmailAddress?.emailAddress ?? '',
+          phone: customer.defaultPhoneNumber?.phoneNumber ?? '',
+          location: 6,
+        };
+
+        const count = await this.orderService.bulkSetShopifyCustomer(
+          shopifyOrderId,
+          customerData,
+        );
+        updated += count;
+      } catch (e) {
+        this.logError(`backfill: error for shopifyOrderId ${shopifyOrderId}`, e);
+        errors++;
+      }
+    }
+
+    return {
+      processed: uniqueShopifyOrderIds.length,
+      updated,
+      skipped,
+      errors,
+    };
   }
 
   async getAllCollections() {
@@ -2342,8 +2601,7 @@ export class ShopifyService {
             }),
           };
 
-          // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz.
-          if (!data?.shipping_address) {
+          if (data?.customer?.id) {
             createOrderObject = {
               ...createOrderObject,
               shopifyCustomer: {

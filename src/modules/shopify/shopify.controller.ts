@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { ShopifyService } from './shopify.service';
 
@@ -68,6 +68,35 @@ export class ShopifyController {
       payload.productId,
       payload.variantId,
       payload.newPrice,
+    );
+  }
+
+  @Get('/customer')
+  getCustomersPaginated(
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+    @Query('search') search?: string,
+  ) {
+    return this.shopifyService.getCustomersPaginated(
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      search,
+    );
+  }
+
+  @Post('/customer/refresh')
+  refreshCustomerCache() {
+    return this.shopifyService.refreshCustomerCache();
+  }
+
+  @Post('/customer/backfill')
+  backfillShopifyCustomers(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.shopifyService.backfillShopifyCustomers(
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
     );
   }
 

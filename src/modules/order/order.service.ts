@@ -184,6 +184,54 @@ export class OrderService {
     }
   }
 
+  async findByShopifyCustomerIds(customerIds: string[]) {
+    if (!customerIds || customerIds.length === 0) return [];
+    return this.orderModel
+      .find({ 'shopifyCustomer.id': { $in: customerIds } })
+      .populate('item', 'name')
+      .lean()
+      .exec();
+  }
+
+  async findShopifyOrdersMissingCustomer(
+    fromDate?: Date,
+    toDate?: Date,
+  ): Promise<{ _id: number; shopifyOrderId: string }[]> {
+    const filter: any = {
+      stockNote: 'SHOPIFYORDERCREATE',
+      shopifyOrderId: { $exists: true, $ne: null },
+      'shopifyCustomer.id': { $exists: false },
+    };
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = fromDate;
+      if (toDate) filter.createdAt.$lte = toDate;
+    }
+    return this.orderModel
+      .find(filter)
+      .select('_id shopifyOrderId')
+      .lean()
+      .exec() as any;
+  }
+
+  async bulkSetShopifyCustomer(
+    shopifyOrderId: string,
+    customer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      location: number;
+    },
+  ): Promise<number> {
+    const result = await this.orderModel.updateMany(
+      { shopifyOrderId },
+      { $set: { shopifyCustomer: customer } },
+    );
+    return result.modifiedCount;
+  }
+
   async findActiveOrdersByIds(orderIds: number[]) {
     try {
       if (!orderIds || orderIds.length === 0) {
