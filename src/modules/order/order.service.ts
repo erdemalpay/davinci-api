@@ -355,7 +355,7 @@ export class OrderService {
     }
     if (isShopifyPickUp) {
       filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
-      filterQuery['shopifyCustomer'] = { $exists: true };
+      filterQuery['isShopifyPickUp'] = true;
     }
 
     try {
