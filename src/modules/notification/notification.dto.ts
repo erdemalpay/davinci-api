@@ -9,6 +9,7 @@ export class CreateNotificationDto {
   selectedRoles?: number[];
   selectedLocations?: number[];
   seenBy?: string[];
+  mutedBy?: string[];
   event?: string;
   isAssigned?: boolean;
   isActive?: boolean;
