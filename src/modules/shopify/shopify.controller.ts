@@ -89,17 +89,6 @@ export class ShopifyController {
     return this.shopifyService.refreshCustomerCache();
   }
 
-  @Post('/customer/backfill')
-  backfillShopifyCustomers(
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
-    return this.shopifyService.backfillShopifyCustomers(
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined,
-    );
-  }
-
   @Get('/collection')
   getAllCollections() {
     return this.shopifyService.getAllCollections();
