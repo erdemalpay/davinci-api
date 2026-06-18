@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Logger, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
+import { CreateOrderDiscountDto, UpdateOrderDiscountDto } from './shopify.dto';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -139,5 +140,25 @@ export class ShopifyController {
   @Post('/order-cancel-webhook')
   orderCancelWebHook(@Body() data?: any) {
     return this.shopifyService.orderCancelWebHook(data);
+  }
+
+  @Get('/discount')
+  getDiscounts() {
+    return this.shopifyService.getDiscounts();
+  }
+
+  @Post('/discount')
+  createOrderDiscount(@Body() dto: CreateOrderDiscountDto) {
+    return this.shopifyService.createOrderDiscount(dto);
+  }
+
+  @Patch('/discount')
+  updateOrderDiscount(@Body() dto: UpdateOrderDiscountDto) {
+    return this.shopifyService.updateOrderDiscount(dto);
+  }
+
+  @Delete('/discount/:id')
+  deleteDiscount(@Param('id') id: string) {
+    return this.shopifyService.deleteDiscount(id);
   }
 }

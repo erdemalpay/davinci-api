@@ -8,8 +8,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
 import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
 import '@shopify/shopify-api/adapters/node';
+import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
 import { LocationService } from '../location/location.service';
 import { MenuItem } from '../menu/item.schema';
@@ -32,7 +34,18 @@ import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
-import { OrderCancelReason } from './shopify.dto';
+import {
+  ShopifyDiscount,
+  ShopifyDiscountMinimumRequirementType,
+  ShopifyDiscountValueType,
+} from './shopify-discount.schema';
+import {
+  CreateOrderDiscountDto,
+  DiscountMinimumRequirementType,
+  DiscountValueType,
+  OrderCancelReason,
+  UpdateOrderDiscountDto,
+} from './shopify.dto';
 
 const NEORAMA_DEPO_LOCATION = 6;
 
@@ -67,6 +80,8 @@ export class ShopifyService {
     'read_publications',
     'write_publications',
     'read_customers',
+    'read_discounts',
+    'write_discounts',
   ];
 
   constructor(
@@ -87,6 +102,8 @@ export class ShopifyService {
     private readonly webhookLogService: WebhookLogService,
     @Inject(forwardRef(() => GameService))
     private readonly gameService: GameService,
+    @InjectModel(ShopifyDiscount.name)
+    private readonly shopifyDiscountModel: Model<ShopifyDiscount>,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -2621,6 +2638,10 @@ export class ShopifyService {
             discountApplications[0]?.description && {
               shopifyDiscountNote: discountApplications[0].description,
             }),
+          ...(discountApplications.length > 0 &&
+            discountApplications[0]?.code && {
+              shopifyDiscountCode: discountApplications[0].code,
+            }),
         };
 
         try {
@@ -3320,6 +3341,351 @@ export class ShopifyService {
       this.logError('Error creating partial refund', error);
       throw new HttpException(
         'Unable to create partial refund in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private buildDiscountInput(dto: CreateOrderDiscountDto | UpdateOrderDiscountDto) {
+    const input: any = {};
+
+    if ('title' in dto && dto.title) input.title = dto.title;
+    if ('code' in dto && dto.code) input.code = dto.code;
+    if ('startsAt' in dto && dto.startsAt) input.startsAt = dto.startsAt;
+    if ('endsAt' in dto) input.endsAt = dto.endsAt ?? null;
+    if ('usageLimit' in dto) input.usageLimit = dto.usageLimit ?? null;
+    if ('appliesOncePerCustomer' in dto)
+      input.appliesOncePerCustomer = dto.appliesOncePerCustomer ?? false;
+
+    if (dto.valueType && dto.value != null) {
+      if (dto.valueType === DiscountValueType.PERCENTAGE) {
+        input.customerGets = {
+          value: { percentage: dto.value / 100 },
+          items: { all: true },
+        };
+      } else {
+        input.customerGets = {
+          value: { discountAmount: { amount: dto.value.toString(), appliesOnEachItem: false } },
+          items: { all: true },
+        };
+      }
+    }
+
+    if (dto.minimumRequirementType && dto.minimumRequirementType !== DiscountMinimumRequirementType.NONE) {
+      if (dto.minimumRequirementType === DiscountMinimumRequirementType.SUBTOTAL) {
+        input.minimumRequirement = {
+          subtotal: { greaterThanOrEqualToSubtotal: dto.minimumRequirementValue?.toString() ?? '0' },
+        };
+      } else if (dto.minimumRequirementType === DiscountMinimumRequirementType.QUANTITY) {
+        input.minimumRequirement = {
+          quantity: { greaterThanOrEqualToQuantity: dto.minimumRequirementValue ?? 0 },
+        };
+      }
+    }
+
+    input.combinesWith = {
+      productDiscounts: dto.combinesWithProductDiscounts ?? false,
+      orderDiscounts: dto.combinesWithOrderDiscounts ?? false,
+      shippingDiscounts: dto.combinesWithShippingDiscounts ?? false,
+    };
+
+    input.customerSelection = { all: true };
+
+    return input;
+  }
+
+  async createOrderDiscount(dto: CreateOrderDiscountDto, createdBy?: string) {
+    const mutation = `
+      mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
+        discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
+          codeDiscountNode {
+            id
+            codeDiscount {
+              ... on DiscountCodeBasic {
+                title
+                startsAt
+                endsAt
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
+                  }
+                }
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const input = this.buildDiscountInput(dto);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, { variables: { basicCodeDiscount: input } });
+      });
+
+      this.handleGraphQLErrors(response, 'data.discountCodeBasicCreate.userErrors');
+
+      const node = response.data.discountCodeBasicCreate.codeDiscountNode;
+      const shopifyId = node.id;
+      const codeDiscount = node.codeDiscount;
+
+      await this.shopifyDiscountModel.create({
+        shopifyId,
+        title: dto.title,
+        code: dto.code.toUpperCase(),
+        valueType: dto.valueType === DiscountValueType.PERCENTAGE
+          ? ShopifyDiscountValueType.PERCENTAGE
+          : ShopifyDiscountValueType.FIXED_AMOUNT,
+        value: dto.value,
+        startsAt: new Date(dto.startsAt),
+        endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+        minimumRequirementType: (dto.minimumRequirementType as unknown as ShopifyDiscountMinimumRequirementType)
+          ?? ShopifyDiscountMinimumRequirementType.NONE,
+        minimumRequirementValue: dto.minimumRequirementValue,
+        usageLimit: dto.usageLimit,
+        appliesOncePerCustomer: dto.appliesOncePerCustomer ?? false,
+        combinesWithProductDiscounts: dto.combinesWithProductDiscounts ?? false,
+        combinesWithOrderDiscounts: dto.combinesWithOrderDiscounts ?? false,
+        combinesWithShippingDiscounts: dto.combinesWithShippingDiscounts ?? false,
+        createdAt: new Date(),
+        createdBy,
+      });
+
+      return { shopifyId, codeDiscount };
+    } catch (error) {
+      this.logError('Error creating order discount', error);
+      throw new HttpException(
+        'Unable to create discount in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getDiscounts() {
+    const query = `
+      query {
+        codeDiscountNodes(first: 100) {
+          nodes {
+            id
+            codeDiscount {
+              ... on DiscountCodeBasic {
+                title
+                summary
+                status
+                startsAt
+                endsAt
+                usageLimit
+                appliesOncePerCustomer
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                      asyncUsageCount
+                    }
+                  }
+                }
+                customerGets {
+                  value {
+                    ... on DiscountPercentage {
+                      percentage
+                    }
+                    ... on DiscountAmount {
+                      amount {
+                        amount
+                      }
+                    }
+                  }
+                }
+                minimumRequirement {
+                  ... on DiscountMinimumSubtotal {
+                    greaterThanOrEqualToSubtotal {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  ... on DiscountMinimumQuantity {
+                    greaterThanOrEqualToQuantity
+                  }
+                }
+                combinesWith {
+                  productDiscounts
+                  orderDiscounts
+                  shippingDiscounts
+                }
+              }
+              ... on DiscountCodeBxgy {
+                title
+                summary
+                status
+                startsAt
+                endsAt
+                usageLimit
+                appliesOncePerCustomer
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                      asyncUsageCount
+                    }
+                  }
+                }
+                combinesWith {
+                  productDiscounts
+                  orderDiscounts
+                  shippingDiscounts
+                }
+              }
+              ... on DiscountCodeFreeShipping {
+                title
+                summary
+                status
+                startsAt
+                endsAt
+                usageLimit
+                appliesOncePerCustomer
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                      asyncUsageCount
+                    }
+                  }
+                }
+                combinesWith {
+                  productDiscounts
+                  orderDiscounts
+                  shippingDiscounts
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query);
+      });
+
+      this.handleGraphQLErrors(response);
+
+      return response.data.codeDiscountNodes.nodes;
+    } catch (error) {
+      this.logError('Error fetching discounts', error);
+      throw new HttpException(
+        'Unable to fetch discounts from Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateOrderDiscount(dto: UpdateOrderDiscountDto) {
+    const mutation = `
+      mutation discountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
+        discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
+          codeDiscountNode {
+            id
+            codeDiscount {
+              ... on DiscountCodeBasic {
+                title
+                startsAt
+                endsAt
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const shopifyGid = dto.id.includes('gid://')
+        ? dto.id
+        : `gid://shopify/DiscountCodeNode/${dto.id}`;
+
+      const input = this.buildDiscountInput(dto);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: { id: shopifyGid, basicCodeDiscount: input },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.discountCodeBasicUpdate.userErrors');
+
+      await this.shopifyDiscountModel.findOneAndUpdate(
+        { shopifyId: shopifyGid },
+        {
+          ...(dto.title && { title: dto.title }),
+          ...(dto.code && { code: dto.code.toUpperCase() }),
+          ...(dto.valueType && { valueType: dto.valueType }),
+          ...(dto.value != null && { value: dto.value }),
+          ...(dto.startsAt && { startsAt: new Date(dto.startsAt) }),
+          endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+          ...(dto.minimumRequirementType && { minimumRequirementType: dto.minimumRequirementType }),
+          ...(dto.minimumRequirementValue != null && { minimumRequirementValue: dto.minimumRequirementValue }),
+          ...(dto.usageLimit != null && { usageLimit: dto.usageLimit }),
+          ...(dto.appliesOncePerCustomer != null && { appliesOncePerCustomer: dto.appliesOncePerCustomer }),
+          ...(dto.combinesWithProductDiscounts != null && { combinesWithProductDiscounts: dto.combinesWithProductDiscounts }),
+          ...(dto.combinesWithOrderDiscounts != null && { combinesWithOrderDiscounts: dto.combinesWithOrderDiscounts }),
+          ...(dto.combinesWithShippingDiscounts != null && { combinesWithShippingDiscounts: dto.combinesWithShippingDiscounts }),
+        },
+      );
+
+      return response.data.discountCodeBasicUpdate.codeDiscountNode;
+    } catch (error) {
+      this.logError('Error updating order discount', error);
+      throw new HttpException(
+        'Unable to update discount in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async deleteDiscount(id: string) {
+    const mutation = `
+      mutation discountCodeDelete($id: ID!) {
+        discountCodeDelete(id: $id) {
+          deletedCodeDiscountId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const shopifyGid = id.includes('gid://')
+        ? id
+        : `gid://shopify/DiscountCodeNode/${id}`;
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, { variables: { id: shopifyGid } });
+      });
+
+      this.handleGraphQLErrors(response, 'data.discountCodeDelete.userErrors');
+
+      await this.shopifyDiscountModel.findOneAndDelete({ shopifyId: shopifyGid });
+
+      return { deleted: true, id: shopifyGid };
+    } catch (error) {
+      this.logError('Error deleting discount', error);
+      throw new HttpException(
+        'Unable to delete discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

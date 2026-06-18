@@ -1,5 +1,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { UserModule } from 'src/modules/user/user.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
@@ -11,6 +13,10 @@ import { AccountingModule } from './../accounting/accounting.module';
 import { GameModule } from './../game/game.module';
 import { LocationModule } from './../location/location.module';
 import { MenuModule } from './../menu/menu.module';
+import {
+  ShopifyDiscount,
+  ShopifyDiscountSchema,
+} from './shopify-discount.schema';
 import { ShopifyController } from './shopify.controller';
 import { ShopifyService } from './shopify.service';
 
@@ -28,6 +34,9 @@ import { ShopifyService } from './shopify.service';
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),
     forwardRef(() => GameModule),
+    MongooseModule.forFeatureAsync([
+      createAutoIncrementConfig(ShopifyDiscount.name, ShopifyDiscountSchema),
+    ]),
   ],
   providers: [ShopifyService],
   exports: [ShopifyService],
