@@ -734,6 +734,8 @@ export class ShopifyService {
               lastName
               defaultEmailAddress { emailAddress }
               defaultPhoneNumber { phoneNumber }
+              emailMarketingConsent { marketingState }
+              defaultAddress { address1 city province country zip }
               createdAt
               updatedAt
               numberOfOrders
