@@ -42,6 +42,9 @@ export class Notification extends Document {
   @Prop({ required: false, type: [{ type: String, ref: User.name }] })
   seenBy: string[];
 
+  @Prop({ required: false, type: [{ type: String, ref: User.name }], default: [] })
+  mutedBy: string[];
+
   @Prop({ required: false, type: String })
   event: string;
 
