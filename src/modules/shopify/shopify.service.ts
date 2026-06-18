@@ -3363,7 +3363,7 @@ export class ShopifyService {
           value: { percentage: dto.value / 100 },
           items: { all: true },
         };
-      } else {
+      } else if (dto.valueType === DiscountValueType.FIXED_AMOUNT) {
         input.customerGets = {
           value: { discountAmount: { amount: dto.value.toString(), appliesOnEachItem: false } },
           items: { all: true },
