@@ -858,33 +858,54 @@ export class MenuService {
       delete objectItem.shopifyId;
       delete objectItem.trendyolBarcode;
       delete objectItem.hepsiBuradaSku;
-      // Creating a new item
-      const newItemData = {
-        ...objectItem,
-        name,
-        category,
-        ikasDiscountedPrice: price,
-        priceHistory: [{ price: objectItem.price, date: new Date() }],
-        ...(matchedProduct && {
-          matchedProduct: matchedProduct._id,
-          itemProduction: [
-            {
-              product: matchedProduct._id,
-              quantity: 1,
-              isDecrementStock: true,
-            },
-          ],
-        }),
-      };
-      const newItem = await this.itemModel.create(newItemData);
-      if (matchedProduct) {
-        await this.accountingService.updateItemProduct(
-          user,
-          matchedProduct._id,
+      // Check if a damaged MenuItem with this name already exists
+      const existingDamagedItem = await this.itemModel.findOne({ name });
+
+      let damagedItem: MenuItem;
+      if (existingDamagedItem) {
+        const priceChanged = existingDamagedItem.price !== price;
+        damagedItem = await this.itemModel.findByIdAndUpdate(
+          existingDamagedItem._id,
           {
-            matchedMenuItem: newItem._id,
+            price,
+            ...(priceChanged && {
+              priceHistory: [
+                ...(existingDamagedItem.priceHistory || []),
+                { price, date: new Date().toISOString() },
+              ],
+            }),
           },
+          { new: true },
         );
+      } else {
+        // Creating a new item
+        const newItemData = {
+          ...objectItem,
+          name,
+          category,
+          price,
+          priceHistory: [{ price, date: new Date().toISOString() }],
+          ...(matchedProduct && {
+            matchedProduct: matchedProduct._id,
+            itemProduction: [
+              {
+                product: matchedProduct._id,
+                quantity: 1,
+                isDecrementStock: true,
+              },
+            ],
+          }),
+        };
+        damagedItem = await this.itemModel.create(newItemData);
+        if (matchedProduct) {
+          await this.accountingService.updateItemProduct(
+            user,
+            matchedProduct._id,
+            {
+              matchedMenuItem: damagedItem._id,
+            },
+          );
+        }
       }
 
       // Handling stock
@@ -911,7 +932,7 @@ export class MenuService {
       for (const location of locations) {
         // Creating a new stock for the new product
         await this.accountingService.createStock(user, {
-          product: newItem.matchedProduct,
+          product: damagedItem.matchedProduct,
           location: location._id,
           quantity: location._id === newStockLocation ? stockQuantity : 0,
           status: StockHistoryStatusEnum.STOCKENTRY,
