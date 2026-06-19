@@ -24,4 +24,6 @@ export enum RedisKeys {
   OrderLock = 'order-lock',
   ShopifyCustomerCursors = 'shopify-customer-cursors',
   ShopifyCustomerCount = 'shopify-customer-count',
+  ShopifyDiscountCursors = 'shopify-discount-cursors',
+  ShopifyDiscountCount = 'shopify-discount-count',
 }

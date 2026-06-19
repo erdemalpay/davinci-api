@@ -3458,6 +3458,8 @@ export class ShopifyService {
         createdBy,
       });
 
+      await this.redisService.resetByPattern('shopify-discount-*');
+
       return { shopifyId, codeDiscount };
     } catch (error) {
       this.logError('Error creating order discount', error);
@@ -3466,6 +3468,190 @@ export class ShopifyService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private async fetchDiscountsPage(
+    cursor: string | null,
+    limit: number,
+    query?: string,
+  ): Promise<{ nodes: any[]; endCursor: string | null; hasNextPage: boolean }> {
+    const gql = `
+      query GetDiscountsPaginated($cursor: String, $limit: Int!, $query: String) {
+        codeDiscountNodes(
+          first: $limit
+          after: $cursor
+          sortKey: CREATED_AT
+          reverse: true
+          query: $query
+        ) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            codeDiscount {
+              ... on DiscountCodeBasic {
+                title
+                summary
+                status
+                startsAt
+                endsAt
+                usageLimit
+                appliesOncePerCustomer
+                codes(first: 1) {
+                  edges { node { code asyncUsageCount } }
+                }
+                customerGets {
+                  value {
+                    ... on DiscountPercentage { percentage }
+                    ... on DiscountAmount { amount { amount } }
+                  }
+                }
+                minimumRequirement {
+                  ... on DiscountMinimumSubtotal {
+                    greaterThanOrEqualToSubtotal { amount currencyCode }
+                  }
+                  ... on DiscountMinimumQuantity {
+                    greaterThanOrEqualToQuantity
+                  }
+                }
+                combinesWith { productDiscounts orderDiscounts shippingDiscounts }
+              }
+              ... on DiscountCodeBxgy {
+                title summary status startsAt endsAt usageLimit appliesOncePerCustomer
+                codes(first: 1) { edges { node { code asyncUsageCount } } }
+                combinesWith { productDiscounts orderDiscounts shippingDiscounts }
+              }
+              ... on DiscountCodeFreeShipping {
+                title summary status startsAt endsAt usageLimit appliesOncePerCustomer
+                codes(first: 1) { edges { node { code asyncUsageCount } } }
+                combinesWith { productDiscounts orderDiscounts shippingDiscounts }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(gql, {
+        variables: { cursor: cursor || null, limit, query: query || null },
+      });
+    });
+
+    this.handleGraphQLErrors(response);
+
+    return {
+      nodes: response.data.codeDiscountNodes.nodes,
+      endCursor: response.data.codeDiscountNodes.pageInfo.endCursor || null,
+      hasNextPage: response.data.codeDiscountNodes.pageInfo.hasNextPage,
+    };
+  }
+
+  private async fetchDiscountsCount(query?: string): Promise<number> {
+    const gql = `
+      query GetDiscountsCount($query: String) {
+        discountCodesCount(query: $query) {
+          count
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(gql, {
+        variables: { query: query || null },
+      });
+    });
+
+    this.handleGraphQLErrors(response);
+    return response.data.discountCodesCount.count;
+  }
+
+  async getDiscountsPaginated(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+  ) {
+    const CURSOR_TTL = 1800;
+
+    const queryParts: string[] = [];
+    if (search) queryParts.push(search);
+    if (status) queryParts.push(`status:${status.toLowerCase()}`);
+    const shopifyQuery = queryParts.length > 0 ? queryParts.join(' ') : undefined;
+
+    const searchKey = encodeURIComponent(shopifyQuery || '');
+    const cursorCacheKey = `${RedisKeys.ShopifyDiscountCursors}:${searchKey}`;
+    const countCacheKey = `${RedisKeys.ShopifyDiscountCount}:${searchKey}`;
+
+    let cursors: Record<number, string> =
+      (await this.redisService.get(cursorCacheKey)) || {};
+
+    let cursor: string | null = null;
+    if (page > 1) {
+      if (cursors[page]) {
+        cursor = cursors[page];
+      } else {
+        for (let p = page - 1; p >= 2; p--) {
+          if (cursors[p]) {
+            cursor = cursors[p];
+            for (let traverse = p; traverse < page; traverse++) {
+              const result = await this.fetchDiscountsPage(cursor, limit, shopifyQuery);
+              if (!result.endCursor) break;
+              cursor = result.endCursor;
+              cursors[traverse + 1] = cursor;
+            }
+            break;
+          }
+        }
+        if (!cursor) {
+          let traverseCursor: string | null = null;
+          for (let traverse = 1; traverse < page; traverse++) {
+            const result = await this.fetchDiscountsPage(traverseCursor, limit, shopifyQuery);
+            if (!result.endCursor) break;
+            traverseCursor = result.endCursor;
+            cursors[traverse + 1] = traverseCursor;
+          }
+          cursor = traverseCursor;
+        }
+        await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
+      }
+    }
+
+    const pageResult = await this.fetchDiscountsPage(cursor, limit, shopifyQuery);
+
+    if (pageResult.endCursor && pageResult.hasNextPage) {
+      cursors[page + 1] = pageResult.endCursor;
+      await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
+    }
+
+    let totalCount: number;
+
+    if (!pageResult.hasNextPage) {
+      totalCount = (page - 1) * limit + pageResult.nodes.length;
+      await this.redisService.set(countCacheKey, totalCount, CURSOR_TTL);
+    } else {
+      totalCount = await this.redisService.get(countCacheKey);
+      if (!totalCount) {
+        try {
+          totalCount = await this.fetchDiscountsCount(shopifyQuery);
+          await this.redisService.set(countCacheKey, totalCount, CURSOR_TTL);
+        } catch {
+          totalCount = (page - 1) * limit + pageResult.nodes.length + limit;
+        }
+      }
+    }
+
+    return {
+      data: pageResult.nodes,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      page,
+      limit,
+    };
   }
 
   async getDiscounts() {
@@ -3644,6 +3830,8 @@ export class ShopifyService {
         },
       );
 
+      await this.redisService.resetByPattern('shopify-discount-*');
+
       return response.data.discountCodeBasicUpdate.codeDiscountNode;
     } catch (error) {
       this.logError('Error updating order discount', error);
@@ -3680,6 +3868,7 @@ export class ShopifyService {
       this.handleGraphQLErrors(response, 'data.discountCodeDelete.userErrors');
 
       await this.shopifyDiscountModel.findOneAndDelete({ shopifyId: shopifyGid });
+      await this.redisService.resetByPattern('shopify-discount-*');
 
       return { deleted: true, id: shopifyGid };
     } catch (error) {

@@ -143,7 +143,17 @@ export class ShopifyController {
   }
 
   @Get('/discount')
-  getDiscounts() {
+  getDiscounts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    if (pageNum && limitNum) {
+      return this.shopifyService.getDiscountsPaginated(pageNum, limitNum, search, status);
+    }
     return this.shopifyService.getDiscounts();
   }
 
