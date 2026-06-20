@@ -2344,20 +2344,20 @@ export class ShopifyService {
             }),
           };
 
-          // Shipping adddress bossa magazadan teslim siparis demek, sadece magazadan teslim siparislerde musteri bilgilerini cekiyoruz.
-          if (!data?.shipping_address) {
-            createOrderObject = {
-              ...createOrderObject,
-              shopifyCustomer: {
-                id: data?.customer?.id?.toString(),
-                firstName: data?.customer?.first_name,
-                lastName: data?.customer?.last_name,
-                email: data?.customer?.email,
-                phone: data?.customer?.phone,
-                location: 6,
-              },
-            };
-          }
+          const isPickUp = !data?.shipping_address;
+          const customer = data?.customer;
+          createOrderObject = {
+            ...createOrderObject,
+            shopifyCustomer: {
+              id: customer?.id?.toString() ?? 'unknown',
+              firstName: customer?.first_name ?? 'Shopify',
+              lastName: customer?.last_name ?? 'Müşteri',
+              email: customer?.email,
+              phone: customer?.phone,
+              location: 6,
+            },
+            ...(isPickUp && { isShopifyPickUp: true }),
+          };
 
           try {
             const order = await this.orderService.createOrder(
