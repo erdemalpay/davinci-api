@@ -49,3 +49,32 @@ export class UpdateOrderDiscountDto {
   combinesWithOrderDiscounts?: boolean;
   combinesWithShippingDiscounts?: boolean;
 }
+
+export enum FreeShippingMethod {
+  CODE = 'CODE',
+  AUTOMATIC = 'AUTOMATIC',
+}
+
+export class CreateFreeShippingDiscountDto {
+  method: FreeShippingMethod;
+  title: string;
+  code?: string;
+  startsAt: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+}
+
+export class UpdateFreeShippingDiscountDto {
+  id: string;
+  title?: string;
+  code?: string;
+  startsAt?: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+}

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
-import { CreateOrderDiscountDto, UpdateOrderDiscountDto } from './shopify.dto';
+import { CreateFreeShippingDiscountDto, CreateOrderDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto } from './shopify.dto';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -160,6 +160,16 @@ export class ShopifyController {
   @Post('/discount')
   createOrderDiscount(@Body() dto: CreateOrderDiscountDto) {
     return this.shopifyService.createOrderDiscount(dto);
+  }
+
+  @Post('/discount/free-shipping')
+  createFreeShippingDiscount(@Body() dto: CreateFreeShippingDiscountDto) {
+    return this.shopifyService.createFreeShippingDiscount(dto);
+  }
+
+  @Patch('/discount/free-shipping')
+  updateFreeShippingDiscount(@Body() dto: UpdateFreeShippingDiscountDto) {
+    return this.shopifyService.updateFreeShippingDiscount(dto);
   }
 
   @Patch('/discount')

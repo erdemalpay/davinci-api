@@ -13,6 +13,12 @@ export enum ShopifyDiscountMinimumRequirementType {
   QUANTITY = 'QUANTITY',
 }
 
+export enum ShopifyDiscountKind {
+  ORDER_DISCOUNT = 'ORDER_DISCOUNT',
+  FREE_SHIPPING_CODE = 'FREE_SHIPPING_CODE',
+  FREE_SHIPPING_AUTOMATIC = 'FREE_SHIPPING_AUTOMATIC',
+}
+
 @Schema({ _id: false })
 export class ShopifyDiscount extends Document {
   @Prop({ type: Number })
@@ -24,14 +30,22 @@ export class ShopifyDiscount extends Document {
   @Prop({ required: true, type: String })
   title: string;
 
-  @Prop({ required: true, type: String })
-  code: string;
+  @Prop({ required: false, type: String })
+  code?: string;
 
-  @Prop({ required: true, type: String, enum: ShopifyDiscountValueType })
-  valueType: ShopifyDiscountValueType;
+  @Prop({
+    required: false,
+    type: String,
+    enum: ShopifyDiscountKind,
+    default: ShopifyDiscountKind.ORDER_DISCOUNT,
+  })
+  discountKind?: ShopifyDiscountKind;
 
-  @Prop({ required: true, type: Number })
-  value: number;
+  @Prop({ required: false, type: String, enum: ShopifyDiscountValueType })
+  valueType?: ShopifyDiscountValueType;
+
+  @Prop({ required: false, type: Number })
+  value?: number;
 
   @Prop({ required: true, type: Date })
   startsAt: Date;
@@ -75,7 +89,7 @@ export class ShopifyDiscount extends Document {
 export const ShopifyDiscountSchema =
   SchemaFactory.createForClass(ShopifyDiscount);
 
-ShopifyDiscountSchema.index({ code: 1 }, { unique: true });
+ShopifyDiscountSchema.index({ code: 1 }, { unique: true, sparse: true });
 ShopifyDiscountSchema.index({ shopifyId: 1 });
 
 purifySchema(ShopifyDiscountSchema);
