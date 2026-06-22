@@ -19,6 +19,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ShiftService } from './../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
+import { QrCodeService } from './qr-code.service';
 import {
   CafeActivityDto,
   CafeVisitDto,
@@ -41,6 +42,7 @@ export class VisitService {
     private readonly notificationService: NotificationService,
     private readonly shiftService: ShiftService,
     private readonly activityService: ActivityService,
+    private readonly qrCodeService: QrCodeService,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -595,6 +597,38 @@ export class VisitService {
     }
     this.websocketGateway.emitActivityChanged();
     return activity;
+  }
+
+  getQrCode(location: number) {
+    return this.qrCodeService.getCurrentCode(location);
+  }
+
+  async checkInOutWithQr(user: User, code: string) {
+    const location = await this.qrCodeService.consume(code);
+    const date = format(new Date(), 'yyyy-MM-dd');
+    const hour = format(new Date(), 'HH:mm');
+
+    const lastVisit = await this.visitModel
+      .findOne({ user: user._id, location, date })
+      .sort({ startHour: -1 });
+
+    if (lastVisit && !lastVisit.finishHour) {
+      const visit = await this.finish(
+        user,
+        lastVisit._id,
+        hour,
+        VisitSource.QR,
+      );
+      return { action: 'exit' as const, visit };
+    }
+
+    const visit = await this.create(user, {
+      location,
+      date,
+      startHour: hour,
+      visitStartSource: VisitSource.QR,
+    });
+    return { action: 'entry' as const, visit };
   }
 
   async notifyUnfinishedVisits() {

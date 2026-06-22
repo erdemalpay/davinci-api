@@ -1,6 +1,7 @@
 export enum VisitSource {
   PANEL = 'panel',
   FACE_RECOGNITION = 'face_recognition',
+  QR = 'qr',
 }
 export class VisitDto {
   _id?: number;
@@ -39,4 +40,8 @@ export enum VisitTypes {
 }
 export enum VisitStatus {
   WRONG_ENTRY = 'wrong_entry',
+}
+
+export class QrCheckInDto {
+  code: string;
 }
