@@ -607,10 +607,11 @@ export class VisitService {
     const location = await this.qrCodeService.consume(code);
     const date = format(new Date(), 'yyyy-MM-dd');
     const hour = format(new Date(), 'HH:mm');
+    const previousDay = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
     const lastVisit = await this.visitModel
-      .findOne({ user: user._id, location, date })
-      .sort({ startHour: -1 });
+      .findOne({ user: user._id, location, date: { $in: [date, previousDay] } })
+      .sort({ date: -1, startHour: -1 });
 
     if (lastVisit && !lastVisit.finishHour) {
       const visit = await this.finish(
