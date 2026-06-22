@@ -4042,9 +4042,9 @@ export class ShopifyService {
       }
     `;
 
-    const shopifyGid = dto.id.includes('gid://')
-      ? dto.id
-      : `gid://shopify/DiscountCodeNode/${dto.id}`;
+    const numericId = dto.id.split('/').pop() ?? dto.id;
+    const shopifyNodeGid = `gid://shopify/DiscountCodeNode/${numericId}`;
+    const shopifyMutationGid = `gid://shopify/DiscountCodeFreeShipping/${numericId}`;
 
     const input: any = {
       customerSelection: { all: true },
@@ -4069,18 +4069,23 @@ export class ShopifyService {
           quantity: { greaterThanOrEqualToQuantity: dto.minimumRequirementValue ?? 0 },
         };
       }
+    } else if (dto.minimumRequirementType === DiscountMinimumRequirementType.NONE) {
+      input.minimumRequirement = {
+        subtotal: { greaterThanOrEqualToSubtotal: null },
+        quantity: { greaterThanOrEqualToQuantity: null },
+      };
     }
 
     try {
       const response = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
-        return await client.request(mutation, { variables: { id: shopifyGid, freeShippingCodeDiscount: input } });
+        return await client.request(mutation, { variables: { id: shopifyMutationGid, freeShippingCodeDiscount: input } });
       });
 
       this.handleGraphQLErrors(response, 'data.discountCodeFreeShippingUpdate.userErrors');
 
       await this.shopifyDiscountModel.findOneAndUpdate(
-        { shopifyId: shopifyGid },
+        { shopifyId: shopifyNodeGid },
         {
           ...(dto.title && { title: dto.title }),
           ...(dto.code && { code: dto.code.toUpperCase() }),
