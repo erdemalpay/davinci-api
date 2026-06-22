@@ -5,10 +5,12 @@ import { UserModule } from 'src/modules/user/user.module';
 import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
+import { RedisModule } from '../redis/redis.module';
 import { ShiftModule } from '../shift/shift.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { CafeActivity, CafeActivitySchema } from './cafeActivity.schema';
 import { VisitController } from './visit.controller';
+import { QrCodeService } from './qr-code.service';
 import { VisitCronService } from './visit.cron.service';
 import { Visit, VisitSchema } from './visit.schema';
 import { VisitService } from './visit.service';
@@ -21,6 +23,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     WebSocketModule,
+    RedisModule,
     mongooseModule,
     forwardRef(() => UserModule),
     forwardRef(() => NotificationModule),
@@ -28,7 +31,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => ShiftModule),
     ActivityModule,
   ],
-  providers: [VisitService, VisitCronService],
+  providers: [VisitService, VisitCronService, QrCodeService],
   exports: [VisitService],
   controllers: [VisitController],
 })

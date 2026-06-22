@@ -405,4 +405,8 @@ export class AppWebSocketGateway {
   emitVisitChanged() {
     this.server.emit('visitChanged');
   }
+
+  emitQrCodeChanged() {
+    this.server.emit('qrCodeChanged');
+  }
 }
