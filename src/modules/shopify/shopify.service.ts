@@ -3477,7 +3477,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error creating order discount', error);
       throw new HttpException(
-        'Unable to create discount in Shopify.',
+        error?.message || 'Unable to create discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4026,7 +4026,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating order discount', error);
       throw new HttpException(
-        'Unable to update discount in Shopify.',
+        error?.message || 'Unable to update discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4193,7 +4193,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating automatic order discount', error);
       throw new HttpException(
-        'Unable to update automatic order discount in Shopify.',
+        error?.message || 'Unable to update automatic order discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4396,7 +4396,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating product discount', error);
       throw new HttpException(
-        'Unable to update product discount in Shopify.',
+        error?.message || 'Unable to update product discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4617,7 +4617,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating BXGY discount', error);
       throw new HttpException(
-        'Unable to update BXGY discount in Shopify.',
+        error?.message || 'Unable to update BXGY discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4827,7 +4827,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating automatic BXGY discount', error);
       throw new HttpException(
-        'Unable to update automatic BXGY discount in Shopify.',
+        error?.message || 'Unable to update automatic BXGY discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -5084,36 +5084,54 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error updating free shipping discount', error);
       throw new HttpException(
-        'Unable to update free shipping discount in Shopify.',
+        error?.message || 'Unable to update free shipping discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   async deleteDiscount(id: string) {
-    const mutation = `
+    const codeMutation = `
       mutation discountCodeDelete($id: ID!) {
         discountCodeDelete(id: $id) {
           deletedCodeDiscountId
-          userErrors {
-            field
-            message
-          }
+          userErrors { field message }
+        }
+      }
+    `;
+    const automaticMutation = `
+      mutation discountAutomaticDelete($id: ID!) {
+        discountAutomaticDelete(id: $id) {
+          deletedAutomaticDiscountId
+          userErrors { field message }
         }
       }
     `;
 
     try {
-      const shopifyGid = id.includes('gid://')
-        ? id
-        : `gid://shopify/DiscountCodeNode/${id}`;
+      // Look up by MongoDB _id first, then fall back to shopifyId lookup
+      const numericId = parseInt(id, 10);
+      const discount = !isNaN(numericId)
+        ? await this.shopifyDiscountModel.findOne({ _id: numericId })
+        : await this.shopifyDiscountModel.findOne({ shopifyId: id });
+
+      if (!discount) {
+        throw new Error(`Discount not found: ${id}`);
+      }
+
+      const shopifyGid = discount.shopifyId;
+      const isAutomatic = shopifyGid.includes('DiscountAutomaticNode');
+      const mutation = isAutomatic ? automaticMutation : codeMutation;
+      const errPath = isAutomatic
+        ? 'data.discountAutomaticDelete.userErrors'
+        : 'data.discountCodeDelete.userErrors';
 
       const response = await this.executeGraphQLRequest(async () => {
         const client = await this.getGraphQLClient();
         return await client.request(mutation, { variables: { id: shopifyGid } });
       });
 
-      this.handleGraphQLErrors(response, 'data.discountCodeDelete.userErrors');
+      this.handleGraphQLErrors(response, errPath);
 
       await this.shopifyDiscountModel.findOneAndDelete({ shopifyId: shopifyGid });
       await this.redisService.resetByPattern('shopify-discount-*');
@@ -5122,7 +5140,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error deleting discount', error);
       throw new HttpException(
-        'Unable to delete discount in Shopify.',
+        error?.message || 'Unable to delete discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
