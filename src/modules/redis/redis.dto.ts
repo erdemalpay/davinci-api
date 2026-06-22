@@ -22,4 +22,6 @@ export enum RedisKeys {
   Shifts = 'shifts',
   TableLock = 'table-lock',
   OrderLock = 'order-lock',
+  QrLocation = 'qr-location',
+  QrCode = 'qr-code',
 }
