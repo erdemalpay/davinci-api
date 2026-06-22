@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
-import { CreateFreeShippingDiscountDto, CreateOrderDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto } from './shopify.dto';
+import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -162,6 +162,16 @@ export class ShopifyController {
     return this.shopifyService.createOrderDiscount(dto);
   }
 
+  @Post('/discount/automatic')
+  createAutomaticOrderDiscount(@Body() dto: CreateAutomaticOrderDiscountDto) {
+    return this.shopifyService.createAutomaticOrderDiscount(dto);
+  }
+
+  @Patch('/discount/automatic')
+  updateAutomaticOrderDiscount(@Body() dto: UpdateAutomaticOrderDiscountDto) {
+    return this.shopifyService.updateAutomaticOrderDiscount(dto);
+  }
+
   @Post('/discount/free-shipping')
   createFreeShippingDiscount(@Body() dto: CreateFreeShippingDiscountDto) {
     return this.shopifyService.createFreeShippingDiscount(dto);
@@ -175,6 +185,36 @@ export class ShopifyController {
   @Patch('/discount')
   updateOrderDiscount(@Body() dto: UpdateOrderDiscountDto) {
     return this.shopifyService.updateOrderDiscount(dto);
+  }
+
+  @Post('/discount/product')
+  createProductDiscount(@Body() dto: CreateProductDiscountDto) {
+    return this.shopifyService.createProductDiscount(dto);
+  }
+
+  @Patch('/discount/product')
+  updateProductDiscount(@Body() dto: UpdateProductDiscountDto) {
+    return this.shopifyService.updateProductDiscount(dto);
+  }
+
+  @Post('/discount/bxgy')
+  createBxgyDiscount(@Body() dto: CreateBxgyDiscountDto) {
+    return this.shopifyService.createBxgyDiscount(dto);
+  }
+
+  @Patch('/discount/bxgy')
+  updateBxgyDiscount(@Body() dto: UpdateBxgyDiscountDto) {
+    return this.shopifyService.updateBxgyDiscount(dto);
+  }
+
+  @Post('/discount/bxgy/automatic')
+  createAutomaticBxgyDiscount(@Body() dto: CreateAutomaticBxgyDiscountDto) {
+    return this.shopifyService.createAutomaticBxgyDiscount(dto);
+  }
+
+  @Patch('/discount/bxgy/automatic')
+  updateAutomaticBxgyDiscount(@Body() dto: UpdateAutomaticBxgyDiscountDto) {
+    return this.shopifyService.updateAutomaticBxgyDiscount(dto);
   }
 
   @Delete('/discount/:id')

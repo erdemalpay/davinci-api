@@ -17,6 +17,10 @@ export enum ShopifyDiscountKind {
   ORDER_DISCOUNT = 'ORDER_DISCOUNT',
   FREE_SHIPPING_CODE = 'FREE_SHIPPING_CODE',
   FREE_SHIPPING_AUTOMATIC = 'FREE_SHIPPING_AUTOMATIC',
+  PRODUCT_DISCOUNT = 'PRODUCT_DISCOUNT',
+  BXGY = 'BXGY',
+  BXGY_AUTOMATIC = 'BXGY_AUTOMATIC',
+  ORDER_DISCOUNT_AUTOMATIC = 'ORDER_DISCOUNT_AUTOMATIC',
 }
 
 @Schema({ _id: false })
@@ -78,6 +82,49 @@ export class ShopifyDiscount extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   combinesWithShippingDiscounts?: boolean;
+
+  @Prop({ required: false, type: String })
+  appliesTo?: string;
+
+  @Prop({ required: false, type: [String], default: undefined })
+  productIds?: string[];
+
+  @Prop({ required: false, type: [String], default: undefined })
+  collectionIds?: string[];
+
+  // BXGY fields
+  @Prop({ required: false, type: String })
+  buyRequirementType?: string;
+
+  @Prop({ required: false, type: Number })
+  buyQuantityOrAmount?: number;
+
+  @Prop({ required: false, type: String })
+  buyProductScope?: string;
+
+  @Prop({ required: false, type: [String], default: undefined })
+  buyProductIds?: string[];
+
+  @Prop({ required: false, type: [String], default: undefined })
+  buyCollectionIds?: string[];
+
+  @Prop({ required: false, type: Number })
+  getQuantity?: number;
+
+  @Prop({ required: false, type: String })
+  getProductScope?: string;
+
+  @Prop({ required: false, type: [String], default: undefined })
+  getProductIds?: string[];
+
+  @Prop({ required: false, type: [String], default: undefined })
+  getCollectionIds?: string[];
+
+  @Prop({ required: false, type: String })
+  bxgyDiscountType?: string;
+
+  @Prop({ required: false, type: Number })
+  bxgyDiscountValue?: number;
 
   @Prop({ required: true, type: Date })
   createdAt: Date;

@@ -78,3 +78,180 @@ export class UpdateFreeShippingDiscountDto {
   usageLimit?: number;
   appliesOncePerCustomer?: boolean;
 }
+
+export enum ProductDiscountAppliesTo {
+  ALL = 'ALL',
+  PRODUCTS = 'PRODUCTS',
+  COLLECTIONS = 'COLLECTIONS',
+}
+
+export class CreateProductDiscountDto {
+  title: string;
+  code: string;
+  valueType: DiscountValueType;
+  value: number;
+  appliesTo: ProductDiscountAppliesTo;
+  productIds?: string[];
+  collectionIds?: string[];
+  startsAt: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class UpdateProductDiscountDto {
+  id: string;
+  title?: string;
+  code?: string;
+  valueType?: DiscountValueType;
+  value?: number;
+  appliesTo?: ProductDiscountAppliesTo;
+  productIds?: string[];
+  collectionIds?: string[];
+  startsAt?: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class CreateAutomaticOrderDiscountDto {
+  title: string;
+  valueType: DiscountValueType;
+  value: number;
+  startsAt: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class UpdateAutomaticOrderDiscountDto {
+  id: string;
+  title?: string;
+  valueType?: DiscountValueType;
+  value?: number;
+  startsAt?: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export enum BxgyBuyRequirementType {
+  QUANTITY = 'QUANTITY',
+  AMOUNT = 'AMOUNT',
+}
+
+export enum BxgyProductScope {
+  ALL = 'ALL',
+  PRODUCTS = 'PRODUCTS',
+  COLLECTIONS = 'COLLECTIONS',
+}
+
+export enum BxgyDiscountType {
+  PERCENTAGE = 'PERCENTAGE',
+  AMOUNT = 'AMOUNT',
+  FREE = 'FREE',
+}
+
+export class CreateBxgyDiscountDto {
+  title: string;
+  code: string;
+  startsAt: string;
+  endsAt?: string;
+  buyRequirementType: BxgyBuyRequirementType;
+  buyQuantityOrAmount: number;
+  buyProductScope: BxgyProductScope;
+  buyProductIds?: string[];
+  buyCollectionIds?: string[];
+  getQuantity: number;
+  getProductScope: BxgyProductScope;
+  getProductIds?: string[];
+  getCollectionIds?: string[];
+  bxgyDiscountType: BxgyDiscountType;
+  bxgyDiscountValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class UpdateBxgyDiscountDto {
+  id: string;
+  title?: string;
+  code?: string;
+  startsAt?: string;
+  endsAt?: string;
+  buyRequirementType?: BxgyBuyRequirementType;
+  buyQuantityOrAmount?: number;
+  buyProductScope?: BxgyProductScope;
+  buyProductIds?: string[];
+  buyCollectionIds?: string[];
+  getQuantity?: number;
+  getProductScope?: BxgyProductScope;
+  getProductIds?: string[];
+  getCollectionIds?: string[];
+  bxgyDiscountType?: BxgyDiscountType;
+  bxgyDiscountValue?: number;
+  usageLimit?: number;
+  appliesOncePerCustomer?: boolean;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class CreateAutomaticBxgyDiscountDto {
+  title: string;
+  startsAt: string;
+  endsAt?: string;
+  buyRequirementType: BxgyBuyRequirementType;
+  buyQuantityOrAmount: number;
+  buyProductScope: BxgyProductScope;
+  buyProductIds?: string[];
+  buyCollectionIds?: string[];
+  getQuantity: number;
+  getProductScope: BxgyProductScope;
+  getProductIds?: string[];
+  getCollectionIds?: string[];
+  bxgyDiscountType: BxgyDiscountType;
+  bxgyDiscountValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class UpdateAutomaticBxgyDiscountDto {
+  id: string;
+  title?: string;
+  startsAt?: string;
+  endsAt?: string;
+  buyRequirementType?: BxgyBuyRequirementType;
+  buyQuantityOrAmount?: number;
+  buyProductScope?: BxgyProductScope;
+  buyProductIds?: string[];
+  buyCollectionIds?: string[];
+  getQuantity?: number;
+  getProductScope?: BxgyProductScope;
+  getProductIds?: string[];
+  getCollectionIds?: string[];
+  bxgyDiscountType?: BxgyDiscountType;
+  bxgyDiscountValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
