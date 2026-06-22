@@ -4435,7 +4435,7 @@ export class ShopifyService {
         };
       } else {
         input.customerBuys = {
-          value: { quantity: { quantity: String(dto.buyQuantityOrAmount) } },
+          value: { quantity: String(dto.buyQuantityOrAmount) },
           items: buyItems,
         };
       }
@@ -4542,7 +4542,7 @@ export class ShopifyService {
     } catch (error) {
       this.logError('Error creating BXGY discount', error);
       throw new HttpException(
-        'Unable to create BXGY discount in Shopify.',
+        error?.message || 'Unable to create BXGY discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -4653,7 +4653,7 @@ export class ShopifyService {
         };
       } else {
         input.customerBuys = {
-          value: { quantity: { quantity: String(dto.buyQuantityOrAmount) } },
+          value: { quantity: String(dto.buyQuantityOrAmount) },
           items: buyItems,
         };
       }
@@ -4953,7 +4953,6 @@ export class ShopifyService {
         title: dto.title,
         startsAt: dto.startsAt,
         endsAt: dto.endsAt ?? null,
-        customerSelection: { all: true },
         destination: { all: true },
         combinesWith: { productDiscounts: false, orderDiscounts: false, shippingDiscounts: false },
       };
