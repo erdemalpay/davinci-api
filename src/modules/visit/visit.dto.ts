@@ -1,3 +1,5 @@
+import { IsNotEmpty, IsString } from 'class-validator';
+
 export enum VisitSource {
   PANEL = 'panel',
   FACE_RECOGNITION = 'face_recognition',
@@ -43,5 +45,7 @@ export enum VisitStatus {
 }
 
 export class QrCheckInDto {
+  @IsString()
+  @IsNotEmpty()
   code: string;
 }
