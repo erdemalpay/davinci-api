@@ -2358,7 +2358,7 @@ export class AccountingService {
                 process.env.DEFAULT_FROM_EMAIL || 'info@davinciboardgame.com',
               variantTitle: subscription.variantTitle,
               price: subscription.variantPrice,
-              productImage: menuItem?.imageUrl || menuItem?.imageUrl,
+              productImage: shopifyProduct?.featuredImage?.url || menuItem?.imageUrl,
             },
             locale: 'tr',
           });
