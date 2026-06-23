@@ -285,6 +285,27 @@ export class AssetService {
     }
   };
 
+  uploadMailImage = async (buffer: Buffer, fileName: string) => {
+    const options = {
+      public_id: fileName,
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true,
+      folder: 'mail',
+    };
+
+    return new Promise<string>((resolve, reject) => {
+      const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+        options,
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result.secure_url);
+        },
+      );
+      streamifier.createReadStream(buffer).pipe(cld_upload_stream);
+    });
+  };
+
   getUploadLogs = async () => {
     return this.uploadLogModel
       .find()
