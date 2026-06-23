@@ -299,6 +299,8 @@ export class AssetService {
         options,
         (error, result) => {
           if (error) reject(error);
+          else if (!result?.secure_url)
+            reject(new Error('Yükleme başarısız: secure_url bulunamadı.'));
           else resolve(result.secure_url);
         },
       );

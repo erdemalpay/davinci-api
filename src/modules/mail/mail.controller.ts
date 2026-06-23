@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -106,6 +107,9 @@ export class MailController {
     @UploadedFile() file: Express.Multer.File,
     @Body('filename') filename: string,
   ) {
+    if (!file) {
+      throw new BadRequestException('Yüklenecek dosya bulunamadı.');
+    }
     const name = filename || file.originalname;
     const url = await this.assetService.uploadMailImage(file.buffer, name);
     return { url };
