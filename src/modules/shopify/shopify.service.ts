@@ -603,6 +603,9 @@ export class ShopifyService {
         product(id: $id) {
           id
           title
+          featuredImage {
+            url(transform: { maxWidth: 800 })
+          }
           variants(first: 1) {
             edges {
               node {
