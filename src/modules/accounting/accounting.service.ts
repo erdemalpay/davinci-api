@@ -1023,6 +1023,14 @@ export class AccountingService {
   findProductExpenses(product: string) {
     return this.expenseModel.find({ product: product });
   }
+  private parseCommaSeparatedFilterValues(value?: string) {
+    return value
+      ? value
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      : [];
+  }
   async findAllExpenseWithPagination(
     page: number,
     limit: number,
@@ -1056,6 +1064,8 @@ export class AccountingService {
       includeAllRecordsStr === 'true' || includeAllRecordsStr === '1';
     const skip = (pageNum - 1) * limitNum;
     const productArray = product ? product.split(',') : [];
+    const brandArray = this.parseCommaSeparatedFilterValues(brand);
+    const vendorArray = this.parseCommaSeparatedFilterValues(vendor);
     const paymentMethodArray = paymentMethod ? paymentMethod.split(',') : [];
     const serviceArray = service ? service.split(',') : [];
     const sortObject = {};
@@ -1120,9 +1130,9 @@ export class AccountingService {
           ...(service && { service: { $in: serviceArray } }),
           ...expenseTypeMatchCondition,
           ...(paymentMethod && { paymentMethod: { $in: paymentMethodArray } }),
-          ...(brand && { brand: brand }),
+          ...(brandArray.length > 0 && { brand: { $in: brandArray } }),
           ...(type && { type: type }),
-          ...(vendor && { vendor: vendor }),
+          ...(vendorArray.length > 0 && { vendor: { $in: vendorArray } }),
           ...(after && { date: { $gte: after } }),
           ...(before && { date: { $lte: before } }),
           ...(after && before && { date: { $gte: after, $lte: before } }),
@@ -1259,6 +1269,8 @@ export class AccountingService {
         }
       }
     }
+    const brandArray = this.parseCommaSeparatedFilterValues(brand);
+    const vendorArray = this.parseCommaSeparatedFilterValues(vendor);
     const pipeline: PipelineStage[] = [
       {
         $match: {
@@ -1267,9 +1279,9 @@ export class AccountingService {
           ...(service && { service: { $in: serviceArray } }),
           ...(expenseType && { expenseType }),
           ...(paymentMethod && { paymentMethod }),
-          ...(brand && { brand }),
+          ...(brandArray.length > 0 && { brand: { $in: brandArray } }),
           ...(type && { type }),
-          ...(vendor && { vendor }),
+          ...(vendorArray.length > 0 && { vendor: { $in: vendorArray } }),
           ...(startDate && { date: { $gte: startDate } }),
           ...(before && { date: { $lte: before } }),
           ...(startDate &&
@@ -2358,7 +2370,8 @@ export class AccountingService {
                 process.env.DEFAULT_FROM_EMAIL || 'info@davinciboardgame.com',
               variantTitle: subscription.variantTitle,
               price: subscription.variantPrice,
-              productImage: shopifyProduct?.featuredImage?.url || menuItem?.imageUrl,
+              productImage:
+                shopifyProduct?.featuredImage?.url || menuItem?.imageUrl,
             },
             locale: 'tr',
           });
