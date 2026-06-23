@@ -954,6 +954,11 @@ export class ShopifyService {
         const productId = shopifyProduct.id.split('/').pop();
         const variantGlobalId = shopifyProduct.variants?.edges?.[0]?.node?.id;
         const variantId = variantGlobalId?.split('/')?.pop();
+        if (!variantId) {
+          this.logger.warn(
+            `Shopify product created (${productId}) but variant ID could not be resolved.`,
+          );
+        }
         const updatedItem = {
           ...item.toObject(),
           shopifyId: productId,
