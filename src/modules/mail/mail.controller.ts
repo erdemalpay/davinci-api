@@ -8,9 +8,13 @@ import {
   Put,
   Query,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { Public } from '../auth/public.decorator';
+import { AssetService } from '../asset/asset.service';
 import {
   CreateMailDraftDto,
   CreateTemplateDto,
@@ -31,7 +35,10 @@ import { MailService } from './mail.service';
 
 @Controller('mail')
 export class MailController {
-  constructor(private readonly mailService: MailService) {}
+  constructor(
+    private readonly mailService: MailService,
+    private readonly assetService: AssetService,
+  ) {}
 
   @Public()
   @Post('subscribe')
@@ -85,6 +92,23 @@ export class MailController {
     @Body() updateDto: UpdateSubscriptionDto,
   ) {
     return this.mailService.updateSubscription(email, updateDto);
+  }
+
+  // ==================== Image Upload Endpoint ====================
+
+  @Post('upload-image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 * 10 }, // 10MB
+    }),
+  )
+  async uploadMailImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('filename') filename: string,
+  ) {
+    const name = filename || file.originalname;
+    const url = await this.assetService.uploadMailImage(file.buffer, name);
+    return { url };
   }
 
   // ==================== Mail Sending Endpoints ====================
