@@ -440,6 +440,14 @@ export class OrderController {
   ) {
     return this.orderService.findGivenDateOrders(date, location);
   }
+  @Patch('/simple-bulk')
+  simpleBulkUpdateOrders(
+    @ReqUser() user: User,
+    @Body() payload: { ids: number[]; updates: Partial<Order> },
+  ) {
+    return this.orderService.updateMultipleOrders(user, payload.ids, payload.updates);
+  }
+
   @Patch('/simple/:id')
   simpleUpdateOrder(
     @ReqUser() user: User,
