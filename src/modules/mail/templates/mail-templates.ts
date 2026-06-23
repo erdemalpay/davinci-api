@@ -393,7 +393,7 @@ export const backInStockTemplate = `
                             <!-- Product Details -->
                             {{#if productImage}}
                             <div style="text-align: center; margin-bottom: 30px;">
-                                <img src="{{productImage}}" alt="{{productName}}" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; border: 1px solid #e9ecef; background-color: #ffffff;">
+                                <img src="{{productImage}}" alt="{{productName}}" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; border: 1px solid #e9ecef;">
                             </div>
                             {{/if}}
                             
