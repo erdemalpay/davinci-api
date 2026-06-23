@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { format, subDays } from 'date-fns';
+import { addHours, format, subDays } from 'date-fns';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -605,9 +605,11 @@ export class VisitService {
 
   async checkInOutWithQr(user: User, code: string) {
     const location = await this.qrCodeService.consume(code);
-    const date = format(new Date(), 'yyyy-MM-dd');
-    const hour = format(new Date(), 'HH:mm');
-    const previousDay = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+    const gmtPlus3Now = addHours(new Date(), 3);
+    const date = format(gmtPlus3Now, 'yyyy-MM-dd');
+    const hour = format(gmtPlus3Now, 'HH:mm');
+    const previousDay = format(subDays(gmtPlus3Now, 1), 'yyyy-MM-dd');
 
     const lastVisit = await this.visitModel
       .findOne({ user: user._id, location, date: { $in: [date, previousDay] } })
