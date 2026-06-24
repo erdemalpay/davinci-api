@@ -1943,16 +1943,17 @@ export class ShopifyService {
         shopifyOrderId,
       );
 
-      if (fulfillmentOrders.length === 0) {
+      const fulfillmentOrder = fulfillmentOrders.find(
+        (fo) => fo.status === 'OPEN',
+      );
+
+      if (!fulfillmentOrder) {
         throw new HttpException(
-          `No fulfillment orders found for Shopify order ${shopifyOrderId}`,
+          `No open fulfillment order found for Shopify order ${shopifyOrderId}`,
           HttpStatus.NOT_FOUND,
         );
       }
 
-      // For pickup orders, there's typically only one fulfillment order
-      // Take the first one (or you could filter by delivery method if needed)
-      const fulfillmentOrder = fulfillmentOrders[0];
       const fulfillmentOrderId = fulfillmentOrder.id;
 
       this.logger.log(
