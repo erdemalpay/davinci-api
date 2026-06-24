@@ -445,7 +445,7 @@ export class OrderController {
     @ReqUser() user: User,
     @Body() payload: { ids: number[]; updates: Partial<Order> },
   ) {
-    return this.orderService.updateMultipleOrders(user, payload.ids, payload.updates);
+    return this.orderService.simpleBulkOrderUpdate(user, payload.ids, payload.updates);
   }
 
   @Patch('/simple/:id')
