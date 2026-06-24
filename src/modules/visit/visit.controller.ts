@@ -16,6 +16,7 @@ import { CreateVisitDto } from './create.visit.dto';
 import {
   CafeActivityDto,
   CafeVisitDto,
+  QrCheckInDto,
   VisitDto,
   VisitSource,
 } from './visit.dto';
@@ -64,6 +65,16 @@ export class VisitController {
   @Post('/cafe')
   createVisitFromCafe(@Body() cafeVisitDto: CafeVisitDto) {
     return this.visitService.createVisitFromCafe(cafeVisitDto);
+  }
+
+  @Get('/qr/code')
+  async getQrCode(@Query('location') location: number) {
+    return { code: await this.visitService.getQrCode(Number(location)) };
+  }
+
+  @Post('/qr')
+  checkInOutWithQr(@ReqUser() user: User, @Body() dto: QrCheckInDto) {
+    return this.visitService.checkInOutWithQr(user, dto.code);
   }
 
   @Patch('/finish/:id')

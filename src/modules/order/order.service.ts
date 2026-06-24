@@ -381,7 +381,11 @@ export class OrderService {
       filterQuery['discount'] = { $in: discountArray };
     }
     if (item !== undefined) {
-      filterQuery['item'] = Number(item);
+      const itemArray = item
+        .split(',')
+        .map((i) => i.trim())
+        .map(Number);
+      filterQuery['item'] = itemArray.length === 1 ? itemArray[0] : { $in: itemArray };
     }
     if (query.hepsiburadaOrderNumber) {
       filterQuery['hepsiburadaOrderNumber'] = query.hepsiburadaOrderNumber;

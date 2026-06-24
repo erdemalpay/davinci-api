@@ -481,8 +481,8 @@ export class OrderQueryDto {
   isShopifyPickUp?: boolean;
 
   @IsOptional()
-  @IsNumber()
-  item?: number;
+  @IsString()
+  item?: string;
 
   @IsOptional()
   @IsString()

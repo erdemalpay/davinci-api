@@ -636,6 +636,9 @@ export class ShopifyService {
         product(id: $id) {
           id
           title
+          featuredImage {
+            url(transform: { maxWidth: 800 })
+          }
           variants(first: 1) {
             edges {
               node {
@@ -1158,23 +1161,30 @@ export class ShopifyService {
       );
       if (shopifyProduct) {
         const productId = shopifyProduct.id.split('/').pop();
-        const updatedItem = { ...item.toObject(), shopifyId: productId };
+        const variantGlobalId = shopifyProduct.variants?.edges?.[0]?.node?.id;
+        const variantId = variantGlobalId?.split('/')?.pop();
+        if (!variantId) {
+          this.logger.warn(
+            `Shopify product created (${productId}) but variant ID could not be resolved.`,
+          );
+        }
+        const updatedItem = {
+          ...item.toObject(),
+          shopifyId: productId,
+          ...(variantId && { shopifyVariantId: variantId }),
+        };
         await this.menuService.updateItem(user, item._id, updatedItem);
 
         // Stok takibini shopify arayüzünden elle açmamak için burada ürünün stok takibini açarak yolluyoruz.
-        if (shopifyProduct.variants?.edges?.[0]?.node?.id) {
-          const variantId = shopifyProduct.variants.edges[0].node.id;
-          await this.enableInventoryTracking(variantId);
+        if (variantGlobalId) {
+          await this.enableInventoryTracking(variantGlobalId);
         }
 
         const productStock = await this.accountingService.findProductStock(
           item.matchedProduct,
         );
         const storeStock = productStock.find((stock) => stock.location === 6);
-        if (storeStock && shopifyProduct.variants?.edges?.[0]?.node?.id) {
-          const variantId = shopifyProduct.variants.edges[0].node.id
-            .split('/')
-            .pop();
+        if (storeStock && variantId) {
           await this.updateProductStock(variantId, 6, storeStock.quantity);
         }
       }
