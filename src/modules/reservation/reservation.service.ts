@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addHours, addMinutes, format } from 'date-fns';
+import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -25,7 +25,7 @@ export class ReservationService {
     const lastReservation = await this.reservationModel
       .findOne({})
       .sort({ order: 'desc' });
-    const date = format(new Date(), 'yyyy-MM-dd');
+    const date = moment.tz('Europe/Istanbul').format('YYYY-MM-DD');
     const reservation = await this.reservationModel.create({
       ...reservationDto,
       date,
@@ -75,8 +75,7 @@ export class ReservationService {
   }
 
   async callUpdate(user: User, id: number, updates: UpdateQuery<Reservation>) {
-    const gmtPlus3Now = addHours(new Date(), 3);
-    const callHour = format(gmtPlus3Now, 'HH:mm');
+    const callHour = moment.tz('Europe/Istanbul').format('HH:mm');
     const oldReservation = await this.reservationModel.findById(id);
     const reservationUpdates = updates as ReservationUpdatePayload;
     const duration = reservationUpdates.comingDurationInMinutes ?? 30;
@@ -91,8 +90,8 @@ export class ReservationService {
           reservedTable: updateWithoutDuration.reservedTable,
         }),
         ...(updateWithoutDuration.status === 'Coming' && {
-          approvedHour: format(gmtPlus3Now, 'HH:mm'),
-          comingExpiresAt: addMinutes(gmtPlus3Now, duration),
+          approvedHour: callHour,
+          comingExpiresAt: moment().add(duration, 'minutes').toDate(),
         }),
         ...(updateWithoutDuration.status !== 'Coming' && {
           comingExpiresAt: null,
@@ -135,10 +134,9 @@ export class ReservationService {
   }
 
   async cancelExpiredComingReservations() {
-    const gmtPlus3Now = addHours(new Date(), 3);
     const expiredReservations = await this.reservationModel.find({
       status: 'Coming',
-      comingExpiresAt: { $lt: gmtPlus3Now },
+      comingExpiresAt: { $lt: new Date() },
     });
 
     for (const reservation of expiredReservations) {
