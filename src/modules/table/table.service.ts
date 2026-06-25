@@ -7,7 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { addDays, format, subDays } from 'date-fns';
+import { addDays, format } from 'date-fns';
+import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
 import { pick, pickWith } from 'src/utils/tsUtils';
@@ -767,24 +768,12 @@ export class TableService {
     return table;
   }
   async notifyUnclosedTables() {
-    function formatDate(date: Date): string {
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function getTurkishDateOffset(): Date {
-      const nowUTC = new Date();
-      const offsetInMs = 3 * 60 * 60 * 1000; // GMT+3 => 3 saat ileri
-      return new Date(nowUTC.getTime() + offsetInMs);
-    }
-
-    const todayTR = getTurkishDateOffset();
-    const yesterdayTR = subDays(todayTR, 1);
-
-    const todayStr = formatDate(todayTR);
-    const yesterdayStr = formatDate(yesterdayTR);
+    const istanbulNow = moment.tz('Europe/Istanbul');
+    const todayStr = istanbulNow.format('YYYY-MM-DD');
+    const yesterdayStr = istanbulNow
+      .clone()
+      .subtract(1, 'day')
+      .format('YYYY-MM-DD');
 
     const unclosedTables = await this.tableModel.find({
       date: { $in: [todayStr, yesterdayStr] },
