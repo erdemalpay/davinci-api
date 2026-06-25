@@ -29,6 +29,9 @@ export class Game extends Document {
 
   @Prop({ required: false, type: String, ref: 'Product', index: true })
   product: string;
+
+  @Prop({ required: false, default: false })
+  davinciGame: boolean;
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);
