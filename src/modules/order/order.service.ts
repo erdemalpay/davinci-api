@@ -1599,6 +1599,7 @@ export class OrderService {
         const newOrder = await this.orderModel.create({
           ...orderWithoutId,
           quantity: remainingQuantity,
+          paidQuantity: Math.max(0, (order.paidQuantity ?? 0) - returnQuantity),
         });
 
         if (collection) {
