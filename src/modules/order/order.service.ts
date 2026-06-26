@@ -1550,7 +1550,6 @@ export class OrderService {
         const newOrder = await this.orderModel.create({
           ...orderWithoutId,
           quantity: remainingQuantity,
-          paidQuantity: remainingQuantity,
         });
 
         if (collection) {
@@ -1634,6 +1633,7 @@ export class OrderService {
           id,
           {
             status: OrderStatus.RETURNED,
+            paidQuantity: returnQuantity,
             cancelledAt,
             cancelledBy: user._id,
           },
