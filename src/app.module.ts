@@ -6,6 +6,7 @@ import * as config from 'config';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
 import { BackInStockModule } from './modules/back-in-stock/back-in-stock.module';
@@ -97,6 +98,7 @@ const modules = [
   MonthlyActivityModule,
   EventSurveyModule,
   ConsumerModule,
+  AssignmentModule,
   PanelControlModule,
   PointModule,
   PriceCompareModule,

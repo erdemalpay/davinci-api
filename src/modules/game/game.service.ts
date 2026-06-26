@@ -20,12 +20,15 @@ import { GameDto } from './game.dto';
 import { Game } from './game.schema';
 import { RequestGameDto } from './requested-game.dto';
 import { RequestedGame } from './requested-game.schema';
+import { Gameplay } from '../gameplay/gameplay.schema';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(Game.name)
     private gameModel: Model<Game>,
+    @InjectModel(Gameplay.name)
+    private gameplayModel: Model<Gameplay>,
     @InjectModel('BggGame')
     private bggGameModel: Model<BggGame>,
     @InjectModel(RequestedGame.name)
@@ -50,6 +53,57 @@ export class GameService {
 
   getGamesWithBgg() {
     return this.gameModel.find().populate('bggId');
+  }
+
+  async findAllGamesSortedByGameplayCount() {
+    return this.gameModel
+      .aggregate([
+        {
+          $lookup: {
+            from: this.gameplayModel.collection.name,
+            let: {
+              gameId: '$_id',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$game', '$$gameId'],
+                  },
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+            as: 'gameplayStats',
+          },
+        },
+        {
+          $addFields: {
+            gameplayCount: {
+              $ifNull: [
+                {
+                  $arrayElemAt: ['$gameplayStats.count', 0],
+                },
+                0,
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            gameplayStats: 0,
+          },
+        },
+        {
+          $sort: {
+            gameplayCount: -1,
+            name: 1,
+          },
+        },
+      ])
+      .exec();
   }
 
   async getGamesMinimal() {

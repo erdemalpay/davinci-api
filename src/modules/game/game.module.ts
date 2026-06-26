@@ -7,10 +7,12 @@ import { BggGameSchema } from './bgg-game.schema';
 import { GameController } from './game.controller';
 import { Game, GameSchema } from './game.schema';
 import { GameService } from './game.service';
+import { Gameplay, GameplaySchema } from '../gameplay/gameplay.schema';
 import { RequestedGame, RequestedGameSchema } from './requested-game.schema';
 
 const mongooseModule = MongooseModule.forFeature([
   { name: Game.name, schema: GameSchema },
+  { name: Gameplay.name, schema: GameplaySchema },
   { name: 'BggGame', schema: BggGameSchema },
   { name: RequestedGame.name, schema: RequestedGameSchema },
 ]);
