@@ -1615,16 +1615,20 @@ export class OrderService {
             });
             this.websocketGateway.emitCollectionChanged(newCollection);
 
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                status: OrderCollectionStatus.RETURNED,
-                orders: [{ order: id, paidQuantity: returnQuantity }],
-                amount: returnedAmount,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              { new: true },
+            const updatedReturnedCollection =
+              await this.collectionModel.findByIdAndUpdate(
+                collection._id,
+                {
+                  status: OrderCollectionStatus.RETURNED,
+                  orders: [{ order: id, paidQuantity: returnQuantity }],
+                  amount: returnedAmount,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+                { new: true },
+              );
+            this.websocketGateway.emitCollectionChanged(
+              updatedReturnedCollection,
             );
           } else {
             // Multi-order collection: replace this order with the new remainder order,
@@ -1637,18 +1641,20 @@ export class OrderService {
               },
               { new: true },
             );
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $push: {
-                  orders: {
-                    order: newOrder._id,
-                    paidQuantity: remainingQuantity,
+            const updatedMultiCollection =
+              await this.collectionModel.findByIdAndUpdate(
+                collection._id,
+                {
+                  $push: {
+                    orders: {
+                      order: newOrder._id,
+                      paidQuantity: remainingQuantity,
+                    },
                   },
                 },
-              },
-              { new: true },
-            );
+                { new: true },
+              );
+            this.websocketGateway.emitCollectionChanged(updatedMultiCollection);
 
             const returnedCollection = await this.collectionModel.create({
               ...collection.toObject(),
@@ -1693,26 +1699,30 @@ export class OrderService {
         if (collection) {
           if (isLastOrderInCollection) {
             // Only order in collection: mark entire collection as returned
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                status: OrderCollectionStatus.RETURNED,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              { new: true },
-            );
+            const updatedCollection =
+              await this.collectionModel.findByIdAndUpdate(
+                collection._id,
+                {
+                  status: OrderCollectionStatus.RETURNED,
+                  cancelledAt,
+                  cancelledBy: user._id,
+                },
+                { new: true },
+              );
+            this.websocketGateway.emitCollectionChanged(updatedCollection);
           } else {
             // Multi-order collection: remove this order, reduce amount,
             // create a separate returned collection for audit
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $pull: { orders: { order: id } },
-                $inc: { amount: -returnedAmount },
-              },
-              { new: true },
-            );
+            const updatedCollection =
+              await this.collectionModel.findByIdAndUpdate(
+                collection._id,
+                {
+                  $pull: { orders: { order: id } },
+                  $inc: { amount: -returnedAmount },
+                },
+                { new: true },
+              );
+            this.websocketGateway.emitCollectionChanged(updatedCollection);
 
             const returnedCollection = await this.collectionModel.create({
               ...collection.toObject(),
@@ -3858,7 +3868,12 @@ export class OrderService {
             .find(
               {
                 table: tableId,
-                status: { $ne: OrderCollectionStatus.CANCELLED },
+                status: {
+                  $nin: [
+                    OrderCollectionStatus.CANCELLED,
+                    OrderCollectionStatus.RETURNED,
+                  ],
+                },
               },
               { amount: 1 },
               { session },
