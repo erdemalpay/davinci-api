@@ -920,6 +920,49 @@ export class ShopifyService {
     return { success: true };
   }
 
+  async getCustomerById(numericId: string) {
+    const gid = `gid://shopify/Customer/${numericId}`;
+    const query = `
+      query GetCustomerById($id: ID!) {
+        customer(id: $id) {
+          id
+          firstName
+          lastName
+          defaultEmailAddress { emailAddress }
+          defaultPhoneNumber { phoneNumber }
+          emailMarketingConsent { marketingState }
+          defaultAddress { address1 city province country zip }
+          createdAt
+          updatedAt
+          numberOfOrders
+          amountSpent { amount currencyCode }
+          tags
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(query, { variables: { id: gid } });
+    });
+
+    this.handleGraphQLErrors(response);
+
+    const customer = response.data.customer;
+    if (!customer) return null;
+
+    const orders = await this.orderService.findByShopifyCustomerIds([numericId]);
+    const orderList = orders.map((order: any) => ({
+      shopifyOrderNumber: order.shopifyOrderNumber ?? null,
+      itemName: (order.item as any)?.name ?? null,
+      quantity: order.quantity,
+      unitPrice: order.unitPrice,
+      createdAt: order.createdAt,
+    }));
+
+    return { ...customer, orders: orderList };
+  }
+
   async getAllCollections() {
     const query = `
       query GetCollections {

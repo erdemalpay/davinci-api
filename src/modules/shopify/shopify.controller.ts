@@ -90,6 +90,11 @@ export class ShopifyController {
     return this.shopifyService.refreshCustomerCache();
   }
 
+  @Get('/customer/:id')
+  getCustomerById(@Param('id') id: string) {
+    return this.shopifyService.getCustomerById(id);
+  }
+
   @Get('/collection')
   getAllCollections() {
     return this.shopifyService.getAllCollections();
