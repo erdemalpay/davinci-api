@@ -1979,6 +1979,14 @@ export class OrderService {
       );
     }
   }
+  async simpleBulkOrderUpdate(
+    user: User,
+    ids: number[],
+    updates: Partial<Order>,
+  ) {
+    return Promise.all(ids.map((id) => this.simpleOrderUpdate(user, id, updates)));
+  }
+
   async cancelIkasOrder(user: User, ikasId: string, quantity: number) {
     try {
       const order = await this.orderModel
