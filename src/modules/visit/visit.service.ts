@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, subDays } from 'date-fns';
+import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -605,9 +606,14 @@ export class VisitService {
 
   async checkInOutWithQr(user: User, code: string) {
     const location = await this.qrCodeService.consume(code);
-    const date = format(new Date(), 'yyyy-MM-dd');
-    const hour = format(new Date(), 'HH:mm');
-    const previousDay = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+    const istanbulNow = moment.tz('Europe/Istanbul');
+    const date = istanbulNow.format('YYYY-MM-DD');
+    const hour = istanbulNow.format('HH:mm');
+    const previousDay = istanbulNow
+      .clone()
+      .subtract(1, 'day')
+      .format('YYYY-MM-DD');
 
     const lastVisit = await this.visitModel
       .findOne({ user: user._id, location, date: { $in: [date, previousDay] } })
