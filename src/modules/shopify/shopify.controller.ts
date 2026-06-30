@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Logger, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
+import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateAutomaticProductDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateAutomaticProductDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -71,6 +72,29 @@ export class ShopifyController {
     );
   }
 
+  @Get('/customer')
+  getCustomersPaginated(
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+    @Query('search') search?: string,
+  ) {
+    return this.shopifyService.getCustomersPaginated(
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      search,
+    );
+  }
+
+  @Post('/customer/refresh')
+  refreshCustomerCache() {
+    return this.shopifyService.refreshCustomerCache();
+  }
+
+  @Get('/customer/:id')
+  getCustomerById(@Param('id') id: string) {
+    return this.shopifyService.getCustomerById(id);
+  }
+
   @Get('/collection')
   getAllCollections() {
     return this.shopifyService.getAllCollections();
@@ -121,5 +145,100 @@ export class ShopifyController {
   @Post('/order-cancel-webhook')
   orderCancelWebHook(@Body() data?: any) {
     return this.shopifyService.orderCancelWebHook(data);
+  }
+
+  @Post('/discount/refresh')
+  refreshDiscountCache() {
+    return this.shopifyService.refreshDiscountCache();
+  }
+
+  @Get('/discount')
+  getDiscounts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    if (pageNum && limitNum) {
+      return this.shopifyService.getDiscountsPaginated(pageNum, limitNum, search, status);
+    }
+    return this.shopifyService.getDiscounts();
+  }
+
+  @Post('/discount')
+  createOrderDiscount(@Body() dto: CreateOrderDiscountDto) {
+    return this.shopifyService.createOrderDiscount(dto);
+  }
+
+  @Post('/discount/automatic')
+  createAutomaticOrderDiscount(@Body() dto: CreateAutomaticOrderDiscountDto) {
+    return this.shopifyService.createAutomaticOrderDiscount(dto);
+  }
+
+  @Patch('/discount/automatic')
+  updateAutomaticOrderDiscount(@Body() dto: UpdateAutomaticOrderDiscountDto) {
+    return this.shopifyService.updateAutomaticOrderDiscount(dto);
+  }
+
+  @Post('/discount/free-shipping')
+  createFreeShippingDiscount(@Body() dto: CreateFreeShippingDiscountDto) {
+    return this.shopifyService.createFreeShippingDiscount(dto);
+  }
+
+  @Patch('/discount/free-shipping')
+  updateFreeShippingDiscount(@Body() dto: UpdateFreeShippingDiscountDto) {
+    return this.shopifyService.updateFreeShippingDiscount(dto);
+  }
+
+  @Patch('/discount')
+  updateOrderDiscount(@Body() dto: UpdateOrderDiscountDto) {
+    return this.shopifyService.updateOrderDiscount(dto);
+  }
+
+  @Post('/discount/product')
+  createProductDiscount(@Body() dto: CreateProductDiscountDto) {
+    return this.shopifyService.createProductDiscount(dto);
+  }
+
+  @Patch('/discount/product')
+  updateProductDiscount(@Body() dto: UpdateProductDiscountDto) {
+    return this.shopifyService.updateProductDiscount(dto);
+  }
+
+  @Post('/discount/product/automatic')
+  createAutomaticProductDiscount(@Body() dto: CreateAutomaticProductDiscountDto) {
+    return this.shopifyService.createAutomaticProductDiscount(dto);
+  }
+
+  @Patch('/discount/product/automatic')
+  updateAutomaticProductDiscount(@Body() dto: UpdateAutomaticProductDiscountDto) {
+    return this.shopifyService.updateAutomaticProductDiscount(dto);
+  }
+
+  @Post('/discount/bxgy')
+  createBxgyDiscount(@Body() dto: CreateBxgyDiscountDto) {
+    return this.shopifyService.createBxgyDiscount(dto);
+  }
+
+  @Patch('/discount/bxgy')
+  updateBxgyDiscount(@Body() dto: UpdateBxgyDiscountDto) {
+    return this.shopifyService.updateBxgyDiscount(dto);
+  }
+
+  @Post('/discount/bxgy/automatic')
+  createAutomaticBxgyDiscount(@Body() dto: CreateAutomaticBxgyDiscountDto) {
+    return this.shopifyService.createAutomaticBxgyDiscount(dto);
+  }
+
+  @Patch('/discount/bxgy/automatic')
+  updateAutomaticBxgyDiscount(@Body() dto: UpdateAutomaticBxgyDiscountDto) {
+    return this.shopifyService.updateAutomaticBxgyDiscount(dto);
+  }
+
+  @Delete('/discount')
+  deleteDiscount(@Query('id') id: string) {
+    return this.shopifyService.deleteDiscount(id);
   }
 }
