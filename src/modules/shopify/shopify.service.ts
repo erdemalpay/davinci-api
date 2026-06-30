@@ -3806,6 +3806,122 @@ export class ShopifyService {
     }
   }
 
+  private async fetchAutomaticProductDiscounts(search?: string, status?: string): Promise<any[]> {
+    const queryParts: string[] = [];
+    if (search) queryParts.push(search);
+    if (status) queryParts.push(`status:${status.toLowerCase()}`);
+    const shopifyQuery = queryParts.length > 0 ? queryParts.join(' ') : null;
+
+    const gql = `
+      query GetAutomaticProductDiscounts($query: String) {
+        automaticDiscountNodes(first: 50, query: $query) {
+          nodes {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticBasic {
+                title
+                status
+                startsAt
+                endsAt
+                combinesWith { productDiscounts orderDiscounts shippingDiscounts }
+                customerGets {
+                  value {
+                    ... on DiscountPercentage { percentage }
+                    ... on DiscountAmount { amount { amount } }
+                  }
+                  items {
+                    ... on AllDiscountItems { allItems }
+                    ... on DiscountProducts { products(first: 50) { nodes { id title } } }
+                    ... on DiscountCollections { collections(first: 50) { nodes { id title } } }
+                  }
+                }
+                minimumRequirement {
+                  ... on DiscountMinimumSubtotal {
+                    greaterThanOrEqualToSubtotal { amount currencyCode }
+                  }
+                  ... on DiscountMinimumQuantity {
+                    greaterThanOrEqualToQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(gql, { variables: { query: shopifyQuery } });
+      });
+
+      return response.data.automaticDiscountNodes.nodes
+        .filter((n: any) => {
+          const ad = n.automaticDiscount;
+          if (!ad || !ad.title || !('customerGets' in ad) || ('customerBuys' in ad)) return false;
+          const items = ad.customerGets?.items;
+          return items && !('allItems' in items);
+        })
+        .map((n: any) => ({
+          id: n.id,
+          codeDiscount: n.automaticDiscount,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  private async fetchAutomaticFreeShippingDiscounts(search?: string, status?: string): Promise<any[]> {
+    const queryParts: string[] = [];
+    if (search) queryParts.push(search);
+    if (status) queryParts.push(`status:${status.toLowerCase()}`);
+    const shopifyQuery = queryParts.length > 0 ? queryParts.join(' ') : null;
+
+    const gql = `
+      query GetAutomaticFreeShippingDiscounts($query: String) {
+        automaticDiscountNodes(first: 50, query: $query) {
+          nodes {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticFreeShipping {
+                title
+                status
+                startsAt
+                endsAt
+                combinesWith { productDiscounts orderDiscounts shippingDiscounts }
+                minimumRequirement {
+                  ... on DiscountMinimumSubtotal {
+                    greaterThanOrEqualToSubtotal { amount currencyCode }
+                  }
+                  ... on DiscountMinimumQuantity {
+                    greaterThanOrEqualToQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(gql, { variables: { query: shopifyQuery } });
+      });
+
+      return response.data.automaticDiscountNodes.nodes
+        .filter((n: any) => n.automaticDiscount && n.automaticDiscount.title && !('customerGets' in n.automaticDiscount) && !('customerBuys' in n.automaticDiscount))
+        .map((n: any) => ({
+          id: n.id,
+          codeDiscount: n.automaticDiscount,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
   async getDiscountsPaginated(
     page: number,
     limit: number,
@@ -3882,15 +3998,17 @@ export class ShopifyService {
     }
 
     // Fetch automatic discounts separately (only on page 1, not paginated)
-    const [automaticBxgyNodes, automaticOrderNodes] = page === 1
+    const [automaticBxgyNodes, automaticOrderNodes, automaticFreeShippingNodes, automaticProductNodes] = page === 1
       ? await Promise.all([
           this.fetchAutomaticBxgyDiscounts(search, status),
           this.fetchAutomaticOrderDiscounts(search, status),
+          this.fetchAutomaticFreeShippingDiscounts(search, status),
+          this.fetchAutomaticProductDiscounts(search, status),
         ])
-      : [[], []];
+      : [[], [], [], []];
 
     return {
-      data: [...automaticBxgyNodes, ...automaticOrderNodes, ...pageResult.nodes],
+      data: [...automaticBxgyNodes, ...automaticOrderNodes, ...automaticFreeShippingNodes, ...automaticProductNodes, ...pageResult.nodes],
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       page,
