@@ -212,8 +212,7 @@ export class AssignmentService {
           resultKey = 'managersInformed';
         } else {
           const isFiveDayReminder =
-            dueTime >= fiveDayStart.getTime() &&
-            dueTime < fiveDayEnd.getTime();
+            dueTime >= fiveDayStart.getTime() && dueTime < fiveDayEnd.getTime();
           const daysRemaining = isFiveDayReminder ? 5 : 1;
 
           notification = await this.notificationService.createNotification({
