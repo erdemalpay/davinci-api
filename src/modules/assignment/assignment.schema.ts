@@ -71,6 +71,15 @@ export class Assignment extends Document {
 
   @Prop({ type: Date })
   cancelledAt?: Date;
+
+  @Prop({ type: Date })
+  fiveDayReminderSentAt?: Date;
+
+  @Prop({ type: Date })
+  oneDayReminderSentAt?: Date;
+
+  @Prop({ type: Date })
+  managerInformedAt?: Date;
 }
 
 export const AssignmentSchema = SchemaFactory.createForClass(Assignment);
