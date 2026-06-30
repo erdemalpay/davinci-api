@@ -243,4 +243,3 @@ git status --short
 
 Expected: no whitespace errors; only intended implementation files remain
 uncommitted after task commits.
-
