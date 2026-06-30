@@ -90,6 +90,15 @@ export class NotificationController {
       event,
     });
   }
+
+  @Patch('/:id/mute')
+  toggleMute(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() body: { userId?: string; mute: boolean },
+  ) {
+    return this.notificationService.toggleMute(user, id, body.userId, body.mute);
+  }
   @Patch('/:id')
   updateGame(
     @ReqUser() user: User,

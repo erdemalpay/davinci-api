@@ -8,6 +8,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { LocationService } from '../location/location.service';
+import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { VisitService } from '../visit/visit.service';
@@ -185,6 +186,7 @@ export class NotificationService {
       const notifications = await this.notificationModel
         .find({
           seenBy: { $ne: user._id },
+          mutedBy: { $ne: user._id },
           $or: [{ selectedUsers: user._id }, { selectedRoles: user.role._id }],
         })
         .sort({ createdAt: -1 })
@@ -277,6 +279,7 @@ export class NotificationService {
         return null;
       }
       if (!createNotificationDto?.isAssigned && assignedTemplate) {
+        finalCreateDto.mutedBy = assignedTemplate.mutedBy ?? [];
         const selectedLocations = this.sanitizeSelectedLocations(
           assignedTemplate.selectedLocations,
         );
@@ -357,6 +360,49 @@ export class NotificationService {
     });
     this.websocketGateway.emitNotificationChanged([notification]);
     return notification;
+  }
+
+  async toggleMute(
+    requester: User,
+    id: number,
+    targetUserId: string | undefined,
+    mute: boolean,
+  ) {
+    const effectiveUserId = targetUserId ?? requester._id;
+
+    if (targetUserId && targetUserId !== requester._id) {
+      if (requester.role?._id !== RoleEnum.MANAGER) {
+        throw new HttpException(
+          'Only managers can mute notifications for other users',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
+    const update = mute
+      ? { $addToSet: { mutedBy: effectiveUserId } }
+      : { $pull: { mutedBy: effectiveUserId } };
+
+    try {
+      const notification = await this.notificationModel.findByIdAndUpdate(
+        id,
+        update,
+        { new: true },
+      );
+      if (!notification) {
+        throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
+      }
+      this.websocketGateway.emitNotificationChanged([notification]);
+      return notification;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to toggle mute',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async markAsRead(user: User, notificationIds: number[]) {
