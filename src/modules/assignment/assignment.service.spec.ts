@@ -141,9 +141,9 @@ describe('AssignmentService game assignment reminders', () => {
     expect(assignmentModel.findByIdAndUpdate).toHaveBeenCalledWith(103, {
       managerInformedAt: now,
     });
-    expect(assignmentModel.findByIdAndUpdate.mock.calls[0][1]).not.toHaveProperty(
-      'status',
-    );
+    expect(
+      assignmentModel.findByIdAndUpdate.mock.calls[0][1],
+    ).not.toHaveProperty('status');
     expect(result.managersInformed).toBe(1);
   });
 
