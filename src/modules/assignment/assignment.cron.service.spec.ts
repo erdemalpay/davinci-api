@@ -1,11 +1,11 @@
 import { AssignmentCronService } from './assignment.cron.service';
 
-jest.mock('./assignment.service', () => ({
-  AssignmentService: class AssignmentService {},
+jest.mock('./assignment.reminder.service', () => ({
+  AssignmentReminderService: class AssignmentReminderService {},
 }));
 
 describe('AssignmentCronService', () => {
-  let assignmentService: {
+  let assignmentReminderService: {
     processGameAssignmentReminders: jest.Mock;
   };
   let service: AssignmentCronService;
@@ -13,7 +13,7 @@ describe('AssignmentCronService', () => {
   let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    assignmentService = {
+    assignmentReminderService = {
       processGameAssignmentReminders: jest.fn().mockResolvedValue({
         fiveDayReminders: 2,
         oneDayReminders: 1,
@@ -21,7 +21,7 @@ describe('AssignmentCronService', () => {
         failures: 0,
       }),
     };
-    service = new AssignmentCronService(assignmentService as never);
+    service = new AssignmentCronService(assignmentReminderService as never);
     logSpy = jest
       .spyOn(
         (service as unknown as { logger: { log: () => void } }).logger,
@@ -48,7 +48,7 @@ describe('AssignmentCronService', () => {
       timeZone: 'Europe/Istanbul',
     });
     expect(
-      assignmentService.processGameAssignmentReminders,
+      assignmentReminderService.processGameAssignmentReminders,
     ).toHaveBeenCalledTimes(1);
     expect(logSpy).toHaveBeenCalledWith(
       'Game assignment reminders completed: 2 five-day, 1 one-day, 3 manager, 0 failed',
@@ -63,7 +63,9 @@ describe('AssignmentCronService', () => {
 
   it('logs and rethrows workflow errors', async () => {
     const error = new Error('database unavailable');
-    assignmentService.processGameAssignmentReminders.mockRejectedValue(error);
+    assignmentReminderService.processGameAssignmentReminders.mockRejectedValue(
+      error,
+    );
 
     await expect(service.handleGameAssignmentReminders()).rejects.toBe(error);
 

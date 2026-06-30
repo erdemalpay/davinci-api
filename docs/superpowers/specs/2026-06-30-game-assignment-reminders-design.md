@@ -75,7 +75,7 @@ template to exist.
 Defines the three optional delivery timestamps. No DTO field is added because
 clients must not set cron-owned delivery state.
 
-### Assignment service
+### Assignment reminder service
 
 Owns the daily processing method. It queries eligible assignments, sends each
 notification independently, and records the corresponding timestamp only after
@@ -88,11 +88,21 @@ manager notifications, and failures so the cron can produce useful logs.
 ### Assignment cron service
 
 Contains only scheduling and summary logging. It delegates all assignment and
-notification behavior to `AssignmentService`.
+notification behavior to `AssignmentReminderService`.
 
 ### Assignment module
 
-Imports `NotificationModule` and registers `AssignmentCronService`.
+Continues to own the assignment model and CRUD service. It exports its Mongoose
+model registration so reminder processing can reuse the same model without
+introducing a notification dependency into assignment CRUD or `UserService`.
+
+### Assignment reminder module
+
+Imports `AssignmentModule` and `NotificationModule`, then registers
+`AssignmentReminderService` and `AssignmentCronService`. It is a leaf module
+loaded by `AppModule`; neither assignment nor notification modules import it.
+This prevents the reminder workflow from creating a circular dependency through
+`UserService`, which already depends on `AssignmentService`.
 
 ## Error Handling
 

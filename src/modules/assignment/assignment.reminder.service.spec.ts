@@ -3,13 +3,13 @@ import {
   NotificationType,
 } from '../notification/notification.dto';
 import { AssignmentStatusEnum, AssignmentTypeEnum } from './assignment.dto';
-import { AssignmentService } from './assignment.service';
+import { AssignmentReminderService } from './assignment.reminder.service';
 
 jest.mock('../notification/notification.service', () => ({
   NotificationService: class NotificationService {},
 }));
 
-describe('AssignmentService game assignment reminders', () => {
+describe('AssignmentReminderService', () => {
   const now = new Date('2026-06-30T06:00:00.000Z');
 
   let assignments: Record<string, unknown>[];
@@ -20,7 +20,7 @@ describe('AssignmentService game assignment reminders', () => {
   let notificationService: {
     createNotification: jest.Mock;
   };
-  let service: AssignmentService;
+  let service: AssignmentReminderService;
 
   beforeEach(() => {
     assignments = [];
@@ -35,7 +35,7 @@ describe('AssignmentService game assignment reminders', () => {
     notificationService = {
       createNotification: jest.fn().mockResolvedValue({ _id: 900 }),
     };
-    service = new AssignmentService(
+    service = new AssignmentReminderService(
       assignmentModel as never,
       notificationService as never,
     );
