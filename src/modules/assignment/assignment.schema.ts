@@ -1,12 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { User } from '../user/user.schema';
 import {
   AssignmentPriorityEnum,
   AssignmentStatusEnum,
   AssignmentTypeEnum,
 } from './assignment.dto';
-import { User } from '../user/user.schema';
 
 export class AssignmentSubject {
   @Prop({ type: String, required: false })
@@ -20,7 +20,6 @@ export class AssignmentSubject {
 export class Assignment extends Document {
   @Prop({ type: Number })
   _id: number;
-
   @Prop({ type: String, required: true })
   title: string;
 

@@ -5,7 +5,9 @@ import {
   AssignmentPriorityEnum,
   AssignmentQueryDto,
   AssignmentStatusEnum,
+  AssignmentTypeEnum,
   CreateAssignmentDto,
+  CreateGameAssignmentDto,
   UpdateAssignmentDto,
 } from './assignment.dto';
 import { Assignment } from './assignment.schema';
@@ -15,6 +17,27 @@ export class AssignmentService {
   constructor(
     @InjectModel(Assignment.name) private assignmentModel: Model<Assignment>,
   ) {}
+
+  private normalizeQueryValues(value?: string | string[]) {
+    if (!value) {
+      return [] as string[];
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values.map((item) => item.trim()).filter(Boolean);
+  }
+
+  private normalizeSubjectEntityValues(value?: string | string[]) {
+    if (!value) {
+      return [] as Array<string | number>;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => (/^-?\d+$/.test(item) ? Number(item) : item));
+  }
 
   async createAssignment(
     createAssignmentDto: CreateAssignmentDto,
@@ -37,6 +60,64 @@ export class AssignmentService {
     return assignment;
   }
 
+  async createGameAssignments(
+    createGameAssignmentDto: CreateGameAssignmentDto,
+  ): Promise<Assignment[]> {
+    const uniqueAssignedUsers = Array.from(
+      new Set(
+        (createGameAssignmentDto.assignUsers ?? [])
+          .map((userId) => userId?.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (uniqueAssignedUsers.length === 0) {
+      throw new HttpException(
+        'At least one assigned user is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const now = new Date();
+    if (createGameAssignmentDto.dueDate < now) {
+      throw new HttpException(
+        'Due date cannot be earlier than the creation date',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const baseData = {
+      title: createGameAssignmentDto.title ?? 'Game Assignment',
+      description: createGameAssignmentDto.description,
+      assignmentType: AssignmentTypeEnum.GAME_LEARNING,
+      assignedBy: createGameAssignmentDto.assignedBy,
+      subject: {
+        entityType: 'game',
+        entityId: createGameAssignmentDto.gameId,
+      },
+      dueDate: createGameAssignmentDto.dueDate,
+      status: AssignmentStatusEnum.ASSIGNED,
+      priority:
+        createGameAssignmentDto.priority ?? AssignmentPriorityEnum.MEDIUM,
+      payload: createGameAssignmentDto.payload ?? {},
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const createdAssignments: Assignment[] = [];
+
+    for (const assignedUserId of uniqueAssignedUsers) {
+      const assignment = await this.assignmentModel.create({
+        ...baseData,
+        assignedTo: assignedUserId,
+      });
+
+      createdAssignments.push(assignment);
+    }
+
+    return createdAssignments;
+  }
+
   async getAllAssignments(query: AssignmentQueryDto) {
     const {
       search,
@@ -47,6 +128,7 @@ export class AssignmentService {
       assignedTo,
       subjectEntityType,
       subjectEntityId,
+      subjectId,
       after,
       before,
       page = 1,
@@ -64,7 +146,9 @@ export class AssignmentService {
         .map((item) => item.trim())
         .filter(Boolean);
       filter.status =
-        statusArray.length > 1 ? { $in: statusArray } : statusArray[0] ?? status;
+        statusArray.length > 1
+          ? { $in: statusArray }
+          : statusArray[0] ?? status;
     }
     if (assignmentType) {
       const assignmentTypeArray = assignmentType
@@ -102,8 +186,14 @@ export class AssignmentService {
     if (subjectEntityType) {
       filter['subject.entityType'] = subjectEntityType;
     }
-    if (subjectEntityId) {
-      filter['subject.entityId'] = subjectEntityId;
+    const subjectEntityIds = this.normalizeSubjectEntityValues(
+      subjectId ?? subjectEntityId,
+    );
+    if (subjectEntityIds.length > 0) {
+      filter['subject.entityId'] =
+        subjectEntityIds.length > 1
+          ? { $in: subjectEntityIds }
+          : subjectEntityIds[0];
     }
     if (search) {
       filter.$or = [
@@ -131,7 +221,9 @@ export class AssignmentService {
       let endUtc: Date;
       if (/^\d{4}-\d{2}-\d{2}$/.test(before)) {
         const [year, month, day] = before.split('-').map(Number);
-        const istEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+        const istEnd = new Date(
+          Date.UTC(year, month - 1, day, 23, 59, 59, 999),
+        );
         endUtc = new Date(istEnd.getTime() - IST_OFFSET_MS);
       } else {
         const parsedDate = new Date(before);

@@ -9,6 +9,11 @@ import { compare, hash } from 'bcrypt';
 import { randomInt } from 'crypto';
 import { Model, UpdateQuery } from 'mongoose';
 import { usernamify } from 'src/utils/usernamify';
+import {
+  AssignmentStatusEnum,
+  AssignmentTypeEnum,
+} from '../assignment/assignment.dto';
+import { AssignmentService } from '../assignment/assignment.service';
 import { GameService } from '../game/game.service';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -28,6 +33,7 @@ export class UserService implements OnModuleInit {
     @InjectModel(Role.name) private roleModel: Model<Role>,
     private readonly gameService: GameService,
     private readonly gameplayService: GameplayService,
+    private readonly assignmentService: AssignmentService,
     private readonly activityService: ActivityService,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly redisService: RedisService,
@@ -142,6 +148,97 @@ export class UserService implements OnModuleInit {
     this.websocketGateway.emitUserChanged();
 
     return updateResult;
+  }
+
+  async completeGameLearningTask(
+    user: User,
+    assignmentId: number,
+    learnDate?: string,
+  ) {
+    const assignment = await this.assignmentService.findById(assignmentId);
+    if (!assignment) {
+      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (assignment.assignmentType !== AssignmentTypeEnum.GAME_LEARNING) {
+      throw new HttpException(
+        'Assignment is not a game learning task',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const assignedToId =
+      typeof assignment.assignedTo === 'object' &&
+      assignment.assignedTo !== null
+        ? String((assignment.assignedTo as { _id?: string })._id ?? '')
+        : String(assignment.assignedTo);
+
+    if (assignedToId !== user._id && user.role?._id !== 1) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
+    const gameId = Number(
+      typeof assignment.subject?.entityId === 'number'
+        ? assignment.subject.entityId
+        : assignment.subject?.entityId ?? NaN,
+    );
+
+    if (Number.isNaN(gameId)) {
+      throw new HttpException(
+        'Invalid game on assignment',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const userDoc = await this.userModel.findById(user._id);
+    if (!userDoc) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const alreadyKnown = (userDoc.userGames ?? []).some(
+      (userGame) => userGame.game === gameId,
+    );
+
+    if (!alreadyKnown) {
+      const gameExists = await this.gameService.getGameById(gameId);
+      if (!gameExists) {
+        throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
+      }
+
+      userDoc.userGames = [
+        ...(userDoc.userGames ?? []),
+        {
+          game: gameId,
+          learnDate:
+            learnDate ??
+            assignment.completedAt?.toISOString()?.split('T')[0] ??
+            new Date().toISOString().split('T')[0],
+        },
+      ];
+
+      await userDoc.save();
+
+      await this.activityService.addActivity(
+        userDoc,
+        ActivityType.GAME_LEARNED_ADD,
+        gameExists,
+      );
+    }
+
+    const updatedAssignment = await this.assignmentService.updateAssignment(
+      assignmentId,
+      {
+        status: AssignmentStatusEnum.COMPLETED,
+        completedAt: new Date(),
+      },
+    );
+
+    this.websocketGateway.emitUserChanged();
+
+    return {
+      assignment: updatedAssignment,
+      user: await this.userModel.findById(user._id).populate('role'),
+    };
   }
 
   async findById(id: string) {

@@ -11,6 +11,7 @@ import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateQuery } from 'mongoose';
 import { ReqUser } from './user.decorator';
 import {
+  CompleteGameLearningTaskDto,
   CreateRoleDto,
   CreateUserDto,
   UpdateRoleDto,
@@ -61,6 +62,18 @@ export class UserController {
       gameId,
       updateType,
       learnDate,
+    );
+  }
+
+  @Post('/games/complete-learning-task')
+  completeGameLearningTask(
+    @ReqUser() user: User,
+    @Body() completeGameLearningTaskDto: CompleteGameLearningTaskDto,
+  ) {
+    return this.userService.completeGameLearningTask(
+      user,
+      completeGameLearningTaskDto.assignmentId,
+      completeGameLearningTaskDto.learnDate,
     );
   }
 

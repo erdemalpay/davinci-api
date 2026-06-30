@@ -5,12 +5,11 @@ import { AssignmentController } from './assignment.controller';
 import { Assignment, AssignmentSchema } from './assignment.schema';
 import { AssignmentService } from './assignment.service';
 
+const mongooseModule = MongooseModule.forFeatureAsync([
+  createAutoIncrementConfig(Assignment.name, AssignmentSchema),
+]);
 @Module({
-  imports: [
-    MongooseModule.forFeatureAsync([
-      createAutoIncrementConfig(Assignment.name, AssignmentSchema),
-    ]),
-  ],
+  imports: [mongooseModule],
   controllers: [AssignmentController],
   providers: [AssignmentService],
   exports: [AssignmentService],
