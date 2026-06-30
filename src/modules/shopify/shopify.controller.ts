@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
-import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
+import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateAutomaticProductDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateAutomaticProductDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -205,6 +205,16 @@ export class ShopifyController {
   @Patch('/discount/product')
   updateProductDiscount(@Body() dto: UpdateProductDiscountDto) {
     return this.shopifyService.updateProductDiscount(dto);
+  }
+
+  @Post('/discount/product/automatic')
+  createAutomaticProductDiscount(@Body() dto: CreateAutomaticProductDiscountDto) {
+    return this.shopifyService.createAutomaticProductDiscount(dto);
+  }
+
+  @Patch('/discount/product/automatic')
+  updateAutomaticProductDiscount(@Body() dto: UpdateAutomaticProductDiscountDto) {
+    return this.shopifyService.updateAutomaticProductDiscount(dto);
   }
 
   @Post('/discount/bxgy')

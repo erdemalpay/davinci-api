@@ -124,6 +124,39 @@ export class UpdateProductDiscountDto {
   combinesWithShippingDiscounts?: boolean;
 }
 
+export class CreateAutomaticProductDiscountDto {
+  title: string;
+  valueType: DiscountValueType;
+  value: number;
+  appliesTo: ProductDiscountAppliesTo;
+  productIds?: string[];
+  collectionIds?: string[];
+  startsAt: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
+export class UpdateAutomaticProductDiscountDto {
+  id: string;
+  title?: string;
+  valueType?: DiscountValueType;
+  value?: number;
+  appliesTo?: ProductDiscountAppliesTo;
+  productIds?: string[];
+  collectionIds?: string[];
+  startsAt?: string;
+  endsAt?: string;
+  minimumRequirementType?: DiscountMinimumRequirementType;
+  minimumRequirementValue?: number;
+  combinesWithProductDiscounts?: boolean;
+  combinesWithOrderDiscounts?: boolean;
+  combinesWithShippingDiscounts?: boolean;
+}
+
 export class CreateAutomaticOrderDiscountDto {
   title: string;
   valueType: DiscountValueType;

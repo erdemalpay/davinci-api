@@ -45,6 +45,7 @@ import {
   BxgyDiscountType,
   CreateAutomaticBxgyDiscountDto,
   CreateAutomaticOrderDiscountDto,
+  CreateAutomaticProductDiscountDto,
   CreateBxgyDiscountDto,
   CreateFreeShippingDiscountDto,
   CreateOrderDiscountDto,
@@ -56,6 +57,7 @@ import {
   ProductDiscountAppliesTo,
   UpdateAutomaticBxgyDiscountDto,
   UpdateAutomaticOrderDiscountDto,
+  UpdateAutomaticProductDiscountDto,
   UpdateBxgyDiscountDto,
   UpdateFreeShippingDiscountDto,
   UpdateOrderDiscountDto,
@@ -4531,6 +4533,190 @@ export class ShopifyService {
       this.logError('Error updating product discount', error);
       throw new HttpException(
         error?.message || 'Unable to update product discount in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private buildAutomaticProductDiscountInput(dto: CreateAutomaticProductDiscountDto | UpdateAutomaticProductDiscountDto) {
+    const toProductGid = (id: string) =>
+      id.startsWith('gid://') ? id : `gid://shopify/Product/${id}`;
+    const toCollectionGid = (id: string) =>
+      id.startsWith('gid://') ? id : `gid://shopify/Collection/${id}`;
+
+    const input: any = {};
+
+    if ('title' in dto && dto.title) input.title = dto.title;
+    if ('startsAt' in dto && dto.startsAt) input.startsAt = dto.startsAt;
+    if ('endsAt' in dto) input.endsAt = dto.endsAt ?? null;
+
+    if (dto.valueType && dto.value != null) {
+      const appliesTo = dto.appliesTo ?? ProductDiscountAppliesTo.ALL;
+
+      let items: any;
+      if (appliesTo === ProductDiscountAppliesTo.PRODUCTS && dto.productIds?.length) {
+        items = { products: { productsToAdd: dto.productIds.map(toProductGid) } };
+      } else if (appliesTo === ProductDiscountAppliesTo.COLLECTIONS && dto.collectionIds?.length) {
+        items = { collections: { add: dto.collectionIds.map(toCollectionGid) } };
+      } else {
+        items = { all: true };
+      }
+
+      if (dto.valueType === DiscountValueType.PERCENTAGE) {
+        input.customerGets = { value: { percentage: dto.value / 100 }, items };
+      } else {
+        input.customerGets = {
+          value: { discountAmount: { amount: dto.value.toString(), appliesOnEachItem: false } },
+          items,
+        };
+      }
+    }
+
+    if (dto.minimumRequirementType && dto.minimumRequirementType !== DiscountMinimumRequirementType.NONE) {
+      if (dto.minimumRequirementType === DiscountMinimumRequirementType.SUBTOTAL) {
+        input.minimumRequirement = {
+          subtotal: { greaterThanOrEqualToSubtotal: dto.minimumRequirementValue?.toString() ?? '0' },
+        };
+      } else if (dto.minimumRequirementType === DiscountMinimumRequirementType.QUANTITY) {
+        input.minimumRequirement = {
+          quantity: { greaterThanOrEqualToQuantity: String(dto.minimumRequirementValue ?? 0) },
+        };
+      }
+    }
+
+    input.combinesWith = {
+      productDiscounts: dto.combinesWithProductDiscounts ?? false,
+      orderDiscounts: dto.combinesWithOrderDiscounts ?? false,
+      shippingDiscounts: dto.combinesWithShippingDiscounts ?? false,
+    };
+
+    return input;
+  }
+
+  async createAutomaticProductDiscount(dto: CreateAutomaticProductDiscountDto) {
+    const mutation = `
+      mutation discountAutomaticBasicCreate($automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+        discountAutomaticBasicCreate(automaticBasicDiscount: $automaticBasicDiscount) {
+          automaticDiscountNode {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticBasic {
+                title
+                startsAt
+                endsAt
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const input = this.buildAutomaticProductDiscountInput(dto);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, { variables: { automaticBasicDiscount: input } });
+      });
+
+      this.handleGraphQLErrors(response, 'data.discountAutomaticBasicCreate.userErrors');
+
+      const node = response.data.discountAutomaticBasicCreate.automaticDiscountNode;
+      const shopifyId = node.id;
+
+      await this.shopifyDiscountModel.create({
+        shopifyId,
+        title: dto.title,
+        discountKind: ShopifyDiscountKind.PRODUCT_DISCOUNT_AUTOMATIC,
+        valueType: dto.valueType === DiscountValueType.PERCENTAGE
+          ? ShopifyDiscountValueType.PERCENTAGE
+          : ShopifyDiscountValueType.FIXED_AMOUNT,
+        value: dto.value,
+        appliesTo: dto.appliesTo,
+        productIds: dto.productIds,
+        collectionIds: dto.collectionIds,
+        startsAt: new Date(dto.startsAt),
+        endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+        minimumRequirementType: (dto.minimumRequirementType as unknown as ShopifyDiscountMinimumRequirementType)
+          ?? ShopifyDiscountMinimumRequirementType.NONE,
+        minimumRequirementValue: dto.minimumRequirementValue,
+        combinesWithProductDiscounts: dto.combinesWithProductDiscounts ?? false,
+        combinesWithOrderDiscounts: dto.combinesWithOrderDiscounts ?? false,
+        combinesWithShippingDiscounts: dto.combinesWithShippingDiscounts ?? false,
+        createdAt: new Date(),
+      });
+
+      await this.redisService.resetByPattern('shopify-discount-*');
+
+      return { shopifyId, automaticDiscount: node.automaticDiscount };
+    } catch (error) {
+      this.logError('Error creating automatic product discount', error);
+      throw new HttpException(
+        'Unable to create automatic product discount in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateAutomaticProductDiscount(dto: UpdateAutomaticProductDiscountDto) {
+    const mutation = `
+      mutation discountAutomaticBasicUpdate($id: ID!, $automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+        discountAutomaticBasicUpdate(id: $id, automaticBasicDiscount: $automaticBasicDiscount) {
+          automaticDiscountNode {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const shopifyGid = dto.id.includes('gid://')
+        ? dto.id
+        : `gid://shopify/DiscountAutomaticNode/${dto.id}`;
+
+      const input = this.buildAutomaticProductDiscountInput(dto);
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: { id: shopifyGid, automaticBasicDiscount: input },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.discountAutomaticBasicUpdate.userErrors');
+
+      await this.shopifyDiscountModel.findOneAndUpdate(
+        { shopifyId: shopifyGid },
+        {
+          ...(dto.title && { title: dto.title }),
+          ...(dto.valueType && { valueType: dto.valueType }),
+          ...(dto.value != null && { value: dto.value }),
+          ...(dto.appliesTo && { appliesTo: dto.appliesTo }),
+          ...(dto.productIds && { productIds: dto.productIds }),
+          ...(dto.collectionIds && { collectionIds: dto.collectionIds }),
+          ...(dto.startsAt && { startsAt: new Date(dto.startsAt) }),
+          ...('endsAt' in dto && { endsAt: dto.endsAt ? new Date(dto.endsAt) : null }),
+          ...(dto.minimumRequirementType && { minimumRequirementType: dto.minimumRequirementType }),
+          ...(dto.minimumRequirementValue != null && { minimumRequirementValue: dto.minimumRequirementValue }),
+          ...(dto.combinesWithProductDiscounts != null && { combinesWithProductDiscounts: dto.combinesWithProductDiscounts }),
+          ...(dto.combinesWithOrderDiscounts != null && { combinesWithOrderDiscounts: dto.combinesWithOrderDiscounts }),
+          ...(dto.combinesWithShippingDiscounts != null && { combinesWithShippingDiscounts: dto.combinesWithShippingDiscounts }),
+        },
+      );
+
+      await this.redisService.resetByPattern('shopify-discount-*');
+
+      return response.data.discountAutomaticBasicUpdate.automaticDiscountNode;
+    } catch (error) {
+      this.logError('Error updating automatic product discount', error);
+      throw new HttpException(
+        error?.message || 'Unable to update automatic product discount in Shopify.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
