@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayNotEmpty,
   IsArray,
   IsDate,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -97,6 +99,11 @@ export class CreateAssignmentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsDate()
+  completedAt?: Date;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsObject()
   payload?: Record<string, unknown>;
 }
@@ -150,6 +157,11 @@ export class UpdateAssignmentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsDate()
+  completedAt?: Date;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsObject()
   payload?: Record<string, unknown>;
 }
@@ -192,8 +204,39 @@ export class AssignmentQueryDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
-  subjectEntityId?: string;
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return value;
+  })
+  @IsArray()
+  @IsString({ each: true })
+  subjectEntityId?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return value;
+  })
+  @IsArray()
+  @IsString({ each: true })
+  subjectId?: string[];
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -221,4 +264,46 @@ export class AssignmentQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
   asc?: number;
+}
+
+export class CreateGameAssignmentDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  assignedBy: string;
+
+  @ApiProperty()
+  @Type(() => Date)
+  @IsDate()
+  dueDate: Date;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  assignUsers: string[];
+
+  @ApiProperty()
+  @IsNumber()
+  gameId: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ enum: AssignmentPriorityEnum, required: false })
+  @IsOptional()
+  @IsEnum(AssignmentPriorityEnum)
+  priority?: AssignmentPriorityEnum;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, unknown>;
 }

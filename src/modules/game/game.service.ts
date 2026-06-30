@@ -12,6 +12,7 @@ import { mapGames } from 'src/lib/mappers';
 import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
 import { BackInStockService } from '../back-in-stock/back-in-stock.service';
+import { Gameplay } from '../gameplay/gameplay.schema';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -20,7 +21,6 @@ import { GameDto } from './game.dto';
 import { Game } from './game.schema';
 import { RequestGameDto } from './requested-game.dto';
 import { RequestedGame } from './requested-game.schema';
-import { Gameplay } from '../gameplay/gameplay.schema';
 
 @Injectable()
 export class GameService {
@@ -80,6 +80,28 @@ export class GameService {
           },
         },
         {
+          $lookup: {
+            from: 'users',
+            let: {
+              gameId: '$_id',
+            },
+            pipeline: [
+              {
+                $match: {
+                  active: true,
+                  $expr: {
+                    $in: ['$$gameId', '$userGames.game'],
+                  },
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+            as: 'knownUserStats',
+          },
+        },
+        {
           $addFields: {
             gameplayCount: {
               $ifNull: [
@@ -89,11 +111,20 @@ export class GameService {
                 0,
               ],
             },
+            knownUserCount: {
+              $ifNull: [
+                {
+                  $arrayElemAt: ['$knownUserStats.count', 0],
+                },
+                0,
+              ],
+            },
           },
         },
         {
           $project: {
             gameplayStats: 0,
+            knownUserStats: 0,
           },
         },
         {
@@ -210,10 +241,7 @@ export class GameService {
     };
   }
 
-  async updateRequestedGame(
-    id: string,
-    updates: UpdateQuery<RequestedGame>,
-  ) {
+  async updateRequestedGame(id: string, updates: UpdateQuery<RequestedGame>) {
     return this.requestedGameModel.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,

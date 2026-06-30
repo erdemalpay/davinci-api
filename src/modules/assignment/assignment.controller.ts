@@ -12,6 +12,7 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   AssignmentQueryDto,
   CreateAssignmentDto,
+  CreateGameAssignmentDto,
   UpdateAssignmentDto,
 } from './assignment.dto';
 import { Assignment } from './assignment.schema';
@@ -26,6 +27,16 @@ export class AssignmentController {
   @Post()
   async create(@Body() createAssignmentDto: CreateAssignmentDto) {
     return this.assignmentService.createAssignment(createAssignmentDto);
+  }
+
+  @ApiResponse({ type: [Assignment] })
+  @Post('game')
+  async createGameAssignments(
+    @Body() createGameAssignmentDto: CreateGameAssignmentDto,
+  ) {
+    return this.assignmentService.createGameAssignments(
+      createGameAssignmentDto,
+    );
   }
 
   @ApiResponse({ type: [Assignment] })
