@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
 } from 'class-validator';
@@ -78,6 +79,17 @@ export class UpdateRoleDto {
     example: [RolePermissionEnum.MANAGEMENT, RolePermissionEnum.OPERATION],
   })
   permissions?: RolePermissionEnum[];
+}
+
+export class CompleteGameLearningTaskDto {
+  @IsNumber()
+  @ApiProperty()
+  assignmentId: number;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  learnDate?: string;
 }
 
 export class UserResponse {

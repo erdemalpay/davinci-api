@@ -6,6 +6,8 @@ import * as config from 'config';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
+import { AssignmentReminderModule } from './modules/assignment/assignment.reminder.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
 import { BackInStockModule } from './modules/back-in-stock/back-in-stock.module';
@@ -13,9 +15,9 @@ import { BreakModule } from './modules/break/break.module';
 import { ButtonCallModule } from './modules/buttonCall/buttonCall.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { ConcurrencyLogModule } from './modules/concurrency-log/concurrency-log.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
-import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
@@ -30,6 +32,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
+import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
 import { OrderModule } from './modules/order/order.module';
@@ -46,7 +49,6 @@ import { TableModule } from './modules/table/table.module';
 import { TrendyolModule } from './modules/trendyol/trendyol.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
-import { ConcurrencyLogModule } from './modules/concurrency-log/concurrency-log.module';
 import { WebhookLogModule } from './modules/webhook-log/webhook-log.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 
@@ -97,6 +99,8 @@ const modules = [
   MonthlyActivityModule,
   EventSurveyModule,
   ConsumerModule,
+  AssignmentModule,
+  AssignmentReminderModule,
   PanelControlModule,
   PointModule,
   PriceCompareModule,

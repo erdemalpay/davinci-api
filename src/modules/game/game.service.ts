@@ -12,6 +12,7 @@ import { mapGames } from 'src/lib/mappers';
 import { getItems } from 'src/lib/mongo';
 import { getGameDetails } from '../../lib/bgg';
 import { BackInStockService } from '../back-in-stock/back-in-stock.service';
+import { Gameplay } from '../gameplay/gameplay.schema';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -26,6 +27,8 @@ export class GameService {
   constructor(
     @InjectModel(Game.name)
     private gameModel: Model<Game>,
+    @InjectModel(Gameplay.name)
+    private gameplayModel: Model<Gameplay>,
     @InjectModel('BggGame')
     private bggGameModel: Model<BggGame>,
     @InjectModel(RequestedGame.name)
@@ -50,6 +53,88 @@ export class GameService {
 
   getGamesWithBgg() {
     return this.gameModel.find().populate('bggId');
+  }
+
+  async findAllGamesSortedByGameplayCount() {
+    return this.gameModel
+      .aggregate([
+        {
+          $lookup: {
+            from: this.gameplayModel.collection.name,
+            let: {
+              gameId: '$_id',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$game', '$$gameId'],
+                  },
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+            as: 'gameplayStats',
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            let: {
+              gameId: '$_id',
+            },
+            pipeline: [
+              {
+                $match: {
+                  active: true,
+                  $expr: {
+                    $in: ['$$gameId', '$userGames.game'],
+                  },
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+            as: 'knownUserStats',
+          },
+        },
+        {
+          $addFields: {
+            gameplayCount: {
+              $ifNull: [
+                {
+                  $arrayElemAt: ['$gameplayStats.count', 0],
+                },
+                0,
+              ],
+            },
+            knownUserCount: {
+              $ifNull: [
+                {
+                  $arrayElemAt: ['$knownUserStats.count', 0],
+                },
+                0,
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            gameplayStats: 0,
+            knownUserStats: 0,
+          },
+        },
+        {
+          $sort: {
+            gameplayCount: -1,
+            name: 1,
+          },
+        },
+      ])
+      .exec();
   }
 
   async getGamesMinimal() {
@@ -156,10 +241,7 @@ export class GameService {
     };
   }
 
-  async updateRequestedGame(
-    id: string,
-    updates: UpdateQuery<RequestedGame>,
-  ) {
+  async updateRequestedGame(id: string, updates: UpdateQuery<RequestedGame>) {
     return this.requestedGameModel.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,

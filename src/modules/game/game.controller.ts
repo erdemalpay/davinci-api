@@ -62,6 +62,11 @@ export class GameController {
     return this.gameService.getGamesMinimal();
   }
 
+  @Get('/sorted-by-gameplay-count')
+  async findAllGamesSortedByGameplayCount() {
+    return this.gameService.findAllGamesSortedByGameplayCount();
+  }
+
   @Public()
   @Get()
   async getGames() {
