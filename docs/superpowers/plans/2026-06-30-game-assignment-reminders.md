@@ -4,7 +4,7 @@
 
 **Goal:** Add a daily, deduplicated notification workflow for upcoming and overdue game assignments.
 
-**Architecture:** `AssignmentService` will select eligible `assigned` game assignments using Istanbul calendar boundaries, send targeted notifications through `NotificationService`, and persist per-notification timestamps. A small `AssignmentCronService` will run the workflow daily and log its result, while `AssignmentModule` wires the notification dependency and cron provider.
+**Architecture:** `AssignmentReminderService` will select eligible `assigned` game assignments using Istanbul calendar boundaries, send targeted notifications through `NotificationService`, and persist per-notification timestamps. A small `AssignmentCronService` will run the workflow daily and log its result. `AssignmentReminderModule` is a leaf module that imports the assignment model and notification capabilities without adding notification dependencies to assignment CRUD or `UserService`.
 
 **Tech Stack:** NestJS 8, Mongoose 6, `@nestjs/schedule`, Moment Timezone, Jest 27, TypeScript 4.5
 
@@ -13,6 +13,7 @@
 ### Task 1: Define reminder persistence and notification events
 
 **Files:**
+
 - Modify: `src/modules/assignment/assignment.schema.ts`
 - Modify: `src/modules/notification/notification.dto.ts`
 - Test: `src/modules/assignment/assignment.schema.spec.ts`
@@ -59,12 +60,13 @@ git commit -m "feat: add assignment reminder delivery state"
 ### Task 2: Implement the daily reminder workflow test-first
 
 **Files:**
-- Create: `src/modules/assignment/assignment.service.spec.ts`
-- Modify: `src/modules/assignment/assignment.service.ts`
+
+- Create: `src/modules/assignment/assignment.reminder.service.spec.ts`
+- Create: `src/modules/assignment/assignment.reminder.service.ts`
 
 - [ ] **Step 1: Write failing service tests**
 
-Instantiate `AssignmentService` with mocked Mongoose and notification
+Instantiate `AssignmentReminderService` with mocked Mongoose and notification
 dependencies. Use a fixed `now` and cover these behaviors:
 
 - A five-day assignment sends `GameAssignmentDueReminder` to `assignedTo` with
@@ -85,7 +87,7 @@ dependencies. Use a fixed `now` and cover these behaviors:
 Run:
 
 ```bash
-yarn test assignment.service.spec.ts --runInBand
+yarn test assignment.reminder.service.spec.ts --runInBand
 ```
 
 Expected: FAIL because `processGameAssignmentReminders` and the notification
@@ -93,8 +95,8 @@ dependency do not exist.
 
 - [ ] **Step 3: Implement minimal workflow code**
 
-Update the constructor to inject `NotificationService` with `forwardRef`.
-Add:
+Create the focused reminder service with assignment-model and
+`NotificationService` dependencies. Add:
 
 ```ts
 export interface AssignmentReminderResult {
@@ -124,7 +126,7 @@ matching timestamp after a non-null result. Catch and log failures per record.
 Run:
 
 ```bash
-yarn test assignment.service.spec.ts --runInBand
+yarn test assignment.reminder.service.spec.ts --runInBand
 ```
 
 Expected: PASS.
@@ -132,15 +134,18 @@ Expected: PASS.
 - [ ] **Step 5: Commit the workflow**
 
 ```bash
-git add src/modules/assignment/assignment.service.ts src/modules/assignment/assignment.service.spec.ts
+git add src/modules/assignment/assignment.reminder.service.ts src/modules/assignment/assignment.reminder.service.spec.ts
 git commit -m "feat: process game assignment reminders"
 ```
 
 ### Task 3: Schedule the workflow and wire the module
 
 **Files:**
+
 - Create: `src/modules/assignment/assignment.cron.service.ts`
 - Create: `src/modules/assignment/assignment.cron.service.spec.ts`
+- Create: `src/modules/assignment/assignment.reminder.module.ts`
+- Modify: `src/app.module.ts`
 - Modify: `src/modules/assignment/assignment.module.ts`
 
 - [ ] **Step 1: Write the failing cron test**
@@ -169,8 +174,10 @@ Create an injectable cron service with:
 async handleGameAssignmentReminders()
 ```
 
-Import `NotificationModule` through `forwardRef` in `AssignmentModule` and add
-`AssignmentCronService` to its providers.
+Export the assignment Mongoose registration from `AssignmentModule`. Add a leaf
+`AssignmentReminderModule` that imports `AssignmentModule` and
+`NotificationModule`, registers the reminder and cron services, and is imported
+by `AppModule`.
 
 - [ ] **Step 4: Run assignment tests**
 
@@ -192,6 +199,7 @@ git commit -m "feat: schedule game assignment reminders"
 ### Task 4: Verify integration quality
 
 **Files:**
+
 - Review all files changed in Tasks 1-3.
 
 - [ ] **Step 1: Format changed TypeScript files**
@@ -199,7 +207,7 @@ git commit -m "feat: schedule game assignment reminders"
 Run:
 
 ```bash
-yarn prettier --write src/modules/assignment/assignment.schema.ts src/modules/assignment/assignment.schema.spec.ts src/modules/assignment/assignment.service.ts src/modules/assignment/assignment.service.spec.ts src/modules/assignment/assignment.cron.service.ts src/modules/assignment/assignment.cron.service.spec.ts src/modules/assignment/assignment.module.ts src/modules/notification/notification.dto.ts
+yarn prettier --write src/app.module.ts src/modules/assignment/assignment.schema.ts src/modules/assignment/assignment.schema.spec.ts src/modules/assignment/assignment.reminder.service.ts src/modules/assignment/assignment.reminder.service.spec.ts src/modules/assignment/assignment.cron.service.ts src/modules/assignment/assignment.cron.service.spec.ts src/modules/assignment/assignment.module.ts src/modules/assignment/assignment.reminder.module.ts src/modules/notification/notification.dto.ts
 ```
 
 - [ ] **Step 2: Run focused tests**

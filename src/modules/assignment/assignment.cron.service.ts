@@ -1,18 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { AssignmentService } from './assignment.service';
+import { AssignmentReminderService } from './assignment.reminder.service';
 
 @Injectable()
 export class AssignmentCronService {
   private readonly logger = new Logger(AssignmentCronService.name);
 
-  constructor(private readonly assignmentService: AssignmentService) {}
+  constructor(
+    private readonly assignmentReminderService: AssignmentReminderService,
+  ) {}
 
   @Cron('0 0 1 * * *', { timeZone: 'Europe/Istanbul' })
   async handleGameAssignmentReminders() {
     try {
       const result =
-        await this.assignmentService.processGameAssignmentReminders();
+        await this.assignmentReminderService.processGameAssignmentReminders();
 
       this.logger.log(
         `Game assignment reminders completed: ${result.fiveDayReminders} five-day, ${result.oneDayReminders} one-day, ${result.managersInformed} manager, ${result.failures} failed`,

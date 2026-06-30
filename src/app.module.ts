@@ -7,6 +7,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AssetModule } from './modules/asset/asset.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
+import { AssignmentReminderModule } from './modules/assignment/assignment.reminder.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
 import { BackInStockModule } from './modules/back-in-stock/back-in-stock.module';
@@ -99,6 +100,7 @@ const modules = [
   EventSurveyModule,
   ConsumerModule,
   AssignmentModule,
+  AssignmentReminderModule,
   PanelControlModule,
   PointModule,
   PriceCompareModule,
