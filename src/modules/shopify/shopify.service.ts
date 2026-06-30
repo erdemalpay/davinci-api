@@ -3922,98 +3922,60 @@ export class ShopifyService {
     }
   }
 
-  async getDiscountsPaginated(
-    page: number,
-    limit: number,
-    search?: string,
-    status?: string,
-  ) {
-    const CURSOR_TTL = 1800;
-
+  private async fetchAllDiscountsAndCache(search?: string, status?: string): Promise<any[]> {
     const queryParts: string[] = [];
     if (search) queryParts.push(search);
     if (status) queryParts.push(`status:${status.toLowerCase()}`);
     const shopifyQuery = queryParts.length > 0 ? queryParts.join(' ') : undefined;
 
     const searchKey = encodeURIComponent(shopifyQuery || '');
-    const cursorCacheKey = `${RedisKeys.ShopifyDiscountCursors}:${searchKey}`;
-    const countCacheKey = `${RedisKeys.ShopifyDiscountCount}:${searchKey}`;
+    const cacheKey = `${RedisKeys.ShopifyDiscountAllCache}:${searchKey}`;
 
-    let cursors: Record<number, string> =
-      (await this.redisService.get(cursorCacheKey)) || {};
+    const cached: any[] | null = await this.redisService.get(cacheKey);
+    if (cached) return cached;
 
+    // Collect all code discounts by looping through Shopify cursor pages
+    const allCodeNodes: any[] = [];
     let cursor: string | null = null;
-    if (page > 1) {
-      if (cursors[page]) {
-        cursor = cursors[page];
-      } else {
-        for (let p = page - 1; p >= 2; p--) {
-          if (cursors[p]) {
-            cursor = cursors[p];
-            for (let traverse = p; traverse < page; traverse++) {
-              const result = await this.fetchDiscountsPage(cursor, limit, shopifyQuery);
-              if (!result.endCursor) break;
-              cursor = result.endCursor;
-              cursors[traverse + 1] = cursor;
-            }
-            break;
-          }
-        }
-        if (!cursor) {
-          let traverseCursor: string | null = null;
-          for (let traverse = 1; traverse < page; traverse++) {
-            const result = await this.fetchDiscountsPage(traverseCursor, limit, shopifyQuery);
-            if (!result.endCursor) break;
-            traverseCursor = result.endCursor;
-            cursors[traverse + 1] = traverseCursor;
-          }
-          cursor = traverseCursor;
-        }
-        await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
-      }
+    let hasNextPage = true;
+    while (hasNextPage) {
+      const result = await this.fetchDiscountsPage(cursor, 250, shopifyQuery);
+      allCodeNodes.push(...result.nodes);
+      hasNextPage = result.hasNextPage;
+      cursor = result.endCursor;
     }
 
-    const pageResult = await this.fetchDiscountsPage(cursor, limit, shopifyQuery);
+    // Collect all automatic discounts in parallel
+    const [bxgy, order, freeShipping, product] = await Promise.all([
+      this.fetchAutomaticBxgyDiscounts(search, status),
+      this.fetchAutomaticOrderDiscounts(search, status),
+      this.fetchAutomaticFreeShippingDiscounts(search, status),
+      this.fetchAutomaticProductDiscounts(search, status),
+    ]);
 
-    if (pageResult.endCursor && pageResult.hasNextPage) {
-      cursors[page + 1] = pageResult.endCursor;
-      await this.redisService.set(cursorCacheKey, cursors, CURSOR_TTL);
-    }
+    const all = [...bxgy, ...order, ...freeShipping, ...product, ...allCodeNodes];
+    await this.redisService.set(cacheKey, all, 1800);
+    return all;
+  }
 
-    let totalCount: number;
+  async refreshDiscountCache(): Promise<{ success: boolean }> {
+    await this.redisService.resetByPattern('shopify-discount-*');
+    return { success: true };
+  }
 
-    if (!pageResult.hasNextPage) {
-      totalCount = (page - 1) * limit + pageResult.nodes.length;
-      await this.redisService.set(countCacheKey, totalCount, CURSOR_TTL);
-    } else {
-      totalCount = await this.redisService.get(countCacheKey);
-      if (!totalCount) {
-        try {
-          totalCount = await this.fetchDiscountsCount(shopifyQuery);
-          await this.redisService.set(countCacheKey, totalCount, CURSOR_TTL);
-        } catch {
-          totalCount = (page - 1) * limit + pageResult.nodes.length + limit;
-        }
-      }
-    }
+  async getDiscountsPaginated(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+  ) {
+    const all = await this.fetchAllDiscountsAndCache(search, status);
+    const totalCount = all.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const start = (page - 1) * limit;
+    const data = all.slice(start, start + limit);
 
-    // Fetch automatic discounts separately (only on page 1, not paginated)
-    const [automaticBxgyNodes, automaticOrderNodes, automaticFreeShippingNodes, automaticProductNodes] = page === 1
-      ? await Promise.all([
-          this.fetchAutomaticBxgyDiscounts(search, status),
-          this.fetchAutomaticOrderDiscounts(search, status),
-          this.fetchAutomaticFreeShippingDiscounts(search, status),
-          this.fetchAutomaticProductDiscounts(search, status),
-        ])
-      : [[], [], [], []];
-
-    return {
-      data: [...automaticBxgyNodes, ...automaticOrderNodes, ...automaticFreeShippingNodes, ...automaticProductNodes, ...pageResult.nodes],
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      page,
-      limit,
-    };
+    return { data, totalCount, totalPages, page, limit };
   }
 
   async getDiscounts() {
@@ -5328,17 +5290,22 @@ export class ShopifyService {
     `;
 
     try {
-      // Look up by MongoDB _id first, then fall back to shopifyId lookup
-      const numericId = parseInt(id, 10);
-      const discount = !isNaN(numericId)
-        ? await this.shopifyDiscountModel.findOne({ _id: numericId })
-        : await this.shopifyDiscountModel.findOne({ shopifyId: id });
+      // id is either a full Shopify GID or a numeric/shopifyId from DB
+      let shopifyGid: string;
 
-      if (!discount) {
-        throw new Error(`Discount not found: ${id}`);
+      if (id.startsWith('gid://')) {
+        shopifyGid = id;
+      } else {
+        const numericId = parseInt(id, 10);
+        const dbRecord = !isNaN(numericId)
+          ? await this.shopifyDiscountModel.findOne({ _id: numericId })
+          : await this.shopifyDiscountModel.findOne({ shopifyId: id });
+        if (!dbRecord) {
+          throw new Error(`Discount not found: ${id}`);
+        }
+        shopifyGid = dbRecord.shopifyId;
       }
 
-      const shopifyGid = discount.shopifyId;
       const isAutomatic = shopifyGid.includes('DiscountAutomaticNode');
       const mutation = isAutomatic ? automaticMutation : codeMutation;
       const errPath = isAutomatic

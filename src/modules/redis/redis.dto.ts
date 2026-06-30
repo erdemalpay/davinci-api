@@ -26,6 +26,7 @@ export enum RedisKeys {
   ShopifyCustomerCount = 'shopify-customer-count',
   ShopifyDiscountCursors = 'shopify-discount-cursors',
   ShopifyDiscountCount = 'shopify-discount-count',
+  ShopifyDiscountAllCache = 'shopify-discount-all',
   QrLocation = 'qr-location',
   QrCode = 'qr-code',
 }

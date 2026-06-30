@@ -147,6 +147,11 @@ export class ShopifyController {
     return this.shopifyService.orderCancelWebHook(data);
   }
 
+  @Post('/discount/refresh')
+  refreshDiscountCache() {
+    return this.shopifyService.refreshDiscountCache();
+  }
+
   @Get('/discount')
   getDiscounts(
     @Query('page') page?: string,
@@ -222,8 +227,8 @@ export class ShopifyController {
     return this.shopifyService.updateAutomaticBxgyDiscount(dto);
   }
 
-  @Delete('/discount/:id')
-  deleteDiscount(@Param('id') id: string) {
+  @Delete('/discount')
+  deleteDiscount(@Query('id') id: string) {
     return this.shopifyService.deleteDiscount(id);
   }
 }
