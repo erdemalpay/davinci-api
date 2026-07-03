@@ -51,6 +51,7 @@ import {
   CreateOrderDto,
   CreateOrderNotesDto,
   CreateRetailerDto,
+  ItemPlatformOrdersQueryDto,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
@@ -4422,6 +4423,118 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to fetch retailer item summary',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private static readonly ITEM_PLATFORM_MARKER_FIELD: Record<
+    'shopify' | 'trendyol' | 'hepsiburada',
+    string
+  > = {
+    shopify: 'shopifyOrderId',
+    trendyol: 'trendyolOrderId',
+    hepsiburada: 'hepsiburadaOrderNumber',
+  };
+
+  async getItemPlatformSummary(itemId: number) {
+    const markerFields = OrderService.ITEM_PLATFORM_MARKER_FIELD;
+    try {
+      const [result] = await this.orderModel
+        .aggregate([
+          {
+            $match: {
+              item: itemId,
+              quantity: { $gt: 0 },
+            },
+          },
+          {
+            $facet: Object.fromEntries(
+              (Object.keys(markerFields) as Array<keyof typeof markerFields>).map(
+                (platform) => [
+                  platform,
+                  [
+                    {
+                      $match: {
+                        [markerFields[platform]]: { $type: 'string' },
+                      },
+                    },
+                    {
+                      $group: {
+                        _id: null,
+                        totalQuantity: { $sum: '$quantity' },
+                        orderCount: { $sum: 1 },
+                      },
+                    },
+                  ],
+                ],
+              ),
+            ),
+          },
+        ])
+        .exec();
+
+      const buildSummary = (platform: keyof typeof markerFields) => {
+        const bucket = result?.[platform]?.[0];
+        return {
+          totalQuantity: bucket?.totalQuantity ?? 0,
+          orderCount: bucket?.orderCount ?? 0,
+        };
+      };
+
+      return {
+        itemId,
+        shopify: buildSummary('shopify'),
+        trendyol: buildSummary('trendyol'),
+        hepsiburada: buildSummary('hepsiburada'),
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch item platform summary',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getItemPlatformOrders(itemId: number, query: ItemPlatformOrdersQueryDto) {
+    const markerFields = OrderService.ITEM_PLATFORM_MARKER_FIELD;
+    const platform = query.platform;
+    if (!markerFields[platform]) {
+      throw new HttpException('Invalid platform', HttpStatus.BAD_REQUEST);
+    }
+
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit =
+      query.limit && query.limit > 0 ? Math.min(query.limit, 100) : 20;
+
+    try {
+      const docs = await this.orderModel
+        .find({
+          item: itemId,
+          quantity: { $gt: 0 },
+          [markerFields[platform]]: { $type: 'string' },
+        })
+        .select(
+          'quantity status createdAt shopifyOrderNumber trendyolOrderNumber hepsiburadaOrderNumber',
+        )
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit + 1)
+        .lean()
+        .exec();
+
+      const hasMore = docs.length > limit;
+      return {
+        itemId,
+        platform,
+        page,
+        limit,
+        hasMore,
+        orders: docs.slice(0, limit),
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch item platform orders',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

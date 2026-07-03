@@ -31,6 +31,7 @@ import {
   CreateOrderDto,
   CreateOrderNotesDto,
   CreateRetailerDto,
+  ItemPlatformOrdersQueryDto,
   OrderQueryDto,
   RetailerOrdersQueryDto,
 } from './order.dto';
@@ -57,6 +58,19 @@ export class OrderController {
   @Get('/query')
   findQueryOrders(@Query() query: OrderQueryDto) {
     return this.orderService.findQueryOrders(query);
+  }
+
+  @Get('/item/:id/platform-summary')
+  getItemPlatformSummary(@Param('id') id: number) {
+    return this.orderService.getItemPlatformSummary(id);
+  }
+
+  @Get('/item/:id/platform-orders')
+  getItemPlatformOrders(
+    @Param('id') id: number,
+    @Query() query: ItemPlatformOrdersQueryDto,
+  ) {
+    return this.orderService.getItemPlatformOrders(id, query);
   }
 
   @Get('/false-ikas-collections')
