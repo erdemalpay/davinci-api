@@ -314,6 +314,10 @@ export class AssignmentService {
         ...(updateAssignmentDto.status === AssignmentStatusEnum.CANCELLED
           ? { cancelledAt: new Date() }
           : {}),
+        ...(updateAssignmentDto.status &&
+        updateAssignmentDto.status !== AssignmentStatusEnum.CANCELLED
+          ? { cancelledAt: null }
+          : {}),
         ...(updateAssignmentDto.status === AssignmentStatusEnum.COMPLETED
           ? { completedAt: new Date() }
           : {}),
