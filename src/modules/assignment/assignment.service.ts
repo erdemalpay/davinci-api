@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentPriorityEnum,
@@ -247,30 +247,88 @@ export class AssignmentService {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const sortObject: Record<string, 1 | -1> = {};
+    const sortStage: Record<string, 1 | -1> = {};
     if (sort) {
       const sortDirection: 1 | -1 = asc && Number(asc) === 1 ? 1 : -1;
-      sortObject[sort] = sortDirection;
+      sortStage[sort] = sortDirection;
     } else {
-      sortObject.createdAt = -1;
+      sortStage.statusSortPriority = 1;
+      sortStage.createdAt = -1;
     }
 
-    const totalNumber = await this.assignmentModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalNumber / limitNum);
+    const userLookupPipeline = [
+      { $project: { name: 1, fullName: 1, imageUrl: 1, role: 1 } },
+    ];
 
-    const data = await this.assignmentModel
-      .find(filter)
-      .populate('assignedBy', 'name fullName imageUrl role')
-      .populate('assignedTo', 'name fullName imageUrl role')
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limitNum)
-      .exec();
+    const pipeline: PipelineStage[] = [
+      { $match: filter },
+      {
+        $addFields: {
+          statusSortPriority: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.OVERDUE] },
+                  then: 0,
+                },
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.ASSIGNED] },
+                  then: 1,
+                },
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.COMPLETED] },
+                  then: 2,
+                },
+              ],
+              default: 3,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedBy',
+          foreignField: '_id',
+          as: 'assignedBy',
+          pipeline: userLookupPipeline,
+        },
+      },
+      { $unwind: { path: '$assignedBy', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedTo',
+          foreignField: '_id',
+          as: 'assignedTo',
+          pipeline: userLookupPipeline,
+        },
+      },
+      { $unwind: { path: '$assignedTo', preserveNullAndEmptyArrays: true } },
+      { $sort: sortStage },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [{ $skip: skip }, { $limit: limitNum }],
+        },
+      },
+      { $unwind: { path: '$metadata', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          data: 1,
+          totalNumber: { $ifNull: ['$metadata.total', 0] },
+        },
+      },
+    ];
+
+    const results = await this.assignmentModel.aggregate(pipeline);
+    const totalNumber = results[0]?.totalNumber ?? 0;
+    const data = results[0]?.data ?? [];
 
     return {
       data,
       totalNumber,
-      totalPages,
+      totalPages: Math.ceil(totalNumber / limitNum),
       page: pageNum,
       limit: limitNum,
     };
