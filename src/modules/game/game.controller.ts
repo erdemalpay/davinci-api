@@ -63,8 +63,14 @@ export class GameController {
   }
 
   @Get('/sorted-by-gameplay-count')
-  async findAllGamesSortedByGameplayCount() {
-    return this.gameService.findAllGamesSortedByGameplayCount();
+  async findAllGamesSortedByGameplayCount(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.gameService.findAllGamesSortedByGameplayCount(
+      startDate,
+      endDate,
+    );
   }
 
   @Public()

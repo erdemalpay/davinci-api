@@ -37,6 +37,10 @@ export class AppWebSocketGateway {
     this.server.emit('assetChanged');
   }
 
+  emitAssignmentChanged() {
+    this.server.emit('assignmentChanged');
+  }
+
   emitBackInStockChanged() {
     this.server.emit('backInStockChanged');
   }

@@ -46,5 +46,7 @@ GameplaySchema.index({ game: 1, location: 1 });
 GameplaySchema.index({ date: 1, location: 1, mentor: 1 });
 // For queryData() - createdBy queries
 GameplaySchema.index({ createdBy: 1 });
+// For findAllGamesSortedByGameplayCount() - per-game date range counts
+GameplaySchema.index({ game: 1, date: 1 });
 
 purifySchema(GameplaySchema);

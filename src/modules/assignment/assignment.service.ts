@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentPriorityEnum,
   AssignmentQueryDto,
@@ -16,6 +17,7 @@ import { Assignment } from './assignment.schema';
 export class AssignmentService {
   constructor(
     @InjectModel(Assignment.name) private assignmentModel: Model<Assignment>,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   private normalizeQueryValues(value?: string | string[]) {
@@ -56,6 +58,8 @@ export class AssignmentService {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    this.websocketGateway.emitAssignmentChanged();
 
     return assignment;
   }
@@ -114,6 +118,8 @@ export class AssignmentService {
 
       createdAssignments.push(assignment);
     }
+
+    this.websocketGateway.emitAssignmentChanged();
 
     return createdAssignments;
   }
@@ -308,6 +314,13 @@ export class AssignmentService {
         ...(updateAssignmentDto.status === AssignmentStatusEnum.CANCELLED
           ? { cancelledAt: new Date() }
           : {}),
+        ...(updateAssignmentDto.status === AssignmentStatusEnum.COMPLETED
+          ? { completedAt: new Date() }
+          : {}),
+        ...(updateAssignmentDto.status &&
+        updateAssignmentDto.status !== AssignmentStatusEnum.COMPLETED
+          ? { completedAt: null }
+          : {}),
       },
       { new: true },
     );
@@ -316,7 +329,32 @@ export class AssignmentService {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
     }
 
+    this.websocketGateway.emitAssignmentChanged();
+
     return assignment;
+  }
+
+  async markOverdueAssignments(
+    now: Date = new Date(),
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
+    const result = await this.assignmentModel.updateMany(
+      {
+        status: AssignmentStatusEnum.ASSIGNED,
+        dueDate: { $exists: true, $lte: now },
+      },
+      {
+        $set: { status: AssignmentStatusEnum.OVERDUE, updatedAt: now },
+      },
+    );
+
+    if (result.modifiedCount > 0) {
+      this.websocketGateway.emitAssignmentChanged();
+    }
+
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
   }
 
   async deleteAssignment(id: string | number): Promise<Assignment> {
@@ -337,6 +375,9 @@ export class AssignmentService {
     assignment.updatedAt = new Date();
 
     await assignment.save();
+
+    this.websocketGateway.emitAssignmentChanged();
+
     return assignment;
   }
 }
