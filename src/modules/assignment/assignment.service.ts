@@ -266,18 +266,19 @@ export class AssignmentService {
         $addFields: {
           statusSortPriority: {
             $switch: {
+              // `then` here is the MongoDB $switch branch field, not a Promise executor.
               branches: [
                 {
                   case: { $eq: ['$status', AssignmentStatusEnum.OVERDUE] },
-                  then: 0,
+                  then: 0, // NOSONAR
                 },
                 {
                   case: { $eq: ['$status', AssignmentStatusEnum.ASSIGNED] },
-                  then: 1,
+                  then: 1, // NOSONAR
                 },
                 {
                   case: { $eq: ['$status', AssignmentStatusEnum.COMPLETED] },
-                  then: 2,
+                  then: 2, // NOSONAR
                 },
               ],
               default: 3,
