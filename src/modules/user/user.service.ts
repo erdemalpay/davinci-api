@@ -21,7 +21,12 @@ import { RedisService } from '../redis/redis.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ActivityType } from './../activity/activity.dto';
 import { ActivityService } from './../activity/activity.service';
-import { CreateRoleDto, CreateUserDto, UpdateRoleDto } from './user.dto';
+import {
+  CreateRoleDto,
+  CreateUserDto,
+  RoleEnum,
+  UpdateRoleDto,
+} from './user.dto';
 import { RolePermissionEnum, UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
 import { User } from './user.schema';
@@ -173,7 +178,12 @@ export class UserService implements OnModuleInit {
         ? String((assignment.assignedTo as { _id?: string })._id ?? '')
         : String(assignment.assignedTo);
 
-    if (assignedToId !== user._id && user.role?._id !== 1) {
+    const isAllowedToActOnBehalf = [
+      RoleEnum.MANAGER,
+      RoleEnum.GAMEMANAGER,
+    ].includes(user.role?._id as RoleEnum);
+
+    if (assignedToId !== user._id && !isAllowedToActOnBehalf) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
