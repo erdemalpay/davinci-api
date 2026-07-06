@@ -200,7 +200,7 @@ export class UserService implements OnModuleInit {
       );
     }
 
-    const userDoc = await this.userModel.findById(user._id);
+    const userDoc = await this.userModel.findById(assignedToId);
     if (!userDoc) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
@@ -247,7 +247,7 @@ export class UserService implements OnModuleInit {
 
     return {
       assignment: updatedAssignment,
-      user: await this.userModel.findById(user._id).populate('role'),
+      user: await this.userModel.findById(assignedToId).populate('role'),
     };
   }
 
