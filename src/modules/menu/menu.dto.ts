@@ -143,6 +143,10 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   isAutoPrepared?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isDaVinciGame?: boolean;
 }
 export class CreateBulkItemDto {
   @IsString()
