@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentPriorityEnum,
   AssignmentQueryDto,
@@ -16,6 +17,7 @@ import { Assignment } from './assignment.schema';
 export class AssignmentService {
   constructor(
     @InjectModel(Assignment.name) private assignmentModel: Model<Assignment>,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   private normalizeQueryValues(value?: string | string[]) {
@@ -56,6 +58,8 @@ export class AssignmentService {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    this.websocketGateway.emitAssignmentChanged();
 
     return assignment;
   }
@@ -114,6 +118,8 @@ export class AssignmentService {
 
       createdAssignments.push(assignment);
     }
+
+    this.websocketGateway.emitAssignmentChanged();
 
     return createdAssignments;
   }
@@ -241,30 +247,89 @@ export class AssignmentService {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const sortObject: Record<string, 1 | -1> = {};
+    const sortStage: Record<string, 1 | -1> = {};
     if (sort) {
       const sortDirection: 1 | -1 = asc && Number(asc) === 1 ? 1 : -1;
-      sortObject[sort] = sortDirection;
+      sortStage[sort] = sortDirection;
     } else {
-      sortObject.createdAt = -1;
+      sortStage.statusSortPriority = 1;
+      sortStage.createdAt = -1;
     }
 
-    const totalNumber = await this.assignmentModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalNumber / limitNum);
+    const userLookupPipeline = [
+      { $project: { name: 1, fullName: 1, imageUrl: 1, role: 1 } },
+    ];
 
-    const data = await this.assignmentModel
-      .find(filter)
-      .populate('assignedBy', 'name fullName imageUrl role')
-      .populate('assignedTo', 'name fullName imageUrl role')
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limitNum)
-      .exec();
+    const pipeline: PipelineStage[] = [
+      { $match: filter },
+      {
+        $addFields: {
+          statusSortPriority: {
+            $switch: {
+              // `then` here is the MongoDB $switch branch field, not a Promise executor.
+              branches: [
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.OVERDUE] },
+                  then: 0, // NOSONAR
+                },
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.ASSIGNED] },
+                  then: 1, // NOSONAR
+                },
+                {
+                  case: { $eq: ['$status', AssignmentStatusEnum.COMPLETED] },
+                  then: 2, // NOSONAR
+                },
+              ],
+              default: 3,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedBy',
+          foreignField: '_id',
+          as: 'assignedBy',
+          pipeline: userLookupPipeline,
+        },
+      },
+      { $unwind: { path: '$assignedBy', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedTo',
+          foreignField: '_id',
+          as: 'assignedTo',
+          pipeline: userLookupPipeline,
+        },
+      },
+      { $unwind: { path: '$assignedTo', preserveNullAndEmptyArrays: true } },
+      { $sort: sortStage },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [{ $skip: skip }, { $limit: limitNum }],
+        },
+      },
+      { $unwind: { path: '$metadata', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          data: 1,
+          totalNumber: { $ifNull: ['$metadata.total', 0] },
+        },
+      },
+    ];
+
+    const results = await this.assignmentModel.aggregate(pipeline);
+    const totalNumber = results[0]?.totalNumber ?? 0;
+    const data = results[0]?.data ?? [];
 
     return {
       data,
       totalNumber,
-      totalPages,
+      totalPages: Math.ceil(totalNumber / limitNum),
       page: pageNum,
       limit: limitNum,
     };
@@ -308,6 +373,17 @@ export class AssignmentService {
         ...(updateAssignmentDto.status === AssignmentStatusEnum.CANCELLED
           ? { cancelledAt: new Date() }
           : {}),
+        ...(updateAssignmentDto.status &&
+        updateAssignmentDto.status !== AssignmentStatusEnum.CANCELLED
+          ? { cancelledAt: null }
+          : {}),
+        ...(updateAssignmentDto.status === AssignmentStatusEnum.COMPLETED
+          ? { completedAt: new Date() }
+          : {}),
+        ...(updateAssignmentDto.status &&
+        updateAssignmentDto.status !== AssignmentStatusEnum.COMPLETED
+          ? { completedAt: null }
+          : {}),
       },
       { new: true },
     );
@@ -316,7 +392,32 @@ export class AssignmentService {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
     }
 
+    this.websocketGateway.emitAssignmentChanged();
+
     return assignment;
+  }
+
+  async markOverdueAssignments(
+    now: Date = new Date(),
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
+    const result = await this.assignmentModel.updateMany(
+      {
+        status: AssignmentStatusEnum.ASSIGNED,
+        dueDate: { $exists: true, $lte: now },
+      },
+      {
+        $set: { status: AssignmentStatusEnum.OVERDUE, updatedAt: now },
+      },
+    );
+
+    if (result.modifiedCount > 0) {
+      this.websocketGateway.emitAssignmentChanged();
+    }
+
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
   }
 
   async deleteAssignment(id: string | number): Promise<Assignment> {
@@ -337,6 +438,9 @@ export class AssignmentService {
     assignment.updatedAt = new Date();
 
     await assignment.save();
+
+    this.websocketGateway.emitAssignmentChanged();
+
     return assignment;
   }
 }
