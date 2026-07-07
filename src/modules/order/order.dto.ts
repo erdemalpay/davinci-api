@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsDate,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -532,6 +533,21 @@ export class RetailerOrdersQueryDto {
   @IsOptional()
   @IsString()
   before?: string;
+}
+
+export class ItemPlatformOrdersQueryDto {
+  @IsIn(['shopify', 'trendyol', 'hepsiburada'])
+  platform: 'shopify' | 'trendyol' | 'hepsiburada';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  limit?: number;
 }
 
 export class SummaryCollectionQueryDto {
