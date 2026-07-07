@@ -430,7 +430,9 @@ export class OrderService {
             ? this.menuService.findDaVinciGameItems()
             : [],
         ]);
-        itemIds = [...items, ...daVinciGameItems].map((item) => item._id);
+        itemIds = Array.from(
+          new Set([...items, ...daVinciGameItems].map((item) => item._id)),
+        );
       }
       const orderFilterQuery = {
         ...filterQuery,
