@@ -55,7 +55,19 @@ export class GameService {
     return this.gameModel.find().populate('bggId');
   }
 
-  async findAllGamesSortedByGameplayCount() {
+  async findAllGamesSortedByGameplayCount(startDate?: string, endDate?: string) {
+    const gameplayMatch: Record<string, unknown> = {
+      $expr: {
+        $eq: ['$game', '$$gameId'],
+      },
+    };
+    if (startDate || endDate) {
+      const dateFilter: Record<string, string> = {};
+      if (startDate) dateFilter.$gte = startDate;
+      if (endDate) dateFilter.$lte = endDate;
+      gameplayMatch.date = dateFilter;
+    }
+
     return this.gameModel
       .aggregate([
         {
@@ -66,11 +78,7 @@ export class GameService {
             },
             pipeline: [
               {
-                $match: {
-                  $expr: {
-                    $eq: ['$game', '$$gameId'],
-                  },
-                },
+                $match: gameplayMatch,
               },
               {
                 $count: 'count',

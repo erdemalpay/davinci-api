@@ -11,6 +11,11 @@ import {
 } from 'class-validator';
 import { Order, ShopifyCustomer, TrendyolCustomer } from './order.schema';
 
+/** Sentinel value the frontend sends as a fake `category` filter option
+ * to request items where `isDaVinciGame` is true. Must match the value
+ * used in the frontend's category filter options. */
+export const DAVINCI_GAME_CATEGORY_FILTER_VALUE = 'davinci-games';
+
 export class OrderCollectionItemDto {
   @IsNumber()
   order: number;

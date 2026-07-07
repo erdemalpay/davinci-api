@@ -42,6 +42,9 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   isAutoPrepared: boolean;
 
+  @Prop({ required: false, type: Boolean, default: false })
+  isDaVinciGame: boolean;
+
   @Prop({ required: true, type: Number })
   order: number;
 

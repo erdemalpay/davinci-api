@@ -4,9 +4,16 @@ jest.mock('./assignment.reminder.service', () => ({
   AssignmentReminderService: class AssignmentReminderService {},
 }));
 
+jest.mock('./assignment.service', () => ({
+  AssignmentService: class AssignmentService {},
+}));
+
 describe('AssignmentCronService', () => {
   let assignmentReminderService: {
     processGameAssignmentReminders: jest.Mock;
+  };
+  let assignmentService: {
+    markOverdueAssignments: jest.Mock;
   };
   let service: AssignmentCronService;
   let logSpy: jest.SpyInstance;
@@ -21,7 +28,16 @@ describe('AssignmentCronService', () => {
         failures: 0,
       }),
     };
-    service = new AssignmentCronService(assignmentReminderService as never);
+    assignmentService = {
+      markOverdueAssignments: jest.fn().mockResolvedValue({
+        matchedCount: 2,
+        modifiedCount: 2,
+      }),
+    };
+    service = new AssignmentCronService(
+      assignmentReminderService as never,
+      assignmentService as never,
+    );
     logSpy = jest
       .spyOn(
         (service as unknown as { logger: { log: () => void } }).logger,
@@ -71,6 +87,36 @@ describe('AssignmentCronService', () => {
 
     expect(errorSpy).toHaveBeenCalledWith(
       'Game assignment reminder cron failed',
+      error.stack,
+    );
+  });
+
+  it('runs daily in Istanbul and marks overdue assignments', async () => {
+    const result = await service.handleMarkOverdueAssignments();
+    const cronOptions = Reflect.getMetadata(
+      'SCHEDULE_CRON_OPTIONS',
+      service.handleMarkOverdueAssignments,
+    );
+
+    expect(cronOptions).toEqual({
+      cronTime: '0 55 23 * * *',
+      timeZone: 'Europe/Istanbul',
+    });
+    expect(assignmentService.markOverdueAssignments).toHaveBeenCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledWith(
+      'Mark overdue assignments completed: 2/2 updated',
+    );
+    expect(result).toEqual({ matchedCount: 2, modifiedCount: 2 });
+  });
+
+  it('logs and rethrows mark-overdue errors', async () => {
+    const error = new Error('database unavailable');
+    assignmentService.markOverdueAssignments.mockRejectedValue(error);
+
+    await expect(service.handleMarkOverdueAssignments()).rejects.toBe(error);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Mark overdue assignments cron failed',
       error.stack,
     );
   });

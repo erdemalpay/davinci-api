@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { AssignmentService } from './assignment.service';
 import { AssignmentReminderService } from './assignment.reminder.service';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AssignmentCronService {
 
   constructor(
     private readonly assignmentReminderService: AssignmentReminderService,
+    private readonly assignmentService: AssignmentService,
   ) {}
 
   @Cron('0 0 1 * * *', { timeZone: 'Europe/Istanbul' })
@@ -24,6 +26,25 @@ export class AssignmentCronService {
     } catch (error) {
       this.logger.error(
         'Game assignment reminder cron failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  @Cron('0 55 23 * * *', { timeZone: 'Europe/Istanbul' })
+  async handleMarkOverdueAssignments() {
+    try {
+      const result = await this.assignmentService.markOverdueAssignments();
+
+      this.logger.log(
+        `Mark overdue assignments completed: ${result.modifiedCount}/${result.matchedCount} updated`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        'Mark overdue assignments cron failed',
         error instanceof Error ? error.stack : String(error),
       );
       throw error;

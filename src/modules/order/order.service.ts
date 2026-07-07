@@ -52,6 +52,7 @@ import {
   CreateOrderNotesDto,
   CreateRetailerDto,
   ItemPlatformOrdersQueryDto,
+  DAVINCI_GAME_CATEGORY_FILTER_VALUE,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
@@ -415,14 +416,24 @@ export class OrderService {
     try {
       let itemIds = [];
       if (category) {
-        const categoryArray = category
-          .split(',')
-          .map((item) => item.trim())
-          .map(Number);
-        const items = await this.menuService.findItemsInCategoryArray(
-          categoryArray,
+        const categoryTokens = category.split(',').map((item) => item.trim());
+        const isDaVinciGameCategorySelected = categoryTokens.includes(
+          DAVINCI_GAME_CATEGORY_FILTER_VALUE,
         );
-        itemIds = items.map((item) => item._id);
+        const categoryArray = categoryTokens
+          .filter((token) => token !== DAVINCI_GAME_CATEGORY_FILTER_VALUE)
+          .map(Number);
+        const [items, daVinciGameItems] = await Promise.all([
+          categoryArray.length > 0
+            ? this.menuService.findItemsInCategoryArray(categoryArray)
+            : [],
+          isDaVinciGameCategorySelected
+            ? this.menuService.findDaVinciGameItems()
+            : [],
+        ]);
+        itemIds = Array.from(
+          new Set([...items, ...daVinciGameItems].map((item) => item._id)),
+        );
       }
       const orderFilterQuery = {
         ...filterQuery,
