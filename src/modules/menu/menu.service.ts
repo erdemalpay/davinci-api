@@ -312,6 +312,13 @@ export class MenuService {
     });
   }
 
+  async findDaVinciGameItems() {
+    return this.itemModel.find({
+      isDaVinciGame: true,
+      deleted: { $ne: true },
+    });
+  }
+
   async setOrder(user: User) {
     const items = await this.itemModel.find();
     items.forEach(async (item, index) => {
