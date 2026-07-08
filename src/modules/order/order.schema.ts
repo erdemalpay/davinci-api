@@ -300,7 +300,7 @@ OrderSchema.index({ createdBy: 1, createdAt: -1 });
 OrderSchema.index({ ikasCustomer: 1, status: 1 });
 // For findSummaryDiscountTotal() - discount queries with date and location
 OrderSchema.index({ createdAt: 1, location: 1, discountAmount: 1 });
-// For item platform sales summary/list (product page) - item lookups sorted by date
-OrderSchema.index({ item: 1, createdAt: -1 });
+// Note: item platform sales summary/list queries are covered by the
+// { item: 1, createdAt: -1, tableDate: 1 } index above (left-prefix match).
 
 purifySchema(OrderSchema);
