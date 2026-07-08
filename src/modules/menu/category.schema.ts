@@ -52,6 +52,9 @@ export class MenuCategory extends Document {
 
   @Prop({ required: false, type: Boolean, default: false })
   isDeleted: boolean;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isGameSalesReport: boolean;
 }
 
 export const MenuCategorySchema = SchemaFactory.createForClass(MenuCategory);

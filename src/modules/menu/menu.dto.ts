@@ -53,6 +53,10 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isKitchenMenu?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isGameSalesReport?: boolean;
 }
 
 export class CreateItemDto {
