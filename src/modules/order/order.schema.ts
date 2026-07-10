@@ -286,6 +286,10 @@ OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });
 // Indexes for frequent queries - optimized to reduce write overhead
 // For findQueryOrders() - tableDate range queries with location (most common)
 OrderSchema.index({ tableDate: 1, location: 1 });
+// For findQueryOrders() - category-filtered reports (item $in [...]); ESR order
+// matches the query's sort (createdAt) and range filter (tableDate) so Mongo
+// avoids an in-memory sort.
+OrderSchema.index({ item: 1, createdAt: -1, tableDate: 1 });
 // For findQueryOrders() - location and createdAt sorting (default sort, also covers location-only queries)
 OrderSchema.index({ location: 1, createdAt: -1 });
 // For findQueryOrders() - status and location queries (frequently used together)
@@ -296,7 +300,7 @@ OrderSchema.index({ createdBy: 1, createdAt: -1 });
 OrderSchema.index({ ikasCustomer: 1, status: 1 });
 // For findSummaryDiscountTotal() - discount queries with date and location
 OrderSchema.index({ createdAt: 1, location: 1, discountAmount: 1 });
-// For item platform sales summary/list (product page) - item lookups sorted by date
-OrderSchema.index({ item: 1, createdAt: -1 });
+// Note: item platform sales summary/list queries are covered by the
+// { item: 1, createdAt: -1, tableDate: 1 } index above (left-prefix match).
 
 purifySchema(OrderSchema);
