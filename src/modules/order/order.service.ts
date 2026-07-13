@@ -4136,10 +4136,12 @@ export class OrderService {
           );
           const allItemsPaid =
             activeOrders.length > 0 &&
-            activeOrders.every((order) => order.paidQuantity === order.quantity);
+            activeOrders.every(
+              (order) => (order.paidQuantity ?? 0) === order.quantity,
+            );
           if (allItemsPaid) {
             await this.tableService.close(user, tableId, {
-              finishHour: format(new Date(), 'HH:mm'),
+              finishHour: moment.tz('Europe/Istanbul').format('HH:mm'),
             } as TableDto);
           }
         }
