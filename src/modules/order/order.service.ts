@@ -30,7 +30,7 @@ import { NotificationService } from '../notification/notification.service';
 import { PointService } from '../point/point.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
-import { TableTypes } from '../table/table.dto';
+import { TableDto, TableTypes } from '../table/table.dto';
 import { Table } from '../table/table.schema';
 import { TableService } from '../table/table.service';
 import { User } from '../user/user.schema';
@@ -4060,6 +4060,28 @@ export class OrderService {
       );
     } catch (error) {
       this.logger.error('Error adding take payment activity:', error);
+    }
+
+    if (tableId) {
+      try {
+        const table = await this.tableService.getTableById(tableId);
+        if (table && table.type === TableTypes.TAKEOUT && !table.finishHour) {
+          const tableOrders = await this.findGivenTableOrders(tableId);
+          const activeOrders = tableOrders.filter(
+            (order) => order.status !== OrderStatus.CANCELLED,
+          );
+          const allItemsPaid =
+            activeOrders.length > 0 &&
+            activeOrders.every((order) => order.paidQuantity === order.quantity);
+          if (allItemsPaid) {
+            await this.tableService.close(user, tableId, {
+              finishHour: format(new Date(), 'HH:mm'),
+            } as TableDto);
+          }
+        }
+      } catch (error) {
+        this.logger.error('Failed to auto-close takeaway table:', error);
+      }
     }
 
     return collection;
