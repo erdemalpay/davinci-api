@@ -13,6 +13,7 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { CustomerPopupService } from '../customer-popup/customer-popup.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { OrderService } from '../order/order.service';
@@ -74,6 +75,7 @@ export class MenuService {
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
     private readonly visitService: VisitService,
+    private readonly customerPopupService: CustomerPopupService,
   ) {}
 
   async findAllCategories() {
@@ -116,6 +118,7 @@ export class MenuService {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitItemChanged();
+    await this.syncCustomerPopupsForItemLocation(itemId, locationId, true);
     return item;
   }
   async closeItemLocation(itemId: number, locationId: number) {
@@ -126,7 +129,65 @@ export class MenuService {
       throw new HttpException('Item not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitItemChanged();
+    await this.syncCustomerPopupsForItemLocation(itemId, locationId, false);
     return item;
+  }
+
+  /**
+   * Auto-close (or reopen) customer popups that watch this item for this location.
+   * Wrapped so a popup-sync failure never breaks the underlying stock/menu update.
+   */
+  private async syncCustomerPopupsForItemLocation(
+    itemId: number,
+    locationId: number,
+    isNowAvailable: boolean,
+  ) {
+    try {
+      const popups = await this.customerPopupService.findPopupsWatchingItem(
+        itemId,
+        locationId,
+      );
+      if (popups.length === 0) return;
+
+      for (const popup of popups) {
+        if (!isNowAvailable) {
+          if (popup.isActive) {
+            await this.customerPopupService.setActive(popup._id, false);
+          }
+          continue;
+        }
+
+        if (!popup.isActive) {
+          const allAvailable = await this.areSelectedItemsAvailable(
+            popup.selectedMenuItems,
+            popup.locations,
+          );
+          if (allAvailable) {
+            await this.customerPopupService.setActive(popup._id, true);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        'Failed to sync customer popups for item location change:',
+        error,
+      );
+    }
+  }
+
+  private async areSelectedItemsAvailable(
+    itemIds: number[],
+    locationIds: number[],
+  ): Promise<boolean> {
+    if (!itemIds?.length || !locationIds?.length) return false;
+    const items = await this.itemModel.find(
+      { _id: { $in: itemIds } },
+      { _id: 1, locations: 1 },
+    );
+    if (items.length !== itemIds.length) return false;
+    return items.every((item) =>
+      locationIds.every((locationId) => item.locations.includes(locationId)),
+    );
   }
   async findActiveCategories() {
     try {
@@ -1915,18 +1976,11 @@ export class MenuService {
       }
     }
 
-    if (locationsToOpen.length > 0) {
-      await this.itemModel.findByIdAndUpdate(item._id, {
-        $push: { locations: { $each: locationsToOpen } },
-      });
+    for (const locationId of locationsToOpen) {
+      await this.openItemLocation(item._id, locationId);
     }
-    if (locationsToClose.length > 0) {
-      await this.itemModel.findByIdAndUpdate(item._id, {
-        $pull: { locations: { $in: locationsToClose } },
-      });
-    }
-    if (locationsToOpen.length > 0 || locationsToClose.length > 0) {
-      this.websocketGateway.emitItemChanged();
+    for (const locationId of locationsToClose) {
+      await this.closeItemLocation(item._id, locationId);
     }
   }
 }

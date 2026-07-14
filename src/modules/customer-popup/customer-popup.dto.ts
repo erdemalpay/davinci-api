@@ -49,4 +49,13 @@ export class CreateCustomerPopupDto {
   @IsArray()
   @IsNumber({}, { each: true })
   locations: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  isAutoClosedWhenOutOfStock?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  selectedMenuItems?: number[];
 }
