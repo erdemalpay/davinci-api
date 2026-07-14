@@ -62,7 +62,7 @@ export class OrderController {
 
   @Get('/item/:id/has-unshipped-pre-order')
   hasUnshippedPreOrderForItem(@Param('id') id: number) {
-    return this.orderService.hasUnshippedOrdersForItem(Number(id));
+    return this.orderService.hasUnshippedOrdersForItem(id);
   }
 
   @Get('/item/:id/platform-summary')

@@ -254,6 +254,10 @@ OrderSchema.index(
   { partialFilterExpression: { ikasId: { $type: 'string' } } },
 );
 OrderSchema.index(
+  { shopifyOrderId: 1 },
+  { partialFilterExpression: { shopifyOrderId: { $type: 'string' } } },
+);
+OrderSchema.index(
   { shopifyOrderLineItemId: 1 },
   {
     unique: true,
