@@ -470,6 +470,28 @@ export class OrderService {
       );
     }
   }
+  async hasUnshippedOrdersForItem(itemId: number): Promise<boolean> {
+    // Find all Shopify orders that contain this item, then check whether
+    // ANY line item within those same orders (not just this item's own
+    // line) is still unshipped — turning off isPreOrder would remove the
+    // whole order from the pre-order tracking page, so a sibling line
+    // (e.g. a different product in the same order) being unshipped must
+    // also block the toggle.
+    const shopifyOrderIds = await this.orderModel
+      .find({
+        item: itemId,
+        shopifyOrderId: { $exists: true, $ne: null },
+        status: { $ne: OrderStatus.CANCELLED },
+      })
+      .distinct('shopifyOrderId');
+    if (shopifyOrderIds.length === 0) return false;
+    const count = await this.orderModel.countDocuments({
+      shopifyOrderId: { $in: shopifyOrderIds },
+      isShipped: { $ne: true },
+      status: { $ne: OrderStatus.CANCELLED },
+    });
+    return count > 0;
+  }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
