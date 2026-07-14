@@ -440,12 +440,15 @@ export class OrderService {
       if (isPreOrder) {
         const preOrderItems = await this.menuService.findPreOrderItems();
         const preOrderItemIds = preOrderItems.map((i) => i._id);
-        preOrderShopifyOrderIds = await this.orderModel
-          .find({
-            item: { $in: preOrderItemIds },
-            shopifyOrderId: { $exists: true, $ne: null },
-          })
-          .distinct('shopifyOrderId');
+        preOrderShopifyOrderIds =
+          preOrderItemIds.length > 0
+            ? await this.orderModel
+                .find({
+                  item: { $in: preOrderItemIds },
+                  shopifyOrderId: { $exists: true, $ne: null },
+                })
+                .distinct('shopifyOrderId')
+            : [];
       }
       const orderFilterQuery = {
         ...filterQuery,
@@ -481,14 +484,18 @@ export class OrderService {
       .find({
         item: itemId,
         shopifyOrderId: { $exists: true, $ne: null },
-        status: { $ne: OrderStatus.CANCELLED },
+        status: {
+          $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
+        },
       })
       .distinct('shopifyOrderId');
     if (shopifyOrderIds.length === 0) return false;
     const count = await this.orderModel.countDocuments({
       shopifyOrderId: { $in: shopifyOrderIds },
       isShipped: { $ne: true },
-      status: { $ne: OrderStatus.CANCELLED },
+      status: {
+        $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
+      },
     });
     return count > 0;
   }
