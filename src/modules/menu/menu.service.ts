@@ -180,11 +180,12 @@ export class MenuService {
     locationIds: number[],
   ): Promise<boolean> {
     if (!itemIds?.length || !locationIds?.length) return false;
+    const uniqueItemIds = [...new Set(itemIds)];
     const items = await this.itemModel.find(
-      { _id: { $in: itemIds } },
+      { _id: { $in: uniqueItemIds }, deleted: { $ne: true } },
       { _id: 1, locations: 1 },
     );
-    if (items.length !== itemIds.length) return false;
+    if (items.length !== uniqueItemIds.length) return false;
     return items.every((item) =>
       locationIds.every((locationId) => item.locations.includes(locationId)),
     );
