@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { CustomerPopupModule } from '../customer-popup/customer-popup.module';
 import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrderModule } from '../order/order.module';
@@ -35,6 +36,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     WebSocketModule,
     mongooseModule,
     ActivityModule,
+    CustomerPopupModule,
     PanelControlModule,
     RedisModule,
     LocationModule,

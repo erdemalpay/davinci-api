@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, UpdateQuery } from 'mongoose';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CreateCustomerPopupDto } from './customer-popup.dto';
 import { CustomerPopup, TriggerType } from './customer-popup.schema';
 
@@ -9,6 +10,7 @@ export class CustomerPopupService {
   constructor(
     @InjectModel(CustomerPopup.name)
     private readonly customerPopupModel: Model<CustomerPopup>,
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   findAll() {
@@ -60,18 +62,45 @@ export class CustomerPopupService {
 
   async create(dto: CreateCustomerPopupDto) {
     const popup = await this.customerPopupModel.create(dto);
+    this.websocketGateway.emitCustomerPopupChanged();
     return popup;
   }
 
   async update(id: number, updates: UpdateQuery<CustomerPopup>) {
-    return this.customerPopupModel
+    const popup = await this.customerPopupModel
       .findByIdAndUpdate(id, updates, { new: true })
       .exec();
+    this.websocketGateway.emitCustomerPopupChanged();
+    return popup;
   }
 
   async remove(id: number) {
-    return this.customerPopupModel
+    const popup = await this.customerPopupModel
       .findByIdAndUpdate(id, { isDeleted: true }, { new: true })
       .exec();
+    this.websocketGateway.emitCustomerPopupChanged();
+    return popup;
+  }
+
+  /**
+   * Popups that auto-close on stock-out, watching this item, targeting this location.
+   */
+  findPopupsWatchingItem(itemId: number, locationId: number) {
+    return this.customerPopupModel
+      .find({
+        isDeleted: { $ne: true },
+        isAutoClosedWhenOutOfStock: true,
+        selectedMenuItems: itemId,
+        locations: locationId,
+      })
+      .exec();
+  }
+
+  async setActive(id: number, isActive: boolean) {
+    const popup = await this.customerPopupModel
+      .findByIdAndUpdate(id, { isActive }, { new: true })
+      .exec();
+    this.websocketGateway.emitCustomerPopupChanged();
+    return popup;
   }
 }
