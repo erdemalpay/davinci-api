@@ -320,6 +320,7 @@ export class OrderService {
       location,
       isIkasPickUp,
       isShopifyPickUp,
+      isPreOrder,
       item,
     } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -435,9 +436,23 @@ export class OrderService {
           new Set([...items, ...daVinciGameItems].map((item) => item._id)),
         );
       }
+      let preOrderShopifyOrderIds: string[] | null = null;
+      if (isPreOrder) {
+        const preOrderItems = await this.menuService.findPreOrderItems();
+        const preOrderItemIds = preOrderItems.map((i) => i._id);
+        preOrderShopifyOrderIds = await this.orderModel
+          .find({
+            item: { $in: preOrderItemIds },
+            shopifyOrderId: { $exists: true, $ne: null },
+          })
+          .distinct('shopifyOrderId');
+      }
       const orderFilterQuery = {
         ...filterQuery,
         ...(itemIds.length > 0 ? { item: { $in: itemIds } } : {}),
+        ...(preOrderShopifyOrderIds
+          ? { shopifyOrderId: { $in: preOrderShopifyOrderIds } }
+          : {}),
       };
       const orders = await this.orderModel
         .find(orderFilterQuery)
