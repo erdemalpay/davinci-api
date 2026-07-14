@@ -214,6 +214,9 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isShopifyPickUpOrderBrought: boolean;
 
+  @Prop({ required: false, type: Boolean })
+  isShipped: boolean;
+
   @Prop({ required: false, type: String })
   trendyolOrderId: string;
 
@@ -249,6 +252,10 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index(
   { ikasId: 1 },
   { partialFilterExpression: { ikasId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { shopifyOrderId: 1 },
+  { partialFilterExpression: { shopifyOrderId: { $type: 'string' } } },
 );
 OrderSchema.index(
   { shopifyOrderLineItemId: 1 },

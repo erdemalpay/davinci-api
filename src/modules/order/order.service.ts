@@ -320,6 +320,7 @@ export class OrderService {
       location,
       isIkasPickUp,
       isShopifyPickUp,
+      isPreOrder,
       item,
     } = query;
     const IST_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -435,9 +436,26 @@ export class OrderService {
           new Set([...items, ...daVinciGameItems].map((item) => item._id)),
         );
       }
+      let preOrderShopifyOrderIds: string[] | null = null;
+      if (isPreOrder) {
+        const preOrderItems = await this.menuService.findPreOrderItems();
+        const preOrderItemIds = preOrderItems.map((i) => i._id);
+        preOrderShopifyOrderIds =
+          preOrderItemIds.length > 0
+            ? await this.orderModel
+                .find({
+                  item: { $in: preOrderItemIds },
+                  shopifyOrderId: { $exists: true, $ne: null },
+                })
+                .distinct('shopifyOrderId')
+            : [];
+      }
       const orderFilterQuery = {
         ...filterQuery,
         ...(itemIds.length > 0 ? { item: { $in: itemIds } } : {}),
+        ...(preOrderShopifyOrderIds
+          ? { shopifyOrderId: { $in: preOrderShopifyOrderIds } }
+          : {}),
       };
       const orders = await this.orderModel
         .find(orderFilterQuery)
@@ -454,6 +472,32 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+  async hasUnshippedOrdersForItem(itemId: number): Promise<boolean> {
+    // Find all Shopify orders that contain this item, then check whether
+    // ANY line item within those same orders (not just this item's own
+    // line) is still unshipped — turning off isPreOrder would remove the
+    // whole order from the pre-order tracking page, so a sibling line
+    // (e.g. a different product in the same order) being unshipped must
+    // also block the toggle.
+    const shopifyOrderIds = await this.orderModel
+      .find({
+        item: itemId,
+        shopifyOrderId: { $exists: true, $ne: null },
+        status: {
+          $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
+        },
+      })
+      .distinct('shopifyOrderId');
+    if (shopifyOrderIds.length === 0) return false;
+    const count = await this.orderModel.countDocuments({
+      shopifyOrderId: { $in: shopifyOrderIds },
+      isShipped: { $ne: true },
+      status: {
+        $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
+      },
+    });
+    return count > 0;
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);

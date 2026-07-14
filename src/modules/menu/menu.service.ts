@@ -319,6 +319,13 @@ export class MenuService {
     });
   }
 
+  async findPreOrderItems() {
+    return this.itemModel.find({
+      isPreOrder: true,
+      deleted: { $ne: true },
+    });
+  }
+
   async setOrder(user: User) {
     const items = await this.itemModel.find();
     items.forEach(async (item, index) => {

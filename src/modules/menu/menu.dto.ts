@@ -151,6 +151,10 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   isDaVinciGame?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isPreOrder?: boolean;
 }
 export class CreateBulkItemDto {
   @IsString()
