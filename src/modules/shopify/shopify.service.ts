@@ -99,6 +99,7 @@ export class ShopifyService {
     'read_customers',
     'read_discounts',
     'write_discounts',
+    'read_fulfillments',
   ];
 
   constructor(
@@ -3059,6 +3060,130 @@ export class ShopifyService {
                 markFailedError,
               );
             }
+          });
+      }
+
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * fulfillments/create webhook'u — Shopify'da bir sipariş kargolandığında
+   * tetiklenir. Fulfillment'a dahil olan her line item için bizim Order
+   * kaydını shopifyOrderLineItemId üzerinden bulup isShipped:true set eder.
+   * isPreOrder:true olan ürünler bu otomatik işaretlemenin dışında tutulur;
+   * onlar manuel olarak (panelden) kargolandı işaretlenir.
+   */
+  async orderFulfilledWebHook(data?: any) {
+    const startTime = Date.now();
+    let webhookLog: any = null;
+
+    try {
+      if (!data) {
+        throw new HttpException(
+          'Invalid request: Missing data',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      webhookLog = await this.webhookLogService.logWebhookRequest(
+        WebhookSource.SHOPIFY,
+        'order-fulfilled-webhook',
+        data,
+      );
+
+      this.logger.log('Received Shopify fulfillment webhook data:', data);
+
+      const lineItems: any[] = data?.line_items ?? [];
+      // orders/fulfilled payload'ı bir Order objesidir (data.id = sipariş id'si,
+      // gerçek fulfillment id'si data.fulfillments[] içinde yer alır).
+      // fulfillments/create payload'ı ise doğrudan bir Fulfillment objesidir
+      // (data.id = fulfillment id'sinin kendisi).
+      const shopifyFulfillmentId =
+        Array.isArray(data?.fulfillments) && data.fulfillments.length > 0
+          ? data.fulfillments[data.fulfillments.length - 1]?.id?.toString()
+          : data?.id?.toString();
+
+      let shippedCount = 0;
+      let skippedPreOrderCount = 0;
+
+      for (const lineItem of lineItems) {
+        try {
+          const shopifyOrderLineItemId = lineItem?.id?.toString();
+          if (!shopifyOrderLineItemId) {
+            continue;
+          }
+
+          const order = await this.orderService.findByShopifyOrderLineItemId(
+            shopifyOrderLineItemId,
+          );
+          if (!order) {
+            this.logger.warn(
+              `No matching order found for shopifyOrderLineItemId ${shopifyOrderLineItemId}`,
+            );
+            continue;
+          }
+
+          const menuItem = await this.menuService.findItemById(order.item);
+          if (menuItem?.isPreOrder) {
+            skippedPreOrderCount++;
+            continue;
+          }
+
+          await this.orderService.updateOrderByIdDirect(order._id, {
+            isShipped: true,
+            ...(shopifyFulfillmentId ? { shopifyFulfillmentId } : {}),
+          });
+          shippedCount++;
+        } catch (itemError) {
+          this.logError('Error processing fulfillment line item', itemError);
+        }
+      }
+
+      const response = {
+        success: true,
+        shippedCount,
+        skippedPreOrderCount,
+      };
+
+      if (webhookLog) {
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            WebhookStatus.SUCCESS,
+            undefined,
+            undefined,
+            data?.id?.toString(),
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+      }
+
+      return response;
+    } catch (error) {
+      this.logError('Error in orderFulfilledWebHook', error);
+
+      if (webhookLog) {
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            { error: error?.message || 'Unknown error' },
+            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            WebhookStatus.ERROR,
+            error?.message || 'Unknown error',
+            undefined,
+            undefined,
+            startTime,
+          )
+          .catch((logError) => {
+            this.logger.error('Error updating webhook log:', logError);
           });
       }
 

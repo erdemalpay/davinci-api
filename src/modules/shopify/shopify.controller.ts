@@ -147,6 +147,12 @@ export class ShopifyController {
     return this.shopifyService.orderCancelWebHook(data);
   }
 
+  @Public()
+  @Post('/order-fulfilled-webhook')
+  orderFulfilledWebHook(@Body() data?: any) {
+    return this.shopifyService.orderFulfilledWebHook(data);
+  }
+
   @Post('/discount/refresh')
   refreshDiscountCache() {
     return this.shopifyService.refreshDiscountCache();
