@@ -52,8 +52,8 @@ import {
   CreateOrderNotesDto,
   CreateRetailerDto,
   CreateRetailerOrderRequestDto,
-  ItemPlatformOrdersQueryDto,
   DAVINCI_GAME_CATEGORY_FILTER_VALUE,
+  ItemPlatformOrdersQueryDto,
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
@@ -392,7 +392,8 @@ export class OrderService {
         .split(',')
         .map((i) => i.trim())
         .map(Number);
-      filterQuery['item'] = itemArray.length === 1 ? itemArray[0] : { $in: itemArray };
+      filterQuery['item'] =
+        itemArray.length === 1 ? itemArray[0] : { $in: itemArray };
     }
     if (query.hepsiburadaOrderNumber) {
       filterQuery['hepsiburadaOrderNumber'] = query.hepsiburadaOrderNumber;
@@ -498,7 +499,11 @@ export class OrderService {
         item: itemId,
         shopifyOrderId: { $exists: true, $ne: null },
         status: {
-          $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
+          $nin: [
+            OrderStatus.CANCELLED,
+            OrderStatus.RETURNED,
+            OrderStatus.WASTED,
+          ],
         },
       })
       .distinct('shopifyOrderId');
@@ -2064,7 +2069,9 @@ export class OrderService {
     ids: number[],
     updates: Partial<Order>,
   ) {
-    return Promise.all(ids.map((id) => this.simpleOrderUpdate(user, id, updates)));
+    return Promise.all(
+      ids.map((id) => this.simpleOrderUpdate(user, id, updates)),
+    );
   }
 
   async cancelIkasOrder(user: User, ikasId: string, quantity: number) {
@@ -4518,25 +4525,25 @@ export class OrderService {
           },
           {
             $facet: Object.fromEntries(
-              (Object.keys(markerFields) as Array<keyof typeof markerFields>).map(
-                (platform) => [
-                  platform,
-                  [
-                    {
-                      $match: {
-                        [markerFields[platform]]: { $type: 'string' },
-                      },
+              (
+                Object.keys(markerFields) as Array<keyof typeof markerFields>
+              ).map((platform) => [
+                platform,
+                [
+                  {
+                    $match: {
+                      [markerFields[platform]]: { $type: 'string' },
                     },
-                    {
-                      $group: {
-                        _id: null,
-                        totalQuantity: { $sum: '$quantity' },
-                        orderCount: { $sum: 1 },
-                      },
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      totalQuantity: { $sum: '$quantity' },
+                      orderCount: { $sum: 1 },
                     },
-                  ],
+                  },
                 ],
-              ),
+              ]),
             ),
           },
         ])
@@ -4564,7 +4571,10 @@ export class OrderService {
     }
   }
 
-  async getItemPlatformOrders(itemId: number, query: ItemPlatformOrdersQueryDto) {
+  async getItemPlatformOrders(
+    itemId: number,
+    query: ItemPlatformOrdersQueryDto,
+  ) {
     const markerFields = OrderService.ITEM_PLATFORM_MARKER_FIELD;
     const platform = query.platform;
     if (!markerFields[platform]) {
@@ -4625,6 +4635,10 @@ export class OrderService {
   async createRetailerOrderRequest(
     createRetailerOrderRequestDto: CreateRetailerOrderRequestDto,
   ) {
+    console.log(
+      'createRetailerOrderRequestDto:',
+      createRetailerOrderRequestDto,
+    );
     const retailer = await this.retailerModel
       .findOne({
         tenantSlug: createRetailerOrderRequestDto.tenantSlug,
