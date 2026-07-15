@@ -5,7 +5,7 @@ import { MenuItem } from '../menu/item.schema';
 import { Retailer } from './retailer.schema';
 
 @Schema({ _id: false })
-export class RetailerOrderRequestProduct extends Document {
+export class RetailerOrderRequestProduct {
   @Prop({ required: true, type: String })
   productId: string;
 
@@ -33,7 +33,7 @@ export class RetailerOrderRequest extends Document {
   @Prop({ required: true, type: String, index: true })
   status: string;
 
-  @Prop({ type: [RetailerOrderRequestProduct], default: [] })
+  @Prop([RetailerOrderRequestProduct])
   products: RetailerOrderRequestProduct[];
 }
 
