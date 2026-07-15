@@ -9,6 +9,12 @@ export class Retailer extends Document {
 
   @Prop({ required: true, type: String })
   name: string;
+
+  @Prop({ required: false, type: String })
+  tenantSlug: string;
+
+  @Prop({ required: false, type: String })
+  projectSlug: string;
 }
 
 export const RetailerSchema = SchemaFactory.createForClass(Retailer);
