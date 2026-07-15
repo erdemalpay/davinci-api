@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
 import { RaceConditionLockDecorator } from '../lock/race-condition-lock.decorator';
 import { RedisKeys } from '../redis/redis.dto';
@@ -31,6 +32,7 @@ import {
   CreateOrderDto,
   CreateOrderNotesDto,
   CreateRetailerDto,
+  CreateRetailerOrderRequestDto,
   ItemPlatformOrdersQueryDto,
   OrderQueryDto,
   RetailerOrdersQueryDto,
@@ -627,6 +629,16 @@ export class OrderController {
     @Body() createRetailerDto: CreateRetailerDto,
   ) {
     return this.orderService.createRetailer(user, createRetailerDto);
+  }
+
+  @Public()
+  @Post('/retailer-order-request')
+  createRetailerOrderRequest(
+    @Body() createRetailerOrderRequestDto: CreateRetailerOrderRequestDto,
+  ) {
+    return this.orderService.createRetailerOrderRequest(
+      createRetailerOrderRequestDto,
+    );
   }
 
   @Patch('/retailer/:id')

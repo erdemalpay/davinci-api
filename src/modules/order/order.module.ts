@@ -30,6 +30,10 @@ import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
 import { OrderNotes, OrderNotesSchema } from './orderNotes.schema';
+import {
+  RetailerOrderRequest,
+  RetailerOrderRequestSchema,
+} from './retailer-order-request.schema';
 import { Retailer, RetailerSchema } from './retailer.schema';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
@@ -39,6 +43,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Collection.name, CollectionSchema),
   createAutoIncrementConfig(Discount.name, DiscountSchema),
   createAutoIncrementConfig(Retailer.name, RetailerSchema),
+  createAutoIncrementConfig(
+    RetailerOrderRequest.name,
+    RetailerOrderRequestSchema,
+  ),
 ]);
 
 const { host, port } = config.get<DBConfig>('redis');
