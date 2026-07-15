@@ -51,6 +51,7 @@ import {
   CreateOrderDto,
   CreateOrderNotesDto,
   CreateRetailerDto,
+  CreateRetailerOrderRequestDto,
   ItemPlatformOrdersQueryDto,
   DAVINCI_GAME_CATEGORY_FILTER_VALUE,
   OrderCollectionStatus,
@@ -62,6 +63,7 @@ import {
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
 import { OrderNotes } from './orderNotes.schema';
+import { RetailerOrderRequest } from './retailer-order-request.schema';
 import { Retailer } from './retailer.schema';
 interface SeenUsers {
   [key: string]: boolean;
@@ -142,6 +144,8 @@ export class OrderService {
     @InjectModel(Collection.name) private collectionModel: Model<Collection>,
     @InjectModel(Discount.name) private discountModel: Model<Discount>,
     @InjectModel(Retailer.name) private retailerModel: Model<Retailer>,
+    @InjectModel(RetailerOrderRequest.name)
+    private retailerOrderRequestModel: Model<RetailerOrderRequest>,
     @InjectModel(OrderGroup.name) private orderGroupModel: Model<OrderGroup>,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
@@ -4613,6 +4617,50 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to create retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async createRetailerOrderRequest(
+    createRetailerOrderRequestDto: CreateRetailerOrderRequestDto,
+  ) {
+    const retailer = await this.retailerModel
+      .findOne({
+        tenantSlug: createRetailerOrderRequestDto.tenantSlug,
+        projectSlug: createRetailerOrderRequestDto.projectSlug,
+      })
+      .lean()
+      .exec();
+
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (!createRetailerOrderRequestDto.orders?.length) {
+      throw new HttpException(
+        'At least one retailer order request is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      return await Promise.all(
+        createRetailerOrderRequestDto.orders.map((orderRequest) => {
+          const retailerOrderRequest = new this.retailerOrderRequestModel({
+            retailerId: retailer._id,
+            orderId: orderRequest._id,
+            date: orderRequest.date,
+            status: orderRequest.status,
+            products: orderRequest.product,
+          });
+
+          return retailerOrderRequest.save();
+        }),
+      );
+    } catch (error) {
+      throw new HttpException(
+        'Failed to create retailer order request',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

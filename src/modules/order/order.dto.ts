@@ -395,6 +395,47 @@ export class CreateRetailerDto {
   name: string;
 }
 
+export class RetailerOrderRequestProductDto {
+  @IsString()
+  productId: string;
+
+  @IsNumber()
+  productDavinciId: number;
+
+  @IsNumber()
+  quantity: number;
+}
+
+export class RetailerOrderRequestItemDto {
+  @IsString()
+  _id: string;
+
+  @IsDate()
+  @Type(() => Date)
+  date: Date;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RetailerOrderRequestProductDto)
+  product: RetailerOrderRequestProductDto[];
+
+  @IsString()
+  status: string;
+}
+
+export class CreateRetailerOrderRequestDto {
+  @IsString()
+  tenantSlug: string;
+
+  @IsString()
+  projectSlug: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RetailerOrderRequestItemDto)
+  orders: RetailerOrderRequestItemDto[];
+}
+
 export class AddCollectionToRetailerDto {
   @IsNumber()
   collectionId: number;
