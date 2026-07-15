@@ -1,15 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
-import { Order } from './order.schema';
+import { MenuItem } from '../menu/item.schema';
 import { Retailer } from './retailer.schema';
 
 @Schema({ _id: false })
-export class RetailerOrderRequestProduct {
+export class RetailerOrderRequestProduct extends Document {
   @Prop({ required: true, type: String })
   productId: string;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, ref: MenuItem.name })
   productDavinciId: number;
 
   @Prop({ required: true, type: Number })
@@ -24,8 +24,8 @@ export class RetailerOrderRequest extends Document {
   @Prop({ required: true, type: Number, ref: Retailer.name, index: true })
   retailerId: number;
 
-  @Prop({ required: true, type: Number, ref: Order.name, index: true })
-  orderId: number;
+  @Prop({ required: true, type: String })
+  orderId: string;
 
   @Prop({ required: true, type: Date, index: true })
   date: Date;
@@ -34,7 +34,7 @@ export class RetailerOrderRequest extends Document {
   status: string;
 
   @Prop({ type: [RetailerOrderRequestProduct], default: [] })
-  product: RetailerOrderRequestProduct[];
+  products: RetailerOrderRequestProduct[];
 }
 
 export const RetailerOrderRequestSchema =
