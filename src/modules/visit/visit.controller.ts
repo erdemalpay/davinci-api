@@ -16,6 +16,7 @@ import { CreateVisitDto } from './create.visit.dto';
 import {
   CafeActivityDto,
   CafeVisitDto,
+  ManagerCheckInDto,
   QrCheckInDto,
   VisitDto,
   VisitSource,
@@ -75,6 +76,11 @@ export class VisitController {
   @Post('/qr')
   checkInOutWithQr(@ReqUser() user: User, @Body() dto: QrCheckInDto) {
     return this.visitService.checkInOutWithQr(user, dto.code);
+  }
+
+  @Post('/manager-toggle')
+  checkInOutAsManager(@ReqUser() user: User, @Body() dto: ManagerCheckInDto) {
+    return this.visitService.checkInOutAsManager(user, dto.location);
   }
 
   @Patch('/finish/:id')
