@@ -42,6 +42,12 @@ export class CustomerPopup extends Document {
   locations: number[];
 
   @Prop({ required: false, type: Boolean, default: false })
+  isAutoClosedWhenOutOfStock: boolean;
+
+  @Prop({ required: false, default: [], type: [Number] })
+  selectedMenuItems: number[];
+
+  @Prop({ required: false, type: Boolean, default: false })
   isDeleted: boolean;
 }
 

@@ -225,6 +225,10 @@ export class AppWebSocketGateway {
     this.server.emit('itemChanged');
   }
 
+  emitCustomerPopupChanged() {
+    this.server.emit('customerPopupChanged');
+  }
+
   async emitKitchenChanged() {
     await this.redisService.reset(RedisKeys.Kitchens);
     this.server.emit('kitchenChanged');
