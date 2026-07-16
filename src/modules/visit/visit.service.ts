@@ -14,10 +14,11 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
+import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { ShiftService } from './../shift/shift.service';
+import { ShiftService } from '../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
 import { QrCodeService } from './qr-code.service';
@@ -606,7 +607,22 @@ export class VisitService {
 
   async checkInOutWithQr(user: User, code: string) {
     const location = await this.qrCodeService.consume(code);
+    return this.toggleVisit(user, location, VisitSource.QR);
+  }
 
+  async checkInOutAsManager(user: User, location: number) {
+    if (
+      user?.role?._id !== RoleEnum.MANAGER &&
+      user?.role?._id !== RoleEnum.COUNTER
+    ) {
+      throw new BadRequestException(
+        'Only managers or kasa can check in/out without scanning the QR code',
+      );
+    }
+    return this.toggleVisit(user, location, VisitSource.PANEL);
+  }
+
+  private async toggleVisit(user: User, location: number, source: VisitSource) {
     const istanbulNow = moment.tz('Europe/Istanbul');
     const date = istanbulNow.format('YYYY-MM-DD');
     const hour = istanbulNow.format('HH:mm');
@@ -620,12 +636,7 @@ export class VisitService {
       .sort({ date: -1, startHour: -1 });
 
     if (lastVisit && !lastVisit.finishHour) {
-      const visit = await this.finish(
-        user,
-        lastVisit._id,
-        hour,
-        VisitSource.QR,
-      );
+      const visit = await this.finish(user, lastVisit._id, hour, source);
       return { action: 'exit' as const, visit };
     }
 
@@ -633,7 +644,7 @@ export class VisitService {
       location,
       date,
       startHour: hour,
-      visitStartSource: VisitSource.QR,
+      visitStartSource: source,
     });
     return { action: 'entry' as const, visit };
   }
