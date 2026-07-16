@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export enum VisitSource {
   PANEL = 'panel',
@@ -48,4 +48,10 @@ export class QrCheckInDto {
   @IsString()
   @IsNotEmpty()
   code: string;
+}
+
+export class ManagerCheckInDto {
+  @IsNumber()
+  @IsNotEmpty()
+  location: number;
 }
