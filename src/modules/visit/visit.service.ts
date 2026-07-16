@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   forwardRef,
   HttpException,
   HttpStatus,
@@ -615,7 +616,7 @@ export class VisitService {
       user?.role?._id !== RoleEnum.MANAGER &&
       user?.role?._id !== RoleEnum.COUNTER
     ) {
-      throw new BadRequestException(
+      throw new ForbiddenException(
         'Only managers or kasa can check in/out without scanning the QR code',
       );
     }
