@@ -32,6 +32,7 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          RETAILER_ORDER_REQUEST_TOKEN: ${{ secrets.RETAILER_ORDER_REQUEST_TOKEN }}
           IKAS_CLIENT_ID: ${{ secrets.IKAS_CLIENT_ID }}
           IKAS_API_SECRET: ${{ secrets.IKAS_API_SECRET }}
           BUTTON_CALL_NEO_IP: ${{ secrets.BUTTON_CALL_NEO_IP }}
@@ -75,6 +76,7 @@ jobs:
           echo CLOUDINARY_API_KEY="$CLOUDINARY_API_KEY" >> .env
           echo CLOUDINARY_API_SECRET="$CLOUDINARY_API_SECRET" >> .env
           echo JWT_SECRET="$JWT_SECRET" >> .env
+          echo RETAILER_ORDER_REQUEST_TOKEN="$RETAILER_ORDER_REQUEST_TOKEN" >> .env
           echo IKAS_CLIENT_ID="$IKAS_CLIENT_ID" >> .env
           echo IKAS_API_SECRET="$IKAS_API_SECRET" >> .env
           echo BUTTON_CALL_NEO_IP="$BUTTON_CALL_NEO_IP" >> .env
