@@ -60,7 +60,6 @@ export class AssetService {
       transformation: {
         crop: 'scale',
         width: 800,
-        height: 800,
       },
     };
 
@@ -219,7 +218,6 @@ export class AssetService {
           transformation: {
             crop: 'scale',
             width: 800,
-            height: 800,
           },
         };
 
