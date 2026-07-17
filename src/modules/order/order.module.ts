@@ -20,6 +20,7 @@ import { BullModuleOptions } from './../../../node_modules/@nestjs/bull/dist/int
 import { DBConfig } from './../../app.module';
 import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
+import { ApiTokenGuard } from './../auth/api-token.guard';
 import { LockModule } from './../lock/lock.module';
 import { MenuModule } from './../menu/menu.module';
 import { Collection, CollectionSchema } from './collection.schema';
@@ -95,7 +96,7 @@ const { host, port } = config.get<DBConfig>('redis');
     forwardRef(() => ShopifyModule),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderConfirmationProcessor],
+  providers: [OrderService, OrderConfirmationProcessor, ApiTokenGuard],
   exports: [OrderService, mongooseModule],
 })
 export class OrderModule {}

@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { API_TOKEN_CONFIG_KEY_METADATA } from '../auth/api-token.guard';
 import { AuthorizationService } from './authorization.service';
 
 @Injectable()
@@ -21,6 +22,13 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) {
+      return true;
+    }
+    const apiTokenConfigKey = this.reflector.getAllAndOverride<string>(
+      API_TOKEN_CONFIG_KEY_METADATA,
+      [context.getHandler(), context.getClass()],
+    );
+    if (apiTokenConfigKey) {
       return true;
     }
 

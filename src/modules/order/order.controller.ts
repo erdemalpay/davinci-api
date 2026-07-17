@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
+import { ApiTokenProtected } from '../auth/api-token.guard';
 import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
 import { RaceConditionLockDecorator } from '../lock/race-condition-lock.decorator';
@@ -467,7 +468,11 @@ export class OrderController {
     @ReqUser() user: User,
     @Body() payload: { ids: number[]; updates: Partial<Order> },
   ) {
-    return this.orderService.simpleBulkOrderUpdate(user, payload.ids, payload.updates);
+    return this.orderService.simpleBulkOrderUpdate(
+      user,
+      payload.ids,
+      payload.updates,
+    );
   }
 
   @Patch('/simple/:id')
@@ -638,7 +643,7 @@ export class OrderController {
     return this.orderService.getRetailerOrderRequests(query);
   }
 
-  @Public()
+  @ApiTokenProtected('RETAILER_ORDER_REQUEST_TOKEN')
   @Post('/retailer-order-request')
   createRetailerOrderRequest(
     @Body() createRetailerOrderRequestDto: CreateRetailerOrderRequestDto,
