@@ -73,7 +73,7 @@ export class InstagramService {
 
     await this.instagramTokenModel.updateOne(
       { key: TOKEN_KEY },
-      { $setOnInsert: { accessToken: this.seedToken } },
+      { $set: { accessToken: this.seedToken } },
       { upsert: true },
     );
     this.logger.log('Seeded Instagram access token from environment variable');
