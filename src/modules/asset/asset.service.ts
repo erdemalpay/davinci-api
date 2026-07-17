@@ -58,7 +58,7 @@ export class AssetService {
       overwrite: true,
       folder: foldername,
       transformation: {
-        crop: 'scale',
+        crop: 'limit',
         width: 800,
       },
     };
@@ -152,7 +152,7 @@ export class AssetService {
       overwrite: true,
       folder: foldername,
       transformation: {
-        crop: 'scale',
+        crop: 'limit',
         width: 800,
       },
     };
@@ -216,7 +216,7 @@ export class AssetService {
           overwrite: true,
           folder: foldername,
           transformation: {
-            crop: 'scale',
+            crop: 'limit',
             width: 800,
           },
         };
