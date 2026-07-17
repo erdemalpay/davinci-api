@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { UpdateQuery } from 'mongoose';
 import { ApiTokenProtected } from '../auth/api-token.guard';
-import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
 import { RaceConditionLockDecorator } from '../lock/race-condition-lock.decorator';
 import { RedisKeys } from '../redis/redis.dto';
@@ -38,6 +37,7 @@ import {
   OrderQueryDto,
   RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
+  UpdateRetailerOrderRequestStatusDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -637,7 +637,6 @@ export class OrderController {
     return this.orderService.createRetailer(user, createRetailerDto);
   }
 
-  @Public()
   @Get('/retailer-order-request')
   getRetailerOrderRequests(@Query() query: RetailerOrderRequestsQueryDto) {
     return this.orderService.getRetailerOrderRequests(query);
@@ -650,6 +649,19 @@ export class OrderController {
   ) {
     return this.orderService.createRetailerOrderRequest(
       createRetailerOrderRequestDto,
+    );
+  }
+
+  @ApiTokenProtected('RETAILER_ORDER_REQUEST_TOKEN')
+  @Patch('/retailer-order-request/:orderId/status')
+  updateRetailerOrderRequestStatus(
+    @Param('orderId') orderId: string,
+    @Body()
+    updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusDto,
+  ) {
+    return this.orderService.updateRetailerOrderRequestStatus(
+      orderId,
+      updateRetailerOrderRequestStatusDto,
     );
   }
 

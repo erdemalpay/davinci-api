@@ -10,10 +10,12 @@ describe('OrderService retailer order requests', () => {
     retailer,
     saveMock = jest.fn().mockResolvedValue({ _id: 10 }),
     retailerOrderRequests = [],
+    updatedRetailerOrderRequest = null,
   }: {
     retailer?: { _id: number };
     saveMock?: jest.Mock;
     retailerOrderRequests?: unknown[];
+    updatedRetailerOrderRequest?: unknown;
   }) => {
     const retailerModel = {
       findOne: jest.fn().mockReturnValue({
@@ -34,6 +36,11 @@ describe('OrderService retailer order requests', () => {
         lean: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue(retailerOrderRequests),
         }),
+      }),
+    });
+    retailerOrderRequestModel.findOneAndUpdate = jest.fn().mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(updatedRetailerOrderRequest),
       }),
     });
 
@@ -139,5 +146,59 @@ describe('OrderService retailer order requests', () => {
       retailerId: 7,
     });
     expect(result).toEqual(retailerOrderRequests);
+  });
+
+  it('updates retailer order request status for the retailer matching tenant and project slugs', async () => {
+    const updatedRetailerOrderRequest = {
+      _id: 11,
+      retailerId: 7,
+      orderId: '6a56e69f5e4bc5139a37506c',
+      status: 'approved',
+    };
+    const { service, retailerModel, retailerOrderRequestModel } =
+      createService({
+        retailer: { _id: 7 },
+        updatedRetailerOrderRequest,
+      });
+
+    const result = await service.updateRetailerOrderRequestStatus(
+      '6a56e69f5e4bc5139a37506c',
+      {
+        tenantSlug: 'tenant-a',
+        projectSlug: 'project-a',
+        status: 'approved',
+      },
+    );
+
+    expect(retailerModel.findOne).toHaveBeenCalledWith({
+      tenantSlug: 'tenant-a',
+      projectSlug: 'project-a',
+    });
+    expect(retailerOrderRequestModel.findOneAndUpdate).toHaveBeenCalledWith(
+      {
+        retailerId: 7,
+        orderId: '6a56e69f5e4bc5139a37506c',
+      },
+      { status: 'approved' },
+      { new: true },
+    );
+    expect(result).toEqual(updatedRetailerOrderRequest);
+  });
+
+  it('throws not found when updating a missing retailer order request', async () => {
+    const { service } = createService({
+      retailer: { _id: 7 },
+      updatedRetailerOrderRequest: null,
+    });
+
+    await expect(
+      service.updateRetailerOrderRequestStatus('missing-order', {
+        tenantSlug: 'tenant-a',
+        projectSlug: 'project-a',
+        status: 'approved',
+      }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.NOT_FOUND,
+    });
   });
 });
