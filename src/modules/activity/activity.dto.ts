@@ -67,6 +67,7 @@ export enum ActivityType {
   CREATE_ORDER = 'CREATE_ORDER',
   ADD_ORDER = 'ADD_ORDER',
   CANCEL_ORDER = 'CANCEL_ORDER',
+  RETURN_ORDER = 'RETURN_ORDER',
   PREPARE_ORDER = 'PREPARE_ORDER',
   DELIVER_ORDER = 'DELIVER_ORDER',
   TAKE_PAYMENT = 'TAKE_PAYMENT',
@@ -162,6 +163,7 @@ export type ActivityTypePayload = {
   [ActivityType.CREATE_ORDER]: Order;
   [ActivityType.ADD_ORDER]: Order;
   [ActivityType.CANCEL_ORDER]: Order;
+  [ActivityType.RETURN_ORDER]: Order;
   [ActivityType.PREPARE_ORDER]: Order;
   [ActivityType.DELIVER_ORDER]: Order;
   [ActivityType.TAKE_PAYMENT]: Collection;

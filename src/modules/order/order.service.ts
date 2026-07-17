@@ -1819,6 +1819,12 @@ export class OrderService {
         }
       }
 
+      await this.activityService.addActivity(
+        user,
+        ActivityType.RETURN_ORDER,
+        cancelledOrder,
+      );
+
       //emit the updated order
       this.websocketGateway.emitOrderUpdated([cancelledOrder]);
       return cancelledOrder;
