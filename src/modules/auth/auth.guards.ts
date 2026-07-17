@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { normalizeLocale } from 'src/utils/normalizeLocale';
+import { API_TOKEN_CONFIG_KEY_METADATA } from './api-token.guard';
 
 @Injectable()
 export class LocalAuthGuard extends AuthGuard('local') {}
@@ -23,6 +24,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getHandler(),
     );
     if (isPublic) return true;
+    const apiTokenConfigKey = this.reflector.getAllAndOverride<string>(
+      API_TOKEN_CONFIG_KEY_METADATA,
+      [context.getHandler(), context.getClass()],
+    );
+    if (apiTokenConfigKey) return true;
     return super.canActivate(context);
   }
 

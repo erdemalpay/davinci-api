@@ -6,6 +6,7 @@ import { UserModule } from 'src/modules/user/user.module';
 import { ActivityModule } from '../activity/activity.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ApiTokenGuard } from './api-token.guard';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalStrategy } from './local.strategy';
 
@@ -25,7 +26,7 @@ import { LocalStrategy } from './local.strategy';
       }),
     }),
   ],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, ApiTokenGuard],
   controllers: [AuthController],
 })
 export class AuthModule {}
