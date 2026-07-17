@@ -57,6 +57,7 @@ import {
   OrderCollectionStatus,
   OrderQueryDto,
   OrderStatus,
+  RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
   SummaryCollectionQueryDto,
 } from './order.dto';
@@ -4642,6 +4643,33 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to create retailer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getRetailerOrderRequests(query: RetailerOrderRequestsQueryDto) {
+    const retailer = await this.retailerModel
+      .findOne({
+        tenantSlug: query.tenantSlug,
+        projectSlug: query.projectSlug,
+      })
+      .lean()
+      .exec();
+
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      return await this.retailerOrderRequestModel
+        .find({ retailerId: retailer._id })
+        .sort({ date: -1, _id: -1 })
+        .lean()
+        .exec();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to fetch retailer order requests',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
