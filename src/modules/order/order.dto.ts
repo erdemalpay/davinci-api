@@ -444,6 +444,17 @@ export class RetailerOrderRequestsQueryDto {
   projectSlug: string;
 }
 
+export class UpdateRetailerOrderRequestStatusDto {
+  @IsString()
+  tenantSlug: string;
+
+  @IsString()
+  projectSlug: string;
+
+  @IsString()
+  status: string;
+}
+
 export class AddCollectionToRetailerDto {
   @IsNumber()
   collectionId: number;

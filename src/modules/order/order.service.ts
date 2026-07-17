@@ -60,6 +60,7 @@ import {
   RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
   SummaryCollectionQueryDto,
+  UpdateRetailerOrderRequestStatusDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderGroup } from './orderGroup.schema';
@@ -4727,6 +4728,55 @@ export class OrderService {
     } catch (error) {
       throw new HttpException(
         'Failed to create retailer order request',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateRetailerOrderRequestStatus(
+    orderId: string,
+    updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusDto,
+  ) {
+    const retailer = await this.retailerModel
+      .findOne({
+        tenantSlug: updateRetailerOrderRequestStatusDto.tenantSlug,
+        projectSlug: updateRetailerOrderRequestStatusDto.projectSlug,
+      })
+      .lean()
+      .exec();
+
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      const retailerOrderRequest = await this.retailerOrderRequestModel
+        .findOneAndUpdate(
+          {
+            retailerId: retailer._id,
+            orderId,
+          },
+          { status: updateRetailerOrderRequestStatusDto.status },
+          { new: true },
+        )
+        .lean()
+        .exec();
+
+      if (!retailerOrderRequest) {
+        throw new HttpException(
+          'Retailer order request not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return retailerOrderRequest;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Failed to update retailer order request status',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
