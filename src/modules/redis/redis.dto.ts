@@ -27,4 +27,5 @@ export enum RedisKeys {
   ShopifyDiscountAllCache = 'shopify-discount-all',
   QrLocation = 'qr-location',
   QrCode = 'qr-code',
+  InstagramPosts = 'instagram-posts',
 }
