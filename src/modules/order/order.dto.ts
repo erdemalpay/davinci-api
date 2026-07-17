@@ -436,6 +436,14 @@ export class CreateRetailerOrderRequestDto {
   orders: RetailerOrderRequestItemDto[];
 }
 
+export class RetailerOrderRequestsQueryDto {
+  @IsString()
+  tenantSlug: string;
+
+  @IsString()
+  projectSlug: string;
+}
+
 export class AddCollectionToRetailerDto {
   @IsNumber()
   collectionId: number;
