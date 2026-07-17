@@ -35,6 +35,7 @@ import {
   CreateRetailerOrderRequestDto,
   ItemPlatformOrdersQueryDto,
   OrderQueryDto,
+  RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
 } from './order.dto';
 import { Order } from './order.schema';
@@ -629,6 +630,12 @@ export class OrderController {
     @Body() createRetailerDto: CreateRetailerDto,
   ) {
     return this.orderService.createRetailer(user, createRetailerDto);
+  }
+
+  @Public()
+  @Get('/retailer-order-request')
+  getRetailerOrderRequests(@Query() query: RetailerOrderRequestsQueryDto) {
+    return this.orderService.getRetailerOrderRequests(query);
   }
 
   @Public()

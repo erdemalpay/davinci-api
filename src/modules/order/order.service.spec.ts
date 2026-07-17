@@ -9,9 +9,11 @@ describe('OrderService retailer order requests', () => {
   const createService = ({
     retailer,
     saveMock = jest.fn().mockResolvedValue({ _id: 10 }),
+    retailerOrderRequests = [],
   }: {
     retailer?: { _id: number };
     saveMock?: jest.Mock;
+    retailerOrderRequests?: unknown[];
   }) => {
     const retailerModel = {
       findOne: jest.fn().mockReturnValue({
@@ -21,12 +23,19 @@ describe('OrderService retailer order requests', () => {
       }),
     };
 
-    const retailerOrderRequestModel = jest
+    const retailerOrderRequestModel: any = jest
       .fn()
       .mockImplementation((doc) => ({
         ...doc,
         save: saveMock,
       }));
+    retailerOrderRequestModel.find = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(retailerOrderRequests),
+        }),
+      }),
+    });
 
     const service = new (OrderService as any)(
       undefined,
@@ -100,5 +109,35 @@ describe('OrderService retailer order requests', () => {
     ).rejects.toMatchObject({
       status: HttpStatus.NOT_FOUND,
     });
+  });
+
+  it('gets retailer order requests for the retailer matching tenant and project slugs', async () => {
+    const retailerOrderRequests = [
+      {
+        _id: 11,
+        retailerId: 7,
+        orderId: '6a56e69f5e4bc5139a37506c',
+        status: 'pending',
+      },
+    ];
+    const { service, retailerModel, retailerOrderRequestModel } =
+      createService({
+        retailer: { _id: 7 },
+        retailerOrderRequests,
+      });
+
+    const result = await service.getRetailerOrderRequests({
+      tenantSlug: 'tenant-a',
+      projectSlug: 'project-a',
+    });
+
+    expect(retailerModel.findOne).toHaveBeenCalledWith({
+      tenantSlug: 'tenant-a',
+      projectSlug: 'project-a',
+    });
+    expect(retailerOrderRequestModel.find).toHaveBeenCalledWith({
+      retailerId: 7,
+    });
+    expect(result).toEqual(retailerOrderRequests);
   });
 });
