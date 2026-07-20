@@ -4095,6 +4095,7 @@ export class AccountingService {
         (notification) =>
           notification.event === NotificationEventType.COMPLETECOUNT,
       );
+      // UYARI: count burada null olabilir, eğer id artık yoksa (örneğin sayım silindiyse ve sayfa hala açıksa). Aşağıda count.* erişildiğinde TypeError oluşur ve endpoint 500 döner, düzgün bir 404 dönmez. Bu bloktan önce erken bir kontrol/guard eklenmeli.
       if (notificationEvent) {
         const locations = await this.locationService.findAllLocations();
         const countList = await this.countListModel.findById(count.countList);
@@ -4126,6 +4127,13 @@ export class AccountingService {
           notificationDto,
           user,
         );
+      }
+      if (count) {
+        this.activityService
+          .addActivity(user, ActivityType.COMPLETE_COUNT, count)
+          .catch((error) => {
+            this.logger.error('Error adding complete count activity:', error);
+          });
       }
     }
     this.websocketGateway.emitCountChanged();

@@ -4,8 +4,11 @@ import { Expense } from '../accounting/expense.schema';
 import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Product } from '../accounting/product.schema';
 import { Stock } from '../accounting/stock.schema';
+import { Count } from '../accounting/count.schema';
 import { Authorization } from '../authorization/authorization.schema';
 import { Break } from '../break/break.schema';
+import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
+import { Check } from '../checklist/check.schema';
 import { Middleman } from '../middleman/middleman.schema';
 import { GameplayDto } from '../gameplay/dto/gameplay.dto';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
@@ -104,6 +107,10 @@ export enum ActivityType {
   ASSIGN_MIDDLEMAN = 'ASSIGN_MIDDLEMAN',
   TRANSFER_TABLE = 'TRANSFER_TABLE',
   COMBINE_TABLE = 'COMBINE_TABLE',
+  COMPLETE_COUNT = 'COMPLETE_COUNT',
+  CLOSE_BUTTONCALL = 'CLOSE_BUTTONCALL',
+  CREATE_CHECK = 'CREATE_CHECK',
+  COMPLETE_CHECK = 'COMPLETE_CHECK',
 }
 
 export type ActivityTypePayload = {
@@ -229,6 +236,10 @@ export type ActivityTypePayload = {
   };
   [ActivityType.TRANSFER_TABLE]: { oldTable: Table; newTable: Table };
   [ActivityType.COMBINE_TABLE]: { oldTable: Table; targetTable: Table };
+  [ActivityType.COMPLETE_COUNT]: Count;
+  [ActivityType.CLOSE_BUTTONCALL]: ButtonCall;
+  [ActivityType.CREATE_CHECK]: Check;
+  [ActivityType.COMPLETE_CHECK]: Check;
 };
 
 export class ActivityQueryDto {

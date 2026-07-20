@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { ButtonCallController } from './buttonCall.controller';
@@ -19,6 +20,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     mongooseModule,
     UserModule,
     HttpModule,
+    ActivityModule,
     forwardRef(() => LocationModule),
   ],
   providers: [ButtonCallService],

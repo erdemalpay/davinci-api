@@ -13,6 +13,8 @@ import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -33,6 +35,7 @@ export class ButtonCallService {
     private readonly buttonCallModel: Model<ButtonCall>,
     private readonly httpService: HttpService,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly activityService: ActivityService,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
   ) {}
@@ -109,6 +112,13 @@ export class ButtonCallService {
     closedButtonCall.set(obj);
     await closedButtonCall.save();
     this.websocketGateway.emitButtonCallChanged();
+    if (user) {
+      this.activityService
+        .addActivity(user, ActivityType.CLOSE_BUTTONCALL, closedButtonCall)
+        .catch((error) => {
+          this.logger.error('Error adding close button call activity:', error);
+        });
+    }
 
     if (notifyCafe) {
       await this.notifyCafe(closeButtonCallDto);
