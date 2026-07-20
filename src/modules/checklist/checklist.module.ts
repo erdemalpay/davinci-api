@@ -1,7 +1,9 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { NotificationModule } from '../notification/notification.module';
+import { UserModule } from '../user/user.module';
 import { Check, CheckSchema } from './check.schema';
 import { ChecklistController } from './checklist.controller';
 import { Checklist, ChecklistSchema } from './checklist.schema';
@@ -18,6 +20,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     WebSocketModule,
     mongooseModule,
     NotificationModule,
+    ActivityModule,
+    UserModule,
     forwardRef(() => LocationModule),
   ],
   providers: [ChecklistService],

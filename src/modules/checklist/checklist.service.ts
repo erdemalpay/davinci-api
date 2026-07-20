@@ -8,13 +8,17 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, UpdateQuery } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
+import { toPlainObject, tryAddActivity } from 'src/utils/serviceUtils';
 import { usernamify } from 'src/utils/usernamify';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import {
   NotificationEventType,
   NotificationType,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
+import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { Check } from './check.schema';
 import {
@@ -32,6 +36,8 @@ export class ChecklistService {
     @InjectModel(Check.name) private checkModel: Model<Check>,
     private websocketGateway: AppWebSocketGateway,
     private readonly notificationService: NotificationService,
+    private readonly activityService: ActivityService,
+    private readonly userService: UserService,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
   ) {}
@@ -194,7 +200,16 @@ export class ChecklistService {
     const check = new this.checkModel(createCheckDto);
     check._id = usernamify(check.user + new Date().toISOString());
     this.websocketGateway.emitCheckChanged();
-    return check.save();
+    const createdCheck = await check.save();
+    await tryAddActivity(
+      this.activityService,
+      this.userService,
+      createCheckDto.user,
+      ActivityType.CREATE_CHECK,
+      toPlainObject(createdCheck),
+      'create check',
+    );
+    return createdCheck;
   }
 
   async updateCheck(id: string, updates: UpdateQuery<Check>) {
@@ -202,6 +217,7 @@ export class ChecklistService {
       new: true,
     });
     if (updates?.isCompleted) {
+      // NOT: check burada null olabilir, eğer id artık yoksa (örneğin check silindiyse ve sayfa hala açıksa). Aşağıdaki optional chaining ifadesi, ardından gelen doğrudan .length kullanımı nedeniyle bozulur, bu da TypeError fırlatır ve düzgün bir 404 yerine 500 döner.
       const unCompletedDuties = check?.duties?.filter(
         (duty) => !duty.isCompleted,
       );
@@ -234,6 +250,14 @@ export class ChecklistService {
           message,
         });
       }
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        check.user,
+        ActivityType.COMPLETE_CHECK,
+        toPlainObject(check),
+        'complete check',
+      );
     }
     this.websocketGateway.emitCheckChanged();
     return check;
