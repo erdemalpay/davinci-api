@@ -420,6 +420,15 @@ export class OrderService {
       filterQuery['status'] = { $ne: OrderStatus.CANCELLED };
       filterQuery['isShopifyPickUp'] = true;
     }
+    if (
+      query.hasTaxNumberCompanyName === 'true' ||
+      query.hasTaxNumberCompanyName === 'false'
+    ) {
+      filterQuery['taxNumberCompanyName'] =
+        query.hasTaxNumberCompanyName === 'true'
+          ? { $exists: true, $nin: [null, ''] }
+          : { $in: [null, ''] };
+    }
 
     try {
       let itemIds = [];
