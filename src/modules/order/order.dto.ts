@@ -9,7 +9,12 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Order, ShopifyCustomer, TrendyolCustomer } from './order.schema';
+import {
+  Order,
+  ShopifyAddress,
+  ShopifyCustomer,
+  TrendyolCustomer,
+} from './order.schema';
 
 /** Sentinel value the frontend sends as a fake `category` filter option
  * to request items where `isDaVinciGame` is true. Must match the value
@@ -250,6 +255,16 @@ export class CreateOrderDto {
   @IsOptional()
   @IsBoolean()
   isTrendyolCustomerPicked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  taxNumberCompanyName?: string;
+
+  @IsOptional()
+  shopifyShippingAddress?: ShopifyAddress;
+
+  @IsOptional()
+  shopifyBillingAddress?: ShopifyAddress;
 }
 
 export class CreateCollectionDto {
@@ -549,6 +564,10 @@ export class OrderQueryDto {
   @IsOptional()
   @IsBoolean()
   isPreOrder?: boolean;
+
+  @IsOptional()
+  @IsString()
+  hasTaxNumberCompanyName?: string;
 
   @IsOptional()
   @IsString()

@@ -48,6 +48,35 @@ export class ShopifyCustomer {
   location: number;
 }
 
+export class ShopifyAddress {
+  @Prop({ required: false, type: String })
+  name: string;
+
+  @Prop({ required: false, type: String })
+  address1: string;
+
+  @Prop({ required: false, type: String })
+  address2: string;
+
+  @Prop({ required: false, type: String })
+  city: string;
+
+  @Prop({ required: false, type: String })
+  province: string;
+
+  @Prop({ required: false, type: String })
+  zip: string;
+
+  @Prop({ required: false, type: String })
+  country: string;
+
+  @Prop({ required: false, type: String })
+  phone: string;
+
+  @Prop({ required: false, type: String })
+  company: string;
+}
+
 export class TrendyolCustomer {
   @Prop({ required: true, type: String })
   id: string;
@@ -246,6 +275,15 @@ export class Order extends Document {
 
   @Prop({ required: false, type: Number, ref: 'Retailer' })
   retailer?: number;
+
+  @Prop({ required: false, type: String })
+  taxNumberCompanyName?: string;
+
+  @Prop({ required: false, type: ShopifyAddress })
+  shopifyShippingAddress?: ShopifyAddress;
+
+  @Prop({ required: false, type: ShopifyAddress })
+  shopifyBillingAddress?: ShopifyAddress;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
