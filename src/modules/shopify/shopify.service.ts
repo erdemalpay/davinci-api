@@ -2610,6 +2610,28 @@ export class ShopifyService {
 
           const isPickUp = !data?.shipping_address;
           const customer = data?.customer;
+
+          const toShopifyAddress = (address: any) =>
+            address && {
+              name: address?.name,
+              address1: address?.address1,
+              address2: address?.address2,
+              city: address?.city,
+              province: address?.province,
+              zip: address?.zip,
+              country: address?.country,
+              phone: address?.phone,
+              company: address?.company,
+            };
+
+          const shippingAddress = toShopifyAddress(data?.shipping_address);
+          const billingAddress = toShopifyAddress(data?.billing_address);
+          const isBillingAddressDifferent =
+            billingAddress &&
+            JSON.stringify(billingAddress) !== JSON.stringify(shippingAddress);
+          const taxNumberCompanyName =
+            data?.shipping_address?.company ?? data?.billing_address?.company;
+
           createOrderObject = {
             ...createOrderObject,
             shopifyCustomer: {
@@ -2621,6 +2643,11 @@ export class ShopifyService {
               location: 6,
             },
             ...(isPickUp && { isShopifyPickUp: true }),
+            ...(shippingAddress && { shopifyShippingAddress: shippingAddress }),
+            ...(isBillingAddressDifferent && {
+              shopifyBillingAddress: billingAddress,
+            }),
+            ...(taxNumberCompanyName && { taxNumberCompanyName }),
           };
 
           try {
