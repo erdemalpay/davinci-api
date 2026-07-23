@@ -781,6 +781,20 @@ export class AccountingController {
       payload.currentCountId,
     );
   }
+  @Patch('/counts/:id/product')
+  updateCountProduct(
+    @Param('id') id: string,
+    @Body()
+    payload: {
+      product: string;
+      countQuantity: number;
+      stockQuantity: number;
+      productDeleteRequest?: string;
+    },
+  ) {
+    return this.accountingService.updateCountProduct(id, payload);
+  }
+
   @Patch('/counts/:id')
   updateCount(
     @ReqUser() user: User,

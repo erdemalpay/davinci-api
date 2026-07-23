@@ -4025,6 +4025,65 @@ export class AccountingService {
     return count.save();
   }
 
+  async updateCountProduct(
+    id: string,
+    payload: {
+      product: string;
+      countQuantity: number;
+      stockQuantity: number;
+      productDeleteRequest?: string;
+    },
+  ) {
+    const { product, countQuantity, stockQuantity, productDeleteRequest } =
+      payload;
+
+    const result = await this.countModel.updateOne(
+      { _id: id, 'products.product': product },
+      {
+        $set: {
+          'products.$.countQuantity': countQuantity,
+          'products.$.stockQuantity': stockQuantity,
+          'products.$.productDeleteRequest': productDeleteRequest,
+          'products.$.isStockEqualized': false,
+          isCompleted: false,
+        },
+      },
+    );
+
+    if (result.matchedCount === 0) {
+      const pushResult = await this.countModel.updateOne(
+        { _id: id, 'products.product': { $ne: product } },
+        {
+          $set: { isCompleted: false },
+          $push: {
+            products: {
+              product,
+              countQuantity,
+              stockQuantity,
+              productDeleteRequest,
+            },
+          },
+        },
+      );
+      if (pushResult.modifiedCount === 0) {
+        await this.countModel.updateOne(
+          { _id: id, 'products.product': product },
+          {
+            $set: {
+              'products.$.countQuantity': countQuantity,
+              'products.$.stockQuantity': stockQuantity,
+              'products.$.productDeleteRequest': productDeleteRequest,
+              'products.$.isStockEqualized': false,
+            },
+          },
+        );
+      }
+    }
+
+    this.websocketGateway.emitCountChanged();
+    return this.countModel.findById(id);
+  }
+
   async updateCount(user: User, id: string, updates: UpdateQuery<Count>) {
     const count = await this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
