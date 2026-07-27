@@ -445,11 +445,8 @@ export class RetailerOrderRequestsQueryDto {
 }
 
 export class UpdateRetailerOrderRequestStatusDto {
-  @IsString()
-  tenantSlug: string;
-
-  @IsString()
-  projectSlug: string;
+  @IsNumber()
+  retailerId: number;
 
   @IsString()
   status: string;

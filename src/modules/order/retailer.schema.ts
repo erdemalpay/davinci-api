@@ -15,6 +15,9 @@ export class Retailer extends Document {
 
   @Prop({ required: false, type: String })
   projectSlug: string;
+
+  @Prop({ required: false, type: String })
+  requestToken: string;
 }
 
 export const RetailerSchema = SchemaFactory.createForClass(Retailer);
