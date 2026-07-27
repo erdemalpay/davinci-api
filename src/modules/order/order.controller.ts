@@ -652,7 +652,6 @@ export class OrderController {
     );
   }
 
-  @ApiTokenProtected('RETAILER_ORDER_REQUEST_TOKEN')
   @Patch('/retailer-order-request/:orderId/status')
   updateRetailerOrderRequestStatus(
     @Param('orderId') orderId: string,
