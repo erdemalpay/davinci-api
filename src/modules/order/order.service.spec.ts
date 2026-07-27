@@ -13,7 +13,12 @@ describe('OrderService retailer order requests', () => {
     updatedRetailerOrderRequest = null,
     httpPostMock = jest.fn().mockResolvedValue({ data: {} }),
   }: {
-    retailer?: { _id: number; tenantSlug?: string; projectSlug?: string };
+    retailer?: {
+      _id: number;
+      tenantSlug?: string;
+      projectSlug?: string;
+      requestToken?: string;
+    };
     saveMock?: jest.Mock;
     retailerOrderRequests?: unknown[];
     updatedRetailerOrderRequest?: unknown;
@@ -162,7 +167,7 @@ describe('OrderService retailer order requests', () => {
     expect(result).toEqual(retailerOrderRequests);
   });
 
-  it('updates retailer order request status for the retailer matching tenant and project slugs', async () => {
+  it('updates retailer order request status for the retailer ID in the body', async () => {
     const updatedRetailerOrderRequest = {
       _id: 11,
       retailerId: 7,
@@ -178,16 +183,12 @@ describe('OrderService retailer order requests', () => {
     const result = await service.updateRetailerOrderRequestStatus(
       '6a56e69f5e4bc5139a37506c',
       {
-        tenantSlug: 'tenant-a',
-        projectSlug: 'project-a',
+        retailerId: 7,
         status: 'approved',
       },
     );
 
-    expect(retailerModel.findOne).toHaveBeenCalledWith({
-      tenantSlug: 'tenant-a',
-      projectSlug: 'project-a',
-    });
+    expect(retailerModel.findOne).toHaveBeenCalledWith({ _id: 7 });
     expect(retailerOrderRequestModel.findOneAndUpdate).toHaveBeenCalledWith(
       {
         retailerId: 7,
@@ -207,8 +208,7 @@ describe('OrderService retailer order requests', () => {
 
     await expect(
       service.updateRetailerOrderRequestStatus('missing-order', {
-        tenantSlug: 'tenant-a',
-        projectSlug: 'project-a',
+        retailerId: 7,
         status: 'approved',
       }),
     ).rejects.toMatchObject({
@@ -223,6 +223,7 @@ describe('OrderService retailer order requests', () => {
         _id: 7,
         tenantSlug: 'retailer-tenant',
         projectSlug: 'retailer-project',
+        requestToken: 'retailer-request-token',
       },
       updatedRetailerOrderRequest: {
         _id: 11,
@@ -233,14 +234,18 @@ describe('OrderService retailer order requests', () => {
     });
 
     await service.updateRetailerOrderRequestStatus(orderId, {
-      tenantSlug: 'tenant-from-request',
-      projectSlug: 'project-from-request',
+      retailerId: 7,
       status: 'indelivery',
     });
 
     expect(httpPostMock).toHaveBeenCalledWith(
       'https://api-production.autoapi.org/api/v1/retailer-tenant/retailer-project/dynamic/workflow/manual.markDavinciOrderInDelivery?schemaName=davinciOrder',
       { _id: orderId },
+      {
+        headers: {
+          Authorization: 'Bearer retailer-request-token',
+        },
+      },
     );
   });
 
@@ -262,8 +267,7 @@ describe('OrderService retailer order requests', () => {
     await service.updateRetailerOrderRequestStatus(
       '6a56e69f5e4bc5139a37506c',
       {
-        tenantSlug: 'tenant-a',
-        projectSlug: 'project-a',
+        retailerId: 7,
         status: 'approved',
       },
     );

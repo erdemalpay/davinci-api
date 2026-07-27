@@ -4732,10 +4732,7 @@ export class OrderService {
     updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusDto,
   ) {
     const retailer = await this.retailerModel
-      .findOne({
-        tenantSlug: updateRetailerOrderRequestStatusDto.tenantSlug,
-        projectSlug: updateRetailerOrderRequestStatusDto.projectSlug,
-      })
+      .findOne({ _id: updateRetailerOrderRequestStatusDto.retailerId })
       .lean()
       .exec();
 
@@ -4768,6 +4765,7 @@ export class OrderService {
           retailer.tenantSlug,
           retailer.projectSlug,
           orderId,
+          retailer.requestToken,
         );
       }
 
@@ -4788,10 +4786,19 @@ export class OrderService {
     tenantSlug: string,
     projectSlug: string,
     orderId: string,
+    requestToken: string,
   ) {
     const url = `${this.autoApiBaseUrl}/api/v1/${tenantSlug}/${projectSlug}/dynamic/workflow/manual.markDavinciOrderInDelivery?schemaName=davinciOrder`;
 
-    await this.httpService.axiosRef.post(url, { _id: orderId });
+    await this.httpService.axiosRef.post(
+      url,
+      { _id: orderId },
+      {
+        headers: {
+          Authorization: `Bearer ${requestToken}`,
+        },
+      },
+    );
   }
 
   async updateRetailer(user: User, id: number, updates: UpdateQuery<Retailer>) {
