@@ -11,11 +11,13 @@ describe('OrderService retailer order requests', () => {
     saveMock = jest.fn().mockResolvedValue({ _id: 10 }),
     retailerOrderRequests = [],
     updatedRetailerOrderRequest = null,
+    httpPostMock = jest.fn().mockResolvedValue({ data: {} }),
   }: {
-    retailer?: { _id: number };
+    retailer?: { _id: number; tenantSlug?: string; projectSlug?: string };
     saveMock?: jest.Mock;
     retailerOrderRequests?: unknown[];
     updatedRetailerOrderRequest?: unknown;
+    httpPostMock?: jest.Mock;
   }) => {
     const retailerModel = {
       findOne: jest.fn().mockReturnValue({
@@ -53,9 +55,21 @@ describe('OrderService retailer order requests', () => {
       undefined,
       retailerModel,
       retailerOrderRequestModel,
+      ...Array(15).fill(undefined),
+      {
+        axiosRef: {
+          post: httpPostMock,
+        },
+      },
     );
 
-    return { service, retailerModel, retailerOrderRequestModel, saveMock };
+    return {
+      service,
+      retailerModel,
+      retailerOrderRequestModel,
+      saveMock,
+      httpPostMock,
+    };
   };
 
   it('creates retailer order requests for the retailer matching tenant and project slugs', async () => {
@@ -200,5 +214,60 @@ describe('OrderService retailer order requests', () => {
     ).rejects.toMatchObject({
       status: HttpStatus.NOT_FOUND,
     });
+  });
+
+  it('marks Davinci order as in delivery when retailer request status is indelivery', async () => {
+    const orderId = '6a56e69f5e4bc5139a37506c';
+    const { service, httpPostMock } = createService({
+      retailer: {
+        _id: 7,
+        tenantSlug: 'retailer-tenant',
+        projectSlug: 'retailer-project',
+      },
+      updatedRetailerOrderRequest: {
+        _id: 11,
+        retailerId: 7,
+        orderId,
+        status: 'indelivery',
+      },
+    });
+
+    await service.updateRetailerOrderRequestStatus(orderId, {
+      tenantSlug: 'tenant-from-request',
+      projectSlug: 'project-from-request',
+      status: 'indelivery',
+    });
+
+    expect(httpPostMock).toHaveBeenCalledWith(
+      'https://api-production.autoapi.org/api/v1/retailer-tenant/retailer-project/dynamic/workflow/manual.markDavinciOrderInDelivery?schemaName=davinciOrder',
+      { _id: orderId },
+    );
+  });
+
+  it('does not mark Davinci order as in delivery for other statuses', async () => {
+    const { service, httpPostMock } = createService({
+      retailer: {
+        _id: 7,
+        tenantSlug: 'retailer-tenant',
+        projectSlug: 'retailer-project',
+      },
+      updatedRetailerOrderRequest: {
+        _id: 11,
+        retailerId: 7,
+        orderId: '6a56e69f5e4bc5139a37506c',
+        status: 'approved',
+      },
+    });
+
+    await service.updateRetailerOrderRequestStatus(
+      '6a56e69f5e4bc5139a37506c',
+      {
+        tenantSlug: 'tenant-a',
+        projectSlug: 'project-a',
+        status: 'approved',
+      },
+    );
+
+    expect(httpPostMock).not.toHaveBeenCalled();
   });
 });

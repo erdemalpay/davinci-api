@@ -1,4 +1,5 @@
 import { BullModule } from '@nestjs/bull';
+import { HttpModule } from '@nestjs/axios';
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import * as config from 'config';
@@ -54,6 +55,7 @@ const { host, port } = config.get<DBConfig>('redis');
 @Module({
   imports: [
     WebSocketModule,
+    HttpModule,
     mongooseModule,
     ActivityModule,
     RedisModule,

@@ -1,4 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
+import { HttpService } from '@nestjs/axios';
 import {
   forwardRef,
   HttpException,
@@ -136,6 +137,7 @@ function isPopulatedKitchen(kitchen: string | Kitchen): kitchen is Kitchen {
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
+  private readonly autoApiBaseUrl = 'https://api-production.autoapi.org';
 
   constructor(
     @InjectConnection() private readonly conn: Connection,
@@ -172,6 +174,7 @@ export class OrderService {
 
     @Inject(forwardRef(() => ShopifyService))
     private readonly shopifyService: ShopifyService,
+    private readonly httpService: HttpService,
   ) {}
   // Orders
   async findAllOrders() {
@@ -4760,6 +4763,14 @@ export class OrderService {
         );
       }
 
+      if (updateRetailerOrderRequestStatusDto.status === 'indelivery') {
+        await this.markDavinciOrderInDelivery(
+          retailer.tenantSlug,
+          retailer.projectSlug,
+          orderId,
+        );
+      }
+
       return retailerOrderRequest;
     } catch (error) {
       if (error instanceof HttpException) {
@@ -4771,6 +4782,16 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private async markDavinciOrderInDelivery(
+    tenantSlug: string,
+    projectSlug: string,
+    orderId: string,
+  ) {
+    const url = `${this.autoApiBaseUrl}/api/v1/${tenantSlug}/${projectSlug}/dynamic/workflow/manual.markDavinciOrderInDelivery?schemaName=davinciOrder`;
+
+    await this.httpService.axiosRef.post(url, { _id: orderId });
   }
 
   async updateRetailer(user: User, id: number, updates: UpdateQuery<Retailer>) {
