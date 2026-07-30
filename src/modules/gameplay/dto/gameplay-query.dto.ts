@@ -50,6 +50,38 @@ export class GameplayQueryDto {
   @IsString()
   search?: string;
 }
+export class GameplayGroupDto {
+  @IsString()
+  location: string;
+
+  @IsOptional()
+  @IsString()
+  field?: string;
+
+  @IsOptional()
+  @IsNumber()
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  mentor?: string;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsNumber()
+  asc?: number;
+}
 export class GameplayQueryGroupDto {
   @IsString()
   location: string;
