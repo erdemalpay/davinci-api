@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { FieldGrouping } from './dto/gameplay-query.dto';
+import { FieldGrouping, GameplayGroupDto } from './dto/gameplay-query.dto';
 import { PartialGameplayDto } from './dto/partial-gameplay.dto';
 import { GameplayService } from './gameplay.service';
 
@@ -84,22 +84,8 @@ export class GameplayController {
   }
 
   @Get('/group')
-  groupByQuery(
-    @Query('location') location: string,
-    @Query('field') field: string,
-    @Query('limit') limit: number,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('mentor') mentor?: string,
-  ) {
-    return this.gameplayService.groupByField({
-      location,
-      field,
-      limit,
-      startDate,
-      endDate,
-      mentor,
-    });
+  groupByQuery(@Query() query: GameplayGroupDto) {
+    return this.gameplayService.groupByField(query);
   }
   @Get('/mentor/:mentorId')
   findByMentor(@Param('mentorId') mentorId: string) {
