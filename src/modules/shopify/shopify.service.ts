@@ -3097,6 +3097,313 @@ export class ShopifyService {
     }
   }
 
+  // orders/edited payload'ında sadece line item id'si geldiği için, eklenen
+  // ürünün bilgisini siparişin satırlarını Shopify'dan çekerek buluyoruz.
+  async getLineItemsForOrder(orderId: string): Promise<any[]> {
+    const query = `
+      query GetOrderLineItems($orderId: ID!) {
+        order(id: $orderId) {
+          id
+          lineItems(first: 100) {
+            edges {
+              node {
+                id
+                quantity
+                originalUnitPriceSet {
+                  shopMoney {
+                    amount
+                  }
+                }
+                product {
+                  legacyResourceId
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const formattedOrderId = orderId.includes('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query, {
+          variables: { orderId: formattedOrderId },
+        });
+      });
+
+      this.handleGraphQLErrors(response);
+
+      return response.data.order.lineItems.edges.map((edge: any) => edge.node);
+    } catch (error) {
+      this.logError('Error fetching order line items', error);
+      return [];
+    }
+  }
+
+  // orders/edited webhook'u — mevcut bir siparişte düzenleme kaydedildiğinde
+  // tetiklenir. Gövde: { order_edit: { order_id, line_items: { additions, removals } } }
+  async orderEditWebHook(data?: any) {
+    const startTime = Date.now();
+    let webhookLog: any = null;
+
+    // Sipariş id'si root'ta değil, order_edit içinde geliyor.
+    const shopifyOrderId = data?.order_edit?.order_id?.toString();
+
+    try {
+      if (!data) {
+        throw new HttpException(
+          'Invalid request: Missing data',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      webhookLog = await this.webhookLogService.logWebhookRequest(
+        WebhookSource.SHOPIFY,
+        'order-edit-webhook',
+        data,
+      );
+
+      const additions = data?.order_edit?.line_items?.additions ?? [];
+      const removals = data?.order_edit?.line_items?.removals ?? [];
+
+      this.logger.log(
+        `Received Shopify order-edit webhook — orderId: ${
+          shopifyOrderId ?? 'unknown'
+        }, additions: ${additions.length}, removals: ${removals.length}`,
+      );
+
+      const createdOrders: Array<{ order: number; paidQuantity: number }> = [];
+      let addedAmount = 0;
+      let collectionId: number | null = null;
+
+      // Ürün çıkarma order-cancel-webhook tarafından işleniyor, burada sadece eklemeler.
+      if (shopifyOrderId && additions.length > 0) {
+        const constantUser = await this.userService.findByIdWithoutPopulate(
+          'dv',
+        );
+        if (!constantUser) {
+          throw new HttpException(
+            'Constant user not found',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        // Müşteri/adres bilgisi payload'da yok; aynı siparişin mevcut satırından alıyoruz.
+        const siblingOrder =
+          await this.orderService.findShopifyOrderWithCustomer(shopifyOrderId);
+
+        if (!siblingOrder?.shopifyCustomer) {
+          this.logger.warn(
+            `No existing order row with shopifyCustomer for shopifyOrderId ${shopifyOrderId}, skipping additions`,
+          );
+        } else {
+          const lineItemNodes = await this.getLineItemsForOrder(shopifyOrderId);
+          const lineItemsById = new Map<string, any>(
+            lineItemNodes.map((node: any) => [
+              node?.id?.split('/').pop(),
+              node,
+            ]),
+          );
+
+          for (const addition of additions) {
+            try {
+              const lineItemId = addition?.id?.toString();
+              if (!lineItemId) {
+                continue;
+              }
+
+              const node = lineItemsById.get(lineItemId);
+              if (!node) {
+                this.logger.warn(
+                  `Line item ${lineItemId} not found on Shopify order ${shopifyOrderId}`,
+                );
+                continue;
+              }
+
+              // Mükerrer webhook koruması.
+              const existing =
+                await this.orderService.findByShopifyOrderLineItemId(
+                  lineItemId,
+                );
+              if (existing) {
+                this.logger.log(
+                  `Order already exists for shopify line item id: ${lineItemId}, skipping to next item.`,
+                );
+                continue;
+              }
+
+              const productId = node?.product?.legacyResourceId?.toString();
+              const foundMenuItem = productId
+                ? await this.menuService.findByShopifyId(productId)
+                : null;
+              if (!foundMenuItem?.matchedProduct) {
+                this.logger.log(
+                  `Menu item not found for productId: ${productId}`,
+                );
+                continue;
+              }
+
+              const unitPrice = parseFloat(
+                node?.originalUnitPriceSet?.shopMoney?.amount ?? '0',
+              );
+              const quantity = addition?.delta ?? node?.quantity ?? 1;
+
+              const createOrderObject: CreateOrderDto = {
+                item: foundMenuItem._id,
+                quantity,
+                note: '',
+                discount: undefined,
+                discountNote: '',
+                isOnlinePrice: false,
+                location: 4,
+                unitPrice,
+                paidQuantity: quantity,
+                status: OrderStatus.AUTOSERVED,
+                stockLocation: 6,
+                createdAt: new Date(),
+                tableDate: new Date(),
+                createdBy: constantUser?._id,
+                stockNote: StockHistoryStatusEnum.SHOPIFYORDERCREATE,
+                shopifyOrderId,
+                shopifyOrderLineItemId: lineItemId,
+                paymentMethod: siblingOrder.paymentMethod,
+                isOnlineSale: true,
+                // Sipariş seviyesindeki alanlar payload'da gelmiyor; satırlar
+                // orderCreateWebHook'unkiyle aynı olsun diye kopyalanıyor.
+                shopifyCustomer: siblingOrder.shopifyCustomer,
+                ...(siblingOrder.shopifyOrderNumber && {
+                  shopifyOrderNumber: siblingOrder.shopifyOrderNumber,
+                }),
+                ...(siblingOrder.isShopifyPickUp && { isShopifyPickUp: true }),
+                ...(siblingOrder.shopifyShippingAddress && {
+                  shopifyShippingAddress: siblingOrder.shopifyShippingAddress,
+                }),
+                ...(siblingOrder.shopifyBillingAddress && {
+                  shopifyBillingAddress: siblingOrder.shopifyBillingAddress,
+                }),
+                ...(siblingOrder.taxNumberCompanyName && {
+                  taxNumberCompanyName: siblingOrder.taxNumberCompanyName,
+                }),
+              };
+
+              const order = await this.orderService.createOrder(
+                constantUser,
+                createOrderObject,
+              );
+              const orderId = order?._id;
+              if (orderId) {
+                createdOrders.push({ order: orderId, paidQuantity: quantity });
+                addedAmount += unitPrice * quantity;
+              }
+            } catch (itemError) {
+              this.logError('Error processing order-edit addition', itemError);
+            }
+          }
+
+          // Mevcut tahsilata ekle — yeni collection açılmıyor.
+          if (createdOrders.length > 0) {
+            const collection =
+              await this.orderService.addOrdersToShopifyCollection(
+                shopifyOrderId,
+                createdOrders,
+                addedAmount,
+              );
+            collectionId = collection?._id ?? null;
+          }
+        }
+      }
+
+      const orderIds = createdOrders.map((createdOrder) => createdOrder.order);
+      const status =
+        orderIds.length > 0
+          ? WebhookStatus.SUCCESS
+          : WebhookStatus.ORDER_NOT_CREATED;
+
+      const response = {
+        success: orderIds.length > 0,
+        ordersCreated: orderIds.length,
+        addedAmount,
+        orderIds,
+        collectionId,
+        removalCount: removals.length,
+      };
+
+      // Update webhook log (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            response,
+            HttpStatus.OK,
+            status,
+            orderIds.length === 0 ? 'No orders were created' : undefined,
+            orderIds.length > 0 ? orderIds : undefined,
+            shopifyOrderId,
+            startTime,
+          )
+          .catch((error) => {
+            this.logger.error('Error updating webhook log:', error);
+          });
+      }
+
+      return response;
+    } catch (error) {
+      this.logError('Error in orderEditWebHook', error);
+
+      // Update webhook log with error response (fire-and-forget)
+      if (webhookLog) {
+        this.webhookLogService
+          .updateWebhookResponse(
+            webhookLog._id,
+            { error: error?.message || 'Unknown error' },
+            error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            WebhookStatus.ERROR,
+            error?.message || 'Unknown error',
+            undefined,
+            shopifyOrderId,
+            startTime,
+          )
+          .catch(async (logError) => {
+            this.logger.error('Error updating webhook log:', logError);
+            // Mark as failed if update fails
+            try {
+              await this.webhookLogService.updateWebhookResponse(
+                webhookLog._id,
+                {
+                  error: `Update failed: ${
+                    logError?.message || 'Unknown error'
+                  }`,
+                },
+                500,
+                WebhookStatus.FAILED,
+                `Failed to update webhook log: ${
+                  logError?.message || 'Unknown error'
+                }`,
+                undefined,
+                shopifyOrderId,
+                startTime,
+              );
+            } catch (markFailedError) {
+              this.logger.error(
+                'Failed to mark webhook log as failed:',
+                markFailedError,
+              );
+            }
+          });
+      }
+
+      throw new HttpException(
+        `Error processing webhook: ${error?.message || 'Unknown error'}`,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /**
    * fulfillments/create webhook'u — Shopify'da bir sipariş kargolandığında
    * tetiklenir. Fulfillment'a dahil olan her line item için bizim Order

@@ -153,6 +153,19 @@ export class ShopifyController {
     return this.shopifyService.orderFulfilledWebHook(data);
   }
 
+  @Public()
+  @Post('/order-edit-webhook')
+  orderEditWebHook(@Body() data?: any) {
+    // Shopify 5 sn içinde 200 alamazsa retry eder; hemen 200 dönüp arka planda işliyoruz.
+    this.shopifyService.orderEditWebHook(data).catch((error) => {
+      this.logger.error(
+        'Error in order-edit-webhook background processing:',
+        error,
+      );
+    });
+    return { received: true };
+  }
+
   @Post('/discount/refresh')
   refreshDiscountCache() {
     return this.shopifyService.refreshDiscountCache();

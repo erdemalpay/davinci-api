@@ -4236,6 +4236,39 @@ export class OrderService {
     }
   }
 
+  // Siparişe sonradan eklenen ürünleri mevcut tahsilata işler.
+  // cancelShopifyOrder'ın ürün çıkarma tarafının aynadaki hali.
+  async addOrdersToShopifyCollection(
+    shopifyOrderId: string,
+    newOrders: { order: number; paidQuantity: number }[],
+    amountDelta: number,
+  ) {
+    if (!newOrders?.length) {
+      return null;
+    }
+
+    const collection = await this.collectionModel.findOne({
+      shopifyId: shopifyOrderId,
+      status: { $ne: OrderCollectionStatus.CANCELLED },
+    });
+
+    if (!collection) {
+      throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
+    }
+
+    const updatedCollection = await this.collectionModel.findByIdAndUpdate(
+      collection._id,
+      {
+        $push: { orders: { $each: newOrders } },
+        $inc: { amount: amountDelta },
+      },
+      { new: true },
+    );
+
+    this.websocketGateway.emitCollectionChanged(updatedCollection);
+    return updatedCollection;
+  }
+
   async removeCollection(user: User, id: number) {
     const collection = await this.collectionModel.findByIdAndRemove(id);
 
@@ -5796,6 +5829,14 @@ export class OrderService {
 
   findByShopifyOrderLineItemId(shopifyOrderLineItemId: string) {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
+  }
+
+  // orders/edited payload'ında müşteri bilgisi gelmediği için, sonradan eklenen
+  // satıra kopyalamak üzere aynı siparişin müşterisi dolu satırını döner.
+  findShopifyOrderWithCustomer(shopifyOrderId: string) {
+    return this.orderModel
+      .findOne({ shopifyOrderId, shopifyCustomer: { $exists: true, $ne: null } })
+      .exec();
   }
 
   /**
