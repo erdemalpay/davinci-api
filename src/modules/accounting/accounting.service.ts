@@ -4419,11 +4419,57 @@ export class AccountingService {
           locations: locationsInput,
         } = addDto;
 
+        const hasValue = (value: unknown) => String(value ?? '').trim() !== '';
+        const isEmptyRow = ![
+          name,
+          expenseType,
+          brand,
+          vendor,
+          countList,
+          locationsInput,
+          category,
+          itemProduction,
+          price,
+          onlinePrice,
+          sku,
+          barcode,
+          description,
+          image,
+        ].some(hasValue);
+        if (isEmptyRow) {
+          continue;
+        }
+
         //  if name field is not provided it will not be created
         if (!name) {
           errorDatas.push({ ...addDto, errorNote: 'Name field not provided' });
           continue;
         }
+
+        // Menü alanları kullanılıyorsa, hiçbir kayıt oluşturulmadan önce kategori ve fiyat zorunludur
+        const isMenuGroupUsed = [
+          category,
+          itemProduction,
+          price,
+          onlinePrice,
+          sku,
+          barcode,
+          description,
+          image,
+        ].some(hasValue);
+        if (isMenuGroupUsed) {
+          const missingFields: string[] = [];
+          if (!hasValue(category)) missingFields.push('Menu Category');
+          if (!hasValue(price)) missingFields.push('Price');
+          if (missingFields.length > 0) {
+            errorDatas.push({
+              ...addDto,
+              errorNote: `Missing fields: ${missingFields.join(', ')}`,
+            });
+            continue;
+          }
+        }
+
         let isProductCreated = false;
         let isMenuItemCreated = false;
         let newProduct;
