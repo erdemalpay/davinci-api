@@ -1633,7 +1633,13 @@ export class TrendyolService {
 
       // Her claim'i işle
       for (const claim of allClaims) {
-        const { claimId, orderNumber, orderShipmentPackageId, items, lastModifiedDate } = claim;
+        const { claimId, orderNumber, items, lastModifiedDate } = claim;
+
+        // orderShipmentPackageId iade paketinin ID'sidir. Siparişlerimizde
+        // trendyolShipmentPackageId olarak siparişin gönderildiği paketin ID'si
+        // saklanır; claim üzerinde bunun karşılığı orderOutboundPackageId'dir.
+        const orderShipmentPackageId =
+          claim.orderOutboundPackageId ?? claim.orderShipmentPackageId;
 
         if (!Array.isArray(items) || items.length === 0) {
           continue;
