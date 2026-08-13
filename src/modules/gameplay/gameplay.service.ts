@@ -67,6 +67,7 @@ export class GameplayService {
 
   async groupByField(query) {
     const matchQuery = {
+      playerCount: { $gte: 1, $lte: 50 },
       date: { $gte: query.startDate },
       ...(query.location !== '1,2'
         ? { location: { $in: query.location.split(',').map(Number) } }
@@ -77,6 +78,12 @@ export class GameplayService {
     }
     if (query.mentor) {
       matchQuery['mentor'] = query.mentor;
+    }
+    const sortObject: Record<string, 1 | -1> = {};
+    if (query.sort) {
+      sortObject[query.sort] = Number(query.asc) === 1 ? 1 : -1;
+    } else {
+      sortObject['playCount'] = -1;
     }
 
     return this.gameplayModel.aggregate([
@@ -94,7 +101,7 @@ export class GameplayService {
           playCount: 1,
         },
       },
-      { $sort: { uniqueCount: -1 } },
+      { $sort: sortObject },
       { $limit: Number(query.limit) },
     ]);
   }
