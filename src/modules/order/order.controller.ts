@@ -665,7 +665,7 @@ export class OrderController {
     );
   }
 
-  @Patch('/davinci/retailer-order-request/:orderId//status')
+  @Patch('/davinci/retailer-order-request/:orderId/status')
   updateDavinciRetailerOrderRequestStatus(
     @Param('orderId') orderId: string,
     @Body()
