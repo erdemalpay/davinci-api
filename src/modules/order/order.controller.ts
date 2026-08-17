@@ -37,6 +37,7 @@ import {
   OrderQueryDto,
   RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
+  UpdateRetailerOrderRequestStatusBySlugsDto,
   UpdateRetailerOrderRequestStatusDto,
 } from './order.dto';
 import { Order } from './order.schema';
@@ -657,9 +658,9 @@ export class OrderController {
   updateRetailerOrderRequestStatus(
     @Param('orderId') orderId: string,
     @Body()
-    updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusDto,
+    updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusBySlugsDto,
   ) {
-    return this.orderService.updateRetailerOrderRequestStatus(
+    return this.orderService.updateRetailerOrderRequestStatusBySlugs(
       orderId,
       updateRetailerOrderRequestStatusDto,
     );

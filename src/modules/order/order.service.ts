@@ -61,6 +61,7 @@ import {
   RetailerOrderRequestsQueryDto,
   RetailerOrdersQueryDto,
   SummaryCollectionQueryDto,
+  UpdateRetailerOrderRequestStatusBySlugsDto,
   UpdateRetailerOrderRequestStatusDto,
 } from './order.dto';
 import { Order } from './order.schema';
@@ -4789,6 +4790,44 @@ export class OrderService {
       throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
     }
 
+    return this.updateRetailerOrderRequestStatusForRetailer(
+      orderId,
+      updateRetailerOrderRequestStatusDto.status,
+      retailer,
+      true,
+    );
+  }
+
+  async updateRetailerOrderRequestStatusBySlugs(
+    orderId: string,
+    updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusBySlugsDto,
+  ) {
+    const retailer = await this.retailerModel
+      .findOne({
+        tenantSlug: updateRetailerOrderRequestStatusDto.tenantSlug,
+        projectSlug: updateRetailerOrderRequestStatusDto.projectSlug,
+      })
+      .lean()
+      .exec();
+
+    if (!retailer) {
+      throw new HttpException('Retailer not found', HttpStatus.NOT_FOUND);
+    }
+
+    return this.updateRetailerOrderRequestStatusForRetailer(
+      orderId,
+      updateRetailerOrderRequestStatusDto.status,
+      retailer,
+      false,
+    );
+  }
+
+  private async updateRetailerOrderRequestStatusForRetailer(
+    orderId: string,
+    status: string,
+    retailer,
+    syncInDeliveryToRetailer: boolean,
+  ) {
     try {
       const retailerOrderRequest = await this.retailerOrderRequestModel
         .findOneAndUpdate(
@@ -4796,7 +4835,7 @@ export class OrderService {
             retailerId: retailer._id,
             orderId,
           },
-          { status: updateRetailerOrderRequestStatusDto.status },
+          { status },
           { new: true },
         )
         .lean()
@@ -4809,7 +4848,7 @@ export class OrderService {
         );
       }
 
-      if (updateRetailerOrderRequestStatusDto.status === 'indelivery') {
+      if (syncInDeliveryToRetailer && status === 'indelivery') {
         await this.markDavinciOrderInDelivery(
           retailer.tenantSlug,
           retailer.projectSlug,
