@@ -200,6 +200,43 @@ describe('OrderService retailer order requests', () => {
     expect(result).toEqual(updatedRetailerOrderRequest);
   });
 
+  it('updates retailer order request status for the retailer matching tenant and project slugs', async () => {
+    const updatedRetailerOrderRequest = {
+      _id: 11,
+      retailerId: 7,
+      orderId: '6a56e69f5e4bc5139a37506c',
+      status: 'approved',
+    };
+    const { service, retailerModel, retailerOrderRequestModel } =
+      createService({
+        retailer: { _id: 7 },
+        updatedRetailerOrderRequest,
+      });
+
+    const result = await service.updateRetailerOrderRequestStatusBySlugs(
+      '6a56e69f5e4bc5139a37506c',
+      {
+        tenantSlug: 'tenant-a',
+        projectSlug: 'project-a',
+        status: 'approved',
+      },
+    );
+
+    expect(retailerModel.findOne).toHaveBeenCalledWith({
+      tenantSlug: 'tenant-a',
+      projectSlug: 'project-a',
+    });
+    expect(retailerOrderRequestModel.findOneAndUpdate).toHaveBeenCalledWith(
+      {
+        retailerId: 7,
+        orderId: '6a56e69f5e4bc5139a37506c',
+      },
+      { status: 'approved' },
+      { new: true },
+    );
+    expect(result).toEqual(updatedRetailerOrderRequest);
+  });
+
   it('throws not found when updating a missing retailer order request', async () => {
     const { service } = createService({
       retailer: { _id: 7 },
