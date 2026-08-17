@@ -1,5 +1,5 @@
-import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
+import { InjectQueue } from '@nestjs/bull';
 import {
   forwardRef,
   HttpException,
@@ -4779,6 +4779,7 @@ export class OrderService {
     orderId: string,
     updateRetailerOrderRequestStatusDto: UpdateRetailerOrderRequestStatusDto,
   ) {
+    console.log(updateRetailerOrderRequestStatusDto);
     const retailer = await this.retailerModel
       .findOne({ _id: updateRetailerOrderRequestStatusDto.retailerId })
       .lean()
@@ -5835,7 +5836,10 @@ export class OrderService {
   // satıra kopyalamak üzere aynı siparişin müşterisi dolu satırını döner.
   findShopifyOrderWithCustomer(shopifyOrderId: string) {
     return this.orderModel
-      .findOne({ shopifyOrderId, shopifyCustomer: { $exists: true, $ne: null } })
+      .findOne({
+        shopifyOrderId,
+        shopifyCustomer: { $exists: true, $ne: null },
+      })
       .exec();
   }
 
