@@ -69,7 +69,8 @@ export class MenuController {
 
   @Public()
   @Get('/items')
-  getUndeletedItems() {
+  async getUndeletedItems() {
+    await this.menuService.syncCampaignItemsForToday();
     return this.menuService.findAllUndeletedItems();
   }
 

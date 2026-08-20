@@ -13,6 +13,7 @@ import { usernamify } from 'src/utils/usernamify';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { TriggerType } from '../customer-popup/customer-popup.schema';
 import { CustomerPopupService } from '../customer-popup/customer-popup.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -173,6 +174,97 @@ export class MenuService {
         error,
       );
     }
+  }
+
+  // A campaign record is a popup-selected item with no matchedProduct: a bundle
+  // rather than a product of its own. It is open only on its popup's days.
+  async syncCampaignItemsForToday() {
+    try {
+      const popups = (await this.customerPopupService.findAll()).filter(
+        (popup) => popup.selectedMenuItems?.length && popup.locations?.length,
+      );
+      if (popups.length === 0) return;
+
+      const campaignItems = await this.itemModel.find({
+        _id: {
+          $in: [...new Set(popups.flatMap((p) => p.selectedMenuItems))],
+        },
+        deleted: { $ne: true },
+        matchedProduct: { $in: [null, ''] },
+      });
+      if (campaignItems.length === 0) return;
+
+      const now = new Date();
+      const todayWeekday = now.getDay() === 0 ? 7 : now.getDay();
+      const todayDDMM = `${String(now.getDate()).padStart(2, '0')}-${String(
+        now.getMonth() + 1,
+      ).padStart(2, '0')}`;
+
+      // Decide first, apply once: an item is open when *any* popup covers today.
+      const managedLocations = new Map<number, Set<number>>();
+      const campaignDayLocations = new Map<number, Set<number>>();
+      for (const popup of popups) {
+        const isCampaignDay =
+          popup.triggerType === TriggerType.SPECIAL_DAY
+            ? popup.specialDate === todayDDMM
+            : popup.periodicDays?.includes(todayWeekday);
+
+        for (const itemId of popup.selectedMenuItems) {
+          if (!managedLocations.has(itemId)) {
+            managedLocations.set(itemId, new Set());
+            campaignDayLocations.set(itemId, new Set());
+          }
+          for (const locationId of popup.locations) {
+            managedLocations.get(itemId).add(locationId);
+            if (isCampaignDay) {
+              campaignDayLocations.get(itemId).add(locationId);
+            }
+          }
+        }
+      }
+
+      for (const item of campaignItems) {
+        const managed = managedLocations.get(item._id);
+        if (!managed) continue;
+        const openToday = campaignDayLocations.get(item._id);
+
+        for (const locationId of managed) {
+          const isOpen = item.locations.includes(locationId);
+          const shouldBeOpen = openToday.has(locationId);
+
+          if (!shouldBeOpen && isOpen) {
+            await this.closeItemLocation(item._id, locationId);
+          } else if (
+            shouldBeOpen &&
+            !isOpen &&
+            (await this.isCampaignItemInStock(item, locationId))
+          ) {
+            await this.openItemLocation(item._id, locationId);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to sync campaign items for today:', error);
+    }
+  }
+
+  private async isCampaignItemInStock(
+    item: MenuItem,
+    locationId: number,
+  ): Promise<boolean> {
+    const productIds = (item.itemProduction ?? []).map((p) => p.product);
+    if (productIds.length === 0) return true;
+    const location = await this.locationService.findLocationById(locationId);
+    for (const productId of productIds) {
+      const stocks = await this.accountingService.findProductStock(productId);
+      const ownStock =
+        stocks.find((s) => s.location === locationId)?.quantity ?? 0;
+      const fallbackStock =
+        stocks.find((s) => s.location === location?.fallbackStockLocation)
+          ?.quantity ?? 0;
+      if (ownStock <= 0 && fallbackStock <= 0) return false;
+    }
+    return true;
   }
 
   private async areSelectedItemsAvailable(
@@ -1945,14 +2037,22 @@ export class MenuService {
     changedLocationId: number,
     isOpen: boolean,
   ) {
-    const item = await this.itemModel.findOne({
+    const items = await this.itemModel.find({
       matchedProduct: productId,
     });
-    if (!item) {
-      return;
+    // matchedProduct is a 1:1 identity, so campaign records track stock through
+    // their itemProduction list instead.
+    const popupItemIds =
+      await this.customerPopupService.findAutoClosedSelectedItemIds();
+    if (popupItemIds.length > 0) {
+      const popupItems = await this.itemModel.find({
+        _id: { $in: popupItemIds, $nin: items.map((i) => i._id) },
+        deleted: { $ne: true },
+        'itemProduction.product': productId,
+      });
+      items.push(...popupItems);
     }
-    const category = await this.findCategoryById(item.category as number);
-    if (!category?.disableWhenOutOfStock) {
+    if (items.length === 0) {
       return;
     }
 
@@ -1966,29 +2066,36 @@ export class MenuService {
         loc.fallbackStockLocation === changedLocationId,
     );
 
-    const locationsToOpen: number[] = [];
-    const locationsToClose: number[] = [];
-
-    for (const loc of locationsToCheck) {
-      if (!category.locations.includes(loc._id)) continue;
-
-      const ownStock = stockMap.get(loc._id) ?? 0;
-      const fallbackStock = stockMap.get(loc.fallbackStockLocation) ?? 0;
-      const shouldBeOpen = ownStock > 0 || fallbackStock > 0;
-      const isCurrentlyOpen = item.locations.includes(loc._id);
-
-      if (shouldBeOpen && !isCurrentlyOpen) {
-        locationsToOpen.push(loc._id);
-      } else if (!shouldBeOpen && isCurrentlyOpen) {
-        locationsToClose.push(loc._id);
+    for (const item of items) {
+      const category = await this.findCategoryById(item.category as number);
+      if (!category?.disableWhenOutOfStock) {
+        continue;
       }
-    }
 
-    for (const locationId of locationsToOpen) {
-      await this.openItemLocation(item._id, locationId);
-    }
-    for (const locationId of locationsToClose) {
-      await this.closeItemLocation(item._id, locationId);
+      const locationsToOpen: number[] = [];
+      const locationsToClose: number[] = [];
+
+      for (const loc of locationsToCheck) {
+        if (!category.locations.includes(loc._id)) continue;
+
+        const ownStock = stockMap.get(loc._id) ?? 0;
+        const fallbackStock = stockMap.get(loc.fallbackStockLocation) ?? 0;
+        const shouldBeOpen = ownStock > 0 || fallbackStock > 0;
+        const isCurrentlyOpen = item.locations.includes(loc._id);
+
+        if (shouldBeOpen && !isCurrentlyOpen) {
+          locationsToOpen.push(loc._id);
+        } else if (!shouldBeOpen && isCurrentlyOpen) {
+          locationsToClose.push(loc._id);
+        }
+      }
+
+      for (const locationId of locationsToOpen) {
+        await this.openItemLocation(item._id, locationId);
+      }
+      for (const locationId of locationsToClose) {
+        await this.closeItemLocation(item._id, locationId);
+      }
     }
   }
 }
