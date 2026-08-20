@@ -1,0 +1,18 @@
+{
+  "db": {
+    "port": "27017",
+    "host": "davinci-db-franchise1",
+    "name": "davinci-franchise1"
+  },
+  "redis": {
+    "port": "6379",
+    "host": "davinci-redis-franchise1"
+  },
+  "app": {
+    "port": 4000
+  },
+  "panel": {
+    "host": "http://localhost:3000"
+  },
+  "migrationEnabled": false
+}
