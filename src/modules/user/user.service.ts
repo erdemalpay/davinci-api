@@ -14,6 +14,7 @@ import {
   AssignmentTypeEnum,
 } from '../assignment/assignment.dto';
 import { AssignmentService } from '../assignment/assignment.service';
+import { Game } from '../game/game.schema';
 import { GameService } from '../game/game.service';
 import { GameplayService } from '../gameplay/gameplay.service';
 import { RedisKeys } from '../redis/redis.dto';
@@ -231,7 +232,9 @@ export class UserService implements OnModuleInit {
       await this.activityService.addActivity(
         userDoc,
         ActivityType.GAME_LEARNED_ADD,
-        gameExists,
+        { addedBy: user._id, ...gameExists.toObject() } as Game & {
+          addedBy?: string;
+        },
       );
     }
 
@@ -242,6 +245,19 @@ export class UserService implements OnModuleInit {
         completedAt: new Date(),
       },
     );
+
+    this.activityService
+      .addActivity(
+        user,
+        ActivityType.COMPLETE_GAME_ASSIGNMENT,
+        updatedAssignment,
+      )
+      .catch((error) => {
+        console.error(
+          'Failed to add complete game assignment activity:',
+          error,
+        );
+      });
 
     this.websocketGateway.emitUserChanged();
 

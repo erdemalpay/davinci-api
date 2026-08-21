@@ -5,6 +5,7 @@ import { PaymentMethod } from '../accounting/paymentMethod.schema';
 import { Product } from '../accounting/product.schema';
 import { Stock } from '../accounting/stock.schema';
 import { Count } from '../accounting/count.schema';
+import { Assignment } from '../assignment/assignment.schema';
 import { Authorization } from '../authorization/authorization.schema';
 import { Break } from '../break/break.schema';
 import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
@@ -111,6 +112,11 @@ export enum ActivityType {
   CLOSE_BUTTONCALL = 'CLOSE_BUTTONCALL',
   CREATE_CHECK = 'CREATE_CHECK',
   COMPLETE_CHECK = 'COMPLETE_CHECK',
+  CREATE_GAME_ASSIGNMENT = 'CREATE_GAME_ASSIGNMENT',
+  UPDATE_GAME_ASSIGNMENT = 'UPDATE_GAME_ASSIGNMENT',
+  DELETE_GAME_ASSIGNMENT = 'DELETE_GAME_ASSIGNMENT',
+  COMPLETE_GAME_ASSIGNMENT = 'COMPLETE_GAME_ASSIGNMENT',
+  UNCOMPLETE_GAME_ASSIGNMENT = 'UNCOMPLETE_GAME_ASSIGNMENT',
 }
 
 export type ActivityTypePayload = {
@@ -174,7 +180,7 @@ export type ActivityTypePayload = {
   [ActivityType.PREPARE_ORDER]: Order;
   [ActivityType.DELIVER_ORDER]: Order;
   [ActivityType.TAKE_PAYMENT]: Collection;
-  [ActivityType.GAME_LEARNED_ADD]: Game;
+  [ActivityType.GAME_LEARNED_ADD]: Game & { addedBy?: string };
   [ActivityType.GAME_LEARNED_REMOVE]: Game;
   [ActivityType.UPDATE_MENU_ITEM]: {
     currentMenuItem: MenuItem;
@@ -240,6 +246,14 @@ export type ActivityTypePayload = {
   [ActivityType.CLOSE_BUTTONCALL]: ButtonCall;
   [ActivityType.CREATE_CHECK]: Check;
   [ActivityType.COMPLETE_CHECK]: Check;
+  [ActivityType.CREATE_GAME_ASSIGNMENT]: Assignment;
+  [ActivityType.UPDATE_GAME_ASSIGNMENT]: {
+    currentAssignment: Assignment;
+    newAssignment: Assignment;
+  };
+  [ActivityType.DELETE_GAME_ASSIGNMENT]: Assignment;
+  [ActivityType.COMPLETE_GAME_ASSIGNMENT]: Assignment;
+  [ActivityType.UNCOMPLETE_GAME_ASSIGNMENT]: Assignment;
 };
 
 export class ActivityQueryDto {

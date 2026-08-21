@@ -9,6 +9,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ReqUser } from '../user/user.decorator';
+import { User } from '../user/user.schema';
 import {
   AssignmentQueryDto,
   CreateAssignmentDto,
@@ -33,9 +35,11 @@ export class AssignmentController {
   @Post('game')
   async createGameAssignments(
     @Body() createGameAssignmentDto: CreateGameAssignmentDto,
+    @ReqUser() user: User,
   ) {
     return this.assignmentService.createGameAssignments(
       createGameAssignmentDto,
+      user,
     );
   }
 
@@ -56,13 +60,18 @@ export class AssignmentController {
   async update(
     @Param('id') id: string,
     @Body() updateAssignmentDto: UpdateAssignmentDto,
+    @ReqUser() user: User,
   ) {
-    return this.assignmentService.updateAssignment(id, updateAssignmentDto);
+    return this.assignmentService.updateAssignment(
+      id,
+      updateAssignmentDto,
+      user,
+    );
   }
 
   @ApiResponse({ type: Assignment })
   @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return this.assignmentService.deleteAssignment(id);
+  async delete(@Param('id') id: string, @ReqUser() user: User) {
+    return this.assignmentService.deleteAssignment(id, user);
   }
 }

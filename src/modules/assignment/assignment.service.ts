@@ -1,6 +1,9 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
+import { ActivityType } from '../activity/activity.dto';
+import { ActivityService } from '../activity/activity.service';
+import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentPriorityEnum,
@@ -18,6 +21,7 @@ export class AssignmentService {
   constructor(
     @InjectModel(Assignment.name) private assignmentModel: Model<Assignment>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly activityService: ActivityService,
   ) {}
 
   private normalizeQueryValues(value?: string | string[]) {
@@ -66,6 +70,7 @@ export class AssignmentService {
 
   async createGameAssignments(
     createGameAssignmentDto: CreateGameAssignmentDto,
+    user?: User,
   ): Promise<Assignment[]> {
     const uniqueAssignedUsers = Array.from(
       new Set(
@@ -117,6 +122,17 @@ export class AssignmentService {
       });
 
       createdAssignments.push(assignment);
+
+      if (user) {
+        this.activityService
+          .addActivity(user, ActivityType.CREATE_GAME_ASSIGNMENT, assignment)
+          .catch((error) => {
+            console.error(
+              'Failed to add create game assignment activity:',
+              error,
+            );
+          });
+      }
     }
 
     this.websocketGateway.emitAssignmentChanged();
@@ -352,6 +368,7 @@ export class AssignmentService {
   async updateAssignment(
     id: string | number,
     updateAssignmentDto: UpdateAssignmentDto,
+    user?: User,
   ): Promise<Assignment> {
     const numericId = typeof id === 'string' ? Number(id) : id;
 
@@ -364,6 +381,8 @@ export class AssignmentService {
     if (!currentAssignment) {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
     }
+
+    const previousAssignment = currentAssignment.toObject() as Assignment;
 
     const assignment = await this.assignmentModel.findByIdAndUpdate(
       numericId,
@@ -390,6 +409,31 @@ export class AssignmentService {
 
     if (!assignment) {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (user) {
+      const isUncompleting =
+        previousAssignment.status === AssignmentStatusEnum.COMPLETED &&
+        updateAssignmentDto.status !== undefined &&
+        updateAssignmentDto.status !== AssignmentStatusEnum.COMPLETED;
+
+      (isUncompleting
+        ? this.activityService.addActivity(
+            user,
+            ActivityType.UNCOMPLETE_GAME_ASSIGNMENT,
+            assignment,
+          )
+        : this.activityService.addActivity(
+            user,
+            ActivityType.UPDATE_GAME_ASSIGNMENT,
+            {
+              currentAssignment: previousAssignment,
+              newAssignment: assignment,
+            },
+          )
+      ).catch((error) => {
+        console.error('Failed to add update game assignment activity:', error);
+      });
     }
 
     this.websocketGateway.emitAssignmentChanged();
@@ -420,7 +464,10 @@ export class AssignmentService {
     };
   }
 
-  async deleteAssignment(id: string | number): Promise<Assignment> {
+  async deleteAssignment(
+    id: string | number,
+    user?: User,
+  ): Promise<Assignment> {
     const numericId = typeof id === 'string' ? Number(id) : id;
 
     if (Number.isNaN(numericId)) {
@@ -438,6 +485,17 @@ export class AssignmentService {
     assignment.updatedAt = new Date();
 
     await assignment.save();
+
+    if (user) {
+      this.activityService
+        .addActivity(user, ActivityType.DELETE_GAME_ASSIGNMENT, assignment)
+        .catch((error) => {
+          console.error(
+            'Failed to add delete game assignment activity:',
+            error,
+          );
+        });
+    }
 
     this.websocketGateway.emitAssignmentChanged();
 
