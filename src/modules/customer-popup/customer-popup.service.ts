@@ -96,6 +96,16 @@ export class CustomerPopupService {
       .exec();
   }
 
+  async findAutoClosedSelectedItemIds(): Promise<number[]> {
+    const popups = await this.customerPopupModel
+      .find(
+        { isDeleted: { $ne: true }, isAutoClosedWhenOutOfStock: true },
+        { selectedMenuItems: 1 },
+      )
+      .lean();
+    return [...new Set(popups.flatMap((popup) => popup.selectedMenuItems ?? []))];
+  }
+
   async setActive(id: number, isActive: boolean) {
     const popup = await this.customerPopupModel
       .findByIdAndUpdate(id, { isActive }, { new: true })
