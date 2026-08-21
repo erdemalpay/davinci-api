@@ -21,6 +21,7 @@
   },
   "corsWhitelist": [
     "https://panel.davinciboardgame.com",
+    "https://rootcafe.davinciboardgame.com",
     "https://panel-demo.davinciboardgame.com",
     "https://staging-panel.davinciboardgame.com/",
     "http://localhost:3000",
