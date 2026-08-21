@@ -34,7 +34,11 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 davinci-data
+davinci-franchise1-data
 
 .env
 config
+!config/
+config/*
+!config/franchise1.json
 config/development.json

@@ -5,11 +5,13 @@ name: Node.js CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, franchise1]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_ENV: ${{ github.ref_name == 'franchise1' && 'franchise1' || 'staging' }}
 
     strategy:
       matrix:
@@ -136,13 +138,18 @@ jobs:
       - name: Rsync files
         run: |
           rsync -avz --delete -r -e "ssh -i ~/.ssh/id_rsa" \
-            ./dist ./config .env Dockerfile.production Dockerfile.staging docker-compose.yml yarn.lock package.json \
+            ./dist ./config .env Dockerfile.production Dockerfile.staging Dockerfile.franchise1 docker-compose.yml yarn.lock package.json \
             ${{ secrets.USERNAME }}@${{ secrets.HOST }}:app
 
-      - name: Run deploy command (staging, without touching Mongo)
+      - name: Run deploy command
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
-          "set -e; cd app; \
-          sudo docker compose up -d davinci-redis-staging; \
-          sudo docker compose up -d --build davinci-api-staging; \
+            "set -e; cd app; \
+          if [ '${DEPLOY_ENV}' = 'franchise1' ]; then \
+            sudo docker compose up -d mongo-franchise1 davinci-redis-franchise1; \
+            sudo docker compose up mongo-franchise1-init-replica; \
+          else \
+            sudo docker compose up -d davinci-redis-staging; \
+          fi; \
+          sudo docker compose up -d --build davinci-api-${DEPLOY_ENV}; \
           sudo docker system prune -af || true"
