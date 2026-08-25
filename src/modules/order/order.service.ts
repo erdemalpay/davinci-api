@@ -2226,6 +2226,7 @@ export class OrderService {
     user: User,
     shopifyOrderLineItemId: string,
     quantity: number,
+    restock = true,
   ) {
     const session = await this.conn.startSession();
 
@@ -2482,7 +2483,7 @@ export class OrderService {
         }
 
         // Restore stock (outside transaction - side effect after commit)
-        if (isPopulatedMenuItem(postCommitData.populatedItem)) {
+        if (restock && isPopulatedMenuItem(postCommitData.populatedItem)) {
           for (const ingredient of postCommitData.populatedItem
             .itemProduction) {
             if (ingredient?.isDecrementStock) {
@@ -2507,6 +2508,112 @@ export class OrderService {
       }
       throw new HttpException(
         'Failed to cancel order',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async refundShopifyOrderLine(
+    user: User,
+    shopifyOrderLineItemId: string,
+    refundAmount: number,
+    refundId?: string,
+  ) {
+    const session = await this.conn.startSession();
+
+    let postCommitData: {
+      refundedOrder: Order;
+      collectionsToEmit: Collection[];
+    } | null = null;
+
+    try {
+      await session.withTransaction(async () => {
+        const order = await this.orderModel.findOne(
+          { shopifyOrderLineItemId },
+          null,
+          { session },
+        );
+
+        if (!order) {
+          throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+        }
+
+        if (refundId && order.shopifyRefundIds?.includes(refundId)) {
+          this.logger.warn(
+            `Shopify refund ${refundId} already processed for line item ${shopifyOrderLineItemId}, skipping duplicate webhook`,
+          );
+          return;
+        }
+
+        const lineTotal = order.unitPrice * order.quantity;
+        const alreadyRefunded = order.refundAmount ?? 0;
+        const newRefundTotal = Math.min(
+          alreadyRefunded + refundAmount,
+          lineTotal,
+        );
+
+        const refundedOrder = await this.orderModel.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              refundAmount: newRefundTotal,
+              refundNote: `Shopify kısmi para iadesi${
+                refundId ? ` (Refund ${refundId})` : ''
+              }`,
+            },
+            ...(refundId && { $addToSet: { shopifyRefundIds: refundId } }),
+          },
+          { new: true, session },
+        );
+
+        const appliedAmount = newRefundTotal - alreadyRefunded;
+        const collectionsToEmit: Collection[] = [];
+
+        if (appliedAmount > 0) {
+          const collection = await this.collectionModel.findOne(
+            {
+              'orders.order': order._id,
+              status: { $ne: OrderCollectionStatus.CANCELLED },
+            },
+            null,
+            { session },
+          );
+
+          if (collection) {
+            const updatedCollection =
+              await this.collectionModel.findByIdAndUpdate(
+                collection._id,
+                { $inc: { amount: -appliedAmount } },
+                { new: true, session },
+              );
+            collectionsToEmit.push(updatedCollection);
+          }
+        }
+
+        postCommitData = { refundedOrder, collectionsToEmit };
+      });
+
+      if (postCommitData) {
+        const { refundedOrder, collectionsToEmit } = postCommitData;
+
+        this.websocketGateway.emitOrderUpdated([refundedOrder]);
+        for (const col of collectionsToEmit) {
+          this.websocketGateway.emitCollectionChanged(col);
+        }
+
+        return refundedOrder;
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error('Error refunding shopify order line:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to refund order line',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
@@ -3215,23 +3322,28 @@ export class OrderService {
               $subtract: [
                 { $multiply: ['$paidQuantity', '$unitPrice'] },
                 {
-                  $cond: {
-                    if: '$discountPercentage',
-                    then: {
-                      $multiply: [
-                        '$discountPercentage',
-                        '$paidQuantity',
-                        '$unitPrice',
-                        0.01,
-                      ],
+                  $add: [
+                    {
+                      $cond: {
+                        if: '$discountPercentage',
+                        then: {
+                          $multiply: [
+                            '$discountPercentage',
+                            '$paidQuantity',
+                            '$unitPrice',
+                            0.01,
+                          ],
+                        },
+                        else: {
+                          $multiply: [
+                            { $ifNull: ['$discountAmount', 0] },
+                            '$paidQuantity',
+                          ],
+                        },
+                      },
                     },
-                    else: {
-                      $multiply: [
-                        { $ifNull: ['$discountAmount', 0] },
-                        '$paidQuantity',
-                      ],
-                    },
-                  },
+                    { $ifNull: ['$refundAmount', 0] },
+                  ],
                 },
               ],
             },
@@ -6394,6 +6506,7 @@ export class OrderService {
                     100,
                   ],
                 },
+                { $ifNull: ['$refundAmount', 0] },
               ],
             },
           ],
