@@ -106,6 +106,7 @@ export enum ActivityType {
   DELETE_SHIFT = 'DELETE_SHIFT',
   ASSIGN_CHEF = 'ASSIGN_CHEF',
   ASSIGN_MIDDLEMAN = 'ASSIGN_MIDDLEMAN',
+  ASSIGN_OUTSIDE_OPERATION = 'ASSIGN_OUTSIDE_OPERATION',
   TRANSFER_TABLE = 'TRANSFER_TABLE',
   COMBINE_TABLE = 'COMBINE_TABLE',
   COMPLETE_COUNT = 'COMPLETE_COUNT',
@@ -239,6 +240,13 @@ export type ActivityTypePayload = {
     shift: string;
     previousMiddlemanUserId: string;
     middlemanUserId: string;
+  };
+  [ActivityType.ASSIGN_OUTSIDE_OPERATION]: {
+    day: string;
+    location: number;
+    shift: string;
+    previousOutsideOperationUserIds: string[];
+    outsideOperationUserIds: string[];
   };
   [ActivityType.TRANSFER_TABLE]: { oldTable: Table; newTable: Table };
   [ActivityType.COMBINE_TABLE]: { oldTable: Table; targetTable: Table };

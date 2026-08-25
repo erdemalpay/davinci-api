@@ -63,6 +63,7 @@ import {
   UpdateOrderDiscountDto,
   UpdateProductDiscountDto,
 } from './shopify.dto';
+import { planRefundActions } from './shopify.refund-plan';
 
 const NEORAMA_DEPO_LOCATION = 6;
 
@@ -2926,28 +2927,7 @@ export class ShopifyService {
 
       this.logger.log('Received Shopify cancel webhook data:', data);
 
-      // Shopify iki farklı formatta veri gönderir:
-      // 1) Order objesi (orders/cancelled): data.refunds[].refund_line_items
-      // 2) Refund objesi (orders/refunds/create): data.refund_line_items root'ta, data.order_id var
-      const isRefundObject =
-        !data?.refunds && Array.isArray(data?.refund_line_items);
-
-      // Tüm işlenecek refund line item'larını tek bir flat listeye topla
-      let allRefundLineItems: any[] = [];
-
-      if (isRefundObject) {
-        // orders/refunds/create formatı
-        this.logger.log(
-          'Detected refund object format (orders/refunds/create)',
-        );
-        allRefundLineItems = data.refund_line_items ?? [];
-      } else {
-        // orders/cancelled formatı — refunds array içinde
-        const refunds: any[] = data?.refunds ?? [];
-        for (const refund of refunds) {
-          allRefundLineItems.push(...(refund?.refund_line_items ?? []));
-        }
-      }
+      const actions = planRefundActions(data);
 
       const constantUser = await this.userService.findByIdWithoutPopulate('dv');
 
@@ -2958,42 +2938,40 @@ export class ShopifyService {
         );
       }
 
-      if (allRefundLineItems.length === 0) {
+      if (actions.length === 0) {
         this.logger.log('No refund line items to process');
         return;
       }
 
-      // Process each refund line item.
       // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
+      let refundsProcessed = 0;
 
-      for (const refundLineItem of allRefundLineItems) {
+      for (const action of actions) {
         try {
-          const lineItemId = refundLineItem?.line_item_id?.toString();
-          const quantity = refundLineItem?.quantity ?? 0;
-
-          if (!lineItemId) {
-            this.logger.warn(
-              'Invalid refund line item data: missing line_item_id',
-              JSON.stringify(refundLineItem),
+          if (action.type === 'cancel') {
+            this.logger.log(
+              `Cancelling line item ${action.lineItemId} (restock: ${action.restock})`,
             );
-            continue;
-          }
-
-          if (quantity <= 0) {
-            this.logger.warn(
-              `Invalid quantity for line item ${lineItemId}: ${quantity}`,
+            await this.orderService.cancelShopifyOrder(
+              constantUser,
+              action.lineItemId,
+              action.quantity,
+              action.restock,
             );
-            continue;
+            cancellationsProcessed++;
+          } else {
+            this.logger.log(
+              `Partial refund for line item ${action.lineItemId}: ${action.refundAmount}`,
+            );
+            await this.orderService.refundShopifyOrderLine(
+              constantUser,
+              action.lineItemId,
+              action.refundAmount,
+              action.refundId,
+            );
+            refundsProcessed++;
           }
-
-          await this.orderService.cancelShopifyOrder(
-            constantUser,
-            lineItemId,
-            quantity,
-          );
-
-          cancellationsProcessed++;
         } catch (itemError) {
           this.logError('Error processing refund line item', itemError);
         }
@@ -3003,6 +2981,7 @@ export class ShopifyService {
       const response = {
         success: true,
         cancellationsProcessed,
+        refundsProcessed,
       };
 
       if (webhookLog) {
