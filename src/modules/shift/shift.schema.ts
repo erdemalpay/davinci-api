@@ -20,6 +20,13 @@ export class ShiftValues {
   @Prop({ required: false, type: String, ref: User.name })
   middlemanUser: string;
 
+  @Prop({
+    required: false,
+    type: [{ type: String, ref: User.name }],
+    default: [],
+  })
+  outsideOperationUsers: string[];
+
   @Prop({ required: false, type: Boolean })
   notInAverage: boolean;
 }

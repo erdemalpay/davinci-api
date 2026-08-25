@@ -181,6 +181,15 @@ export class Order extends Document {
   discountNote?: string;
 
   @Prop({ required: false, type: Number })
+  refundAmount?: number;
+
+  @Prop({ required: false, type: String })
+  refundNote?: string;
+
+  @Prop({ required: false, type: [String] })
+  shopifyRefundIds?: string[];
+
+  @Prop({ required: false, type: Number })
   division?: number;
 
   @Prop({ required: false, type: Boolean })

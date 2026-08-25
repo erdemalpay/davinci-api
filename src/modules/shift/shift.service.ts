@@ -21,6 +21,11 @@ type ShiftDiff = {
     previousMiddlemanUserId: string;
     middlemanUserId: string;
   }[];
+  outsideOperationChanges: {
+    shift: string;
+    previousOutsideOperationUserIds: string[];
+    outsideOperationUserIds: string[];
+  }[];
   hasUserChanges: boolean;
 };
 
@@ -39,6 +44,7 @@ export class ShiftService {
   ): ShiftDiff {
     const chefChanges: ShiftDiff['chefChanges'] = [];
     const middlemanChanges: ShiftDiff['middlemanChanges'] = [];
+    const outsideOperationChanges: ShiftDiff['outsideOperationChanges'] = [];
     let hasUserChanges = false;
 
     for (const newVal of newShifts) {
@@ -67,12 +73,37 @@ export class ShiftService {
         });
       }
 
+      const previousOutsideOperationUserIds =
+        prevVal?.outsideOperationUsers ?? [];
+      const outsideOperationUserIds = newVal?.outsideOperationUsers ?? [];
+      const previousOutsideOperationUsersSorted =
+        previousOutsideOperationUserIds
+          .slice()
+          .sort((a, b) => a.localeCompare(b))
+          .join(',');
+      const outsideOperationUsersSorted = outsideOperationUserIds
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .join(',');
+      if (previousOutsideOperationUsersSorted !== outsideOperationUsersSorted) {
+        outsideOperationChanges.push({
+          shift: newVal.shift,
+          previousOutsideOperationUserIds,
+          outsideOperationUserIds,
+        });
+      }
+
       const prevUsersSorted = prevUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
       const newUsersSorted = newUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
       if (prevUsersSorted !== newUsersSorted) hasUserChanges = true;
     }
 
-    return { chefChanges, middlemanChanges, hasUserChanges };
+    return {
+      chefChanges,
+      middlemanChanges,
+      outsideOperationChanges,
+      hasUserChanges,
+    };
   }
 
   async createShift(user: User, createShiftDto: CreateShiftDto) {
@@ -138,10 +169,12 @@ export class ShiftService {
 
     const prevShifts: ShiftValues[] = previousShift?.shifts ?? [];
     const newShifts: ShiftValues[] = (updates.shifts ?? []) as ShiftValues[];
-    const { chefChanges, middlemanChanges, hasUserChanges } = this.diffShifts(
-      prevShifts,
-      newShifts,
-    );
+    const {
+      chefChanges,
+      middlemanChanges,
+      outsideOperationChanges,
+      hasUserChanges,
+    } = this.diffShifts(prevShifts, newShifts);
 
     const base = { day: updatedShift.day, location: updatedShift.location };
 
@@ -164,6 +197,19 @@ export class ShiftService {
               shift: c.shift,
               previousMiddlemanUserId: c.previousMiddlemanUserId,
               middlemanUserId: c.middlemanUserId,
+            },
+          ),
+        ),
+        ...outsideOperationChanges.map((c) =>
+          this.activityService.addActivity(
+            user,
+            ActivityType.ASSIGN_OUTSIDE_OPERATION,
+            {
+              ...base,
+              shift: c.shift,
+              previousOutsideOperationUserIds:
+                c.previousOutsideOperationUserIds,
+              outsideOperationUserIds: c.outsideOperationUserIds,
             },
           ),
         ),
@@ -480,7 +526,13 @@ export class ShiftService {
           { day, location },
           {
             $push: {
-              shifts: { shift, user: [userId], chefUser: '', shiftEndHour },
+              shifts: {
+                shift,
+                user: [userId],
+                chefUser: '',
+                outsideOperationUsers: [],
+                shiftEndHour,
+              },
             },
           },
           { upsert: true, new: true },
