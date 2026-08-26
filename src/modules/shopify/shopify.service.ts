@@ -2199,13 +2199,17 @@ export class ShopifyService {
         shopifyOrderId,
       );
 
-      const fulfillmentOrder = fulfillmentOrders.find(
-        (fo) => fo.status === 'OPEN',
+      const fulfillableOrders = fulfillmentOrders.filter((fo) =>
+        ['OPEN', 'IN_PROGRESS'].includes(fo.status),
       );
+      const fulfillmentOrder =
+        fulfillableOrders.find(
+          (fo) => fo.deliveryMethod?.methodType === 'PICK_UP',
+        ) ?? fulfillableOrders[0];
 
       if (!fulfillmentOrder) {
         throw new HttpException(
-          `No open fulfillment order found for Shopify order ${shopifyOrderId}`,
+          `No fulfillable fulfillment order found for Shopify order ${shopifyOrderId}`,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -2243,6 +2247,78 @@ export class ShopifyService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Mark a pickup order as ready for customer pickup
+   * Shopify sends the "Ready For Pickup" notification to the customer
+   */
+  async markPickupOrderReadyForPickup(shopifyOrderId: string): Promise<boolean> {
+    const mutation = `
+      mutation MarkReadyForPickup($input: FulfillmentOrderLineItemsPreparedForPickupInput!) {
+        fulfillmentOrderLineItemsPreparedForPickup(input: $input) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
+        shopifyOrderId,
+      );
+
+      const fulfillmentOrder = fulfillmentOrders.find(
+        (fo) =>
+          fo.status === 'OPEN' && fo.deliveryMethod?.methodType === 'PICK_UP',
+      );
+
+      if (!fulfillmentOrder) {
+        this.logger.log(
+          `No open pickup fulfillment order for Shopify order ${shopifyOrderId}, skipping ready for pickup`,
+        );
+        return false;
+      }
+
+      this.logger.log(
+        `Marking fulfillment order ${fulfillmentOrder.id} as ready for pickup`,
+      );
+
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            input: {
+              lineItemsByFulfillmentOrder: [
+                { fulfillmentOrderId: fulfillmentOrder.id },
+              ],
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(
+        response,
+        'data.fulfillmentOrderLineItemsPreparedForPickup.userErrors',
+      );
+
+      this.logger.log(
+        `Shopify order ${shopifyOrderId} marked as ready for pickup`,
+      );
+
+      return true;
+    } catch (error) {
+      this.logError(
+        `Error marking Shopify order ${shopifyOrderId} as ready for pickup`,
+        error,
+      );
+      throw new HttpException(
+        'Unable to mark order as ready for pickup in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -2327,6 +2403,9 @@ export class ShopifyService {
               node {
                 id
                 status
+                deliveryMethod {
+                  methodType
+                }
                 lineItems(first: 50) {
                   edges {
                     node {
