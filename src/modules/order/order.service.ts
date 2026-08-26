@@ -2014,6 +2014,7 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+      let shopifyWarning: string | undefined;
 
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
       if (
@@ -2067,8 +2068,35 @@ export class OrderService {
         }
       }
 
+      if (
+        updates.isShopifyPickUpOrderBrought === true &&
+        order.isShopifyPickUp &&
+        order.shopifyOrderId
+      ) {
+        const siblingOrders = await this.orderModel.find({
+          shopifyOrderId: order.shopifyOrderId,
+          status: { $ne: OrderStatus.CANCELLED },
+        });
+        const isWholeOrderBrought = siblingOrders.every(
+          (siblingOrder) => siblingOrder.isShopifyPickUpOrderBrought,
+        );
+        if (isWholeOrderBrought) {
+          try {
+            await this.shopifyService.markPickupOrderReadyForPickup(
+              order.shopifyOrderId,
+            );
+          } catch (readyForPickupError) {
+            this.logger.error(
+              `Failed to mark Shopify order ${order.shopifyOrderId} as ready for pickup:`,
+              readyForPickupError,
+            );
+            shopifyWarning = 'SHOPIFY_READY_FOR_PICKUP_FAILED';
+          }
+        }
+      }
+
       this.websocketGateway.emitOrderUpdated([order]);
-      return order;
+      return shopifyWarning ? { ...order.toObject(), shopifyWarning } : order;
     } catch (error) {
       throw new HttpException(
         'Failed to update order',
