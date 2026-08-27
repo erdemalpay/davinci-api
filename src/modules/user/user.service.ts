@@ -13,6 +13,7 @@ import {
   AssignmentStatusEnum,
   AssignmentTypeEnum,
 } from '../assignment/assignment.dto';
+import { Assignment } from '../assignment/assignment.schema';
 import { AssignmentService } from '../assignment/assignment.service';
 import { Game } from '../game/game.schema';
 import { GameService } from '../game/game.service';
@@ -117,6 +118,52 @@ export class UserService implements OnModuleInit {
     if (!gameExists) {
       throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
     }
+
+    const gameAssignment =
+      await this.assignmentService.findGameLearningAssignmentByUserAndGame(
+        user._id,
+        gameId,
+      );
+
+    if (gameAssignment) {
+      if (updateType === UserGameUpdateType.ADD) {
+        if (gameAssignment.status === AssignmentStatusEnum.COMPLETED) {
+          throw new HttpException('Game already added', HttpStatus.BAD_REQUEST);
+        }
+
+        if (gameAssignment.status !== AssignmentStatusEnum.IN_PROGRESS) {
+          await this.completeGameLearningTask(
+            user,
+            gameAssignment._id,
+            learnDate,
+            true,
+          );
+        }
+
+        return this.userModel.findById(user._id).populate('role');
+      }
+
+      if (updateType === UserGameUpdateType.REMOVE) {
+        if (gameAssignment.status === AssignmentStatusEnum.COMPLETED) {
+          throw new HttpException(
+            'Verified game cannot be removed',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (gameAssignment.status === AssignmentStatusEnum.IN_PROGRESS) {
+          await this.completeGameLearningTask(
+            user,
+            gameAssignment._id,
+            undefined,
+            false,
+          );
+
+          return this.userModel.findById(user._id).populate('role');
+        }
+      }
+    }
+
     let newUserGames = user.userGames;
     if (updateType === UserGameUpdateType.ADD) {
       const userGameToAdd = {
@@ -156,12 +203,7 @@ export class UserService implements OnModuleInit {
     return updateResult;
   }
 
-  async completeGameLearningTask(
-    user: User,
-    assignmentId: number,
-    learnDate?: string,
-  ) {
-    const assignment = await this.assignmentService.findById(assignmentId);
+  private assertGameLearningAssignment(assignment: Assignment) {
     if (!assignment) {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
     }
@@ -172,22 +214,9 @@ export class UserService implements OnModuleInit {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
 
-    const assignedToId =
-      typeof assignment.assignedTo === 'object' &&
-      assignment.assignedTo !== null
-        ? String((assignment.assignedTo as { _id?: string })._id ?? '')
-        : String(assignment.assignedTo);
-
-    const isAllowedToActOnBehalf = [
-      RoleEnum.MANAGER,
-      RoleEnum.GAMEMANAGER,
-    ].includes(user.role?._id as RoleEnum);
-
-    if (assignedToId !== user._id && !isAllowedToActOnBehalf) {
-      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
-    }
-
+  private getAssignmentGameId(assignment: Assignment): number {
     const gameId = Number(
       typeof assignment.subject?.entityId === 'number'
         ? assignment.subject.entityId
@@ -201,55 +230,63 @@ export class UserService implements OnModuleInit {
       );
     }
 
-    const userDoc = await this.userModel.findById(assignedToId);
-    if (!userDoc) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    return gameId;
+  }
+
+  private getAssignmentAssignedToId(assignment: Assignment): string {
+    return typeof assignment.assignedTo === 'object' &&
+      assignment.assignedTo !== null
+      ? String((assignment.assignedTo as { _id?: string })._id ?? '')
+      : String(assignment.assignedTo);
+  }
+
+  private isGameAssignmentVerifier(user: User): boolean {
+    return [RoleEnum.MANAGER, RoleEnum.GAMEMANAGER].includes(
+      user.role?._id as RoleEnum,
+    );
+  }
+
+  async completeGameLearningTask(
+    user: User,
+    assignmentId: number,
+    learnDate?: string,
+    isLearned = true,
+  ) {
+    const assignment = await this.assignmentService.findById(assignmentId);
+    this.assertGameLearningAssignment(assignment);
+
+    const assignedToId = this.getAssignmentAssignedToId(assignment);
+
+    if (assignedToId !== user._id && !this.isGameAssignmentVerifier(user)) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
-    const alreadyKnown = (userDoc.userGames ?? []).some(
-      (userGame) => userGame.game === gameId,
-    );
-
-    if (!alreadyKnown) {
-      const gameExists = await this.gameService.getGameById(gameId);
-      if (!gameExists) {
-        throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
-      }
-
-      userDoc.userGames = [
-        ...(userDoc.userGames ?? []),
-        {
-          game: gameId,
-          learnDate:
-            learnDate ??
-            assignment.completedAt?.toISOString()?.split('T')[0] ??
-            new Date().toISOString().split('T')[0],
-        },
-      ];
-
-      await userDoc.save();
-
-      await this.activityService.addActivity(
-        userDoc,
-        ActivityType.GAME_LEARNED_ADD,
-        { addedBy: user._id, ...gameExists.toObject() } as Game & {
-          addedBy?: string;
-        },
+    if (assignment.verifiedAt) {
+      throw new HttpException(
+        'Verified assignment cannot be reverted',
+        HttpStatus.BAD_REQUEST,
       );
     }
 
     const updatedAssignment = await this.assignmentService.updateAssignment(
       assignmentId,
-      {
-        status: AssignmentStatusEnum.COMPLETED,
-        completedAt: new Date(),
-      },
+      isLearned
+        ? {
+            learnedAt: learnDate ? new Date(learnDate) : new Date(),
+            status: AssignmentStatusEnum.IN_PROGRESS,
+          }
+        : {
+            learnedAt: null,
+            status: AssignmentStatusEnum.ASSIGNED,
+          },
     );
 
     this.activityService
       .addActivity(
         user,
-        ActivityType.COMPLETE_GAME_ASSIGNMENT,
+        isLearned
+          ? ActivityType.COMPLETE_GAME_ASSIGNMENT
+          : ActivityType.UNCOMPLETE_GAME_ASSIGNMENT,
         updatedAssignment,
       )
       .catch((error) => {
@@ -260,6 +297,111 @@ export class UserService implements OnModuleInit {
       });
 
     this.websocketGateway.emitUserChanged();
+    this.websocketGateway.emitAssignmentChanged();
+
+    return {
+      assignment: updatedAssignment,
+      user: await this.userModel.findById(assignedToId).populate('role'),
+    };
+  }
+
+  async verifyGameLearningTask(
+    user: User,
+    assignmentId: number,
+    isVerified = true,
+  ) {
+    const assignment = await this.assignmentService.findById(assignmentId);
+    this.assertGameLearningAssignment(assignment);
+
+    if (!this.isGameAssignmentVerifier(user)) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
+    const assignedToId = this.getAssignmentAssignedToId(assignment);
+    const gameId = this.getAssignmentGameId(assignment);
+
+    const userDoc = await this.userModel.findById(assignedToId);
+    if (!userDoc) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const gameExists = await this.gameService.getGameById(gameId);
+    if (!gameExists) {
+      throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (isVerified) {
+      if (!assignment.learnedAt) {
+        throw new HttpException(
+          'Assignment is not marked as learned yet',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const alreadyKnown = (userDoc.userGames ?? []).some(
+        (userGame) => userGame.game === gameId,
+      );
+
+      if (!alreadyKnown) {
+        userDoc.userGames = [
+          ...(userDoc.userGames ?? []),
+          {
+            game: gameId,
+            learnDate: assignment.learnedAt.toISOString().split('T')[0],
+          },
+        ];
+
+        await userDoc.save();
+
+        await this.activityService.addActivity(
+          userDoc,
+          ActivityType.GAME_LEARNED_ADD,
+          { addedBy: user._id, ...gameExists.toObject() } as Game & {
+            addedBy?: string;
+          },
+        );
+      }
+    } else {
+      userDoc.userGames = (userDoc.userGames ?? []).filter(
+        (userGame) => userGame.game !== gameId,
+      );
+
+      await userDoc.save();
+
+      await this.activityService.addActivity(
+        userDoc,
+        ActivityType.GAME_LEARNED_REMOVE,
+        gameExists,
+      );
+    }
+
+    const updatedAssignment = await this.assignmentService.updateAssignment(
+      assignmentId,
+      isVerified
+        ? {
+            verifiedAt: new Date(),
+            verifiedBy: user._id,
+            status: AssignmentStatusEnum.COMPLETED,
+          }
+        : {
+            verifiedAt: null,
+            verifiedBy: null,
+            status: AssignmentStatusEnum.IN_PROGRESS,
+          },
+    );
+
+    this.activityService
+      .addActivity(
+        user,
+        ActivityType.VERIFY_GAME_ASSIGNMENT,
+        updatedAssignment,
+      )
+      .catch((error) => {
+        console.error('Failed to add verify game assignment activity:', error);
+      });
+
+    this.websocketGateway.emitUserChanged();
+    this.websocketGateway.emitAssignmentChanged();
 
     return {
       assignment: updatedAssignment,

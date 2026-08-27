@@ -118,6 +118,7 @@ export enum ActivityType {
   DELETE_GAME_ASSIGNMENT = 'DELETE_GAME_ASSIGNMENT',
   COMPLETE_GAME_ASSIGNMENT = 'COMPLETE_GAME_ASSIGNMENT',
   UNCOMPLETE_GAME_ASSIGNMENT = 'UNCOMPLETE_GAME_ASSIGNMENT',
+  VERIFY_GAME_ASSIGNMENT = 'VERIFY_GAME_ASSIGNMENT',
 }
 
 export type ActivityTypePayload = {
@@ -262,6 +263,7 @@ export type ActivityTypePayload = {
   [ActivityType.DELETE_GAME_ASSIGNMENT]: Assignment;
   [ActivityType.COMPLETE_GAME_ASSIGNMENT]: Assignment;
   [ActivityType.UNCOMPLETE_GAME_ASSIGNMENT]: Assignment;
+  [ActivityType.VERIFY_GAME_ASSIGNMENT]: Assignment;
 };
 
 export class ActivityQueryDto {
