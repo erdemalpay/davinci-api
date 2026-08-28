@@ -58,7 +58,7 @@ export type PickupReadinessIO = {
   prepare(fulfillmentOrderId: string): Promise<void>;
 };
 
-const FULFILLABLE_STATUSES = ['OPEN', 'IN_PROGRESS'];
+const FULFILLABLE_STATUSES = new Set(['OPEN', 'IN_PROGRESS']);
 
 /**
  * getFulfillmentOrdersForOrder cevabını indirger. lineItemId çıplak sayıya
@@ -158,19 +158,19 @@ export async function executePickupReadiness(
     if (action.type === 'split-and-prepare') {
       await io.split(action.fulfillmentOrderId, action.splitLineItems);
 
-      const expected = [...action.expectedLineItemIds].sort();
-      const match = (await io.reload()).find((fo) => {
-        if (fo.status !== 'OPEN') return false;
-        const actual = fo.lineItems.map((li) => li.lineItemId).sort();
-        return (
-          actual.length === expected.length &&
-          actual.every((id, i) => id === expected[i])
-        );
-      });
+      const expected = new Set(action.expectedLineItemIds);
+      const match = (await io.reload()).find(
+        (fo) =>
+          fo.status === 'OPEN' &&
+          fo.lineItems.length === expected.size &&
+          fo.lineItems.every((li) => expected.has(li.lineItemId)),
+      );
 
       if (!match) {
         throw new Error(
-          `No fulfillment order matches [${expected.join(', ')}] after split`,
+          `No fulfillment order matches [${action.expectedLineItemIds.join(
+            ', ',
+          )}] after split`,
         );
       }
 
@@ -198,17 +198,15 @@ export function planPickupFulfillment(
   const picked = new Set(pickedLineItemIds);
 
   const fulfillable = fulfillmentOrders.filter((fo) =>
-    FULFILLABLE_STATUSES.includes(fo.status),
+    FULFILLABLE_STATUSES.has(fo.status),
   );
   const pickupOrders = fulfillable.filter((fo) => fo.methodType === 'PICK_UP');
 
   // Gel-al paketi yoksa eski davranış korunur, ama yalnızca tek aday varken.
-  const candidates =
-    pickupOrders.length > 0
-      ? pickupOrders
-      : fulfillable.length === 1
-      ? fulfillable
-      : [];
+  let candidates = pickupOrders;
+  if (pickupOrders.length === 0) {
+    candidates = fulfillable.length === 1 ? fulfillable : [];
+  }
 
   const matched = candidates.filter((fo) => {
     const remaining = fo.lineItems.filter((li) => li.remainingQuantity > 0);
