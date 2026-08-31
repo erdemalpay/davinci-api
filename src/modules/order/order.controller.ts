@@ -65,11 +65,6 @@ export class OrderController {
     return this.orderService.findQueryOrders(query);
   }
 
-  @Get('/item/:id/has-unshipped-pre-order')
-  hasUnshippedPreOrderForItem(@Param('id') id: number) {
-    return this.orderService.hasUnshippedOrdersForItem(id);
-  }
-
   @Get('/item/:id/platform-summary')
   getItemPlatformSummary(@Param('id') id: number) {
     return this.orderService.getItemPlatformSummary(id);

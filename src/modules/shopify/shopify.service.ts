@@ -2723,6 +2723,7 @@ export class ShopifyService {
               location: 6,
             },
             ...(isPickUp && { isShopifyPickUp: true }),
+            ...(foundMenuItem?.isPreOrder && { isPreOrder: true }),
             ...(shippingAddress && { shopifyShippingAddress: shippingAddress }),
             ...(isBillingAddressDifferent && {
               shopifyBillingAddress: billingAddress,
@@ -3338,6 +3339,7 @@ export class ShopifyService {
                   shopifyOrderNumber: siblingOrder.shopifyOrderNumber,
                 }),
                 ...(siblingOrder.isShopifyPickUp && { isShopifyPickUp: true }),
+                ...(foundMenuItem?.isPreOrder && { isPreOrder: true }),
                 ...(siblingOrder.shopifyShippingAddress && {
                   shopifyShippingAddress: siblingOrder.shopifyShippingAddress,
                 }),
