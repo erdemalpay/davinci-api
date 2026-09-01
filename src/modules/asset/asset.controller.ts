@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
 import { AssetService } from './asset.service';
@@ -22,6 +23,12 @@ export class AssetController {
   @Get('/folders')
   getAllFolders() {
     return this.assetService.getAllFolders();
+  }
+
+  @Public()
+  @Get('/screen-images')
+  getScreenImages() {
+    return this.assetService.getScreenImages();
   }
 
   @Get('/upload-logs')

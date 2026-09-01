@@ -28,6 +28,12 @@ export enum ButtonCallTypeEnum {
   ORDERCALL = 'ORDERCALL',
 }
 
+export enum ButtonCallActionEnum {
+  CREATE = 'create',
+  RECALL = 'recall',
+  CLOSE = 'close',
+}
+
 export class ButtonCallQueryDto {
   @IsOptional()
   @IsNumber()

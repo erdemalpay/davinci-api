@@ -5,6 +5,7 @@ import { MenuModule } from './../menu/menu.module';
 import { AssetController } from './asset.controller';
 import { AssetService } from './asset.service';
 import { UploadLog, UploadLogSchema } from './upload-log.schema';
+import { RedisModule } from '../redis/redis.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
@@ -14,6 +15,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
 @Module({
   imports: [
     WebSocketModule,
+    RedisModule,
     mongooseModule,
     forwardRef(() => MenuModule),
   ],

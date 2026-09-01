@@ -20,6 +20,7 @@ import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
+  ButtonCallActionEnum,
   ButtonCallQueryDto,
   ButtonCallTypeEnum,
   CreateButtonCallDto,
@@ -59,7 +60,10 @@ export class ButtonCallService {
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
       await existingButtonCall.save();
-      this.websocketGateway.emitButtonCallChanged();
+      this.websocketGateway.emitButtonCallChanged(
+        existingButtonCall,
+        ButtonCallActionEnum.RECALL,
+      );
       return existingButtonCall;
     }
 
@@ -71,7 +75,10 @@ export class ButtonCallService {
         startHour: createButtonCallDto.hour,
         ...(user && { createdBy: user._id }),
       });
-      this.websocketGateway.emitButtonCallChanged();
+      this.websocketGateway.emitButtonCallChanged(
+        createdButtonCall,
+        ButtonCallActionEnum.CREATE,
+      );
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -111,7 +118,10 @@ export class ButtonCallService {
 
     closedButtonCall.set(obj);
     await closedButtonCall.save();
-    this.websocketGateway.emitButtonCallChanged();
+    this.websocketGateway.emitButtonCallChanged(
+      closedButtonCall,
+      ButtonCallActionEnum.CLOSE,
+    );
     if (user) {
       this.activityService
         .addActivity(user, ActivityType.CLOSE_BUTTONCALL, closedButtonCall)
