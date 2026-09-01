@@ -35,7 +35,8 @@ export class AppWebSocketGateway {
     this.server.emit('activityChanged');
   }
 
-  emitAssetChanged() {
+  async emitAssetChanged() {
+    await this.redisService.reset(RedisKeys.ScreenImages);
     this.server.emit('assetChanged');
   }
 
@@ -349,11 +350,6 @@ export class AppWebSocketGateway {
 
   emitRetailerChanged() {
     this.server.emit('retailerChanged');
-  }
-
-  async emitScreenImagesChanged() {
-    await this.redisService.reset(RedisKeys.ScreenImages);
-    this.emitAssetChanged();
   }
 
   emitServiceChanged() {

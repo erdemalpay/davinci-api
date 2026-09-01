@@ -11,17 +11,22 @@ import * as cloudinary from 'cloudinary';
 import { Model } from 'mongoose';
 import * as streamifier from 'streamifier';
 import { MenuService } from '../menu/menu.service';
+import { RedisKeys } from '../redis/redis.dto';
+import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { UploadLog } from './upload-log.schema';
 
 const api = cloudinary.v2;
 
+const SCREEN_IMAGES_FOLDER = 'tv-screen';
+
 @Injectable()
 export class AssetService {
   constructor(
     configService: ConfigService,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly redisService: RedisService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
     @InjectModel(UploadLog.name)
@@ -138,6 +143,28 @@ export class AssetService {
         HttpStatus.NOT_FOUND,
       );
     }
+  }
+
+  async getScreenImages(): Promise<{ url: string }[]> {
+    try {
+      const cachedImages = await this.redisService.get(RedisKeys.ScreenImages);
+      if (cachedImages) {
+        return cachedImages;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve screen images from Redis:', error);
+    }
+
+    const images = await this.getFolderImages(SCREEN_IMAGES_FOLDER);
+    const urls = images.map(({ url }) => ({ url }));
+
+    try {
+      await this.redisService.set(RedisKeys.ScreenImages, urls);
+    } catch (error) {
+      console.error('Failed to cache screen images in Redis:', error);
+    }
+
+    return urls;
   }
 
   uploadPopupImage = async (
@@ -262,6 +289,7 @@ export class AssetService {
     );
 
     const imageUrls = uploadResults.filter((url): url is string => url !== null);
+    this.websocketGateway.emitAssetChanged();
 
     try {
       if (itemId && imageUrls.length > 0) {

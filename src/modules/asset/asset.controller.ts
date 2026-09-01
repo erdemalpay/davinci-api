@@ -12,22 +12,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Public } from '../auth/public.decorator';
-import { RedisKeys } from '../redis/redis.dto';
-import { RedisService } from '../redis/redis.service';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
-import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AssetService } from './asset.service';
-
-const SCREEN_IMAGES_FOLDER = 'tv-screen';
 
 @Controller('asset')
 export class AssetController {
-  constructor(
-    private readonly assetService: AssetService,
-    private readonly redisService: RedisService,
-    private readonly websocketGateway: AppWebSocketGateway,
-  ) {}
+  constructor(private readonly assetService: AssetService) {}
 
   @Get('/folders')
   getAllFolders() {
@@ -36,18 +27,8 @@ export class AssetController {
 
   @Public()
   @Get('/screen-images')
-  async getScreenImages() {
-    const cached = await this.redisService.get(RedisKeys.ScreenImages);
-    if (cached) {
-      return cached;
-    }
-
-    const images = await this.assetService.getFolderImages(
-      SCREEN_IMAGES_FOLDER,
-    );
-    const urls = images.map(({ url }) => ({ url }));
-    await this.redisService.set(RedisKeys.ScreenImages, urls);
-    return urls;
+  getScreenImages() {
+    return this.assetService.getScreenImages();
   }
 
   @Get('/upload-logs')
@@ -60,10 +41,8 @@ export class AssetController {
     return this.assetService.getFolderImages(folderName);
   }
   @Delete('image/*')
-  async deleteImage(@Param('0') url: string) {
-    const result = await this.assetService.deleteImage(url);
-    await this.websocketGateway.emitScreenImagesChanged();
-    return result;
+  deleteImage(@Param('0') url: string) {
+    return this.assetService.deleteImage(url);
   }
 
   @Post('upload')
@@ -72,19 +51,13 @@ export class AssetController {
       limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
     }),
   )
-  async uploadFile(
+  uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body('filename') filename: string,
     @Body('foldername') foldername: string,
   ) {
     console.log(file);
-    const result = await this.assetService.uploadImage(
-      file.buffer,
-      filename,
-      foldername,
-    );
-    await this.websocketGateway.emitScreenImagesChanged();
-    return result;
+    return this.assetService.uploadImage(file.buffer, filename, foldername);
   }
 
   @Post('upload/original')
@@ -108,19 +81,17 @@ export class AssetController {
       limits: { fileSize: 1024 * 1024 * 100 }, // 5MB file size limit
     }),
   )
-  async uploadFiles(
+  uploadFiles(
     @UploadedFiles() files: Array<Express.Multer.File>,
     @ReqUser() user: User,
     @Body('foldername') foldername: string,
     @Body('itemId') itemId?: string,
   ) {
-    const result = await this.assetService.uploadImages(
+    return this.assetService.uploadImages(
       user,
       files,
       foldername,
       Number(itemId),
     );
-    await this.websocketGateway.emitScreenImagesChanged();
-    return result;
   }
 }
