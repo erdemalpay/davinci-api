@@ -63,6 +63,13 @@ import {
   UpdateOrderDiscountDto,
   UpdateProductDiscountDto,
 } from './shopify.dto';
+import {
+  PickupLine,
+  executePickupReadiness,
+  planPickupFulfillment,
+  planPickupReadiness,
+  toPickupFulfillmentOrders,
+} from './shopify.pickup-plan';
 import { planRefundActions } from './shopify.refund-plan';
 
 const NEORAMA_DEPO_LOCATION = 6;
@@ -2189,58 +2196,53 @@ export class ShopifyService {
    * Automatically fetches the first fulfillment order and creates fulfillment
    * Then marks it as picked up
    */
+  /**
+   * Teslim alınan ürünleri fulfill eder. İlk PICK_UP paketini körlemesine
+   * kapatmak yerine, kalan tüm satırları teslim alınmış paketleri kapatır.
+   */
   async createFulfillmentForPickupOrder(
     shopifyOrderId: string,
+    pickedLineItemIds: string[],
     notifyCustomer: boolean = false,
-  ): Promise<any> {
+  ): Promise<any[]> {
     try {
-      // First, get the fulfillment orders for this order
-      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
-        shopifyOrderId,
+      const raw = await this.getFulfillmentOrdersForOrder(shopifyOrderId);
+      const plan = planPickupFulfillment(
+        pickedLineItemIds,
+        toPickupFulfillmentOrders(raw),
       );
 
-      const fulfillableOrders = fulfillmentOrders.filter((fo) =>
-        ['OPEN', 'IN_PROGRESS'].includes(fo.status),
-      );
-      const fulfillmentOrder =
-        fulfillableOrders.find(
-          (fo) => fo.deliveryMethod?.methodType === 'PICK_UP',
-        ) ?? fulfillableOrders[0];
-
-      if (!fulfillmentOrder) {
-        throw new HttpException(
-          `No fulfillable fulfillment order found for Shopify order ${shopifyOrderId}`,
-          HttpStatus.NOT_FOUND,
+      if (plan.fulfillmentOrderIds.length === 0) {
+        this.logger.log(
+          `No fulfillment created for Shopify order ${shopifyOrderId}: ${plan.noopReason}`,
         );
+        return [];
       }
 
-      const fulfillmentOrderId = fulfillmentOrder.id;
+      const fulfillments: any[] = [];
 
-      this.logger.log(
-        `Found fulfillment order ${fulfillmentOrderId} for Shopify order ${shopifyOrderId}`,
-      );
+      for (const fulfillmentOrderId of plan.fulfillmentOrderIds) {
+        const fulfillment = await this.createFulfillmentForPickup(
+          fulfillmentOrderId,
+          notifyCustomer,
+        );
 
-      // Create the fulfillment
-      const fulfillment = await this.createFulfillmentForPickup(
-        fulfillmentOrderId,
-        notifyCustomer,
-      );
-
-      // Mark as delivered by creating a fulfillment event
-      if (fulfillment?.id) {
-        try {
-          await this.createFulfillmentEvent(fulfillment.id, 'DELIVERED');
-          this.logger.log(`Marked fulfillment ${fulfillment.id} as DELIVERED`);
-        } catch (eventError) {
-          this.logger.error(
-            'Failed to create fulfillment event, but fulfillment was created successfully',
-            eventError,
-          );
-          // Don't throw - fulfillment was created successfully
+        if (fulfillment?.id) {
+          try {
+            await this.createFulfillmentEvent(fulfillment.id, 'DELIVERED');
+            this.logger.log(`Marked fulfillment ${fulfillment.id} as DELIVERED`);
+          } catch (eventError) {
+            this.logger.error(
+              'Failed to create fulfillment event, but fulfillment was created successfully',
+              eventError,
+            );
+            // Don't throw - fulfillment was created successfully
+          }
+          fulfillments.push(fulfillment);
         }
       }
 
-      return fulfillment;
+      return fulfillments;
     } catch (error) {
       this.logError(
         `Error creating fulfillment for pickup order ${shopifyOrderId}`,
@@ -2251,10 +2253,54 @@ export class ShopifyService {
   }
 
   /**
-   * Mark a pickup order as ready for customer pickup
-   * Shopify sends the "Ready For Pickup" notification to the customer
+   * Belirtilen satırlar yeni bir pakete gider, orijinal id kalanları tutar.
+   * Cevaptaki id'ler yanıltıcı olduğu için hiçbir şey döndürülmez; çağıran
+   * taraf paketleri yeniden okuyup içeriğe göre eşleştirir.
    */
-  async markPickupOrderReadyForPickup(shopifyOrderId: string): Promise<boolean> {
+  async splitFulfillmentOrder(
+    fulfillmentOrderId: string,
+    fulfillmentOrderLineItems: { id: string; quantity: number }[],
+  ): Promise<void> {
+    // Argüman adı `fulfillmentOrderSplits` (fulfillmentOrderMerge ise
+    // `fulfillmentOrderMergeInputs` alıyor). Şemadan doğrulandı.
+    const mutation = `
+      mutation SplitFulfillmentOrder($input: FulfillmentOrderSplitInput!) {
+        fulfillmentOrderSplit(fulfillmentOrderSplits: [$input]) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(mutation, {
+        variables: {
+          input: {
+            fulfillmentOrderId,
+            fulfillmentOrderLineItems,
+          },
+        },
+      });
+    });
+
+    this.handleGraphQLErrors(response, 'data.fulfillmentOrderSplit.userErrors');
+
+    this.logger.log(
+      `Fulfillment order ${fulfillmentOrderId} split into two packages`,
+    );
+  }
+
+  /**
+   * Getirilen ürünleri "teslim alıma hazır" işaretler; gerekirse önce paketi
+   * böler. Shopify bu işaretleme üzerine müşteriye mail gönderir.
+   */
+  async markPickupOrderReadyForPickup(
+    shopifyOrderId: string,
+    lines: PickupLine[],
+  ): Promise<{ prepared: string[]; noopReason?: string }> {
     const mutation = `
       mutation MarkReadyForPickup($input: FulfillmentOrderLineItemsPreparedForPickupInput!) {
         fulfillmentOrderLineItemsPreparedForPickup(input: $input) {
@@ -2267,49 +2313,52 @@ export class ShopifyService {
     `;
 
     try {
-      const fulfillmentOrders = await this.getFulfillmentOrdersForOrder(
-        shopifyOrderId,
+      const raw = await this.getFulfillmentOrdersForOrder(shopifyOrderId);
+      const plan = planPickupReadiness(
+        lines,
+        toPickupFulfillmentOrders(raw),
       );
 
-      const fulfillmentOrder = fulfillmentOrders.find(
-        (fo) =>
-          fo.status === 'OPEN' && fo.deliveryMethod?.methodType === 'PICK_UP',
-      );
-
-      if (!fulfillmentOrder) {
+      if (plan.actions.length === 0) {
         this.logger.log(
-          `No open pickup fulfillment order for Shopify order ${shopifyOrderId}, skipping ready for pickup`,
+          `No ready-for-pickup action for Shopify order ${shopifyOrderId}: ${plan.noopReason}`,
         );
-        return false;
+        return { prepared: [], noopReason: plan.noopReason };
       }
 
-      this.logger.log(
-        `Marking fulfillment order ${fulfillmentOrder.id} as ready for pickup`,
-      );
+      const prepared = await executePickupReadiness(plan.actions, {
+        split: (fulfillmentOrderId, lineItems) =>
+          this.splitFulfillmentOrder(fulfillmentOrderId, lineItems),
 
-      const response = await this.executeGraphQLRequest(async () => {
-        const client = await this.getGraphQLClient();
-        return await client.request(mutation, {
-          variables: {
-            input: {
-              lineItemsByFulfillmentOrder: [
-                { fulfillmentOrderId: fulfillmentOrder.id },
-              ],
-            },
-          },
-        });
+        reload: async () =>
+          toPickupFulfillmentOrders(
+            await this.getFulfillmentOrdersForOrder(shopifyOrderId),
+          ),
+
+        prepare: async (fulfillmentOrderId) => {
+          const response = await this.executeGraphQLRequest(async () => {
+            const client = await this.getGraphQLClient();
+            return await client.request(mutation, {
+              variables: {
+                input: {
+                  lineItemsByFulfillmentOrder: [{ fulfillmentOrderId }],
+                },
+              },
+            });
+          });
+
+          this.handleGraphQLErrors(
+            response,
+            'data.fulfillmentOrderLineItemsPreparedForPickup.userErrors',
+          );
+
+          this.logger.log(
+            `Fulfillment order ${fulfillmentOrderId} marked ready for pickup (Shopify order ${shopifyOrderId})`,
+          );
+        },
       });
 
-      this.handleGraphQLErrors(
-        response,
-        'data.fulfillmentOrderLineItemsPreparedForPickup.userErrors',
-      );
-
-      this.logger.log(
-        `Shopify order ${shopifyOrderId} marked as ready for pickup`,
-      );
-
-      return true;
+      return { prepared };
     } catch (error) {
       this.logError(
         `Error marking Shopify order ${shopifyOrderId} as ready for pickup`,
@@ -2410,6 +2459,8 @@ export class ShopifyService {
                   edges {
                     node {
                       id
+                      remainingQuantity
+                      totalQuantity
                       lineItem {
                         id
                       }
