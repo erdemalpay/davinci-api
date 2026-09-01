@@ -20,7 +20,6 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AssetService } from './asset.service';
 
 const SCREEN_IMAGES_FOLDER = 'tv-screen';
-const SCREEN_IMAGES_CACHE_TTL = 3600;
 
 @Controller('asset')
 export class AssetController {
@@ -47,11 +46,7 @@ export class AssetController {
       SCREEN_IMAGES_FOLDER,
     );
     const urls = images.map(({ url }) => ({ url }));
-    await this.redisService.set(
-      RedisKeys.ScreenImages,
-      urls,
-      SCREEN_IMAGES_CACHE_TTL,
-    );
+    await this.redisService.set(RedisKeys.ScreenImages, urls);
     return urls;
   }
 
