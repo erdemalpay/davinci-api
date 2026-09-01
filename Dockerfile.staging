@@ -8,7 +8,6 @@ COPY ./dist ./dist
 COPY ./config ./config
 COPY ./.env ./.env
 
-RUN yarn global add @nestjs/cli
 RUN yarn install --production
 
 EXPOSE 4000
