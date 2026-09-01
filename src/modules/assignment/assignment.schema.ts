@@ -73,6 +73,15 @@ export class Assignment extends Document {
   cancelledAt?: Date;
 
   @Prop({ type: Date })
+  learnedAt?: Date;
+
+  @Prop({ type: Date })
+  verifiedAt?: Date;
+
+  @Prop({ required: false, type: String, ref: User.name })
+  verifiedBy?: string;
+
+  @Prop({ type: Date })
   fiveDayReminderSentAt?: Date;
 
   @Prop({ type: Date })
