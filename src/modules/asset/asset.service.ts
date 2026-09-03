@@ -324,8 +324,14 @@ export class AssetService {
       const result = await cloudinary.v2.api.resource(publicId);
       return result.secure_url ? result.secure_url : '';
     } catch (error) {
-      console.error('Error fetching image:', error);
-      throw Error(error);
+      if (error?.error?.http_code === 404 || error?.http_code === 404) {
+        return '';
+      }
+      console.error(
+        `Error fetching image ${publicId}:`,
+        error?.error?.message ?? error?.message ?? 'unknown error',
+      );
+      throw Error(error?.error?.message ?? error?.message ?? 'unknown error');
     }
   }
 }
