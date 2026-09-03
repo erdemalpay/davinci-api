@@ -25,7 +25,7 @@ export class ProductShelfInfo {
   shelf: string;
 }
 
-@Schema({ _id: false })
+@Schema({ _id: false, timestamps: true })
 export class Product extends Document {
   @Prop({ type: String })
   _id: string;
