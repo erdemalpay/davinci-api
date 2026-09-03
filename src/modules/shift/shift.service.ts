@@ -93,8 +93,14 @@ export class ShiftService {
         });
       }
 
-      const prevUsersSorted = prevUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
-      const newUsersSorted = newUsersArr.slice().sort((a, b) => a.localeCompare(b)).join(',');
+      const prevUsersSorted = prevUsersArr
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .join(',');
+      const newUsersSorted = newUsersArr
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .join(',');
       if (prevUsersSorted !== newUsersSorted) hasUserChanges = true;
     }
 
@@ -131,11 +137,15 @@ export class ShiftService {
       );
       this.websocketGateway.emitShiftChanged();
       try {
-        await this.activityService.addActivity(user, ActivityType.CREATE_SHIFT, {
-          day: updatedShift.day,
-          location: updatedShift.location,
-          shifts: updatedShift.shifts,
-        });
+        await this.activityService.addActivity(
+          user,
+          ActivityType.CREATE_SHIFT,
+          {
+            day: updatedShift.day,
+            location: updatedShift.location,
+            shifts: updatedShift.shifts,
+          },
+        );
       } catch (e) {
         console.error('Failed to log create shift activity', e);
       }
@@ -248,13 +258,15 @@ export class ShiftService {
   async findQueryShifts(query: ShiftQueryDto) {
     const { after, before, location } = query;
 
-    const startDate = new Date(after);
-    const endDate = new Date(before);
+    const startDate = new Date(`${after}T00:00:00Z`);
+    const endDate = new Date(`${before}T00:00:00Z`);
+
     const daysInRange: string[] = [];
+
     for (
       let d = new Date(startDate);
       d <= endDate;
-      d.setDate(d.getDate() + 1)
+      d.setUTCDate(d.getUTCDate() + 1)
     ) {
       daysInRange.push(d.toISOString().split('T')[0]);
     }
@@ -265,6 +277,7 @@ export class ShiftService {
 
     try {
       cachedShiftsMap = await this.redisService.get(RedisKeys.Shifts);
+
       if (cachedShiftsMap) {
         for (const day of daysInRange) {
           if (cachedShiftsMap[day]) {
@@ -288,29 +301,31 @@ export class ShiftService {
         };
 
         const dbShifts = await this.shiftModel.find(filterQuery).exec();
+
         shiftsData.push(...dbShifts);
 
-        if (dbShifts.length > 0 || daysNeedingFetch.length > 0) {
-          try {
-            const existingCache = cachedShiftsMap || {};
+        try {
+          const existingCache = cachedShiftsMap || {};
 
-            for (const shift of dbShifts) {
-              if (!existingCache[shift.day]) {
-                existingCache[shift.day] = [];
-              }
-              existingCache[shift.day].push(shift);
+          for (const shift of dbShifts) {
+            if (!existingCache[shift.day]) {
+              existingCache[shift.day] = [];
             }
 
-            for (const day of daysNeedingFetch) {
-              if (!existingCache[day]) {
-                existingCache[day] = [];
-              }
-            }
-
-            await this.redisService.set(RedisKeys.Shifts, existingCache);
-          } catch (error) {
-            console.error('Failed to cache shifts in Redis:', error);
+            existingCache[shift.day].push(shift);
           }
+
+          // Important:
+          // Cache days even when there are no shifts.
+          for (const day of daysNeedingFetch) {
+            if (!existingCache[day]) {
+              existingCache[day] = [];
+            }
+          }
+
+          await this.redisService.set(RedisKeys.Shifts, existingCache);
+        } catch (error) {
+          console.error('Failed to cache shifts in Redis:', error);
         }
       } catch (error) {
         throw new HttpException(
@@ -319,28 +334,40 @@ export class ShiftService {
         );
       }
     }
+
     if (location) {
       shiftsData = shiftsData.filter(
         (shift) => Number(shift.location) === Number(location),
       );
     }
-    const shiftsMap = new Map<string, any[]>();
+
+    const shiftsMap = new Map<string, Shift[]>();
+
     for (const shift of shiftsData) {
       const existing = shiftsMap.get(shift.day) || [];
+
       existing.push(shift);
+
       shiftsMap.set(shift.day, existing);
     }
+
     const result = daysInRange.flatMap((day) => {
       const dayShifts = shiftsMap.get(day);
+
       if (dayShifts && dayShifts.length > 0) {
         return dayShifts;
       }
-      return [{ day, shifts: [] }];
+
+      return [
+        {
+          day,
+          shifts: [],
+        },
+      ];
     });
 
     return result;
   }
-
   async findUserShifts(query: ShiftUserQueryDto) {
     const { after, before, user: userId } = query;
     const startDate = new Date(after);
