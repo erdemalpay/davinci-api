@@ -1,5 +1,9 @@
 import {
+  addMonths,
+  addWeeks,
   endOfMonth,
+  endOfWeek,
+  endOfYear,
   format,
   startOfMonth,
   startOfWeek,
@@ -9,6 +13,7 @@ import {
   subWeeks,
   subYears,
 } from 'date-fns';
+
 const formatDate = (date: Date) => format(date, 'yyyy-MM-dd');
 
 export type DateRangeKey =
@@ -22,57 +27,97 @@ export type DateRangeKey =
   | 'sameDayLastMonthToToday'
   | 'thisYear'
   | 'lastYear'
-  | "nextWeek"
-  | "nextMonth"
-  | "fromTodayToEndOfNextMonth";
+  | 'nextWeek'
+  | 'nextMonth'
+  | 'fromTodayToEndOfNextMonth';
 
-export const dateRanges: {
-  [key in DateRangeKey]: () => {
-    before: string;
-    after: string;
-    date: string;
-    name?: string;
-  };
-} = {
-  today: () => ({
-    before: formatDate(new Date()),
-    after: formatDate(new Date()),
-    date: 'today',
-  }),
+type DateRange = {
+  before: string;
+  after: string;
+  date: string;
+  name?: string;
+};
+
+export const dateRanges: Record<DateRangeKey, () => DateRange> = {
+  today: () => {
+    const today = new Date();
+
+    return {
+      before: formatDate(today),
+      after: formatDate(today),
+      date: 'today',
+    };
+  },
+
   yesterday: () => {
     const yesterday = subDays(new Date(), 1);
+
     return {
       before: formatDate(yesterday),
       after: formatDate(yesterday),
       date: 'yesterday',
     };
   },
-  thisWeek: () => ({
-    before: formatDate(new Date()),
-    after: formatDate(startOfWeek(new Date(), { weekStartsOn: 1 })),
-    date: 'thisWeek',
-  }),
-  lastWeek: () => ({
-    before: formatDate(
-      subDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 1),
-    ),
-    after: formatDate(
-      subDays(startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }), 1),
-    ),
-    date: 'lastWeek',
-  }),
-  thisMonth: () => ({
-    before: formatDate(new Date()),
-    after: formatDate(startOfMonth(new Date())),
-    date: 'thisMonth',
-  }),
-  lastMonth: () => ({
-    before: formatDate(subDays(startOfMonth(new Date()), 1)),
-    after: formatDate(startOfMonth(subMonths(new Date(), 1))),
-    date: 'lastMonth',
-  }),
+
+  thisWeek: () => {
+    const today = new Date();
+
+    return {
+      after: formatDate(
+        startOfWeek(today, {
+          weekStartsOn: 1,
+        }),
+      ),
+      before: formatDate(
+        endOfWeek(today, {
+          weekStartsOn: 1,
+        }),
+      ),
+      date: 'thisWeek',
+    };
+  },
+
+  lastWeek: () => {
+    const previousWeek = subWeeks(new Date(), 1);
+
+    return {
+      after: formatDate(
+        startOfWeek(previousWeek, {
+          weekStartsOn: 1,
+        }),
+      ),
+      before: formatDate(
+        endOfWeek(previousWeek, {
+          weekStartsOn: 1,
+        }),
+      ),
+      date: 'lastWeek',
+    };
+  },
+
+  thisMonth: () => {
+    const today = new Date();
+
+    return {
+      after: formatDate(startOfMonth(today)),
+      before: formatDate(endOfMonth(today)),
+      date: 'thisMonth',
+    };
+  },
+
+  lastMonth: () => {
+    const previousMonth = subMonths(new Date(), 1);
+
+    return {
+      after: formatDate(startOfMonth(previousMonth)),
+      before: formatDate(endOfMonth(previousMonth)),
+      date: 'lastMonth',
+    };
+  },
+
   twoMonthsAgo: () => {
     const target = subMonths(new Date(), 2);
+
     return {
       after: formatDate(startOfMonth(target)),
       before: formatDate(endOfMonth(target)),
@@ -80,63 +125,72 @@ export const dateRanges: {
       name: format(target, 'MMMM'),
     };
   },
+
   sameDayLastMonthToToday: () => {
-    const today = new Date();
-    const beforeDate = subMonths(today, 1);
-    beforeDate.setDate(today.getDate());
+    const previousMonthDate = subMonths(new Date(), 1);
 
     return {
-      before: formatDate(beforeDate),
-      after: formatDate(startOfMonth(beforeDate)),
+      after: formatDate(startOfMonth(previousMonthDate)),
+      before: formatDate(previousMonthDate),
       date: 'sameDayLastMonthToToday',
     };
   },
-  thisYear: () => ({
-    before: formatDate(new Date()),
-    after: formatDate(startOfYear(new Date())),
-    date: 'thisYear',
-  }),
-  lastYear: () => ({
-    before: formatDate(subDays(startOfYear(new Date()), 1)),
-    after: formatDate(startOfYear(subYears(new Date(), 1))),
-    date: 'lastYear',
-  }),
-  nextWeek: () => {
+
+  thisYear: () => {
     const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-
-    const nextMonday = new Date(today);
-    nextMonday.setDate(today.getDate() + daysUntilNextMonday);
-
-    const nextFriday = new Date(nextMonday);
-    nextFriday.setDate(nextMonday.getDate() + 4);
 
     return {
-      before: formatDate(nextFriday),
-      after: formatDate(nextMonday),
+      after: formatDate(startOfYear(today)),
+      before: formatDate(endOfYear(today)),
+      date: 'thisYear',
+    };
+  },
+
+  lastYear: () => {
+    const previousYear = subYears(new Date(), 1);
+
+    return {
+      after: formatDate(startOfYear(previousYear)),
+      before: formatDate(endOfYear(previousYear)),
+      date: 'lastYear',
+    };
+  },
+
+  nextWeek: () => {
+    const nextWeekDate = addWeeks(new Date(), 1);
+
+    return {
+      after: formatDate(
+        startOfWeek(nextWeekDate, {
+          weekStartsOn: 1,
+        }),
+      ),
+      before: formatDate(
+        endOfWeek(nextWeekDate, {
+          weekStartsOn: 1,
+        }),
+      ),
       date: 'nextWeek',
     };
   },
+
   nextMonth: () => {
-    const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(today.getMonth() + 1);
+    const nextMonthDate = addMonths(new Date(), 1);
 
     return {
-      before: formatDate(endOfMonth(nextMonth)),
-      after: formatDate(startOfMonth(nextMonth)),
+      after: formatDate(startOfMonth(nextMonthDate)),
+      before: formatDate(endOfMonth(nextMonthDate)),
       date: 'nextMonth',
     };
   },
+
   fromTodayToEndOfNextMonth: () => {
     const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(today.getMonth() + 1);
+    const nextMonthDate = addMonths(today, 1);
 
     return {
-      before: formatDate(endOfMonth(nextMonth)),
       after: formatDate(today),
+      before: formatDate(endOfMonth(nextMonthDate)),
       date: 'fromTodayToEndOfNextMonth',
     };
   },
