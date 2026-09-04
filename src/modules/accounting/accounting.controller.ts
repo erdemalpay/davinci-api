@@ -83,6 +83,16 @@ export class AccountingController {
     );
   }
 
+  @Post('/products/bulk/validate')
+  validateBulkProductAndItem(
+    @Body()
+    addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
+  ) {
+    return this.accountingService.validateBulkProductAndMenuItem(
+      addMultipleProductAndMenuItemDto,
+    );
+  }
+
   @Post('/products/remove-unwanted-base-location')
   removeUnwantedBaseLocation() {
     return this.accountingService.removeUnwantedBaseLocations();

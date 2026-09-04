@@ -4400,274 +4400,381 @@ export class AccountingService {
     this.websocketGateway.emitProductChanged();
     return errorDatas;
   }
+  private async getBulkProductLookups() {
+    const toNameMap = (docs: any[]) => {
+      const map = new Map<string, any>();
+      for (const doc of docs ?? []) {
+        const key = String(doc?.name ?? '').trim();
+        if (key && !map.has(key)) {
+          map.set(key, doc._id);
+        }
+      }
+      return map;
+    };
+    const [
+      expenseTypes,
+      vendors,
+      brands,
+      countLists,
+      locations,
+      menuNames,
+      products,
+    ] = await Promise.all([
+      this.expenseTypeModel.find().select('_id name').lean(),
+      this.vendorModel.find().select('_id name').lean(),
+      this.brandModel.find().select('_id name').lean(),
+      this.countListModel.find().select('_id name').lean(),
+      this.locationService.findAllLocations(),
+      this.menuService.findNamesForBulkMatching(),
+      this.productModel.find({ deleted: false }).select('_id name').lean(),
+    ]);
+    return {
+      expenseTypes: toNameMap(expenseTypes),
+      vendors: toNameMap(vendors),
+      brands: toNameMap(brands),
+      countLists: toNameMap(countLists),
+      locations: toNameMap(locations),
+      categories: toNameMap(menuNames?.categories),
+      menuItems: toNameMap(menuNames?.items),
+      products: toNameMap(products),
+    };
+  }
+
+  private async resolveBulkProductRow(
+    addDto: AddMultipleProductAndMenuItemDto,
+    lookups: Awaited<ReturnType<AccountingService['getBulkProductLookups']>>,
+    pendingProducts: Map<string, string>,
+    pendingMenuItems: Set<string>,
+  ): Promise<
+    | { status: 'skip' }
+    | { status: 'error'; errorNote: string }
+    | { status: 'ok'; resolved: any }
+  > {
+    const trimValue = (value: unknown) => String(value ?? '').trim();
+    const hasValue = (value: unknown) => trimValue(value) !== '';
+    const splitNames = (value: unknown) =>
+      trimValue(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    const {
+      name,
+      expenseType,
+      brand,
+      vendor,
+      category,
+      itemProduction,
+      price,
+      onlinePrice,
+      sku,
+      barcode,
+      description,
+      image,
+      countList,
+      locations: locationsInput,
+    } = addDto;
+
+    const productGroup = [
+      expenseType,
+      brand,
+      vendor,
+      countList,
+      locationsInput,
+    ];
+    const menuGroup = [
+      category,
+      itemProduction,
+      price,
+      onlinePrice,
+      sku,
+      barcode,
+      description,
+      image,
+    ];
+    if (![name, ...productGroup, ...menuGroup].some(hasValue)) {
+      return { status: 'skip' };
+    }
+    const productName = trimValue(name);
+    if (!productName) {
+      return { status: 'error', errorNote: 'Name field not provided' };
+    }
+
+    const isProductGroupUsed = productGroup.some(hasValue);
+    const isMenuGroupUsed = menuGroup.some(hasValue);
+    if (!isProductGroupUsed && !isMenuGroupUsed) {
+      return {
+        status: 'error',
+        errorNote: 'No product or menu item information provided',
+      };
+    }
+    const missingFields: string[] = [];
+    if (isProductGroupUsed && !hasValue(expenseType)) {
+      missingFields.push('Expense Type');
+    }
+    if (isMenuGroupUsed) {
+      if (!hasValue(category)) missingFields.push('Menu Category');
+      if (!hasValue(price)) missingFields.push('Price');
+    }
+    if (missingFields.length > 0) {
+      return {
+        status: 'error',
+        errorNote: `Missing fields: ${missingFields.join(', ')}`,
+      };
+    }
+
+    const resolveNames = (
+      input: unknown,
+      map: Map<string, any>,
+      label: string,
+    ): { ids: any[]; errorNote?: string } => {
+      const names = splitNames(input);
+      const notFound = names.filter((item) => !map.has(item));
+      return notFound.length > 0
+        ? { ids: [], errorNote: `${label} not found: ${notFound.join(', ')}` }
+        : { ids: names.map((item) => map.get(item)) };
+    };
+
+    const expenseTypeResult = resolveNames(
+      expenseType,
+      lookups.expenseTypes,
+      'Expense type',
+    );
+    const vendorResult = resolveNames(vendor, lookups.vendors, 'Vendor');
+    const brandResult = resolveNames(brand, lookups.brands, 'Brand');
+    const countListResult = resolveNames(
+      countList,
+      lookups.countLists,
+      'Count list',
+    );
+    const locationResult = resolveNames(
+      locationsInput,
+      lookups.locations,
+      'Location',
+    );
+    const referenceErrorNote = [
+      expenseTypeResult,
+      vendorResult,
+      brandResult,
+      countListResult,
+      locationResult,
+    ].find((result) => result.errorNote)?.errorNote;
+    if (referenceErrorNote) {
+      return { status: 'error', errorNote: referenceErrorNote };
+    }
+
+    const isProductWanted = expenseTypeResult.ids.length > 0;
+    const isMenuItemWanted = isMenuGroupUsed;
+
+    const categoryName = trimValue(category);
+    const categoryId = isMenuItemWanted
+      ? lookups.categories.get(categoryName)
+      : undefined;
+    if (isMenuItemWanted && categoryId === undefined) {
+      return {
+        status: 'error',
+        errorNote: `Menu category not found: ${categoryName}`,
+      };
+    }
+
+    if (
+      isProductWanted &&
+      (lookups.products.has(productName) || pendingProducts.has(productName))
+    ) {
+      return { status: 'error', errorNote: 'Product already created' };
+    }
+    if (
+      isMenuItemWanted &&
+      (lookups.menuItems.has(productName) || pendingMenuItems.has(productName))
+    ) {
+      return { status: 'error', errorNote: 'Menu Item already created' };
+    }
+
+    const imageArray: string[] = [];
+    const imageNames = splitNames(image);
+    const notFoundImages: string[] = [];
+    for (const imageName of imageNames) {
+      try {
+        const foundImage = await this.assetService.getImageWithPublicID(
+          imageName,
+        );
+        if (foundImage) {
+          imageArray.push(foundImage);
+        } else {
+          notFoundImages.push(imageName);
+        }
+      } catch (e) {
+        this.logger.error('Error checking image:', e);
+        return {
+          status: 'error',
+          errorNote: `Image could not be checked: ${imageName}`,
+        };
+      }
+    }
+    if (notFoundImages.length > 0) {
+      return {
+        status: 'error',
+        errorNote: `Image not found: ${notFoundImages.join(', ')}`,
+      };
+    }
+
+    const parseItemAndQty = (input: unknown): { name: string; qty: number } => {
+      const value = trimValue(input);
+      const matched = value.match(/^(.*?)(?:_(\d+))?$/);
+      const base = matched[1].trim();
+      const qty = matched[2] ? Math.max(1, parseInt(matched[2], 10)) : 1;
+      return { name: base, qty };
+    };
+    const newItemProduction: Array<{
+      product: any;
+      quantity: number;
+      isDecrementStock: boolean;
+    }> = [];
+    const notFoundIngredients: string[] = [];
+    if (isMenuItemWanted) {
+      for (const itemProductionName of splitNames(itemProduction)) {
+        const { name: ingredientName, qty } =
+          parseItemAndQty(itemProductionName);
+        const foundProduct =
+          lookups.products.get(ingredientName) ??
+          pendingProducts.get(ingredientName);
+        if (!foundProduct) {
+          notFoundIngredients.push(ingredientName);
+          continue;
+        }
+        newItemProduction.push({
+          product: foundProduct,
+          quantity: qty,
+          isDecrementStock: true,
+        });
+      }
+      if (notFoundIngredients.length > 0) {
+        return {
+          status: 'error',
+          errorNote: `Ingredient not found: ${notFoundIngredients.join(', ')}`,
+        };
+      }
+    }
+
+    return {
+      status: 'ok',
+      resolved: {
+        name: productName,
+        productId: usernamify(productName),
+        isProductWanted,
+        isMenuItemWanted,
+        expenseTypeIds: expenseTypeResult.ids,
+        vendorIds: vendorResult.ids,
+        brandIds: brandResult.ids,
+        countListIds: countListResult.ids,
+        locationIds: locationResult.ids,
+        categoryId,
+        itemProduction: newItemProduction,
+        imageArray,
+        price,
+        onlinePrice,
+        sku,
+        barcode,
+        description,
+      },
+    };
+  }
+
+  async validateBulkProductAndMenuItem(
+    addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
+  ) {
+    const errorNotes: (string | null)[] = [];
+    const lookups = await this.getBulkProductLookups();
+    const pendingProducts = new Map<string, string>();
+    const pendingMenuItems = new Set<string>();
+    for (const addDto of addMultipleProductAndMenuItemDto) {
+      try {
+        const result = await this.resolveBulkProductRow(
+          addDto,
+          lookups,
+          pendingProducts,
+          pendingMenuItems,
+        );
+        if (result.status === 'skip') {
+          errorNotes.push(null);
+          continue;
+        }
+        if (result.status === 'error') {
+          errorNotes.push(result.errorNote);
+          continue;
+        }
+        if (result.resolved.isProductWanted) {
+          pendingProducts.set(result.resolved.name, result.resolved.productId);
+        }
+        if (result.resolved.isMenuItemWanted) {
+          pendingMenuItems.add(result.resolved.name);
+        }
+        errorNotes.push(null);
+      } catch (e) {
+        this.logger.error('Error validating product:', e);
+        errorNotes.push('Error occured');
+      }
+    }
+    return errorNotes;
+  }
+
   async addMultipleProductAndMenuItem(
     addMultipleProductAndMenuItemDto: AddMultipleProductAndMenuItemDto[],
   ) {
-    let errorDatas = [];
+    const errorDatas = [];
+    const lookups = await this.getBulkProductLookups();
+    const stockLocations = await this.locationService.findStockLocations();
+    const pendingProducts = new Map<string, string>();
+    const pendingMenuItems = new Set<string>();
     for (const addDto of addMultipleProductAndMenuItemDto) {
+      let newProduct;
+      let newMenuItem;
+      let resolved;
+      let savedProductId;
       try {
-        const {
-          name,
-          expenseType,
-          brand,
-          vendor,
-          category,
-          itemProduction,
-          price,
-          onlinePrice,
-          sku,
-          barcode,
-          description,
-          image,
-          countList,
-          locations: locationsInput,
-        } = addDto;
-
-        const hasValue = (value: unknown) => String(value ?? '').trim() !== '';
-        const isEmptyRow = ![
-          name,
-          expenseType,
-          brand,
-          vendor,
-          countList,
-          locationsInput,
-          category,
-          itemProduction,
-          price,
-          onlinePrice,
-          sku,
-          barcode,
-          description,
-          image,
-        ].some(hasValue);
-        if (isEmptyRow) {
+        const result = await this.resolveBulkProductRow(
+          addDto,
+          lookups,
+          pendingProducts,
+          pendingMenuItems,
+        );
+        if (result.status === 'skip') {
           continue;
         }
-
-        //  if name field is not provided it will not be created
-        if (!name) {
-          errorDatas.push({ ...addDto, errorNote: 'Name field not provided' });
+        if (result.status === 'error') {
+          errorDatas.push({ ...addDto, errorNote: result.errorNote });
           continue;
         }
+        resolved = result.resolved;
 
-        // Menü alanları kullanılıyorsa, hiçbir kayıt oluşturulmadan önce kategori ve fiyat zorunludur
-        const isMenuGroupUsed = [
-          category,
-          itemProduction,
-          price,
-          onlinePrice,
-          sku,
-          barcode,
-          description,
-          image,
-        ].some(hasValue);
-        if (isMenuGroupUsed) {
-          const missingFields: string[] = [];
-          if (!hasValue(category)) missingFields.push('Menu Category');
-          if (!hasValue(price)) missingFields.push('Price');
-          if (missingFields.length > 0) {
-            errorDatas.push({
-              ...addDto,
-              errorNote: `Missing fields: ${missingFields.join(', ')}`,
-            });
-            continue;
-          }
-        }
-
-        let isProductCreated = false;
-        let isMenuItemCreated = false;
-        let newProduct;
-        let newMenuItem;
-        let imageArray = [];
-        if (image) {
-          try {
-            const imageNameArray = image?.trim()
-              ? image
-                  .split(',')
-                  .map((item) => item.trim())
-                  .filter(Boolean)
-              : [];
-            for (const imageName of imageNameArray) {
-              const foundImage = await this.assetService.getImageWithPublicID(
-                imageName,
-              );
-              if (foundImage) {
-                imageArray.push(foundImage);
-              }
-            }
-          } catch (e) {
-            this.logger.error('Error adding product:', e);
-            errorDatas.push({
-              ...addDto,
-              errorNote:
-                'image is not uploaded or the file name is written wrong.',
-            });
-            continue;
-          }
-        }
-
-        // spliting the multiple entries
-        const expenseTypeArray = expenseType?.trim()
-          ? expenseType
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : [];
-        const vendorArray = vendor?.trim()
-          ? vendor
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : [];
-        const brandArray = brand?.trim()
-          ? brand
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : [];
-        const ItemProductionArray = itemProduction?.trim()
-          ? itemProduction
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : [];
-
-        //  if expenseType is provided it will create a product
-        if (expenseTypeArray?.length > 0) {
-          let newExpenseTypes = [];
-          let newVendor = [];
-          let newBrand = [];
-
-          // find the ids of the expenseType, vendor and brand
-          for (const expTypeName of expenseTypeArray) {
-            const foundExpenseType = await this.expenseTypeModel.find({
-              name: expTypeName,
-            });
-            if (foundExpenseType.length > 0) {
-              newExpenseTypes.push(foundExpenseType[0]._id);
-            }
-          }
-
-          for (const vendorName of vendorArray) {
-            const foundVendor = await this.vendorModel.find({
-              name: vendorName,
-            });
-            if (foundVendor.length > 0) {
-              newVendor.push(foundVendor[0]._id);
-            }
-          }
-          for (const brandName of brandArray) {
-            const foundBrand = await this.brandModel.find({
-              name: brandName,
-            });
-            if (foundBrand.length > 0) {
-              newBrand.push(foundBrand[0]._id);
-            }
-            if (expenseTypeArray?.length > newExpenseTypes?.length) {
-              errorDatas.push({
-                ...addDto,
-                errorNote: 'Expense types are not written correctly',
-              });
-              continue;
-            }
-            if (vendorArray?.length > newVendor?.length) {
-              errorDatas.push({
-                ...addDto,
-                errorNote: 'Vendors are not written correctly',
-              });
-              continue;
-            }
-            if (brandArray?.length > newBrand?.length) {
-              errorDatas.push({
-                ...addDto,
-                errorNote: 'Brands are not written correctly',
-              });
-              continue;
-            }
-          }
-
-          // if expenseType is not found it will not be created
-          if (newExpenseTypes.length === 0) {
-            errorDatas.push({
-              ...addDto,
-              errorNote: 'Expense types are not written correctly',
-            });
-            continue;
-          }
-          const product = await this.productModel.find({
-            name: name,
-            deleted: false,
-          });
-          // if product already exists it will not be created
-          if (product.length > 0) {
-            errorDatas.push({
-              ...addDto,
-              errorNote: 'Product already created',
-            });
-
-            continue;
-          }
+        if (resolved.isProductWanted) {
           newProduct = new this.productModel({
-            name,
-            expenseType: newExpenseTypes,
-            brand: newBrand,
-            vendor: newVendor,
+            name: resolved.name,
+            expenseType: resolved.expenseTypeIds,
+            brand: resolved.brandIds,
+            vendor: resolved.vendorIds,
             deleted: false,
           });
-          const locations = await this.locationService.findStockLocations();
-          newProduct.baseQuantities = locations.map((location) => {
+          newProduct.baseQuantities = stockLocations.map((location) => {
             return {
               location: location._id,
               minQuantity: 0,
             };
           });
-          newProduct._id = usernamify(name);
-
-          // resolve countList and location IDs before saving
-          let countListIds = [];
-          let locationIds = [];
-          if (countList?.trim()) {
-            const countListNames = countList
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
-            const locationNames = locationsInput?.trim()
-              ? locationsInput
-                  .split(',')
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : [];
-
-            if (countListNames.length > 0) {
-              const foundCountLists = await this.countListModel
-                .find({ name: { $in: countListNames } })
-                .select('_id')
-                .lean();
-              countListIds = foundCountLists.map((cl) => cl._id);
-            }
-            if (locationNames.length > 0) {
-              const foundLocations = await this.locationService.findManyByNames(
-                locationNames,
-              );
-              locationIds = foundLocations.map((loc) => loc._id);
-            }
-
-            if (countListIds.length > 0) {
-              newProduct.countList = countListIds;
-            }
+          newProduct._id = resolved.productId;
+          if (resolved.countListIds.length > 0) {
+            newProduct.countList = resolved.countListIds;
           }
-
           await newProduct.save();
-          isProductCreated = true;
-
-          if (countListIds.length > 0) {
+          savedProductId = newProduct._id;
+          if (resolved.countListIds.length > 0) {
             await this.countListModel.updateMany(
-              { _id: { $in: countListIds } },
+              { _id: { $in: resolved.countListIds } },
               {
                 $addToSet: {
                   products: {
                     product: newProduct._id,
-                    locations: locationIds,
+                    locations: resolved.locationIds,
                   },
                 },
               },
@@ -4675,110 +4782,81 @@ export class AccountingService {
             this.websocketGateway.emitCountListChanged();
           }
         }
-        //if category and price provided then the menuItem will be created
-        if (category && price) {
-          const foundCategory = await this.menuService.findCategoryByName(
-            category,
-          );
-          // if category is not found it will not be created
-          if (!foundCategory) {
-            if (isProductCreated && newProduct) {
-              await this.productModel.findByIdAndRemove(newProduct._id);
-            }
-            errorDatas.push({
-              ...addDto,
-              errorNote: 'Category is not written correctly',
-            });
 
-            continue;
-          }
-          const menuItem = await this.menuService.findItemByName(name);
-          // if menuItem already exists it will not be created
-          if (menuItem) {
-            errorDatas.push({
-              ...addDto,
-              errorNote: 'Menu Item already created',
-            });
-            continue;
-          }
-          const parseItemAndQty = (
-            input: unknown,
-          ): { name: string; qty: number } => {
-            const s = String(input ?? '').trim();
-            const m = s.match(/^(.*?)(?:_(\d+))?$/);
-            if (!m) return { name: s, qty: 1 };
-            const base = m[1].trim();
-            const qty = m[2] ? Math.max(1, parseInt(m[2], 10)) : 1;
-            return { name: base, qty };
-          };
-
-          const newItemProduction: Array<{
-            product: any;
-            quantity: number;
-            isDecrementStock: boolean;
-          }> = [];
-
-          for (const itemProductionName of ItemProductionArray) {
-            const { name, qty } = parseItemAndQty(itemProductionName);
-            const foundItemProduction = await this.productModel.findOne({
-              name,
-              deleted: false,
-            });
-            if (foundItemProduction) {
-              newItemProduction.push({
-                product: foundItemProduction._id,
-                quantity: qty,
-                isDecrementStock: true,
-              });
-            }
-          }
-
+        if (resolved.isMenuItemWanted) {
           newMenuItem = await this.menuService.createBulkMenuItemWithProduct({
-            name: name,
-            category: foundCategory._id,
-            price: price,
-            itemProduction: newItemProduction,
-            ...(onlinePrice ? { onlinePrice } : {}),
-            ...(description ? { description } : {}),
-            ...(sku ? { sku } : {}),
-            ...(barcode ? { barcode } : {}),
-            ...(imageArray?.length > 0 ? { imageUrl: imageArray[0] } : {}),
-            ...(imageArray?.length > 1
-              ? { productImages: imageArray.slice(1) }
+            name: resolved.name,
+            category: resolved.categoryId,
+            price: resolved.price,
+            itemProduction: resolved.itemProduction,
+            ...(resolved.onlinePrice
+              ? { onlinePrice: resolved.onlinePrice }
+              : {}),
+            ...(resolved.description
+              ? { description: resolved.description }
+              : {}),
+            ...(resolved.sku ? { sku: resolved.sku } : {}),
+            ...(resolved.barcode ? { barcode: resolved.barcode } : {}),
+            ...(resolved.imageArray?.length > 0
+              ? { imageUrl: resolved.imageArray[0] }
+              : {}),
+            ...(resolved.imageArray?.length > 1
+              ? { productImages: resolved.imageArray.slice(1) }
               : {}),
           });
-          isMenuItemCreated = true;
         }
-        // if product and menuItem is created then the product will be matched with the menuItem
-        if (
-          isProductCreated &&
-          isMenuItemCreated &&
-          newProduct &&
-          newMenuItem
-        ) {
-          try {
-            await this.productModel.findByIdAndUpdate(
-              newProduct._id,
-              {
-                matchedMenuItem: newMenuItem._id,
-              },
-              { new: true },
-            );
-            await this.menuService.updateForBulkItem(
-              newMenuItem._id,
-              newProduct._id,
-            );
-          } catch (e) {
-            await this.productModel.findByIdAndRemove(newProduct._id);
-            await this.menuService.deleteMenuItem(newMenuItem._id);
-            errorDatas.push({
-              ...addDto,
-              errorNote: 'Error occured',
-            });
-          }
+
+        if (newProduct && newMenuItem) {
+          await this.productModel.findByIdAndUpdate(
+            newProduct._id,
+            {
+              matchedMenuItem: newMenuItem._id,
+            },
+            { new: true },
+          );
+          await this.menuService.updateForBulkItem(
+            newMenuItem._id,
+            newProduct._id,
+            resolved.itemProduction,
+          );
+        }
+
+        if (resolved.isProductWanted) {
+          pendingProducts.set(resolved.name, resolved.productId);
+        }
+        if (resolved.isMenuItemWanted) {
+          pendingMenuItems.add(resolved.name);
         }
       } catch (e) {
         this.logger.error('Error adding product:', e);
+        if (newMenuItem) {
+          try {
+            await this.menuService.deleteMenuItem(newMenuItem._id);
+          } catch (rollbackError) {
+            this.logger.error('Error rolling back menu item:', rollbackError);
+          }
+        }
+        if (savedProductId) {
+          try {
+            await this.productModel.findByIdAndRemove(savedProductId);
+          } catch (rollbackError) {
+            this.logger.error('Error rolling back product:', rollbackError);
+          }
+          if (resolved?.countListIds?.length > 0) {
+            try {
+              await this.countListModel.updateMany(
+                { _id: { $in: resolved.countListIds } },
+                { $pull: { products: { product: savedProductId } } },
+              );
+              this.websocketGateway.emitCountListChanged();
+            } catch (rollbackError) {
+              this.logger.error(
+                'Error rolling back count list entry:',
+                rollbackError,
+              );
+            }
+          }
+        }
         errorDatas.push({ ...addDto, errorNote: 'Error occured' });
       }
     }
