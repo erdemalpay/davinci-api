@@ -5,6 +5,8 @@ import {
 import { Server } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
 import { Stock } from '../accounting/stock.schema';
+import { ButtonCallActionEnum } from '../buttonCall/dto/create-buttonCall.dto';
+import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Notification } from '../notification/notification.schema';
 import { Collection } from '../order/collection.schema';
@@ -33,7 +35,8 @@ export class AppWebSocketGateway {
     this.server.emit('activityChanged');
   }
 
-  emitAssetChanged() {
+  async emitAssetChanged() {
+    await this.redisService.reset(RedisKeys.ScreenImages);
     this.server.emit('assetChanged');
   }
 
@@ -85,8 +88,15 @@ export class AppWebSocketGateway {
     this.server.emit('bulkProductAndMenuItemChanged');
   }
 
-  emitButtonCallChanged() {
-    this.server.emit('buttonCallChanged');
+  emitButtonCallChanged(
+    buttonCall?: ButtonCall,
+    action?: ButtonCallActionEnum,
+  ) {
+    this.server.emit('buttonCallChanged', {
+      location: buttonCall?.location,
+      type: buttonCall?.type,
+      action,
+    });
   }
 
   emitCafeActivityChanged() {

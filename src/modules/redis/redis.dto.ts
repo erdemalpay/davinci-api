@@ -28,4 +28,5 @@ export enum RedisKeys {
   QrLocation = 'qr-location',
   QrCode = 'qr-code',
   InstagramPosts = 'instagram-posts',
+  ScreenImages = 'screen-images',
 }

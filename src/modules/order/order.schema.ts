@@ -255,6 +255,9 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isShipped: boolean;
 
+  @Prop({ required: false, type: Boolean })
+  isPreOrder: boolean;
+
   @Prop({ required: false, type: String })
   trendyolOrderId: string;
 

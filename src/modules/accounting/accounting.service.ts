@@ -167,7 +167,10 @@ export class AccountingService {
 
     if (!products) {
       try {
-        products = await this.productModel.find().exec();
+        products = await this.productModel
+          .find()
+          .sort({ createdAt: -1 })
+          .exec();
         if (products.length > 0) {
           await this.redisService.set(
             RedisKeys.AccountingAllProducts,
@@ -225,6 +228,7 @@ export class AccountingService {
     try {
       const products = await this.productModel
         .find({ deleted: { $ne: true } })
+        .sort({ createdAt: -1 })
         .exec();
       if (products.length > 0) {
         await this.redisService.set(RedisKeys.AccountingProducts, products);

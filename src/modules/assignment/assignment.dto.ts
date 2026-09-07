@@ -162,6 +162,21 @@ export class UpdateAssignmentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsDate()
+  learnedAt?: Date | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsDate()
+  verifiedAt?: Date | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  verifiedBy?: string | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsObject()
   payload?: Record<string, unknown>;
 }

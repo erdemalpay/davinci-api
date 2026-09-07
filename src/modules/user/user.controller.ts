@@ -16,6 +16,7 @@ import {
   CreateUserDto,
   UpdateRoleDto,
   UserResponse,
+  VerifyGameLearningTaskDto,
 } from './user.dto';
 import { UserGameUpdateType } from './user.enums';
 import { Role } from './user.role.schema';
@@ -74,6 +75,19 @@ export class UserController {
       user,
       completeGameLearningTaskDto.assignmentId,
       completeGameLearningTaskDto.learnDate,
+      completeGameLearningTaskDto.isLearned ?? true,
+    );
+  }
+
+  @Post('/games/verify-learning-task')
+  verifyGameLearningTask(
+    @ReqUser() user: User,
+    @Body() verifyGameLearningTaskDto: VerifyGameLearningTaskDto,
+  ) {
+    return this.userService.verifyGameLearningTask(
+      user,
+      verifyGameLearningTaskDto.assignmentId,
+      verifyGameLearningTaskDto.isVerified ?? true,
     );
   }
 

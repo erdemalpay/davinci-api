@@ -365,6 +365,21 @@ export class AssignmentService {
       .exec();
   }
 
+  async findGameLearningAssignmentByUserAndGame(
+    userId: string,
+    gameId: number,
+  ): Promise<Assignment | null> {
+    return this.assignmentModel
+      .findOne({
+        assignmentType: AssignmentTypeEnum.GAME_LEARNING,
+        assignedTo: userId,
+        'subject.entityId': { $in: [gameId, String(gameId)] },
+        status: { $ne: AssignmentStatusEnum.CANCELLED },
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
   async updateAssignment(
     id: string | number,
     updateAssignmentDto: UpdateAssignmentDto,

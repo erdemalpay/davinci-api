@@ -460,15 +460,22 @@ export class OrderService {
       if (isPreOrder) {
         const preOrderItems = await this.menuService.findPreOrderItems();
         const preOrderItemIds = preOrderItems.map((i) => i._id);
-        preOrderShopifyOrderIds =
-          preOrderItemIds.length > 0
-            ? await this.orderModel
-                .find({
-                  item: { $in: preOrderItemIds },
-                  shopifyOrderId: { $exists: true, $ne: null },
-                })
-                .distinct('shopifyOrderId')
-            : [];
+        // Sipariş panele girerken üstüne isPreOrder damgası basılıyor. Damga
+        // kalıcı olduğu için ürünün isPreOrder bayrağı sonradan kapatılsa bile
+        // eski siparişler bu sayfada kalmaya devam eder. Ürünün o anki bayrağı
+        // da sorguda tutuluyor: bayrak sonradan açıldığında damgasız eski
+        // siparişlerin görünmesi mevcut davranış, korunuyor.
+        preOrderShopifyOrderIds = await this.orderModel
+          .find({
+            shopifyOrderId: { $exists: true, $ne: null },
+            $or: [
+              { isPreOrder: true },
+              ...(preOrderItemIds.length > 0
+                ? [{ item: { $in: preOrderItemIds } }]
+                : []),
+            ],
+          })
+          .distinct('shopifyOrderId');
       }
       const orderFilterQuery = {
         ...filterQuery,
@@ -492,36 +499,6 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-  }
-  async hasUnshippedOrdersForItem(itemId: number): Promise<boolean> {
-    // Find all Shopify orders that contain this item, then check whether
-    // ANY line item within those same orders (not just this item's own
-    // line) is still unshipped — turning off isPreOrder would remove the
-    // whole order from the pre-order tracking page, so a sibling line
-    // (e.g. a different product in the same order) being unshipped must
-    // also block the toggle.
-    const shopifyOrderIds = await this.orderModel
-      .find({
-        item: itemId,
-        shopifyOrderId: { $exists: true, $ne: null },
-        status: {
-          $nin: [
-            OrderStatus.CANCELLED,
-            OrderStatus.RETURNED,
-            OrderStatus.WASTED,
-          ],
-        },
-      })
-      .distinct('shopifyOrderId');
-    if (shopifyOrderIds.length === 0) return false;
-    const count = await this.orderModel.countDocuments({
-      shopifyOrderId: { $in: shopifyOrderIds },
-      isShipped: { $ne: true },
-      status: {
-        $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
-      },
-    });
-    return count > 0;
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
@@ -2006,6 +1983,112 @@ export class OrderService {
         });
     }
   }
+  /**
+   * Gel-al siparişinin Shopify tarafını senkronlar ve varsa uyarı kodu döner.
+   * Sipariş başına BİR KEZ çağrılmalı — satır başına çağrılırsa eşzamanlı
+   * bölme istekleri birden fazla paket yaratır.
+   */
+  private async syncShopifyPickup(
+    shopifyOrderId: string,
+    mode: 'brought' | 'picked',
+  ): Promise<string | undefined> {
+    const siblingOrders = await this.orderModel
+      .find({ shopifyOrderId })
+      .populate('item');
+
+    const activeSiblings = siblingOrders.filter(
+      (sibling) => sibling.status !== OrderStatus.CANCELLED,
+    );
+
+    const lines = activeSiblings
+      .filter((sibling) => sibling.shopifyOrderLineItemId)
+      .map((sibling) => ({
+        shopifyOrderLineItemId: String(sibling.shopifyOrderLineItemId),
+        isBrought: Boolean(sibling.isShopifyPickUpOrderBrought),
+        isPreOrder: Boolean((sibling.item as any)?.isPreOrder),
+      }));
+
+    if (lines.length === 0) {
+      return undefined;
+    }
+
+    if (mode === 'brought') {
+      try {
+        const result = await this.shopifyService.markPickupOrderReadyForPickup(
+          shopifyOrderId,
+          lines,
+        );
+
+        // Bekleme durumları normaldir, kullanıcıya uyarı gösterilmez.
+        if (result.prepared.length === 0) {
+          return result.noopReason === 'WAITING_FOR_BRINGABLE' ||
+            result.noopReason === 'NOTHING_BROUGHT'
+            ? undefined
+            : 'SHOPIFY_READY_FOR_PICKUP_SKIPPED';
+        }
+
+        return undefined;
+      } catch (error) {
+        this.logger.error(
+          `Failed to mark Shopify order ${shopifyOrderId} as ready for pickup:`,
+          error,
+        );
+        return 'SHOPIFY_READY_FOR_PICKUP_FAILED';
+      }
+    }
+
+    // Panelde "Teslim Edildi" grup bazında çalışıp siparişin tüm satırlarını
+    // işaretliyor. Getirilmemiş bir ürün teslim edilmiş olamaz.
+    const pickedLineItemIds = activeSiblings
+      .filter(
+        (sibling) =>
+          sibling.isShopifyCustomerPicked &&
+          sibling.isShopifyPickUpOrderBrought &&
+          sibling.shopifyOrderLineItemId,
+      )
+      .map((sibling) => String(sibling.shopifyOrderLineItemId));
+
+    if (pickedLineItemIds.length === 0) {
+      return undefined;
+    }
+
+    try {
+      const fulfillments =
+        await this.shopifyService.createFulfillmentForPickupOrder(
+          shopifyOrderId,
+          pickedLineItemIds,
+          false,
+        );
+
+      if (fulfillments.length === 0) {
+        return 'SHOPIFY_FULFILLMENT_SKIPPED';
+      }
+
+      // Sadece gerçekten fulfill edilen satırlara yazılır. isShopifyCustomerPicked
+      // ile eşleşmek yanlış olur: panel grup butonu getirilmemiş satırları da
+      // işaretliyor, onlar fulfill edilmiyor.
+      const fulfillmentId = fulfillments[0]?.id;
+      if (fulfillmentId) {
+        await this.orderModel.updateMany(
+          {
+            shopifyOrderId,
+            shopifyOrderLineItemId: { $in: pickedLineItemIds },
+            shopifyFulfillmentId: { $exists: false },
+          },
+          { shopifyFulfillmentId: fulfillmentId },
+        );
+      }
+
+      return undefined;
+    } catch (error) {
+      this.logger.error(
+        `Failed to create Shopify fulfillment for order ${shopifyOrderId}:`,
+        error,
+      );
+      return 'SHOPIFY_FULFILLMENT_FAILED';
+    }
+  }
+
   async simpleOrderUpdate(user: User, id: number, updates: Partial<Order>) {
     try {
       const order = await this.orderModel.findByIdAndUpdate(id, updates, {
@@ -2014,6 +2097,7 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+      let shopifyWarning: string | undefined;
 
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
       if (
@@ -2021,29 +2105,10 @@ export class OrderService {
         order.shopifyCustomer &&
         order.shopifyOrderId
       ) {
-        try {
-          // Create fulfillment using the shopifyOrderId - the service will fetch the fulfillment order ID automatically
-          const fulfillment =
-            await this.shopifyService.createFulfillmentForPickupOrder(
-              order.shopifyOrderId,
-              false, // Don't notify customer by default
-            );
-          if (fulfillment?.id) {
-            await this.orderModel.findByIdAndUpdate(order._id, {
-              shopifyFulfillmentId: fulfillment.id,
-            });
-            order.shopifyFulfillmentId = fulfillment.id;
-          }
-          this.logger.log(
-            `Shopify fulfillment created for order ${id} (Shopify Order: ${order.shopifyOrderId})`,
-          );
-        } catch (fulfillmentError) {
-          this.logger.error(
-            `Failed to create Shopify fulfillment for order ${id}:`,
-            fulfillmentError,
-          );
-          // Don't throw - allow the order update to succeed even if Shopify fulfillment fails
-        }
+        shopifyWarning = await this.syncShopifyPickup(
+          order.shopifyOrderId,
+          'picked',
+        );
       } else if (
         updates.isShopifyCustomerPicked === false &&
         order.shopifyFulfillmentId
@@ -2051,9 +2116,12 @@ export class OrderService {
         try {
           const fulfillmentId = order.shopifyFulfillmentId;
           await this.shopifyService.cancelFulfillment(fulfillmentId);
-          await this.orderModel.findByIdAndUpdate(order._id, {
-            $unset: { shopifyFulfillmentId: '' },
-          });
+          // Bir fulfillment birden fazla satırı kapsar; id hepsinden silinmezse
+          // kalan satırlar iptal edilmiş bir fulfillment'i tekrar iptal etmeye çalışır.
+          await this.orderModel.updateMany(
+            { shopifyFulfillmentId: fulfillmentId },
+            { $unset: { shopifyFulfillmentId: '' } },
+          );
           order.shopifyFulfillmentId = undefined;
           this.logger.log(
             `Shopify fulfillment cancelled for order ${id} (Shopify Fulfillment: ${fulfillmentId})`,
@@ -2067,8 +2135,18 @@ export class OrderService {
         }
       }
 
+      if (
+        updates.isShopifyPickUpOrderBrought === true &&
+        order.isShopifyPickUp &&
+        order.shopifyOrderId
+      ) {
+        shopifyWarning =
+          (await this.syncShopifyPickup(order.shopifyOrderId, 'brought')) ??
+          shopifyWarning;
+      }
+
       this.websocketGateway.emitOrderUpdated([order]);
-      return order;
+      return shopifyWarning ? { ...order.toObject(), shopifyWarning } : order;
     } catch (error) {
       throw new HttpException(
         'Failed to update order',
@@ -2081,9 +2159,53 @@ export class OrderService {
     ids: number[],
     updates: Partial<Order>,
   ) {
-    return Promise.all(
-      ids.map((id) => this.simpleOrderUpdate(user, id, updates)),
+    const touchesShopifyPickup =
+      updates.isShopifyPickUpOrderBrought === true ||
+      updates.isShopifyCustomerPicked === true;
+
+    if (!touchesShopifyPickup) {
+      return Promise.all(
+        ids.map((id) => this.simpleOrderUpdate(user, id, updates)),
+      );
+    }
+
+    // Önce tüm veritabanı yazmaları, sonra sipariş başına tek senkron.
+    const updated = await Promise.all(
+      ids.map((id) =>
+        this.orderModel.findByIdAndUpdate(id, updates, { new: true }),
+      ),
     );
+
+    const found = updated.filter(Boolean);
+    const shopifyOrderIds = [
+      ...new Set(
+        found
+          .filter((order) => order.shopifyOrderId)
+          .map((order) => String(order.shopifyOrderId)),
+      ),
+    ];
+
+    const mode =
+      updates.isShopifyPickUpOrderBrought === true ? 'brought' : 'picked';
+
+    const warnings = new Map<string, string>();
+    for (const shopifyOrderId of shopifyOrderIds) {
+      const warning = await this.syncShopifyPickup(shopifyOrderId, mode);
+      if (warning) {
+        warnings.set(shopifyOrderId, warning);
+      }
+    }
+
+    this.websocketGateway.emitOrderUpdated(found);
+
+    if (warnings.size === 0) {
+      return found;
+    }
+
+    return found.map((order) => {
+      const warning = warnings.get(String(order.shopifyOrderId));
+      return warning ? { ...order.toObject(), shopifyWarning: warning } : order;
+    });
   }
 
   async cancelIkasOrder(user: User, ikasId: string, quantity: number) {

@@ -90,6 +90,22 @@ export class CompleteGameLearningTaskDto {
   @IsString()
   @ApiProperty({ required: false })
   learnDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ required: false, default: true })
+  isLearned?: boolean;
+}
+
+export class VerifyGameLearningTaskDto {
+  @IsNumber()
+  @ApiProperty()
+  assignmentId: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ required: false, default: true })
+  isVerified?: boolean;
 }
 
 export class UserResponse {

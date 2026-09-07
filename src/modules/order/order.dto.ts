@@ -222,6 +222,10 @@ export class CreateOrderDto {
   isShopifyPickUpOrderBrought?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isPreOrder?: boolean;
+
+  @IsOptional()
   @IsString()
   trendyolOrderId?: string;
 
