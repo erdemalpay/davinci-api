@@ -583,6 +583,10 @@ export class OrderQueryDto {
 
   @IsOptional()
   @IsString()
+  salesChannel?: string;
+
+  @IsOptional()
+  @IsString()
   item?: string;
 
   @IsOptional()
