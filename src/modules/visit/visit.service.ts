@@ -15,11 +15,11 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
+import { ShiftService } from '../shift/shift.service';
 import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { ShiftService } from '../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
 import { QrCodeService } from './qr-code.service';
@@ -32,6 +32,11 @@ import {
   VisitTypes,
 } from './visit.dto';
 import { Visit } from './visit.schema';
+
+const AUTO_CLOSE_FALLBACK_HOUR = '01:10';
+type UnfinishedVisitEvent = Awaited<
+  ReturnType<NotificationService['findAllEventNotifications']>
+>[number];
 
 export class VisitService {
   constructor(
@@ -651,14 +656,17 @@ export class VisitService {
   }
 
   async notifyUnfinishedVisits() {
-    // Bildirim spamı olmaması için son 2 gündeki kapanmamış vardiyaları kontrol etmek istiyorum:
-    const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
+    const istanbulNow = moment.tz('Europe/Istanbul');
+    const today = istanbulNow.format('YYYY-MM-DD');
+    const twoDaysAgo = istanbulNow
+      .clone()
+      .subtract(2, 'day')
+      .format('YYYY-MM-DD');
 
-    // Bitiş saati olmayan VE notification gönderilmeyenleri topluyorum:
     const openVisits = await this.visitModel
       .find({
         finishHour: { $exists: false },
-        date: { $gte: twoDaysAgo },
+        date: { $gte: twoDaysAgo, $lt: today },
         $or: [
           { notificationSent: { $exists: false } }, // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
           { notificationSent: false }, // yeni kayıtlar için
@@ -678,19 +686,49 @@ export class VisitService {
       return 0;
     }
 
-    const notificationEvents =
-      await this.notificationService.findAllEventNotifications();
-    const unfinishedVisitEvent = notificationEvents.find(
-      (notification) =>
-        notification.event === NotificationEventType.UNFINISHEDVISIT,
-    );
-
-    if (!unfinishedVisitEvent) {
-      return 0;
+    let unfinishedVisitEvent: UnfinishedVisitEvent;
+    try {
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      unfinishedVisitEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.UNFINISHEDVISIT,
+      );
+    } catch (error) {
+      console.error('Failed to fetch unfinished visit notification:', error);
     }
 
-    // Bildirim gönderilmesi
     for (const visit of openVisits) {
+      const notificationSent = await this.sendUnfinishedVisitNotifications(
+        visit,
+        unfinishedVisitEvent,
+      );
+
+      await this.visitModel.findByIdAndUpdate(visit._id, {
+        notificationSent,
+        finishHour: await this.resolveAutoFinishHour(visit),
+        visitFinishSource: VisitSource.AUTO,
+      });
+    }
+
+    this.websocketGateway.emitVisitChanged();
+    return openVisits.length;
+  }
+
+  private async sendUnfinishedVisitNotifications(
+    visit: {
+      user: unknown;
+      location: { name: string };
+      date: string;
+      startHour: string;
+    },
+    unfinishedVisitEvent?: UnfinishedVisitEvent,
+  ): Promise<boolean> {
+    if (!unfinishedVisitEvent) {
+      return false;
+    }
+
+    try {
       const managerMessage = {
         key: 'UnfinishedVisit',
         params: {
@@ -732,11 +770,42 @@ export class VisitService {
         message: employeeMessage,
       });
 
-      await this.visitModel.findByIdAndUpdate(visit._id, {
-        notificationSent: true,
-      });
+      return true;
+    } catch (error) {
+      console.error('Failed to send unfinished visit notification:', error);
+      return false;
     }
+  }
 
-    return openVisits.length;
+  private async resolveAutoFinishHour(visit: {
+    date: string;
+    startHour: string;
+    user: unknown;
+    location: unknown;
+  }): Promise<string> {
+    try {
+      const location = (visit.location as { _id: number })?._id;
+      const userId = (visit.user as User)?._id;
+      const shifts = await this.shiftService.findQueryShifts({
+        after: visit.date,
+        before: visit.date,
+        location,
+      });
+      const foundShift = shifts[0]?.shifts?.find((shift) =>
+        shift.user.includes(userId),
+      );
+      if (foundShift?.shiftEndHour) {
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        const endIsAfterStart = isNightShift
+          ? visit.startHour >= foundShift.shift
+          : foundShift.shiftEndHour > visit.startHour;
+        if (endIsAfterStart) {
+          return foundShift.shiftEndHour;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to resolve shift end hour for auto close:', error);
+    }
+    return AUTO_CLOSE_FALLBACK_HOUR;
   }
 }
