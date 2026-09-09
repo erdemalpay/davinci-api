@@ -11,6 +11,11 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
+import {
+  IntegrationRequestStatus,
+  IntegrationSource,
+} from '../integration-request-log/integration-request-log.schema';
+import { IntegrationRequestLogService } from '../integration-request-log/integration-request-log.service';
 import { LocationService } from '../location/location.service';
 import { MenuService } from '../menu/menu.service';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -51,6 +56,19 @@ export class TrendyolService {
   private readonly apiSecret: string;
   private readonly OnlineStoreLocation = 6;
 
+  /** Cevabi ozet olarak loglanan yollar. */
+  private static readonly SUMMARIZED_RESPONSE_SUFFIXES = ['/products'];
+  private static readonly MAX_LOGGED_BODY_BYTES = 100 * 1024;
+  private static readonly MASKED_KEYS = [
+    'password',
+    'apikey',
+    'apisecret',
+    'username',
+    'authorization',
+    'secret',
+    'token',
+  ];
+
   private get userAgent() {
     return `${this.sellerId} - ${process.env.TRENDYOL_USER_AGENT_SUFFIX}`;
   }
@@ -73,6 +91,7 @@ export class TrendyolService {
     private readonly webhookLogService: WebhookLogService,
     @InjectModel(ProcessedClaimItem.name)
     private readonly processedClaimItemModel: Model<ProcessedClaimItem>,
+    private readonly integrationRequestLogService: IntegrationRequestLogService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -101,6 +120,186 @@ export class TrendyolService {
   }
 
   /**
+   * Trendyol'a giden tum HTTP cagrilarinin tek gecis noktasi.
+   * Hata OLDUGU GIBI yeniden firlatilir: cagiran taraflar error?.response?.data
+   * ve error?.response?.status okuyor, sarmalarsak bozulur.
+   */
+  private async request<T = any>(
+    method: 'GET' | 'POST' | 'DELETE',
+    path: string,
+    options: { body?: any; params?: any; sendsJson?: boolean } = {},
+  ): Promise<T> {
+    const { body, params, sendsJson = false } = options;
+
+    const headers: Record<string, string> = {
+      'User-Agent': this.userAgent,
+      Accept: 'application/json',
+    };
+    if (sendsJson) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const startedAt = Date.now();
+    try {
+      const { data, status } = await firstValueFrom(
+        this.http.request<T>({
+          method,
+          url: `${this.baseUrl}${path}`,
+          ...(body !== undefined && { data: body }),
+          ...(params && { params }),
+          auth: { username: this.apiKey, password: this.apiSecret },
+          headers,
+        }),
+      );
+
+      await this.logIntegrationRequest({
+        method,
+        path,
+        requestBody: body ?? params,
+        responseBody: data,
+        status: IntegrationRequestStatus.SUCCESS,
+        statusCode: status,
+        durationMs: Date.now() - startedAt,
+      });
+
+      return data;
+    } catch (error) {
+      await this.logIntegrationRequest({
+        method,
+        path,
+        requestBody: body ?? params,
+        responseBody: error?.response?.data,
+        status: IntegrationRequestStatus.ERROR,
+        // Cevap hic gelmediyse bos birakilir; uydurma kod yazilmaz.
+        statusCode: error?.response?.status,
+        errorMessage: this.buildErrorMessage(error),
+        durationMs: Date.now() - startedAt,
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * errorMessage semada String; object yazilirsa Mongoose CastError firlatir
+   * ve log kaydi tamamen kaybolur. Bu yuzden her zaman string'e cevriliyor.
+   */
+  private buildErrorMessage(error: any): string {
+    const raw =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Unknown error';
+
+    if (typeof raw === 'string') {
+      return raw;
+    }
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return String(raw);
+    }
+  }
+
+  /** Log yazilamamasi asil istegi ASLA bozmaz; sadece uyari dusulur. */
+  private async logIntegrationRequest(entry: {
+    method: string;
+    path: string;
+    requestBody?: any;
+    responseBody?: any;
+    status: IntegrationRequestStatus;
+    statusCode?: number;
+    errorMessage?: string;
+    durationMs: number;
+  }): Promise<void> {
+    try {
+      await this.integrationRequestLogService.create({
+        source: IntegrationSource.TRENDYOL,
+        method: entry.method,
+        endpoint: entry.path,
+        requestBody: this.buildLoggedBody(
+          this.maskSensitiveValues(entry.requestBody),
+        ),
+        responseBody: this.buildLoggedResponse(entry.path, entry.responseBody),
+        status: entry.status,
+        statusCode: entry.statusCode,
+        errorMessage: entry.errorMessage,
+        durationMs: entry.durationMs,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to write integration request log for ${entry.method} ${entry.path}: ${
+          error?.message || error
+        }`,
+      );
+    }
+  }
+
+  /** Maskelenmis YENI bir kopya doner; giden govde ve donen cevap degismez. */
+  private maskSensitiveValues(value: any, depth = 0): any {
+    if (depth > 6 || value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.maskSensitiveValues(item, depth + 1));
+    }
+
+    const masked: Record<string, any> = {};
+    for (const [key, item] of Object.entries(value)) {
+      masked[key] = TrendyolService.MASKED_KEYS.includes(key.toLowerCase())
+        ? '***'
+        : this.maskSensitiveValues(item, depth + 1);
+    }
+    return masked;
+  }
+
+  /** Urun listesi cevabi ~519 KB ve gunde ~150 kez cekiliyor; icerik yerine ozet saklanir. */
+  private buildLoggedResponse(path: string, responseBody: any): any {
+    const isSummarized = TrendyolService.SUMMARIZED_RESPONSE_SUFFIXES.some(
+      (suffix) => path.endsWith(suffix),
+    );
+
+    if (isSummarized && responseBody && typeof responseBody === 'object') {
+      return {
+        __summary: true,
+        totalElements: responseBody.totalElements,
+        totalPages: responseBody.totalPages,
+        page: responseBody.page,
+        size: responseBody.size,
+        contentCount: Array.isArray(responseBody.content)
+          ? responseBody.content.length
+          : undefined,
+      };
+    }
+
+    return this.buildLoggedBody(this.maskSensitiveValues(responseBody));
+  }
+
+  /** Beklenmedik buyuklukteki govdeleri kirpar; kirpildigi ekranda gorunur kalir. */
+  private buildLoggedBody(value: any): any {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    if (serialized === undefined) {
+      return undefined;
+    }
+
+    const originalBytes = Buffer.byteLength(serialized);
+    if (originalBytes <= TrendyolService.MAX_LOGGED_BODY_BYTES) {
+      return value;
+    }
+
+    return {
+      __truncated: true,
+      originalBytes,
+      preview: serialized.slice(0, 2000),
+    };
+  }
+
+  /**
    * Trendyol'a webhook kaydı oluşturur.
    */
   async createWebhook(webhookData: CreateTrendyolWebhookDto) {
@@ -114,22 +313,10 @@ export class TrendyolService {
         `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
       );
 
-      const { data } = await firstValueFrom(
-        this.http.post(
-          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
-          webhookData,
-          {
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-          },
-        ),
+      const data = await this.request(
+        'POST',
+        `/integration/webhook/sellers/${this.sellerId}/webhooks`,
+        { body: webhookData, sendsJson: true },
       );
 
       this.logger.log('Webhook created successfully:', data);
@@ -162,20 +349,9 @@ export class TrendyolService {
    */
   async getWebhooks() {
     try {
-      const { data } = await firstValueFrom(
-        this.http.get(
-          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks`,
-          {
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              Accept: 'application/json',
-            },
-          },
-        ),
+      const data = await this.request(
+        'GET',
+        `/integration/webhook/sellers/${this.sellerId}/webhooks`,
       );
 
       this.logger.log(`Found ${data?.length || 0} webhooks`);
@@ -208,20 +384,9 @@ export class TrendyolService {
     try {
       this.logger.log(`Deleting webhook with ID: ${webhookId}`);
 
-      const { data } = await firstValueFrom(
-        this.http.delete(
-          `${this.baseUrl}/integration/webhook/sellers/${this.sellerId}/webhooks/${webhookId}`,
-          {
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              Accept: 'application/json',
-            },
-          },
-        ),
+      const data = await this.request(
+        'DELETE',
+        `/integration/webhook/sellers/${this.sellerId}/webhooks/${webhookId}`,
       );
 
       this.logger.log(`Webhook deleted successfully: ${webhookId}`);
@@ -266,30 +431,21 @@ export class TrendyolService {
     } = params;
 
     try {
-      const { data } = await firstValueFrom(
-        this.http.get(
-          `${this.baseUrl}/integration/product/sellers/${this.sellerId}/products`,
-          {
-            params: {
-              page,
-              size,
-              ...(approved && { approved }),
-              ...(barcode && { barcode }),
-              ...(startDate && { startDate }),
-              ...(endDate && { endDate }),
-              ...(archived && { archived }),
-              ...(onsale && { onsale }),
-            },
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              Accept: 'application/json',
-            },
+      const data = await this.request(
+        'GET',
+        `/integration/product/sellers/${this.sellerId}/products`,
+        {
+          params: {
+            page,
+            size,
+            ...(approved && { approved }),
+            ...(barcode && { barcode }),
+            ...(startDate && { startDate }),
+            ...(endDate && { endDate }),
+            ...(archived && { archived }),
+            ...(onsale && { onsale }),
           },
-        ),
+        },
       );
 
       return {
@@ -615,22 +771,10 @@ export class TrendyolService {
         } items`,
       );
 
-      const { data } = await firstValueFrom(
-        this.http.post(
-          `${this.baseUrl}/integration/inventory/sellers/${this.sellerId}/products/price-and-inventory`,
-          { items: batch },
-          {
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-          },
-        ),
+      const data = await this.request<{ batchRequestId: string }>(
+        'POST',
+        `/integration/inventory/sellers/${this.sellerId}/products/price-and-inventory`,
+        { body: { items: batch }, sendsJson: true },
       );
 
       this.logger.log(
@@ -794,30 +938,21 @@ export class TrendyolService {
     } = params;
 
     try {
-      const { data } = await firstValueFrom(
-        this.http.get(
-          `${this.baseUrl}/integration/order/sellers/${this.sellerId}/orders`,
-          {
-            params: {
-              page,
-              size,
-              ...(startDate && { startDate }),
-              ...(endDate && { endDate }),
-              ...(status && { status }),
-              ...(orderNumber && { orderNumber }),
-              ...(orderByField && { orderByField }),
-              ...(orderByDirection && { orderByDirection }),
-            },
-            auth: {
-              username: this.apiKey,
-              password: this.apiSecret,
-            },
-            headers: {
-              'User-Agent': this.userAgent,
-              Accept: 'application/json',
-            },
+      const data = await this.request(
+        'GET',
+        `/integration/order/sellers/${this.sellerId}/orders`,
+        {
+          params: {
+            page,
+            size,
+            ...(startDate && { startDate }),
+            ...(endDate && { endDate }),
+            ...(status && { status }),
+            ...(orderNumber && { orderNumber }),
+            ...(orderByField && { orderByField }),
+            ...(orderByDirection && { orderByDirection }),
           },
-        ),
+        },
       );
 
       // Sadeleştirilmiş response
@@ -1555,27 +1690,18 @@ export class TrendyolService {
       this.logger.log('Starting to fetch all Trendyol claims...');
 
       while (currentPage < totalPages) {
-        const { data } = await firstValueFrom(
-          this.http.get(
-            `${this.baseUrl}/integration/order/sellers/${this.sellerId}/claims`,
-            {
-              params: {
-                page: currentPage,
-                size: pageSize,
-                ...(params.orderNumber && { orderNumber: params.orderNumber }),
-                ...(params.startDate && { startDate: params.startDate }),
-                ...(params.endDate && { endDate: params.endDate }),
-              },
-              auth: {
-                username: this.apiKey,
-                password: this.apiSecret,
-              },
-              headers: {
-                'User-Agent': this.userAgent,
-                Accept: 'application/json',
-              },
+        const data = await this.request(
+          'GET',
+          `/integration/order/sellers/${this.sellerId}/claims`,
+          {
+            params: {
+              page: currentPage,
+              size: pageSize,
+              ...(params.orderNumber && { orderNumber: params.orderNumber }),
+              ...(params.startDate && { startDate: params.startDate }),
+              ...(params.endDate && { endDate: params.endDate }),
             },
-          ),
+          },
         );
 
         allClaims.push(...data.content);
