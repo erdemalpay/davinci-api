@@ -3,6 +3,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from 'src/modules/user/user.module';
 import { NotificationModule } from '../notification/notification.module';
+import { IntegrationRequestLogModule } from '../integration-request-log/integration-request-log.module';
 import { OrderModule } from '../order/order.module';
 import { WebhookLogModule } from '../webhook-log/webhook-log.module';
 import { WebSocketModule } from '../websocket/websocket.module';
@@ -25,6 +26,7 @@ import { TrendyolService } from './trendyol.service';
     LocationModule,
     forwardRef(() => NotificationModule),
     WebhookLogModule,
+    IntegrationRequestLogModule,
     forwardRef(() => MenuModule),
     forwardRef(() => OrderModule),
     forwardRef(() => AccountingModule),
