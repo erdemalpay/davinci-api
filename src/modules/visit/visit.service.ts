@@ -13,13 +13,16 @@ import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { NotificationEventType } from '../notification/notification.dto';
+import {
+  CreateNotificationDto,
+  NotificationEventType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
+import { ShiftService } from '../shift/shift.service';
 import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { ShiftService } from '../shift/shift.service';
 import { CafeActivity } from './cafeActivity.schema';
 import { CreateVisitDto } from './create.visit.dto';
 import { QrCodeService } from './qr-code.service';
@@ -32,6 +35,11 @@ import {
   VisitTypes,
 } from './visit.dto';
 import { Visit } from './visit.schema';
+
+const AUTO_CLOSE_FALLBACK_HOUR = '01:10';
+type UnfinishedVisitEvent = Awaited<
+  ReturnType<NotificationService['findAllEventNotifications']>
+>[number];
 
 export class VisitService {
   constructor(
@@ -651,14 +659,17 @@ export class VisitService {
   }
 
   async notifyUnfinishedVisits() {
-    // Bildirim spamı olmaması için son 2 gündeki kapanmamış vardiyaları kontrol etmek istiyorum:
-    const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
+    const istanbulNow = moment.tz('Europe/Istanbul');
+    const today = istanbulNow.format('YYYY-MM-DD');
+    const twoDaysAgo = istanbulNow
+      .clone()
+      .subtract(2, 'day')
+      .format('YYYY-MM-DD');
 
-    // Bitiş saati olmayan VE notification gönderilmeyenleri topluyorum:
     const openVisits = await this.visitModel
       .find({
         finishHour: { $exists: false },
-        date: { $gte: twoDaysAgo },
+        date: { $gte: twoDaysAgo, $lt: today },
         $or: [
           { notificationSent: { $exists: false } }, // deploy ettiğimiz tarihe göre eski kayıtlar için (field yoksa)
           { notificationSent: false }, // yeni kayıtlar için
@@ -678,65 +689,111 @@ export class VisitService {
       return 0;
     }
 
-    const notificationEvents =
-      await this.notificationService.findAllEventNotifications();
-    const unfinishedVisitEvent = notificationEvents.find(
-      (notification) =>
-        notification.event === NotificationEventType.UNFINISHEDVISIT,
-    );
-
-    if (!unfinishedVisitEvent) {
-      return 0;
+    let unfinishedVisitEvent: UnfinishedVisitEvent;
+    try {
+      const notificationEvents =
+        await this.notificationService.findAllEventNotifications();
+      unfinishedVisitEvent = notificationEvents.find(
+        (notification) =>
+          notification.event === NotificationEventType.UNFINISHEDVISIT,
+      );
+    } catch (error) {
+      console.error('Failed to fetch unfinished visit notification:', error);
     }
 
-    // Bildirim gönderilmesi
     for (const visit of openVisits) {
-      const managerMessage = {
-        key: 'UnfinishedVisit',
-        params: {
-          user: (visit.user as User).name,
-          location: visit.location.name,
-          date: visit.date,
-          startHour: visit.startHour,
-        },
-      };
-
-      await this.notificationService.createNotification({
-        type: unfinishedVisitEvent.type,
-        createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers: unfinishedVisitEvent.selectedUsers,
-        selectedRoles: unfinishedVisitEvent.selectedRoles,
-        selectedLocations: unfinishedVisitEvent.selectedLocations,
-        seenBy: [],
-        event: NotificationEventType.UNFINISHEDVISIT,
-        message: managerMessage,
-      });
-
-      const employeeMessage = {
-        key: 'UnfinishedVisitEmployee',
-        params: {
-          location: visit.location.name,
-          date: visit.date,
-          startHour: visit.startHour,
-        },
-      };
-
-      await this.notificationService.createNotification({
-        type: unfinishedVisitEvent.type,
-        createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers: [(visit.user as User)._id],
-        selectedRoles: unfinishedVisitEvent.selectedRoles,
-        selectedLocations: unfinishedVisitEvent.selectedLocations,
-        seenBy: [],
-        event: NotificationEventType.UNFINISHEDVISIT,
-        message: employeeMessage,
-      });
+      const notificationSent = await this.sendUnfinishedVisitNotifications(
+        visit,
+        unfinishedVisitEvent,
+      );
 
       await this.visitModel.findByIdAndUpdate(visit._id, {
-        notificationSent: true,
+        notificationSent,
+        finishHour: await this.resolveAutoFinishHour(visit),
+        visitFinishSource: VisitSource.AUTO,
       });
     }
 
+    this.websocketGateway.emitVisitChanged();
     return openVisits.length;
+  }
+
+  private async sendUnfinishedVisitNotifications(
+    visit: {
+      user: unknown;
+      location: { name: string };
+      date: string;
+      startHour: string;
+    },
+    unfinishedVisitEvent?: UnfinishedVisitEvent,
+  ): Promise<boolean> {
+    if (!unfinishedVisitEvent) {
+      return false;
+    }
+
+    const { location, date, startHour } = visit;
+    const user = visit.user as User;
+    const notify = (
+      selectedUsers: string[],
+      message: CreateNotificationDto['message'],
+    ) =>
+      this.notificationService.createNotification({
+        type: unfinishedVisitEvent.type,
+        createdBy: unfinishedVisitEvent.createdBy,
+        selectedUsers,
+        selectedRoles: unfinishedVisitEvent.selectedRoles,
+        selectedLocations: unfinishedVisitEvent.selectedLocations,
+        seenBy: [],
+        event: NotificationEventType.UNFINISHEDVISIT,
+        message,
+      });
+
+    try {
+      await notify(unfinishedVisitEvent.selectedUsers, {
+        key: 'UnfinishedVisit',
+        params: { user: user.name, location: location.name, date, startHour },
+      });
+      await notify([user._id], {
+        key: 'UnfinishedVisitEmployee',
+        params: { location: location.name, date, startHour },
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to send unfinished visit notification:', error);
+      return false;
+    }
+  }
+
+  private async resolveAutoFinishHour(visit: {
+    date: string;
+    startHour: string;
+    user: unknown;
+    location: unknown;
+  }): Promise<string> {
+    try {
+      const location = (visit.location as { _id: number })?._id;
+      const userId = (visit.user as User)?._id;
+      const shifts = await this.shiftService.findQueryShifts({
+        after: visit.date,
+        before: visit.date,
+        location,
+      });
+      const foundShift = shifts[0]?.shifts?.find((shift) =>
+        shift.user.includes(userId),
+      );
+      if (foundShift?.shiftEndHour) {
+        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        const endIsAfterStart = isNightShift
+          ? visit.startHour >= foundShift.shift
+          : foundShift.shiftEndHour > visit.startHour;
+        if (endIsAfterStart) {
+          return foundShift.shiftEndHour;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to resolve shift end hour for auto close:', error);
+    }
+    return AUTO_CLOSE_FALLBACK_HOUR;
   }
 }
