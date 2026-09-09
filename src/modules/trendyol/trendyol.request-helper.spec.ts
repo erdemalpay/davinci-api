@@ -116,7 +116,9 @@ describe('TrendyolService.request', () => {
   });
 
   it('hassas alanlari maskeler ama Trendyol\'a giden govdeyi degistirmez', async () => {
-    const { call, create, http } = buildService({ ok: { ok: true } });
+    const { call, create, http } = buildService({
+      ok: { id: 'wh_1', username: 'davinci', url: 'https://hook.test' },
+    });
 
     const body = {
       url: 'https://hook.test',
@@ -143,6 +145,65 @@ describe('TrendyolService.request', () => {
     expect(logged.nested[0].apiSecret).toBe('***');
     expect(logged.nested[0].keep).toBe('visible');
     expect(logged.url).toBe('https://hook.test');
+
+    // Cevap tarafi da maskelenmeli: getWebhooks cevabinda username donuyor
+    const loggedResponse = create.mock.calls[0][0].responseBody;
+    expect(loggedResponse.username).toBe('***');
+    expect(loggedResponse.id).toBe('wh_1');
+  });
+
+  it('urun listesi cevabini ozetler, 200 urunun icerigini saklamaz', async () => {
+    const content = Array.from({ length: 200 }, (_, i) => ({
+      id: `p${i}`,
+      description: 'x'.repeat(1500),
+    }));
+    const { call, create } = buildService({
+      ok: { totalElements: 489, totalPages: 3, page: 0, size: 200, content },
+    });
+
+    await call('GET', '/integration/product/sellers/1/products', {
+      params: { page: 0, size: 200 },
+    });
+
+    const logged = create.mock.calls[0][0].responseBody;
+    expect(logged).toEqual({
+      __summary: true,
+      totalElements: 489,
+      totalPages: 3,
+      page: 0,
+      size: 200,
+      contentCount: 200,
+    });
+    expect(logged.content).toBeUndefined();
+  });
+
+  it('ozetlenmeyen buyuk cevabi kirpar ve kirpildigini belli eder', async () => {
+    const { call, create } = buildService({
+      ok: { rows: Array.from({ length: 4000 }, (_, i) => ({ i, pad: 'y'.repeat(40) })) },
+    });
+
+    await call('GET', '/integration/order/sellers/1/orders', { params: { page: 0 } });
+
+    const logged = create.mock.calls[0][0].responseBody;
+    expect(logged.__truncated).toBe(true);
+    expect(logged.originalBytes).toBeGreaterThan(100 * 1024);
+    expect(typeof logged.preview).toBe('string');
+  });
+
+  it('errorMessage object gelse bile string yazilir', async () => {
+    // String alanina object yazilirsa Mongoose CastError firlatir ve kayit kaybolur
+    const axiosError: any = new Error('Request failed');
+    axiosError.response = {
+      status: 500,
+      data: { error: { code: 'TY-500', description: 'internal' } },
+    };
+    const { call, create } = buildService({ error: axiosError });
+
+    await expect(call('GET', '/integration/z')).rejects.toBe(axiosError);
+
+    const logged = create.mock.calls[0][0];
+    expect(typeof logged.errorMessage).toBe('string');
+    expect(logged.errorMessage).toBe('{"code":"TY-500","description":"internal"}');
   });
 
   it('log yazilamazsa asil istek BOZULMAZ, sadece uyari dusulur', async () => {
