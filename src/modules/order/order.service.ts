@@ -456,6 +456,23 @@ export class OrderService {
           new Set([...items, ...daVinciGameItems].map((item) => item._id)),
         );
       }
+      // Sipariş dokümanında retailer alanı yok; toptan bağlantısı tahsilat
+      // tarafında tutuluyor (collection.retailer + collection.orders).
+      let retailerOrderIds: number[] | null = null;
+      if (
+        query.salesChannel === 'wholesale' ||
+        query.salesChannel === 'retail'
+      ) {
+        retailerOrderIds = await this.collectionModel
+          .find({
+            retailer: { $exists: true, $ne: null },
+            status: { $ne: OrderCollectionStatus.CANCELLED },
+            ...(filterQuery.tableDate
+              ? { tableDate: filterQuery.tableDate }
+              : {}),
+          })
+          .distinct('orders.order');
+      }
       let preOrderShopifyOrderIds: string[] | null = null;
       if (isPreOrder) {
         const preOrderItems = await this.menuService.findPreOrderItems();
@@ -482,6 +499,14 @@ export class OrderService {
         ...(itemIds.length > 0 ? { item: { $in: itemIds } } : {}),
         ...(preOrderShopifyOrderIds
           ? { shopifyOrderId: { $in: preOrderShopifyOrderIds } }
+          : {}),
+        ...(retailerOrderIds
+          ? {
+              _id:
+                query.salesChannel === 'wholesale'
+                  ? { $in: retailerOrderIds }
+                  : { $nin: retailerOrderIds },
+            }
           : {}),
       };
       const orders = await this.orderModel
