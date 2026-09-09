@@ -13,7 +13,10 @@ import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { NotificationEventType } from '../notification/notification.dto';
+import {
+  CreateNotificationDto,
+  NotificationEventType,
+} from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { ShiftService } from '../shift/shift.service';
 import { RoleEnum } from '../user/user.dto';
@@ -728,46 +731,31 @@ export class VisitService {
       return false;
     }
 
-    try {
-      const managerMessage = {
-        key: 'UnfinishedVisit',
-        params: {
-          user: (visit.user as User).name,
-          location: visit.location.name,
-          date: visit.date,
-          startHour: visit.startHour,
-        },
-      };
-
-      await this.notificationService.createNotification({
+    const { location, date, startHour } = visit;
+    const user = visit.user as User;
+    const notify = (
+      selectedUsers: string[],
+      message: CreateNotificationDto['message'],
+    ) =>
+      this.notificationService.createNotification({
         type: unfinishedVisitEvent.type,
         createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers: unfinishedVisitEvent.selectedUsers,
+        selectedUsers,
         selectedRoles: unfinishedVisitEvent.selectedRoles,
         selectedLocations: unfinishedVisitEvent.selectedLocations,
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
-        message: managerMessage,
+        message,
       });
 
-      const employeeMessage = {
+    try {
+      await notify(unfinishedVisitEvent.selectedUsers, {
+        key: 'UnfinishedVisit',
+        params: { user: user.name, location: location.name, date, startHour },
+      });
+      await notify([user._id], {
         key: 'UnfinishedVisitEmployee',
-        params: {
-          location: visit.location.name,
-          date: visit.date,
-          startHour: visit.startHour,
-        },
-      };
-
-      await this.notificationService.createNotification({
-        type: unfinishedVisitEvent.type,
-        createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers: [(visit.user as User)._id],
-        selectedRoles: unfinishedVisitEvent.selectedRoles,
-        selectedLocations: unfinishedVisitEvent.selectedLocations,
-        seenBy: [],
-        event: NotificationEventType.UNFINISHEDVISIT,
-        message: employeeMessage,
+        params: { location: location.name, date, startHour },
       });
 
       return true;
