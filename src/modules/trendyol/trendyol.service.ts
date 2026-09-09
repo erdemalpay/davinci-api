@@ -172,15 +172,32 @@ export class TrendyolService {
         status: IntegrationRequestStatus.ERROR,
         // Cevap hic gelmediyse bos birakilir; uydurma kod yazilmaz.
         statusCode: error?.response?.status,
-        errorMessage:
-          error?.response?.data?.message ||
-          error?.response?.data?.error ||
-          error?.message ||
-          'Unknown error',
+        errorMessage: this.buildErrorMessage(error),
         durationMs: Date.now() - startedAt,
       });
 
       throw error;
+    }
+  }
+
+  /**
+   * errorMessage semada String; object yazilirsa Mongoose CastError firlatir
+   * ve log kaydi tamamen kaybolur. Bu yuzden her zaman string'e cevriliyor.
+   */
+  private buildErrorMessage(error: any): string {
+    const raw =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Unknown error';
+
+    if (typeof raw === 'string') {
+      return raw;
+    }
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return String(raw);
     }
   }
 
@@ -256,7 +273,7 @@ export class TrendyolService {
       };
     }
 
-    return this.buildLoggedBody(responseBody);
+    return this.buildLoggedBody(this.maskSensitiveValues(responseBody));
   }
 
   /** Beklenmedik buyuklukteki govdeleri kirpar; kirpildigi ekranda gorunur kalir. */
