@@ -1,4 +1,6 @@
-jest.mock('../user/user.service', () => ({ UserService: class UserService {} }));
+jest.mock('../user/user.service', () => ({
+  UserService: class UserService {},
+}));
 jest.mock('../notification/notification.service', () => ({
   NotificationService: class NotificationService {},
 }));
@@ -56,6 +58,12 @@ describe('VisitService.notifyUnfinishedVisits', () => {
     });
   };
 
+  const givenShift = (shift: {
+    user: string[];
+    shift: string;
+    shiftEndHour?: string;
+  }) => shiftService.findQueryShifts.mockResolvedValue(makeShiftDay(shift));
+
   const updatesFor = (id: number) =>
     visitModel.findByIdAndUpdate.mock.calls.find((call) => call[0] === id)?.[1];
 
@@ -100,11 +108,32 @@ describe('VisitService.notifyUnfinishedVisits', () => {
     jest.useRealTimers();
   });
 
-  it('vardiya bitişi varsa çıkış saatini oradan yazar ve kaydı auto olarak işaretler', async () => {
+  it.each([
+    ['vardiya bitişi varsa onu yazar', '13:00', '13:00', '23:00', '23:00'],
+    ['bitiş girişten önceyse fallback', '23:29', '12:00', '22:00', '01:10'],
+    ['gece vardiyasında bitişi yazar', '14:15', '14:10', '00:10', '00:10'],
+    ['gece vardiyasında erken giriş', '00:30', '19:00', '00:10', '01:10'],
+  ])('%s', async (_case, startHour, shift, shiftEndHour, expected) => {
+    givenOpenVisits([makeVisit({ startHour })]);
+    givenShift({ user: ['ceren'], shift, shiftEndHour });
+
+    await service.notifyUnfinishedVisits();
+
+    expect(updatesFor(1).finishHour).toBe(expected);
+  });
+
+  it('kişinin o güne vardiyası yoksa 01:10 yazar', async () => {
     givenOpenVisits([makeVisit()]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' }),
-    );
+    givenShift({ user: ['baskaBiri'], shift: '13:00', shiftEndHour: '23:00' });
+
+    await service.notifyUnfinishedVisits();
+
+    expect(updatesFor(1).finishHour).toBe('01:10');
+  });
+
+  it('kapattığı kaydı auto kaynağıyla işaretler', async () => {
+    givenOpenVisits([makeVisit()]);
+    givenShift({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' });
 
     await service.notifyUnfinishedVisits();
 
@@ -113,50 +142,6 @@ describe('VisitService.notifyUnfinishedVisits', () => {
       finishHour: '23:00',
       visitFinishSource: VisitSource.AUTO,
     });
-  });
-
-  it('kişinin o güne vardiyası yoksa 01:10 yazar', async () => {
-    givenOpenVisits([makeVisit()]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['baskaBiri'], shift: '13:00', shiftEndHour: '23:00' }),
-    );
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('01:10');
-  });
-
-  it('vardiya bitişi girişten önceyse negatif süre üretmemek için 01:10 yazar', async () => {
-    givenOpenVisits([makeVisit({ startHour: '23:29' })]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '12:00', shiftEndHour: '22:00' }),
-    );
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('01:10');
-  });
-
-  it('gece vardiyasında vardiya bitişini yazar (00:10, fallback değil)', async () => {
-    givenOpenVisits([makeVisit({ startHour: '14:15' })]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '14:10', shiftEndHour: '00:10' }),
-    );
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('00:10');
-  });
-
-  it('gece vardiyasında giriş vardiya başlangıcından önceyse 01:10 yazar', async () => {
-    givenOpenVisits([makeVisit({ startHour: '00:30' })]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '19:00', shiftEndHour: '00:10' }),
-    );
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('01:10');
   });
 
   it('vardiya sorgusu patlarsa kaydı 01:10 ile yine de kapatır', async () => {
@@ -185,7 +170,9 @@ describe('VisitService.notifyUnfinishedVisits', () => {
 
     expect(visitModel.findByIdAndUpdate).not.toHaveBeenCalled();
     expect(websocketGateway.emitVisitChanged).not.toHaveBeenCalled();
-    expect(notificationService.findAllEventNotifications).not.toHaveBeenCalled();
+    expect(
+      notificationService.findAllEventNotifications,
+    ).not.toHaveBeenCalled();
   });
 
   it('birden fazla kaydı kapatır ve websocket olayını yalnızca bir kez yayar', async () => {
@@ -228,57 +215,47 @@ describe('VisitService.notifyUnfinishedVisits', () => {
         },
       },
     ]);
-    expect(notificationService.createNotification.mock.calls[1][0].selectedUsers).toEqual(['ceren']);
+    expect(
+      notificationService.createNotification.mock.calls[1][0].selectedUsers,
+    ).toEqual(['ceren']);
   });
 
-  it('UNFINISHEDVISIT şablonu silinmişse bildirim atmaz ama kaydı yine kapatır', async () => {
-    givenOpenVisits([makeVisit()]);
-    notificationService.findAllEventNotifications.mockResolvedValue([]);
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' }),
-    );
+  it.each([
+    [
+      'şablon silinmişse',
+      () => notificationService.findAllEventNotifications.mockResolvedValue([]),
+    ],
+    [
+      'bildirim servisi patlarsa',
+      () =>
+        notificationService.findAllEventNotifications.mockRejectedValue(
+          new Error('notification service down'),
+        ),
+    ],
+    [
+      'bildirim gönderimi patlarsa',
+      () =>
+        notificationService.createNotification.mockRejectedValue(
+          new Error('mail gateway down'),
+        ),
+    ],
+  ])(
+    '%s bildirim atmaz ama kaydı yine kapatır',
+    async (_case, breakNotification) => {
+      givenOpenVisits([makeVisit()]);
+      givenShift({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' });
+      breakNotification();
+      jest.spyOn(console, 'error').mockImplementation();
 
-    await service.notifyUnfinishedVisits();
+      await service.notifyUnfinishedVisits();
 
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
-    expect(updatesFor(1)).toEqual({
-      notificationSent: false,
-      finishHour: '23:00',
-      visitFinishSource: VisitSource.AUTO,
-    });
-  });
-
-  it('bildirim servisi patlarsa kaydı yine kapatır', async () => {
-    givenOpenVisits([makeVisit()]);
-    notificationService.findAllEventNotifications.mockRejectedValue(
-      new Error('notification service down'),
-    );
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' }),
-    );
-    jest.spyOn(console, 'error').mockImplementation();
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('23:00');
-    expect(updatesFor(1).notificationSent).toBe(false);
-  });
-
-  it('bildirim gönderimi patlarsa kaydı yine kapatır', async () => {
-    givenOpenVisits([makeVisit()]);
-    notificationService.createNotification.mockRejectedValue(
-      new Error('mail gateway down'),
-    );
-    shiftService.findQueryShifts.mockResolvedValue(
-      makeShiftDay({ user: ['ceren'], shift: '13:00', shiftEndHour: '23:00' }),
-    );
-    jest.spyOn(console, 'error').mockImplementation();
-
-    await service.notifyUnfinishedVisits();
-
-    expect(updatesFor(1).finishHour).toBe('23:00');
-    expect(updatesFor(1).notificationSent).toBe(false);
-  });
+      expect(updatesFor(1)).toEqual({
+        notificationSent: false,
+        finishHour: '23:00',
+        visitFinishSource: VisitSource.AUTO,
+      });
+    },
+  );
 });
 
 describe('VisitService.toggleVisit (mevcut giriş/çıkış davranışı)', () => {
@@ -298,7 +275,11 @@ describe('VisitService.toggleVisit (mevcut giriş/çıkış davranışı)', () =
   const toggle = () =>
     (
       service as unknown as {
-        toggleVisit: (u: unknown, l: number, s: VisitSource) => Promise<unknown>;
+        toggleVisit: (
+          u: unknown,
+          l: number,
+          s: VisitSource,
+        ) => Promise<unknown>;
       }
     ).toggleVisit(user, 2, VisitSource.QR);
 
