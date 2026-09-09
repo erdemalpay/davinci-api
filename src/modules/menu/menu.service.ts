@@ -1735,12 +1735,15 @@ export class MenuService {
     await this.categoryModel.updateMany({}, { active: true });
     await this.redisService.reset(RedisKeys.MenuItems);
   }
-  async findCategoryByName(name: string) {
-    return this.categoryModel.findOne({ name: name });
-  }
-
-  async findItemByName(name: string) {
-    return this.itemModel.findOne({ name: name, deleted: { $ne: true } });
+  async findNamesForBulkMatching() {
+    const [categories, items] = await Promise.all([
+      this.categoryModel.find().select('_id name').lean(),
+      this.itemModel
+        .find({ deleted: { $ne: true } })
+        .select('_id name')
+        .lean(),
+    ]);
+    return { categories, items };
   }
   async createBulkMenuItemWithProduct(createBulkItemDto: CreateBulkItemDto) {
     const lastItem = await this.itemModel.findOne({}).sort({ order: 'desc' });
@@ -1759,18 +1762,28 @@ export class MenuService {
     return item;
   }
 
-  async updateForBulkItem(id: number, product: string) {
+  async updateForBulkItem(
+    id: number,
+    product: string,
+    itemProduction?: {
+      product: string;
+      quantity: number;
+      isDecrementStock: boolean;
+    }[],
+  ) {
     await this.itemModel.findByIdAndUpdate(
       id,
       {
         matchedProduct: product,
-        itemProduction: [
-          {
-            quantity: 1,
-            product: product,
-            isDecrementStock: true,
-          },
-        ],
+        itemProduction: itemProduction?.length
+          ? itemProduction
+          : [
+              {
+                quantity: 1,
+                product: product,
+                isDecrementStock: true,
+              },
+            ],
       },
       { new: true },
     );
