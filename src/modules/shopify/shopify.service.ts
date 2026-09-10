@@ -73,6 +73,7 @@ import {
 import { planRefundActions } from './shopify.refund-plan';
 
 const NEORAMA_DEPO_LOCATION = 6;
+const GAMES_FOR_WEBSITE_CACHE_TTL_SECONDS = 600;
 
 interface SeenUsers {
   [key: string]: boolean;
@@ -499,7 +500,18 @@ export class ShopifyService {
     throw new Error('Max retries exceeded for GraphQL request');
   }
 
+  // Cache SADECE bu fonksiyonun ciktisinda; getAllProducts() cagiranlar
+  // (stok senkronu, toplu fiyat guncelleme) canli veriyle calismaya devam eder.
   async getGamesForWebSite() {
+    try {
+      const cached = await this.redisService.get(RedisKeys.ShopifyWebsiteGames);
+      if (cached) {
+        return cached;
+      }
+    } catch (error) {
+      this.logError('Failed to read website games from Redis', error);
+    }
+
     const [games, items, shopify] = await Promise.all([
       this.gameService.getGamesWithBgg(),
       this.menuService.findAllItems(),
@@ -513,7 +525,7 @@ export class ShopifyService {
     );
     const shopifyById = new Map(shopify.map((p) => [p.id, p]));
 
-    return games.map((game) => {
+    const result = games.map((game) => {
       const foundMenuItem = game.product
         ? itemsByProduct.get(game.product)
         : undefined;
@@ -532,6 +544,18 @@ export class ShopifyService {
 
       return { ...game.toObject(), shopifyPrice, shopifyUrl, onlineStoreUrl };
     });
+
+    try {
+      await this.redisService.set(
+        RedisKeys.ShopifyWebsiteGames,
+        result,
+        GAMES_FOR_WEBSITE_CACHE_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logError('Failed to cache website games in Redis', error);
+    }
+
+    return result;
   }
 
   async getAllProducts() {
