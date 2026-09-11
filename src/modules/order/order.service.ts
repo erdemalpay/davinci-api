@@ -2033,11 +2033,16 @@ export class OrderService {
         isPreOrder: Boolean((sibling.item as any)?.isPreOrder),
       }));
 
+    // Sessiz donulurse panel yesil "kaydedildi" gosteriyor; cagiran bilmeli.
     if (lines.length === 0) {
-      return undefined;
+      return mode === 'brought'
+        ? 'SHOPIFY_READY_FOR_PICKUP_SKIPPED'
+        : 'SHOPIFY_FULFILLMENT_SKIPPED';
     }
 
     if (mode === 'brought') {
+      let readinessWarning: string | undefined;
+
       try {
         const result = await this.shopifyService.markPickupOrderReadyForPickup(
           shopifyOrderId,
@@ -2045,14 +2050,13 @@ export class OrderService {
         );
 
         // Bekleme durumları normaldir, kullanıcıya uyarı gösterilmez.
-        if (result.prepared.length === 0) {
-          return result.noopReason === 'WAITING_FOR_BRINGABLE' ||
-            result.noopReason === 'NOTHING_BROUGHT'
-            ? undefined
-            : 'SHOPIFY_READY_FOR_PICKUP_SKIPPED';
+        if (
+          result.prepared.length === 0 &&
+          result.noopReason !== 'WAITING_FOR_BRINGABLE' &&
+          result.noopReason !== 'NOTHING_BROUGHT'
+        ) {
+          readinessWarning = 'SHOPIFY_READY_FOR_PICKUP_SKIPPED';
         }
-
-        return undefined;
       } catch (error) {
         this.logger.error(
           `Failed to mark Shopify order ${shopifyOrderId} as ready for pickup:`,
@@ -2060,6 +2064,30 @@ export class OrderService {
         );
         return 'SHOPIFY_READY_FOR_PICKUP_FAILED';
       }
+
+      // #1322: "Teslim Edildi" once basilmissa panelde tik zaten dolu olur ve
+      // personelin kapatmayi tetikleyecek dugmesi kalmaz. Urun gec gelince
+      // bekleyen teslimati burada bitiriyoruz, yoksa paket takili kaliyor.
+      const pendingDeliveryLineItemIds = activeSiblings
+        .filter(
+          (sibling) =>
+            sibling.isShopifyCustomerPicked &&
+            sibling.isShopifyPickUpOrderBrought &&
+            sibling.shopifyOrderLineItemId &&
+            !sibling.shopifyFulfillmentId,
+        )
+        .map((sibling) => String(sibling.shopifyOrderLineItemId));
+
+      if (pendingDeliveryLineItemIds.length === 0) {
+        return readinessWarning;
+      }
+
+      return (
+        (await this.fulfillPickedPickupLines(
+          shopifyOrderId,
+          pendingDeliveryLineItemIds,
+        )) ?? readinessWarning
+      );
     }
 
     // Panelde "Teslim Edildi" grup bazında çalışıp siparişin tüm satırlarını
@@ -2073,10 +2101,23 @@ export class OrderService {
       )
       .map((sibling) => String(sibling.shopifyOrderLineItemId));
 
+    // #5956: Shopify'a gitmemesi dogru, ama sessiz kalinca siparis "teslime
+    // hazir"da takiliyordu. Uyari donuyoruz.
     if (pickedLineItemIds.length === 0) {
-      return undefined;
+      return 'SHOPIFY_FULFILLMENT_SKIPPED';
     }
 
+    return this.fulfillPickedPickupLines(shopifyOrderId, pickedLineItemIds);
+  }
+
+  /**
+   * Verilen satırlar için Shopify paketini kapatır ve fulfillment id'sini yazar.
+   * Hem "Teslim Edildi" hem de geciken "Getirildi" (yakınsama) yolundan çağrılır.
+   */
+  private async fulfillPickedPickupLines(
+    shopifyOrderId: string,
+    pickedLineItemIds: string[],
+  ): Promise<string | undefined> {
     try {
       const fulfillments =
         await this.shopifyService.createFulfillmentForPickupOrder(
