@@ -8,6 +8,5 @@ Bu proje NestJS + Mongoose ile yazılmış bir backend API. Her özellik `src/mo
 - **DTO (`*.dto.ts`):** Alanlarda class-validator dekoratörleri eksiksiz olmalı. `ValidationPipe` `transform: true` ve `enableImplicitConversion: true` ile çalıştığı için tip dönüşümü kaynaklı hataları (ör. "false" string'inin boolean'a dönüşümü) kontrol et.
 - **Marketplace modülleri (`shopify`, `trendyol`, `ikas`, `hepsiburada`):** Aynı yapıdalar ama ortak base class yok. Birinde yapılan değişikliğin diğerlerinde de gerekip gerekmediğini belirt. Marketplace kimlik bilgileri MongoDB'de tutuluyor; koda, config'e veya log'a credential yazılmışsa kritik olarak işaretle.
 - **Config ve secret'lar:** `config/*.json` dosyalarına secret (şifre, token, API key) yazılmamalı; secret'lar `.env`'de olmalı.
-- **Yardımcı fonksiyonlar:** Yeni helper yazılmışsa `src/utils/` (`dateRanges`, `timeUtils`, `queryUtils`, `serviceUtils`, `tsUtils`) ve `src/lib/` altında aynı işi yapan bir fonksiyon olup olmadığını belirt.
-- **Testler:** Service'teki davranışı değiştiren değişikliklerde ilgili `*.service.spec.ts` güncellenmemişse belirt.
+- **Testler:** Bir service'in davranışı değiştiyse ve değişen dosyalar listesinde o modülün `*.service.spec.ts` dosyası yoksa, bunu özette tek cümleyle belirt (satır yorumu yazma).
 - **Performans:** Döngü içinde veritabanı sorgusu (N+1), index'siz alanlarda filtreleme ve sayfalama olmadan tüm koleksiyonu çekme gibi durumları işaretle.
