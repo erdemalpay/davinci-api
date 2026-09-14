@@ -64,7 +64,13 @@ jobs:
           node-version: '22'
 
       - name: 'Run Gemini review'
-        run: node .github/scripts/gemini-review.mjs
+        run: |-
+          # Kurulum PR'ı henüz merge edilmediyse script varsayılan branch'te yoktur: hata vermeden atla.
+          if [ ! -f .github/scripts/gemini-review.mjs ]; then
+            echo "::notice::Gemini review script'i varsayılan branch'te henüz yok (kurulum PR'ı merge edilmemiş), atlanıyor."
+            exit 0
+          fi
+          node .github/scripts/gemini-review.mjs
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
