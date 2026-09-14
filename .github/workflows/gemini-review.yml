@@ -1,0 +1,73 @@
+# Gemini ile otomatik, Türkçe PR review.
+#
+# Ne zaman çalışır:
+#   - PR açıldığında / yeniden açıldığında / draft'tan "Ready for review"a alındığında
+#   - PR'a "@gemini-cli /review" ile başlayan yorum yazıldığında (sadece repo sahibi/üye/collaborator)
+#     Örn: "@gemini-cli /review güvenliğe odaklan"
+#   - Actions sekmesinden elle (PR numarası girilerek)
+#
+# Gerekli secret : GEMINI_API_KEY (https://aistudio.google.com/apikey — ücretsiz)
+# İsteğe bağlı variable: GEMINI_MODELS (virgülle ayrılmış; kota dolarsa sıradaki modele geçilir)
+# Projeye özel kurallar: .github/gemini-review-rules.md
+# Review mantığı: .github/scripts/gemini-review.mjs
+
+name: '🔎 Gemini Review'
+
+on:
+  pull_request:
+    types: ['opened', 'reopened', 'ready_for_review']
+  issue_comment:
+    types: ['created']
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'İncelenecek PR numarası'
+        required: true
+
+jobs:
+  review:
+    if: |-
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.fork == false
+      ) || (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '@gemini-cli /review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      ) || github.event_name == 'workflow_dispatch'
+    # Concurrency job seviyesinde: başka botların (ör. CodeRabbit) PR yorumları "if" koşuluna
+    # takılıp atlanır ve devam eden review'u iptal edemez.
+    concurrency:
+      group: '${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}'
+      cancel-in-progress: true
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+    permissions:
+      contents: 'read'
+      issues: 'write'
+      pull-requests: 'write'
+    steps:
+      # Script ve kurallar varsayılan branch'ten alınır; PR'daki kod çalıştırılmaz
+      # (PR'dan gelen değiştirilmiş bir script'in API anahtarına erişmesini önler).
+      - name: 'Checkout default branch'
+        uses: 'actions/checkout@v4'
+        with:
+          ref: '${{ github.event.repository.default_branch }}'
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+
+      - uses: 'actions/setup-node@v4'
+        with:
+          node-version: '22'
+
+      - name: 'Run Gemini review'
+        run: node .github/scripts/gemini-review.mjs
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+          GEMINI_MODELS: '${{ vars.GEMINI_MODELS }}'
+          PR_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}'
+          EXTRA_INSTRUCTIONS: '${{ github.event.comment.body }}'
