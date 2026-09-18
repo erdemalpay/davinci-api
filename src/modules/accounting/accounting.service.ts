@@ -66,7 +66,7 @@ import {
   UpdateMultipleProduct,
 } from './accounting.dto';
 import { Brand } from './brand.schema';
-import { Count } from './count.schema';
+import { Count, ReservedStockDetail } from './count.schema';
 import { CountList } from './countList.schema';
 import { Expense } from './expense.schema';
 import { ExpenseType } from './expenseType.schema';
@@ -101,9 +101,26 @@ type BulkCreateExpenseError<TDto> = TDto & {
   errorNote: string;
 };
 
+// Shopify, Trendyol ve Hepsiburada siparişlerinin stoğu düştüğü depo.
+// (Aynı isim shopify ve ikas servislerinde de kullanılıyor.)
+const NEORAMA_DEPO_LOCATION = 6;
+const RESERVED_STOCKS_CACHE_SECONDS = 60;
+const RESERVED_SNAPSHOT_ATTEMPTS = 3;
+// Stok geçmişi stok yazıldıktan kısa süre sonra kaydediliyor; bu pay o gecikmeyi kapsar.
+const RESERVED_SNAPSHOT_STOCK_MARGIN_MS = 5 * 1000;
+
+type ReservedStocksEntry = {
+  fetchedAt: number;
+  invalidatedAt: number;
+  byProduct: Record<string, ReservedStockDetail[]>;
+};
+
 @Injectable()
 export class AccountingService {
   private readonly logger = new Logger(AccountingService.name);
+  // Ayrılmış adet Redis'te tutulur; buradaki alan yalnızca aynı anda gelen
+  // isteklerin aynı taramayı tekrarlamasını engeller (kanal taraması ~4 sn).
+  private reservedStocksInFlight: Promise<ReservedStocksEntry> | null = null;
 
   constructor(
     @InjectModel(Product.name)
@@ -2811,6 +2828,28 @@ export class AccountingService {
     quantity: number,
     currentCountId: number,
   ) {
+    // Toplu eşitlemede her ürün için çağrılıyor; bütün ürün listesi yerine
+    // yalnızca bu ürünün satırı okunur.
+    const currentCount = await this.countModel
+      .findById(currentCountId, {
+        location: 1,
+        products: { $elemMatch: { product } },
+      })
+      .lean();
+    const countProduct = currentCount?.products?.find(
+      (item) => item.product === product,
+    );
+    if (
+      currentCount?.location === NEORAMA_DEPO_LOCATION &&
+      countProduct?.reservedQuantity != null
+    ) {
+      return this.equalizeStockFromCountSnapshot(
+        user,
+        currentCountId,
+        countProduct,
+      );
+    }
+
     const stock = await this.stockModel.findOne({
       product: product,
       location: location,
@@ -4041,6 +4080,19 @@ export class AccountingService {
     const { product, countQuantity, stockQuantity, productDeleteRequest } =
       payload;
 
+    const count = await this.countModel.findById(id).select('location').lean();
+    const isMarketplaceCount = count?.location === NEORAMA_DEPO_LOCATION;
+    // Sayı değişince önceki ayrılmış kaydı geçersizdir; yenisi arka planda alınır.
+    const clearReservedSnapshot = isMarketplaceCount
+      ? {
+          $unset: {
+            'products.$.reservedQuantity': '',
+            'products.$.reservedDetails': '',
+            'products.$.appliedStockChange': '',
+          },
+        }
+      : {};
+
     const result = await this.countModel.updateOne(
       { _id: id, 'products.product': product },
       {
@@ -4051,6 +4103,7 @@ export class AccountingService {
           'products.$.isStockEqualized': false,
           isCompleted: false,
         },
+        ...clearReservedSnapshot,
       },
     );
 
@@ -4079,9 +4132,18 @@ export class AccountingService {
               'products.$.productDeleteRequest': productDeleteRequest,
               'products.$.isStockEqualized': false,
             },
+            ...clearReservedSnapshot,
           },
         );
       }
+    }
+
+    if (isMarketplaceCount) {
+      this.saveCountReservedSnapshot(id, product, countQuantity).catch(
+        (error) => {
+          this.logger.error('Error saving count reserved snapshot', error);
+        },
+      );
     }
 
     this.websocketGateway.emitCountChanged();
@@ -4089,6 +4151,13 @@ export class AccountingService {
   }
 
   async updateCount(user: User, id: string, updates: UpdateQuery<Count>) {
+    if (Array.isArray(updates?.products)) {
+      updates.products = await this.keepCountReservedSnapshots(
+        id,
+        updates.products,
+        updates.isCompleted === true,
+      );
+    }
     const count = await this.countModel.findByIdAndUpdate(id, updates, {
       new: true,
     });
@@ -4142,6 +4211,241 @@ export class AccountingService {
     }
     this.websocketGateway.emitCountChanged();
     return count;
+  }
+
+  // Siparişin gönderilmesi gibi stok geçmişine yazılmayan ama ayrılmış adedi
+  // değiştiren olaylarda çağrılır; bir sonraki sayı girişi güncel veriyi çeker.
+  invalidateReservedStocks() {
+    // Çağıranlar beklemiyor; hata sipariş akışını bozmamalı.
+    this.redisService
+      .set(RedisKeys.MarketplaceReservedStocksInvalidatedAt, Date.now())
+      .catch((error) => {
+        this.logger.error('Error invalidating reserved stocks cache', error);
+      });
+  }
+
+  private async getReservedStocksInvalidatedAt(): Promise<number> {
+    return (
+      (await this.redisService.get(
+        RedisKeys.MarketplaceReservedStocksInvalidatedAt,
+      )) ?? 0
+    );
+  }
+
+  // Pazaryeri siparişleri depo stoğundan düşüyor ama gönderilene kadar ürün
+  // rafta duruyor; sayımda bu adetler ayrılmış olarak dikkate alınır.
+  private async getMarketplaceReservedStocks(forceRefresh = false) {
+    // Taramanın başındaki damga kaydın içinde taşınır; sonradan değişmişse
+    // arada bir kargo çıkmış demektir. Damganın büyüklüğü değil, aynı kalıp
+    // kalmadığı önemli: iki olay aynı milisaniyede de olabilir.
+    const invalidatedAt = await this.getReservedStocksInvalidatedAt();
+    if (!forceRefresh) {
+      const cached = await this.redisService.get(
+        RedisKeys.MarketplaceReservedStocks,
+      );
+      if (cached?.invalidatedAt === invalidatedAt) {
+        return cached as ReservedStocksEntry;
+      }
+    }
+    if (this.reservedStocksInFlight !== null) {
+      return this.reservedStocksInFlight;
+    }
+
+    const fetchedAt = Date.now();
+    const promise = Promise.all([
+      this.shopifyService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.trendyolService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.hepsiburadaService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+    ])
+      .then(async (channels) => {
+        const byProduct: Record<string, ReservedStockDetail[]> = {};
+        for (const { product, ...detail } of channels.flat()) {
+          byProduct[product] = [...(byProduct[product] ?? []), detail];
+        }
+        const entry = { fetchedAt, invalidatedAt, byProduct };
+        await this.redisService.set(
+          RedisKeys.MarketplaceReservedStocks,
+          entry,
+          RESERVED_STOCKS_CACHE_SECONDS,
+        );
+        return entry;
+      })
+      .finally(() => {
+        this.reservedStocksInFlight = null;
+      });
+    this.reservedStocksInFlight = promise;
+    return promise;
+  }
+
+  // Sayı girildiği andaki stok ve ayrılmış adet; eşitleme bu ana göre yapılır.
+  // İkisi aynı ana ait olmalı: ayrılmış adet çekildikten sonra ürünün stoğu
+  // oynadıysa ya da bir sipariş gönderildiyse yeniden çekilir. Tutarlı bir kayıt
+  // alınamazsa ya da bir kanal hata verirse undefined döner ve eşitleme eski
+  // yöntemle çalışır.
+  private async getCountReservedSnapshot(product: string) {
+    try {
+      for (let attempt = 0; attempt < RESERVED_SNAPSHOT_ATTEMPTS; attempt++) {
+        const { fetchedAt, invalidatedAt, byProduct } =
+          await this.getMarketplaceReservedStocks(attempt > 0);
+        const stock = await this.stockModel
+          .findOne({ product, location: NEORAMA_DEPO_LOCATION })
+          .lean();
+        const hasStockMovement = await this.productStockHistoryModel.exists({
+          product,
+          location: NEORAMA_DEPO_LOCATION,
+          createdAt: {
+            $gte: new Date(fetchedAt - RESERVED_SNAPSHOT_STOCK_MARGIN_MS),
+          },
+        });
+        if (
+          hasStockMovement ||
+          (await this.getReservedStocksInvalidatedAt()) !== invalidatedAt
+        ) {
+          continue;
+        }
+        const reservedDetails = byProduct[product] ?? [];
+        return {
+          stockQuantity: stock?.quantity ?? 0,
+          reservedQuantity: reservedDetails.reduce(
+            (total, detail) => total + detail.quantity,
+            0,
+          ),
+          reservedDetails,
+        };
+      }
+    } catch (error) {
+      this.logger.error('Error fetching reserved stocks for count', error);
+    }
+    return undefined;
+  }
+
+  private async saveCountReservedSnapshot(
+    id: string,
+    product: string,
+    countQuantity: number,
+  ) {
+    const snapshot = await this.getCountReservedSnapshot(product);
+    if (!snapshot) return;
+    // Bu arada sayı yeniden girildiyse eski kayıt yenisinin üzerine yazılmaz.
+    const result = await this.countModel.updateOne(
+      {
+        _id: id,
+        products: {
+          $elemMatch: { product, countQuantity, reservedQuantity: null },
+        },
+      },
+      {
+        $set: {
+          'products.$.stockQuantity': snapshot.stockQuantity,
+          'products.$.reservedQuantity': snapshot.reservedQuantity,
+          'products.$.reservedDetails': snapshot.reservedDetails,
+        },
+      },
+    );
+    if (result.modifiedCount > 0) {
+      this.websocketGateway.emitCountChanged();
+    }
+  }
+
+  // Sayım ekranı ürün listesini bütün olarak gönderiyor; önbellekteki eski
+  // liste sayı girişinde alınan kaydı silmesin. Tamamlanırken hiç sayılmamış
+  // ürünlerin kaydı da o an alınır.
+  private async keepCountReservedSnapshots(
+    id: string,
+    products: any[],
+    isCompleting: boolean,
+  ) {
+    const existingCount = await this.countModel.findById(id).lean();
+    if (existingCount?.location !== NEORAMA_DEPO_LOCATION) {
+      return products;
+    }
+    const savedProducts = new Map(
+      (existingCount.products ?? []).map((saved) => [saved.product, saved]),
+    );
+
+    const withoutSnapshot = {
+      reservedQuantity: undefined,
+      reservedDetails: undefined,
+      appliedStockChange: undefined,
+    };
+    const result = [];
+    for (const countProduct of products) {
+      const saved = savedProducts.get(countProduct.product);
+      if (saved) {
+        const isSameCount =
+          Number(saved.countQuantity) === Number(countProduct.countQuantity);
+        result.push(
+          isSameCount && saved.reservedQuantity != null
+            ? {
+                ...countProduct,
+                stockQuantity: saved.stockQuantity,
+                reservedQuantity: saved.reservedQuantity,
+                reservedDetails: saved.reservedDetails,
+                appliedStockChange: saved.appliedStockChange,
+              }
+            : { ...countProduct, ...withoutSnapshot },
+        );
+        continue;
+      }
+      const snapshot =
+        isCompleting && countProduct.reservedQuantity == null
+          ? await this.getCountReservedSnapshot(countProduct.product)
+          : undefined;
+      result.push({ ...countProduct, ...(snapshot ?? withoutSnapshot) });
+    }
+    return result;
+  }
+
+  // Sayıldığı andaki stok ve ayrılmış adede göre düzeltir; sonradan gelen
+  // satışlar ve gönderimler hesabı bozmaz. Uygulanan düzeltme sayıma yazılır,
+  // böylece aynı düzeltme iki kez uygulanmaz.
+  private async equalizeStockFromCountSnapshot(
+    user: User,
+    countId: number,
+    countProduct: Count['products'][number],
+  ) {
+    const targetChange =
+      Number(countProduct.countQuantity) -
+      Number(countProduct.reservedQuantity) -
+      Number(countProduct.stockQuantity);
+    const stockChange =
+      targetChange - Number(countProduct.appliedStockChange ?? 0);
+
+    const claimed = await this.countModel.updateOne(
+      {
+        _id: countId,
+        products: {
+          $elemMatch: {
+            product: countProduct.product,
+            countQuantity: countProduct.countQuantity,
+            stockQuantity: countProduct.stockQuantity,
+            reservedQuantity: countProduct.reservedQuantity,
+            appliedStockChange: countProduct.appliedStockChange ?? null,
+            isStockEqualized: { $ne: true },
+          },
+        },
+      },
+      {
+        $set: {
+          'products.$.isStockEqualized': true,
+          'products.$.appliedStockChange': targetChange,
+        },
+      },
+    );
+    this.websocketGateway.emitCountChanged();
+    if (claimed.modifiedCount === 0) return;
+
+    const foundProduct = await this.productModel.findOne({
+      _id: countProduct.product,
+    });
+    if (foundProduct && !foundProduct.deleted) {
+      await this.createStock(user, {
+        product: countProduct.product,
+        location: NEORAMA_DEPO_LOCATION,
+        quantity: stockChange,
+        status: StockHistoryStatusEnum.STOCKEQUALIZE,
+      });
+    }
   }
 
   async removeCount(id: string) {

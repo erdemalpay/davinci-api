@@ -21,7 +21,24 @@ class CountProduct {
 
   @Prop({ required: false, type: String, ref: User.name })
   productDeleteRequest: string;
+
+  @Prop({ required: false, type: Number })
+  reservedQuantity: number;
+
+  @Prop({ required: false, type: [Object] })
+  reservedDetails: ReservedStockDetail[];
+
+  @Prop({ required: false, type: Number })
+  appliedStockChange: number;
 }
+
+export type ReservedStockDetail = {
+  channel: 'shopify' | 'trendyol' | 'hepsiburada';
+  orderNumber: string;
+  quantity: number;
+};
+
+export type ReservedStockEntry = ReservedStockDetail & { product: string };
 
 @Schema({ _id: false })
 export class Count extends Document {
