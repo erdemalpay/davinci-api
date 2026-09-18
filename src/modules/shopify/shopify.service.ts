@@ -35,6 +35,7 @@ import { ReservedStockEntry } from './../accounting/count.schema';
 import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
+import { Order } from './../order/order.schema';
 import { OrderService } from './../order/order.service';
 import {
   ShopifyDiscount,
@@ -868,26 +869,31 @@ export class ShopifyService {
 
     return unfulfilledLines.flatMap((line) => {
       const order = orderByLineItemId.get(line.lineItemId);
-      if (
-        !order ||
-        order.stockLocation !== stockLocation ||
-        [
-          OrderStatus.CANCELLED,
-          OrderStatus.RETURNED,
-          OrderStatus.WASTED,
-        ].includes(order.status as OrderStatus) ||
-        (order.item as any)?.isPreOrder ||
-        (order.isShopifyPickUp &&
-          (order.isShopifyPickUpOrderBrought || order.isShopifyCustomerPicked))
-      ) {
-        return [];
-      }
+      if (!this.isOrderOnShelf(order, stockLocation)) return [];
       return toReservedStockEntries(
         order.item,
         Math.min(line.quantity, order.quantity),
         { channel: 'shopify', orderNumber: line.orderName },
       );
     });
+  }
+
+  // Siparişin ürünü hâlâ bu depoda rafta mı: iptal edilmemiş, ön siparişte
+  // değil ve gel-al ise henüz depodan çıkmamış olmalı.
+  private isOrderOnShelf(order: Order | undefined, stockLocation: number) {
+    if (order?.stockLocation !== stockLocation) return false;
+    if (
+      [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED].includes(
+        order.status as OrderStatus,
+      )
+    ) {
+      return false;
+    }
+    if ((order.item as any)?.isPreOrder) return false;
+    return !(
+      order.isShopifyPickUp &&
+      (order.isShopifyPickUpOrderBrought || order.isShopifyCustomerPicked)
+    );
   }
 
   private async fetchCustomersPage(

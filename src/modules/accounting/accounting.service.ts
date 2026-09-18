@@ -4236,11 +4236,11 @@ export class AccountingService {
       const cached = await this.redisService.get(
         RedisKeys.MarketplaceReservedStocks,
       );
-      if (cached && cached.invalidatedAt === invalidatedAt) {
+      if (cached?.invalidatedAt === invalidatedAt) {
         return cached as ReservedStocksEntry;
       }
     }
-    if (this.reservedStocksInFlight) {
+    if (this.reservedStocksInFlight !== null) {
       return this.reservedStocksInFlight;
     }
 
