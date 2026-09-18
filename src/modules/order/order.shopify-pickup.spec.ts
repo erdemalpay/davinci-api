@@ -77,7 +77,9 @@ const buildService = (orders: FakeOrder[]) => {
     orderModel,
     ...Array(9).fill(undefined),
     websocketGateway,
-    ...Array(9).fill(undefined),
+    undefined,
+    { invalidateReservedStocks: jest.fn() },
+    ...Array(7).fill(undefined),
     shopifyService,
     undefined,
   );

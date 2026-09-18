@@ -140,6 +140,20 @@ export class WebhookLogService {
   }
 
   /**
+   * Returns the earliest log of an endpoint; used to learn when an integration
+   * started sending that webhook type.
+   */
+  async findEarliest(
+    source: WebhookSource,
+    endpoint: string,
+  ): Promise<WebhookLog | null> {
+    return await this.webhookLogModel
+      .findOne({ source, endpoint })
+      .sort({ createdAt: 1 })
+      .lean();
+  }
+
+  /**
    * Lists all logs (with pagination)
    */
   async findAll(

@@ -32,6 +32,8 @@ import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
+import { toReservedStockEntries } from 'src/lib/mappers';
+import { ReservedStockEntry } from './../accounting/count.schema';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { ProcessedClaimItem } from './processed-claim-item.schema';
 import {
@@ -43,9 +45,13 @@ import {
   TrendyolOrderDto,
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
+  TrendyolOrderStatus,
   TrendyolProductDto,
   TrendyolProductsResponseDto,
 } from './trendyol.dto';
+
+// Henüz kargoya verilmemiş paket statüleri; ayrılmış adet hesabında kullanılır.
+const RESERVED_PACKAGE_STATUSES = 'Created,Picking,Invoiced';
 
 @Injectable()
 export class TrendyolService {
@@ -967,6 +973,68 @@ export class TrendyolService {
       this.logger.error('Error fetching Trendyol orders', error);
       throw error;
     }
+  }
+
+  async getReservedStocks(
+    stockLocation: number,
+  ): Promise<ReservedStockEntry[]> {
+    const endDate = Date.now();
+    const startDate = endDate - 14 * 24 * 60 * 60 * 1000;
+    const entries: ReservedStockEntry[] = [];
+    const orderNumberByPackageId = new Map<string, string>();
+
+    let page = 0;
+    let totalPages = 1;
+    while (page < totalPages) {
+      const response = await this.getAllOrders({
+        // Statüler tek istekte birleşim olarak sorulur. Yazım önemli: enum'daki
+        // CREATED gibi büyük harfli değerler ve virgülden sonra boşluk hata
+        // vermeden boş sonuç döndürür.
+        status: RESERVED_PACKAGE_STATUSES as TrendyolOrderStatus,
+        startDate,
+        endDate,
+        page,
+        size: 200,
+      });
+      totalPages = response.totalPages ?? 0;
+      page++;
+
+      for (const shipmentPackage of response.content) {
+        orderNumberByPackageId.set(
+          String(shipmentPackage.id),
+          shipmentPackage.orderNumber,
+        );
+      }
+    }
+
+    if (orderNumberByPackageId.size === 0) return entries;
+
+    const orders = await this.orderService.findByTrendyolShipmentPackageIds([
+      ...orderNumberByPackageId.keys(),
+    ]);
+
+    for (const order of orders) {
+      if (
+        order.stockLocation !== stockLocation ||
+        [
+          OrderStatus.CANCELLED,
+          OrderStatus.RETURNED,
+          OrderStatus.WASTED,
+        ].includes(order.status as OrderStatus)
+      ) {
+        continue;
+      }
+      entries.push(
+        ...toReservedStockEntries(order.item, order.quantity, {
+          channel: 'trendyol',
+          orderNumber: orderNumberByPackageId.get(
+            String(order.trendyolShipmentPackageId),
+          ),
+        }),
+      );
+    }
+
+    return entries;
   }
 
   /**
