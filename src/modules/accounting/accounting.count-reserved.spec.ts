@@ -746,7 +746,10 @@ describe('Shopify ayrılmış kalemleri', () => {
   const shopifyOrder = (name: string, lines: any[], fields: any = {}) => ({
     name,
     cancelledAt: null,
-    lineItems: { pageInfo: { hasNextPage: false }, nodes: lines },
+    lineItems: {
+      pageInfo: { hasNextPage: false },
+      edges: lines.map((node) => ({ node })),
+    },
     ...fields,
   });
   const panelOrder = (lineItemId: string, fields: any = {}) => ({
@@ -763,14 +766,14 @@ describe('Shopify ayrılmış kalemleri', () => {
       [
         {
           pageInfo: { hasNextPage: true, endCursor: 'c1' },
-          nodes: [
+          edges: [
             shopifyOrder('#1', [line('1', 2), line('2', 1), line('3', 0)]),
             shopifyOrder('#2', [line('4', 1)], { cancelledAt: '2026-09-01' }),
-          ],
+          ].map((node) => ({ node })),
         },
         {
           pageInfo: { hasNextPage: false, endCursor: null },
-          nodes: [
+          edges: [
             shopifyOrder('#3', [
               line('5', 1),
               line('6', 1),
@@ -780,7 +783,7 @@ describe('Shopify ayrılmış kalemleri', () => {
               line('10', 1),
               line('11', 3),
             ]),
-          ],
+          ].map((node) => ({ node })),
         },
       ],
       [
@@ -817,12 +820,14 @@ describe('Shopify ayrılmış kalemleri', () => {
       [
         {
           pageInfo: { hasNextPage: false, endCursor: null },
-          nodes: [
+          edges: [
             {
-              ...shopifyOrder('#1', [line('1', 1)]),
-              lineItems: {
-                pageInfo: { hasNextPage: true },
-                nodes: [line('1', 1)],
+              node: {
+                ...shopifyOrder('#1', [line('1', 1)]),
+                lineItems: {
+                  pageInfo: { hasNextPage: true },
+                  edges: [{ node: line('1', 1) }],
+                },
               },
             },
           ],
@@ -1045,6 +1050,11 @@ describe('Hepsiburada paket bildirimleri', () => {
     service.webhookLogService = {
       findEarliest: async () => ({ createdAt: trackingStart }),
     };
+    const item = {
+      itemProduction: [
+        { product: 'exploding_kittens', quantity: 1, isDecrementStock: true },
+      ],
+    };
     let capturedFilter: any;
     service.orderModel = {
       find: (filter: any) => {
@@ -1052,19 +1062,9 @@ describe('Hepsiburada paket bildirimleri', () => {
         return {
           populate: () => ({
             lean: async () => [
-              {
-                hepsiburadaOrderNumber: '4602866403',
-                quantity: 2,
-                item: {
-                  itemProduction: [
-                    {
-                      product: 'exploding_kittens',
-                      quantity: 1,
-                      isDecrementStock: true,
-                    },
-                  ],
-                },
-              },
+              { hepsiburadaOrderNumber: '1', stockLocation: DEPOT, status: OrderStatus.AUTOSERVED, quantity: 2, item },
+              { hepsiburadaOrderNumber: '2', stockLocation: DEPOT, status: OrderStatus.CANCELLED, quantity: 1, item },
+              { hepsiburadaOrderNumber: '3', stockLocation: 2, status: OrderStatus.AUTOSERVED, quantity: 1, item },
             ],
           }),
         };
@@ -1073,19 +1073,16 @@ describe('Hepsiburada paket bildirimleri', () => {
 
     const entries = await service.getReservedStocks(DEPOT);
 
-    expect(capturedFilter).toMatchObject({
+    // Kargo ve takip başlangıcı sorguda; depo ve iptal kontrolü ortak kuralda.
+    expect(capturedFilter).toEqual({
       hepsiburadaLineItemId: { $type: 'string' },
-      stockLocation: DEPOT,
-      status: {
-        $nin: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED],
-      },
       isShipped: { $ne: true },
+      createdAt: { $gte: trackingStart },
     });
-    expect(capturedFilter.createdAt.$gte).toEqual(trackingStart);
     expect(entries).toEqual([
       {
         channel: 'hepsiburada',
-        orderNumber: '4602866403',
+        orderNumber: '1',
         product: 'exploding_kittens',
         quantity: 2,
       },

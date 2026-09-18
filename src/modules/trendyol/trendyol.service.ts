@@ -32,7 +32,7 @@ import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
-import { toReservedStockEntries } from 'src/lib/mappers';
+import { isOrderOnShelf, toReservedStockEntries } from 'src/lib/mappers';
 import { ReservedStockEntry } from './../accounting/count.schema';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { ProcessedClaimItem } from './processed-claim-item.schema';
@@ -1014,16 +1014,7 @@ export class TrendyolService {
     ]);
 
     for (const order of orders) {
-      if (
-        order.stockLocation !== stockLocation ||
-        [
-          OrderStatus.CANCELLED,
-          OrderStatus.RETURNED,
-          OrderStatus.WASTED,
-        ].includes(order.status as OrderStatus)
-      ) {
-        continue;
-      }
+      if (!isOrderOnShelf(order, stockLocation)) continue;
       entries.push(
         ...toReservedStockEntries(order.item, order.quantity, {
           channel: 'trendyol',

@@ -30,12 +30,11 @@ import { WebhookLogService } from '../webhook-log/webhook-log.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { StockHistoryStatusEnum } from './../accounting/accounting.dto';
 import { AccountingService } from './../accounting/accounting.service';
-import { toReservedStockEntries } from 'src/lib/mappers';
+import { isOrderOnShelf, toReservedStockEntries } from 'src/lib/mappers';
 import { ReservedStockEntry } from './../accounting/count.schema';
 import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
-import { Order } from './../order/order.schema';
 import { OrderService } from './../order/order.service';
 import {
   ShopifyDiscount,
@@ -77,6 +76,13 @@ import { planRefundActions } from './shopify.refund-plan';
 
 const NEORAMA_DEPO_LOCATION = 6;
 const GAMES_FOR_WEBSITE_CACHE_TTL_SECONDS = 600;
+
+// Shopify'da henüz gönderilmemiş bir sipariş kalemi.
+interface UnfulfilledLine {
+  orderName: string;
+  lineItemId: string;
+  quantity: number;
+}
 
 interface SeenUsers {
   [key: string]: boolean;
@@ -790,72 +796,15 @@ export class ShopifyService {
   async getReservedStocks(
     stockLocation: number,
   ): Promise<ReservedStockEntry[]> {
-    const unfulfilledLines: {
-      orderName: string;
-      lineItemId: string;
-      quantity: number;
-    }[] = [];
+    const unfulfilledLines: UnfulfilledLine[] = [];
     let hasNextPage = true;
     let cursor: string | null = null;
 
     while (hasNextPage) {
-      const query = `
-        query GetUnfulfilledOrders($cursor: String) {
-          orders(
-            first: 250
-            after: $cursor
-            query: "fulfillment_status:unshipped OR fulfillment_status:partial"
-          ) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            nodes {
-              name
-              cancelledAt
-              lineItems(first: 50) {
-                pageInfo {
-                  hasNextPage
-                }
-                nodes {
-                  id
-                  unfulfilledQuantity
-                }
-              }
-            }
-          }
-        }
-      `;
-
-      const response = await this.executeGraphQLRequest(async () => {
-        const client = await this.getGraphQLClient();
-        return await client.request(query, {
-          variables: cursor ? { cursor } : {},
-        });
-      });
-      this.handleGraphQLErrors(response);
-
-      for (const order of response.data.orders.nodes) {
-        if (order.cancelledAt) continue;
-        // Eksik kalem okunursa ayrılmış adet yanlış olur; hiç hesaplanmaması daha güvenli.
-        if (order.lineItems.pageInfo.hasNextPage) {
-          throw new Error(
-            `Shopify order ${order.name} has more line items than fetched`,
-          );
-        }
-        for (const line of order.lineItems.nodes) {
-          if (line.unfulfilledQuantity > 0) {
-            unfulfilledLines.push({
-              orderName: order.name,
-              lineItemId: String(line.id).split('/').pop(),
-              quantity: line.unfulfilledQuantity,
-            });
-          }
-        }
-      }
-
-      hasNextPage = response.data.orders.pageInfo.hasNextPage;
-      cursor = response.data.orders.pageInfo.endCursor;
+      const page = await this.fetchUnfulfilledLinesPage(cursor);
+      unfulfilledLines.push(...page.lines);
+      hasNextPage = page.hasNextPage;
+      cursor = page.endCursor;
     }
 
     if (unfulfilledLines.length === 0) return [];
@@ -869,7 +818,7 @@ export class ShopifyService {
 
     return unfulfilledLines.flatMap((line) => {
       const order = orderByLineItemId.get(line.lineItemId);
-      if (!this.isOrderOnShelf(order, stockLocation)) return [];
+      if (!isOrderOnShelf(order, stockLocation)) return [];
       return toReservedStockEntries(
         order.item,
         Math.min(line.quantity, order.quantity),
@@ -878,22 +827,78 @@ export class ShopifyService {
     });
   }
 
-  // Siparişin ürünü hâlâ bu depoda rafta mı: iptal edilmemiş, ön siparişte
-  // değil ve gel-al ise henüz depodan çıkmamış olmalı.
-  private isOrderOnShelf(order: Order | undefined, stockLocation: number) {
-    if (order?.stockLocation !== stockLocation) return false;
-    if (
-      [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.WASTED].includes(
-        order.status as OrderStatus,
-      )
-    ) {
-      return false;
+  private async fetchUnfulfilledLinesPage(
+    cursor: string | null,
+  ): Promise<{
+    lines: UnfulfilledLine[];
+    endCursor: string | null;
+    hasNextPage: boolean;
+  }> {
+    const query = `
+      query GetUnfulfilledOrders($cursor: String) {
+        orders(
+          first: 250
+          after: $cursor
+          query: "fulfillment_status:unshipped OR fulfillment_status:partial"
+        ) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              name
+              cancelledAt
+              lineItems(first: 50) {
+                pageInfo {
+                  hasNextPage
+                }
+                edges {
+                  node {
+                    id
+                    unfulfilledQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(query, {
+        variables: cursor ? { cursor } : {},
+      });
+    });
+    this.handleGraphQLErrors(response);
+
+    const lines: UnfulfilledLine[] = [];
+    for (const { node: order } of response.data.orders.edges) {
+      if (order.cancelledAt) continue;
+      // Eksik kalem okunursa ayrılmış adet yanlış olur; hiç hesaplanmaması daha güvenli.
+      if (order.lineItems.pageInfo.hasNextPage) {
+        throw new Error(
+          `Shopify order ${order.name} has more line items than fetched`,
+        );
+      }
+      for (const { node: line } of order.lineItems.edges) {
+        if (line.unfulfilledQuantity > 0) {
+          lines.push({
+            orderName: order.name,
+            lineItemId: String(line.id).split('/').pop(),
+            quantity: line.unfulfilledQuantity,
+          });
+        }
+      }
     }
-    if ((order.item as any)?.isPreOrder) return false;
-    return !(
-      order.isShopifyPickUp &&
-      (order.isShopifyPickUpOrderBrought || order.isShopifyCustomerPicked)
-    );
+
+    return {
+      lines,
+      endCursor: response.data.orders.pageInfo.endCursor || null,
+      hasNextPage: response.data.orders.pageInfo.hasNextPage,
+    };
   }
 
   private async fetchCustomersPage(

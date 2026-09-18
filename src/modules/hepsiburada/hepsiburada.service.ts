@@ -12,7 +12,7 @@ import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { AccountingService } from '../accounting/accounting.service';
-import { toReservedStockEntries } from 'src/lib/mappers';
+import { isOrderOnShelf, toReservedStockEntries } from 'src/lib/mappers';
 import { ReservedStockEntry } from '../accounting/count.schema';
 import { MenuService } from '../menu/menu.service';
 import { OrderCollectionStatus, OrderStatus } from '../order/order.dto';
@@ -1539,25 +1539,19 @@ export class HepsiburadaService {
     const orders = await this.orderModel
       .find({
         hepsiburadaLineItemId: { $type: 'string' },
-        stockLocation,
-        status: {
-          $nin: [
-            OrderStatus.CANCELLED,
-            OrderStatus.RETURNED,
-            OrderStatus.WASTED,
-          ],
-        },
         isShipped: { $ne: true },
         createdAt: { $gte: trackingStart },
       })
       .populate('item')
       .lean();
 
-    return orders.flatMap((order) =>
-      toReservedStockEntries(order.item, order.quantity, {
-        channel: 'hepsiburada',
-        orderNumber: order.hepsiburadaOrderNumber,
-      }),
-    );
+    return orders
+      .filter((order) => isOrderOnShelf(order as Order, stockLocation))
+      .flatMap((order) =>
+        toReservedStockEntries(order.item, order.quantity, {
+          channel: 'hepsiburada',
+          orderNumber: order.hepsiburadaOrderNumber,
+        }),
+      );
   }
 }

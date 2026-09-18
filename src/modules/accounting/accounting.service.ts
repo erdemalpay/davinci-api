@@ -2828,7 +2828,14 @@ export class AccountingService {
     quantity: number,
     currentCountId: number,
   ) {
-    const currentCount = await this.countModel.findById(currentCountId).lean();
+    // Toplu eşitlemede her ürün için çağrılıyor; bütün ürün listesi yerine
+    // yalnızca bu ürünün satırı okunur.
+    const currentCount = await this.countModel
+      .findById(currentCountId, {
+        location: 1,
+        products: { $elemMatch: { product } },
+      })
+      .lean();
     const countProduct = currentCount?.products?.find(
       (item) => item.product === product,
     );
@@ -4273,47 +4280,41 @@ export class AccountingService {
   // Sayı girildiği andaki stok ve ayrılmış adet; eşitleme bu ana göre yapılır.
   // İkisi aynı ana ait olmalı: ayrılmış adet çekildikten sonra ürünün stoğu
   // oynadıysa ya da bir sipariş gönderildiyse yeniden çekilir. Tutarlı bir kayıt
-  // alınamazsa undefined döner ve eşitleme eski yöntemle çalışır.
+  // alınamazsa ya da bir kanal hata verirse undefined döner ve eşitleme eski
+  // yöntemle çalışır.
   private async getCountReservedSnapshot(product: string) {
     try {
-      return await this.findConsistentReservedSnapshot(product);
+      for (let attempt = 0; attempt < RESERVED_SNAPSHOT_ATTEMPTS; attempt++) {
+        const { fetchedAt, invalidatedAt, byProduct } =
+          await this.getMarketplaceReservedStocks(attempt > 0);
+        const stock = await this.stockModel
+          .findOne({ product, location: NEORAMA_DEPO_LOCATION })
+          .lean();
+        const hasStockMovement = await this.productStockHistoryModel.exists({
+          product,
+          location: NEORAMA_DEPO_LOCATION,
+          createdAt: {
+            $gte: new Date(fetchedAt - RESERVED_SNAPSHOT_STOCK_MARGIN_MS),
+          },
+        });
+        if (
+          hasStockMovement ||
+          (await this.getReservedStocksInvalidatedAt()) !== invalidatedAt
+        ) {
+          continue;
+        }
+        const reservedDetails = byProduct[product] ?? [];
+        return {
+          stockQuantity: stock?.quantity ?? 0,
+          reservedQuantity: reservedDetails.reduce(
+            (total, detail) => total + detail.quantity,
+            0,
+          ),
+          reservedDetails,
+        };
+      }
     } catch (error) {
       this.logger.error('Error fetching reserved stocks for count', error);
-      return undefined;
-    }
-  }
-
-  private async findConsistentReservedSnapshot(product: string) {
-    for (let attempt = 0; attempt < RESERVED_SNAPSHOT_ATTEMPTS; attempt++) {
-      const { fetchedAt, invalidatedAt, byProduct } =
-        await this.getMarketplaceReservedStocks(attempt > 0);
-      const stock = await this.stockModel
-        .findOne({ product, location: NEORAMA_DEPO_LOCATION })
-        .lean();
-      const hasStockMovement = await this.productStockHistoryModel.exists({
-        product,
-        location: NEORAMA_DEPO_LOCATION,
-        createdAt: {
-          $gte: new Date(fetchedAt - RESERVED_SNAPSHOT_STOCK_MARGIN_MS),
-        },
-      });
-      // Tarama sırasında bu ürünün stoğu oynadıysa ya da bir sipariş
-      // gönderildiyse stok ile ayrılmış adet aynı ana ait değildir.
-      if (
-        hasStockMovement ||
-        (await this.getReservedStocksInvalidatedAt()) !== invalidatedAt
-      ) {
-        continue;
-      }
-      const reservedDetails = byProduct[product] ?? [];
-      return {
-        stockQuantity: stock?.quantity ?? 0,
-        reservedQuantity: reservedDetails.reduce(
-          (total, detail) => total + detail.quantity,
-          0,
-        ),
-        reservedDetails,
-      };
     }
     return undefined;
   }
@@ -4362,6 +4363,11 @@ export class AccountingService {
       (existingCount.products ?? []).map((saved) => [saved.product, saved]),
     );
 
+    const withoutSnapshot = {
+      reservedQuantity: undefined,
+      reservedDetails: undefined,
+      appliedStockChange: undefined,
+    };
     const result = [];
     for (const countProduct of products) {
       const saved = savedProducts.get(countProduct.product);
@@ -4377,30 +4383,15 @@ export class AccountingService {
                 reservedDetails: saved.reservedDetails,
                 appliedStockChange: saved.appliedStockChange,
               }
-            : {
-                ...countProduct,
-                reservedQuantity: undefined,
-                reservedDetails: undefined,
-                appliedStockChange: undefined,
-              },
+            : { ...countProduct, ...withoutSnapshot },
         );
         continue;
       }
-      if (isCompleting && countProduct.reservedQuantity == null) {
-        const snapshot = await this.getCountReservedSnapshot(
-          countProduct.product,
-        );
-        if (snapshot) {
-          result.push({ ...countProduct, ...snapshot });
-          continue;
-        }
-      }
-      result.push({
-        ...countProduct,
-        reservedQuantity: undefined,
-        reservedDetails: undefined,
-        appliedStockChange: undefined,
-      });
+      const snapshot =
+        isCompleting && countProduct.reservedQuantity == null
+          ? await this.getCountReservedSnapshot(countProduct.product)
+          : undefined;
+      result.push({ ...countProduct, ...(snapshot ?? withoutSnapshot) });
     }
     return result;
   }
