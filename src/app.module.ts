@@ -21,6 +21,7 @@ import { ConsumerModule } from './modules/consumer/consumer.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
+import { TournamentModule } from './modules/tournament/tournament.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
 import { GameModule } from './modules/game/game.module';
 import { GameplayModule } from './modules/gameplay/gameplay.module';
@@ -99,6 +100,7 @@ const modules = [
   CustomerPopupModule,
   MonthlyActivityModule,
   EventSurveyModule,
+  TournamentModule,
   ConsumerModule,
   AssignmentModule,
   AssignmentReminderModule,

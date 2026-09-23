@@ -1,0 +1,198 @@
+import {
+  FixtureError,
+  MatchStage,
+  MatchState,
+  PairingMode,
+  planNextRound,
+  TournamentFormat,
+  TournamentRules,
+} from './tournament.round-plan';
+
+// shuffle'ı sıralamayı bozmayacak şekilde sabitler
+const noShuffle = () => 0.9999;
+
+const rules = (overrides: Partial<TournamentRules> = {}): TournamentRules => ({
+  format: TournamentFormat.LEAGUE_THEN_ELIMINATION,
+  pairingMode: PairingMode.SWISS,
+  tableSize: 3,
+  minTableSize: 3,
+  leagueRounds: 2,
+  advanceCount: 4,
+  advancePerTable: 2,
+  ...overrides,
+});
+
+const table = (
+  stage: MatchStage,
+  round: number,
+  tableNo: number,
+  players: [number, number, number][], // [participantId, rank, points]
+): MatchState => ({
+  stage,
+  round,
+  tableNo,
+  isBye: false,
+  isCompleted: true,
+  players: players.map(([participantId, rank, points]) => ({
+    participantId,
+    score: 0,
+    rank,
+    points,
+  })),
+});
+
+const leagueRound1 = [
+  table(MatchStage.LEAGUE, 1, 1, [
+    [1, 1, 4],
+    [2, 2, 2],
+    [3, 3, 0],
+  ]),
+  table(MatchStage.LEAGUE, 1, 2, [
+    [4, 1, 4],
+    [5, 2, 2],
+    [6, 3, 0],
+  ]),
+];
+
+const ids = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+describe('planNextRound', () => {
+  it('skorlanmamış maç varken yeni tur üretmez', () => {
+    const open = { ...leagueRound1[0], isCompleted: false };
+    expect(() => planNextRound(rules(), ids(6), [open], noShuffle)).toThrow(
+      new FixtureError('INCOMPLETE_ROUND'),
+    );
+  });
+
+  it('1. lig turunu karıştırılmış listeyle kurar', () => {
+    expect(planNextRound(rules(), ids(6), [], noShuffle)).toEqual({
+      stage: MatchStage.LEAGUE,
+      round: 1,
+      tables: [
+        { tableNo: 1, participantIds: [1, 2, 3] },
+        { tableNo: 2, participantIds: [4, 5, 6] },
+      ],
+      byes: [],
+    });
+  });
+
+  it('masa kurulamayanı bay geçirir', () => {
+    expect(planNextRound(rules(), ids(7), [], noShuffle)?.byes).toEqual([7]);
+  });
+
+  it('Swiss modunda 2. turu puan sırasına göre kurar', () => {
+    const next = planNextRound(rules(), ids(6), leagueRound1, noShuffle);
+    expect(next?.round).toBe(2);
+    expect(next?.tables.map((t) => t.participantIds)).toEqual([
+      [1, 4, 2],
+      [5, 3, 6],
+    ]);
+  });
+
+  it('Rastgele modda 2. turu puana bakmadan kurar', () => {
+    const next = planNextRound(
+      rules({ pairingMode: PairingMode.RANDOM }),
+      ids(6),
+      leagueRound1,
+      noShuffle,
+    );
+    expect(next?.tables.map((t) => t.participantIds)).toEqual([
+      [1, 2, 4],
+      [3, 5, 6],
+    ]);
+  });
+
+  it('lig turları bitince ilk advanceCount kişiyle elemeye geçer', () => {
+    const next = planNextRound(
+      rules({ leagueRounds: 1, tableSize: 4 }),
+      ids(6),
+      leagueRound1,
+      noShuffle,
+    );
+    expect(next).toEqual({
+      stage: MatchStage.ELIMINATION,
+      round: 1,
+      tables: [{ tableNo: 1, participantIds: [1, 4, 2, 5] }],
+      byes: [],
+    });
+  });
+
+  it('doğrudan eleme formatında herkesi yılan sırasıyla dağıtır', () => {
+    const next = planNextRound(
+      rules({ format: TournamentFormat.ELIMINATION, tableSize: 2 }),
+      ids(8),
+      [],
+      noShuffle,
+    );
+    expect(next?.tables.map((t) => t.participantIds)).toEqual([
+      [1, 8],
+      [2, 7],
+      [3, 6],
+      [4, 5],
+    ]);
+  });
+
+  const eliminationRound1 = [
+    table(MatchStage.ELIMINATION, 1, 1, [
+      [1, 1, 0],
+      [5, 2, 0],
+      [4, 3, 0],
+      [8, 4, 0],
+    ]),
+    table(MatchStage.ELIMINATION, 1, 2, [
+      [3, 1, 0],
+      [2, 2, 0],
+      [6, 3, 0],
+      [7, 4, 0],
+    ]),
+  ];
+  const eliminationRules = rules({
+    format: TournamentFormat.ELIMINATION,
+    tableSize: 4,
+  });
+
+  it('eleme turunda her masadan çıkanlarla sonraki turu kurar', () => {
+    expect(
+      planNextRound(eliminationRules, ids(8), eliminationRound1, noShuffle),
+    ).toEqual({
+      stage: MatchStage.ELIMINATION,
+      round: 2,
+      tables: [{ tableNo: 1, participantIds: [1, 3, 5, 2] }],
+      byes: [],
+    });
+  });
+
+  it('final masası oynandıysa null döner', () => {
+    const final = table(MatchStage.ELIMINATION, 2, 1, [
+      [3, 1, 0],
+      [1, 2, 0],
+      [2, 3, 0],
+      [5, 4, 0],
+    ]);
+    expect(
+      planNextRound(
+        eliminationRules,
+        ids(8),
+        [...eliminationRound1, final],
+        noShuffle,
+      ),
+    ).toBeNull();
+  });
+
+  it('eleme oyuncu sayısını azaltmıyorsa hata verir', () => {
+    expect(() =>
+      planNextRound(
+        { ...eliminationRules, advancePerTable: 4 },
+        ids(8),
+        eliminationRound1,
+        noShuffle,
+      ),
+    ).toThrow(new FixtureError('NO_PROGRESS'));
+  });
+
+  it('yeterli katılımcı yoksa hata verir', () => {
+    expect(() => planNextRound(rules(), ids(2), [], noShuffle)).toThrow(
+      new FixtureError('NOT_ENOUGH_PARTICIPANTS'),
+    );
+  });
+});

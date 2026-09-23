@@ -348,6 +348,10 @@ export class AppWebSocketGateway {
     this.server.emit('rewardChanged');
   }
 
+  emitTournamentChanged() {
+    this.server.emit('tournamentChanged');
+  }
+
   emitRetailerChanged() {
     this.server.emit('retailerChanged');
   }
