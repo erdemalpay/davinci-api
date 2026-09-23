@@ -80,9 +80,8 @@ export class RegisterTournamentDto {
   @IsString()
   phone: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  email: string;
 
   @IsOptional()
   @IsEnum(RegistrationSource)
