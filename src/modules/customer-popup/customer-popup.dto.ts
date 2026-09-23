@@ -22,6 +22,17 @@ export class CreateCustomerPopupDto {
   @IsString()
   imageUrl?: string;
 
+  @IsOptional()
+  @IsString()
+  buttonText?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^https?:\/\//, {
+    message: 'buttonUrl must start with http:// or https://',
+  })
+  buttonUrl?: string;
+
   @IsBoolean()
   isActive: boolean;
 
