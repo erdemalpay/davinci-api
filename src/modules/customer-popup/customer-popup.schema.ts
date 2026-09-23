@@ -21,6 +21,13 @@ export class CustomerPopup extends Document {
   @Prop({ required: false, type: String })
   imageUrl: string;
 
+  // İsteğe bağlı buton: yazı + tıklanınca gidilecek link (ör. turnuva kayıt formu)
+  @Prop({ required: false, type: String })
+  buttonText: string;
+
+  @Prop({ required: false, type: String })
+  buttonUrl: string;
+
   @Prop({ required: true, type: Boolean, default: true })
   isActive: boolean;
 
