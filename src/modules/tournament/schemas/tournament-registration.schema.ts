@@ -29,7 +29,7 @@ export class TournamentRegistration extends Document {
   @Prop({ required: true, type: String })
   phone: string;
 
-  @Prop({ required: false, type: String })
+  @Prop({ required: true, type: String })
   email: string;
 
   @Prop({

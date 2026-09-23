@@ -99,7 +99,11 @@ describe('TournamentService.register', () => {
       tournament: { ...baseTournament, status: TournamentStatus.ONGOING },
     });
     await expect(
-      service.register('catan', { fullName: 'Ali', phone: '1' }),
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '1',
+        email: 'ali@mail.com',
+      }),
     ).rejects.toThrow('Bu turnuvanın kayıtları kapandı');
   });
 
@@ -111,7 +115,11 @@ describe('TournamentService.register', () => {
       },
     });
     await expect(
-      service.register('catan', { fullName: 'Ali', phone: '1' }),
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '1',
+        email: 'ali@mail.com',
+      }),
     ).rejects.toThrow('Bu turnuvanın kayıtları kapandı');
   });
 
@@ -119,7 +127,11 @@ describe('TournamentService.register', () => {
     const { service, registrationModel } = createService();
     registrationModel.create.mockRejectedValue({ code: 11000 });
     await expect(
-      service.register('catan', { fullName: 'Ali', phone: '1' }),
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '1',
+        email: 'ali@mail.com',
+      }),
     ).rejects.toThrow('Bu telefon numarasıyla zaten başvuru yapılmış');
   });
 });

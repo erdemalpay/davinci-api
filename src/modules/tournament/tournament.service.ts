@@ -144,7 +144,7 @@ export class TournamentService {
       const registration = await this.registrationModel.create({
         ...dto,
         phone: dto.phone.replace(/\s/g, ''),
-        email: dto.email?.toLowerCase(),
+        email: dto.email.toLowerCase(),
         tournamentId: tournament._id,
       });
       this.websocketGateway.emitTournamentChanged();
