@@ -96,7 +96,10 @@ describe('planNextRound', () => {
       leagueRound1,
       noShuffle,
     );
-    expect(next?.tables.map((t) => t.participantIds)).toEqual([
+    // Masa üyeleri önemli, masadaki oturma sırası değil
+    expect(
+      next?.tables.map((t) => [...t.participantIds].sort((x, y) => x - y)),
+    ).toEqual([
       [1, 2, 4],
       [3, 5, 6],
     ]);

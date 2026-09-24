@@ -104,6 +104,61 @@ describe('pairRound', () => {
     // 3 kişi 2 masaya bölünürken ikisi mecburen yan yana düşer
     expect(total).toBe(1);
   });
+
+  // #13 numaralı demo turnuvasının 3. turu: 2. turda 1. masada oturan dört lider
+  // (1, 2, 3, 4) puan sırasıyla kesilince yine aynı masalara düşüyordu.
+  it('önceki masadaki liderleri yeni masalara dağıtarak tekrarı önler', () => {
+    const met = (groups: number[][]) => {
+      const map = new Map<number, Set<number>>();
+      groups.forEach((g) =>
+        g.forEach((a) =>
+          g.forEach((b) => {
+            if (a !== b) map.set(a, (map.get(a) ?? new Set()).add(b));
+          }),
+        ),
+      );
+      return map;
+    };
+    const previousOpponents = met([
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+    ]);
+    const input = {
+      rankedIds: [1, 5, 2, 6, 3, 7, 4, 8],
+      tableSize: 4,
+      minTableSize: 3,
+      previousOpponents,
+      previousByes: new Set<number>(),
+    };
+    const { tables } = pairRound(input);
+    expect(
+      tables.reduce(
+        (sum, t) => sum + countRematches(t.participantIds, previousOpponents),
+        0,
+      ),
+    ).toBe(4); // 8 kişi, 2 masa: en iyisi her masada iki gruptan ikişer kişi
+
+    // 12 kişi önceki turda 4 masada 3'er kişi oynamış; puan sırasıyla kesilseydi
+    // her yeni masada eski rakipler olurdu, her masaya her gruptan biri düşebilir.
+    const threes = met([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+      [10, 11, 12],
+    ]);
+    const bigger = pairRound({
+      ...input,
+      rankedIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      previousOpponents: threes,
+    });
+    expect(
+      bigger.tables.reduce(
+        (sum, t) => sum + countRematches(t.participantIds, threes),
+        0,
+      ),
+    ).toBe(0);
+    expect(bigger.tables[0].participantIds[0]).toBe(1); // lider 1. masada kalır
+  });
 });
 
 describe('rankTable', () => {
