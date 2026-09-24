@@ -57,23 +57,23 @@ export class Tournament extends Document {
   @Prop({ required: true, type: Number })
   tableSize: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   minTableSize: number;
 
   @Prop({ required: true, type: Number, default: 0 })
   leagueRounds: number;
 
   // Masadaki sıraya göre puan: [1., 2., 3., ...]
-  @Prop({ required: true, type: [Number] })
+  @Prop({ required: false, type: [Number], default: [] })
   placementPoints: number[];
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   byePoints: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   advanceCount: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: false, type: Number })
   advancePerTable: number;
 
   @Prop({ required: false, type: Boolean, default: false })

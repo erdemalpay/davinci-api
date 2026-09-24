@@ -1,6 +1,9 @@
 import {
+  applyTieBreak,
+  computeFinalRanking,
   computeStandings,
   countRematches,
+  findCutTie,
   pairRound,
   pickAdvancers,
   planTableSizes,
@@ -191,15 +194,18 @@ describe('computeStandings', () => {
 
 describe('seedEliminationTables', () => {
   it('8 kişiyi 4 kişilik masalara yılan sırasıyla dağıtır', () => {
-    expect(seedEliminationTables([1, 2, 3, 4, 5, 6, 7, 8], 4)).toEqual([
-      { tableNo: 1, participantIds: [1, 4, 5, 8] },
-      { tableNo: 2, participantIds: [2, 3, 6, 7] },
-    ]);
+    expect(seedEliminationTables([1, 2, 3, 4, 5, 6, 7, 8], 4)).toEqual({
+      tables: [
+        { tableNo: 1, participantIds: [1, 4, 5, 8] },
+        { tableNo: 2, participantIds: [2, 3, 6, 7] },
+      ],
+      byes: [],
+    });
   });
 
   it('2 kişilik oyunda klasik çeyrek final eşleşmesi kurar', () => {
     expect(
-      seedEliminationTables([1, 2, 3, 4, 5, 6, 7, 8], 2).map(
+      seedEliminationTables([1, 2, 3, 4, 5, 6, 7, 8], 2).tables.map(
         (t) => t.participantIds,
       ),
     ).toEqual([
@@ -211,9 +217,20 @@ describe('seedEliminationTables', () => {
   });
 
   it('masa sayısı kadar oyuncu yoksa tek final masası kurar', () => {
-    expect(seedEliminationTables([1, 2, 3, 4], 4)).toEqual([
-      { tableNo: 1, participantIds: [1, 2, 3, 4] },
-    ]);
+    expect(seedEliminationTables([1, 2, 3, 4], 4)).toEqual({
+      tables: [{ tableNo: 1, participantIds: [1, 2, 3, 4] }],
+      byes: [],
+    });
+  });
+
+  it('2 kişilik oyunda tek sayıda oyuncu varsa en üst sıradaki bay geçer', () => {
+    expect(seedEliminationTables([1, 2, 3, 4, 5], 2)).toEqual({
+      tables: [
+        { tableNo: 1, participantIds: [2, 5] },
+        { tableNo: 2, participantIds: [3, 4] },
+      ],
+      byes: [1],
+    });
   });
 });
 
@@ -233,5 +250,146 @@ describe('pickAdvancers', () => {
       2,
     );
     expect(result).toEqual([1, 3, 5, 2]);
+  });
+});
+
+describe('computeFinalRanking', () => {
+  const league = (ids: number[]) =>
+    ids.map((participantId, i) => ({
+      participantId,
+      rank: i + 1,
+      points: 0,
+      matchesPlayed: 0,
+      byeCount: 0,
+      avgOpponentPoints: 0,
+    }));
+  const table = (
+    round: number,
+    players: [number, number?][],
+    isCompleted = true,
+  ) => ({
+    round,
+    isCompleted,
+    players: players.map(([participantId, rank]) => ({ participantId, rank })),
+  });
+
+  it('eleme yoksa lig sıralamasını olduğu gibi döner', () => {
+    const standings = league([3, 1, 2]);
+    expect(computeFinalRanking(standings, [])).toEqual(standings);
+  });
+
+  it('doğrudan elemede finalden başlayıp elendiği tura göre sıralar', () => {
+    const result = computeFinalRanking(
+      league([29, 30, 31, 32, 33, 34, 35, 36]),
+      [
+        table(1, [
+          [35, 1],
+          [31, 2],
+          [30, 3],
+          [32, 4],
+        ]),
+        table(1, [
+          [34, 1],
+          [33, 2],
+          [29, 3],
+          [36, 4],
+        ]),
+        table(2, [
+          [35, 1],
+          [34, 2],
+          [33, 3],
+          [31, 4],
+        ]),
+      ],
+    );
+    expect(result.map((r) => r.participantId)).toEqual([
+      35, 34, 33, 31, 29, 30, 32, 36,
+    ]);
+    expect(result.map((r) => r.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(result[0].elimination).toEqual({
+      round: 2,
+      isFinal: true,
+      tableRank: 1,
+    });
+    expect(result[5].elimination).toEqual({
+      round: 1,
+      isFinal: false,
+      tableRank: 3,
+    });
+  });
+
+  it('elemeye çıkamayanları lig sırasıyla sona ekler', () => {
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5, 6]), [
+      table(1, [
+        [3, 1],
+        [1, 2],
+        [4, 3],
+        [2, 4],
+      ]),
+    ]);
+    expect(result.map((r) => r.participantId)).toEqual([3, 1, 4, 2, 5, 6]);
+    expect(result[4].elimination).toBeUndefined();
+  });
+
+  it('final henüz oynanmadıysa finalistleri lig sırasıyla üste koyar', () => {
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5]), [
+      table(1, [[4], [2], [1], [3]], false),
+    ]);
+    expect(result.map((r) => r.participantId)).toEqual([1, 2, 3, 4, 5]);
+    expect(result[0].elimination).toEqual({
+      round: 1,
+      isFinal: true,
+      tableRank: undefined,
+    });
+  });
+});
+
+describe('findCutTie', () => {
+  const ranked = (scores: number[]) =>
+    rankTable(
+      scores.map((score, i) => ({ participantId: i + 1, score })),
+      [4, 2, 1, 0],
+    );
+
+  it('sınırdaki sıra paylaşılıyorsa eşitleri ve boş yer sayısını döner', () => {
+    expect(findCutTie(ranked([60, 50, 50, 40]), 2)).toEqual({
+      participantIds: [2, 3],
+      slots: 1,
+    });
+    expect(findCutTie(ranked([60, 60, 60, 40]), 2)).toEqual({
+      participantIds: [1, 2, 3],
+      slots: 2,
+    });
+  });
+
+  it('eşitlik sınırın içindeyse ya da herkes çıkıyorsa karar gerekmez', () => {
+    expect(findCutTie(ranked([60, 60, 50, 40]), 2)).toBeNull();
+    expect(findCutTie(ranked([60, 50, 40, 40]), 2)).toBeNull();
+    expect(findCutTie(ranked([50, 50]), 2)).toBeNull();
+  });
+});
+
+describe('applyTieBreak', () => {
+  it('seçilenler sırasını korur, diğer eşitler arkalarına iner', () => {
+    const ranked = rankTable(
+      [
+        { participantId: 1, score: 60 },
+        { participantId: 2, score: 50 },
+        { participantId: 3, score: 50 },
+        { participantId: 4, score: 40 },
+      ],
+      [4, 2, 1, 0],
+    );
+    const result = applyTieBreak(ranked, { participantIds: [2, 3], slots: 1 }, [
+      3,
+    ]);
+    expect(result.map((p) => [p.participantId, p.rank])).toEqual([
+      [1, 1],
+      [3, 2],
+      [2, 3],
+      [4, 4],
+    ]);
+    expect(result.find((p) => p.participantId === 3)?.wonTieBreak).toBe(true);
+    expect(pickAdvancers([result], 2)).toEqual([1, 3]);
   });
 });

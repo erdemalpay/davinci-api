@@ -10,8 +10,9 @@ import {
 } from './tournament.fixture';
 
 export enum TournamentFormat {
-  LEAGUE_THEN_ELIMINATION = 'league_then_elimination',
-  ELIMINATION = 'elimination',
+  LEAGUE = 'league', // tek aşama: sadece Swiss/lig
+  ELIMINATION = 'elimination', // tek aşama: masadan kazananlar üst tura
+  LEAGUE_THEN_ELIMINATION = 'league_then_elimination', // iki aşama
 }
 
 export enum PairingMode {
@@ -130,12 +131,12 @@ function firstEliminationRound(
   return {
     stage: MatchStage.ELIMINATION,
     round: 1,
-    tables: seedEliminationTables(seeds, rules.tableSize),
-    byes: [],
+    ...seedEliminationTables(seeds, rules.tableSize),
   };
 }
 
-// Son eleme turu tek masaysa final oynanmıştır → null.
+// Son eleme turu tek masaysa final oynanmıştır → null. Bay geçenler (tek oyunculu,
+// sırası olmayan maç) masa birincisi gibi üst tura çıkar.
 function nextEliminationRound(
   rules: TournamentRules,
   elimination: MatchState[],
@@ -161,11 +162,15 @@ function nextEliminationRound(
   if (advancers.length < 2 || advancers.length >= playerCount)
     throw new FixtureError('NO_PROGRESS');
 
+  const previousByes = new Set(
+    elimination
+      .filter((m) => m.isBye)
+      .flatMap((m) => m.players.map((p) => p.participantId)),
+  );
   return {
     stage: MatchStage.ELIMINATION,
     round: round + 1,
-    tables: seedEliminationTables(advancers, rules.tableSize),
-    byes: [],
+    ...seedEliminationTables(advancers, rules.tableSize, previousByes),
   };
 }
 
@@ -195,6 +200,7 @@ export function planNextRound(
       playedRounds + 1,
       random,
     );
+  if (rules.format === TournamentFormat.LEAGUE) return null;
 
   const standings = computeStandings(participantIds, toPlayed(league));
   return firstEliminationRound(

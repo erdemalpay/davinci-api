@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsDateString,
   IsEmail,
@@ -17,6 +16,7 @@ import {
   RegistrationSource,
 } from './schemas/tournament-registration.schema';
 
+// Formata bağlı alanlar isteğe bağlı; hangisinin zorunlu olduğunu servis denetler
 export class CreateTournamentDto {
   @IsString()
   name: string;
@@ -47,30 +47,35 @@ export class CreateTournamentDto {
   @Min(2)
   tableSize: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(2)
-  minTableSize: number;
+  minTableSize?: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  leagueRounds: number;
+  leagueRounds?: number;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @IsNumber({}, { each: true })
-  placementPoints: number[];
+  placementPoints?: number[];
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  byePoints: number;
+  byePoints?: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(2)
-  advanceCount: number;
+  advanceCount?: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  advancePerTable: number;
+  advancePerTable?: number;
 }
 
 export class RegisterTournamentDto {
@@ -117,4 +122,10 @@ export class SubmitScoresDto {
   @ValidateNested({ each: true })
   @Type(() => MatchScoreDto)
   scores: MatchScoreDto[];
+}
+
+export class ResolveTieDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  winnerIds: number[];
 }

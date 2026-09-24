@@ -19,6 +19,7 @@ import {
   CreateTournamentDto,
   PromoteRegistrationsDto,
   RegisterTournamentDto,
+  ResolveTieDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
 } from './tournament.dto';
@@ -133,6 +134,11 @@ export class TournamentController {
     @Body() dto: SubmitScoresDto,
   ) {
     return this.tournamentService.submitScores(matchId, dto);
+  }
+
+  @Patch('/matches/:matchId/tiebreak')
+  resolveTie(@Param('matchId') matchId: number, @Body() dto: ResolveTieDto) {
+    return this.tournamentService.resolveTie(matchId, dto);
   }
 
   @Get('/:id/standings')
