@@ -79,6 +79,7 @@ export interface PairRoundInput {
   minTableSize: number;
   previousOpponents: Map<number, Set<number>>;
   previousByes: Set<number>;
+  random?: () => number; // tekrar kaçınılmazsa takılmamak için rastgele takas
 }
 
 export function selectByes(
@@ -103,42 +104,109 @@ export function countRematches(
   return count;
 }
 
-// Komşu masalar arasında tek oyuncu takaslayarak tekrar eşleşmeleri azaltır.
-// Sadece komşu masalarla takas yapılır ki puan sırası bozulmasın.
-function reduceRematches(
-  tables: number[][],
+const hasMet = (
+  a: number,
+  b: number,
   previousOpponents: Map<number, Set<number>>,
-) {
-  let improved = true;
-  let guard = 0;
-  while (improved && guard < 100) {
-    improved = false;
-    guard++;
-    for (let t = 0; t < tables.length - 1; t++) {
-      const a = tables[t];
-      const b = tables[t + 1];
-      const before =
-        countRematches(a, previousOpponents) +
-        countRematches(b, previousOpponents);
-      if (before === 0) continue;
-      search: for (let i = a.length - 1; i >= 0; i--) {
-        for (let j = 0; j < b.length; j++) {
-          const nextA = [...a];
-          const nextB = [...b];
-          [nextA[i], nextB[j]] = [nextB[j], nextA[i]];
-          const after =
-            countRematches(nextA, previousOpponents) +
-            countRematches(nextB, previousOpponents);
-          if (after < before) {
-            tables[t] = nextA;
-            tables[t + 1] = nextB;
-            improved = true;
-            break search;
-          }
+) => previousOpponents.get(a)?.has(b) ?? false;
+
+// Masaları puan sırasıyla doldurur: her masaya oturmamış en üst oyuncu oturur, kalan
+// koltuklara sıradaki oyunculardan masadakilerle daha önce karşılaşmamış olan alınır.
+// Uygun kimse yoksa en az tekrar yaratan (eşitse sırada üstte olan) oturur.
+function seatAvoidingRematches(
+  seated: number[],
+  sizes: number[],
+  previousOpponents: Map<number, Set<number>>,
+): number[][] {
+  const remaining = [...seated];
+  return sizes.map((size) => {
+    const table = [remaining.shift() as number];
+    while (table.length < size) {
+      let bestIndex = 0;
+      let bestConflicts = Infinity;
+      for (let i = 0; i < remaining.length && bestConflicts > 0; i++) {
+        const conflicts = table.filter((id) =>
+          hasMet(id, remaining[i], previousOpponents),
+        ).length;
+        if (conflicts < bestConflicts) {
+          bestConflicts = conflicts;
+          bestIndex = i;
         }
       }
+      table.push(remaining.splice(bestIndex, 1)[0]);
+    }
+    return table;
+  });
+}
+
+// Bir oturma düzeninin maliyeti: önce tekrar sayısı, eşitse puan sırasından sapma
+// (oyuncunun oturduğu masa ile puan sırasına göre oturacağı masa arasındaki fark).
+function seatingCost(
+  tables: number[][],
+  rankTableOf: Map<number, number>,
+  previousOpponents: Map<number, Set<number>>,
+) {
+  let rematches = 0;
+  let displacement = 0;
+  tables.forEach((table, t) => {
+    rematches += countRematches(table, previousOpponents);
+    table.forEach((id) => {
+      displacement += Math.abs(t - (rankTableOf.get(id) ?? t));
+    });
+  });
+  return rematches * 1000 + displacement;
+}
+
+// Satranç (FIDE) ve Scrabble (tsh) eşleştiricileri gibi tek seferde doğru masayı bulmak
+// yerine, masalar arası oyuncu takaslarıyla maliyeti düşürür. Takılınca rastgele bir
+// takasla yerinden oynatıp tekrar dener ve görülen en iyi düzeni döner.
+const MAX_IMPROVEMENT_STEPS = 300;
+
+function improveSeating(
+  start: number[][],
+  rankTableOf: Map<number, number>,
+  previousOpponents: Map<number, Set<number>>,
+  random: () => number,
+): number[][] {
+  const cost = (tables: number[][]) =>
+    seatingCost(tables, rankTableOf, previousOpponents);
+  let current = start.map((table) => [...table]);
+  let currentCost = cost(current);
+  let best = current;
+  let bestCost = currentCost;
+
+  for (let step = 0; step < MAX_IMPROVEMENT_STEPS && bestCost >= 1000; step++) {
+    let move: { tables: number[][]; cost: number } | null = null;
+    for (let t = 0; t < current.length; t++)
+      for (let u = t + 1; u < current.length; u++)
+        for (let i = 0; i < current[t].length; i++)
+          for (let j = 0; j < current[u].length; j++) {
+            const next = current.map((table) => [...table]);
+            [next[t][i], next[u][j]] = [next[u][j], next[t][i]];
+            const nextCost = cost(next);
+            if (nextCost < (move?.cost ?? currentCost))
+              move = { tables: next, cost: nextCost };
+          }
+
+    if (move) {
+      current = move.tables;
+      currentCost = move.cost;
+    } else {
+      // Yerel en iyide takıldı: rastgele iki oyuncuyu takasla yerinden oynat
+      const t = Math.floor(random() * current.length);
+      const u = Math.floor(random() * current.length);
+      if (t === u) continue;
+      const i = Math.floor(random() * current[t].length);
+      const j = Math.floor(random() * current[u].length);
+      [current[t][i], current[u][j]] = [current[u][j], current[t][i]];
+      currentCost = cost(current);
+    }
+    if (currentCost < bestCost) {
+      best = current.map((table) => [...table]);
+      bestCost = currentCost;
     }
   }
+  return best;
 }
 
 export function pairRound(input: PairRoundInput): RoundPairing {
@@ -151,13 +219,19 @@ export function pairRound(input: PairRoundInput): RoundPairing {
   const byeSet = new Set(byes);
   const seated = input.rankedIds.filter((id) => !byeSet.has(id));
 
-  const tables: number[][] = [];
+  const rankTableOf = new Map<number, number>();
   let cursor = 0;
-  for (const size of sizes) {
-    tables.push(seated.slice(cursor, cursor + size));
-    cursor += size;
-  }
-  reduceRematches(tables, input.previousOpponents);
+  sizes.forEach((size, t) =>
+    seated
+      .slice(cursor, (cursor += size))
+      .forEach((id) => rankTableOf.set(id, t)),
+  );
+  const tables = improveSeating(
+    seatAvoidingRematches(seated, sizes, input.previousOpponents),
+    rankTableOf,
+    input.previousOpponents,
+    input.random ?? Math.random,
+  );
 
   return {
     tables: tables.map((participantIds, i) => ({

@@ -120,6 +120,7 @@ function nextLeagueRound(
     minTableSize: rules.minTableSize,
     previousOpponents,
     previousByes,
+    random,
   });
   return { stage: MatchStage.LEAGUE, round, tables, byes };
 }
