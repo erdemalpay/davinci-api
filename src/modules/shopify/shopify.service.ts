@@ -3101,6 +3101,8 @@ export class ShopifyService {
       // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
       let refundsProcessed = 0;
+      let shippingRefundsProcessed = 0;
+      const shopifyOrderId = String(data?.order_id ?? data?.id);
 
       for (const action of actions) {
         try {
@@ -3115,6 +3117,16 @@ export class ShopifyService {
               action.restock,
             );
             cancellationsProcessed++;
+          } else if (action.type === 'shipping_refund') {
+            this.logger.log(
+              `Shipping refund for order ${shopifyOrderId}: ${action.amount}`,
+            );
+            await this.orderService.refundShopifyShipping(
+              shopifyOrderId,
+              action.amount,
+              action.refundId,
+            );
+            shippingRefundsProcessed++;
           } else {
             this.logger.log(
               `Partial refund for line item ${action.lineItemId}: ${action.refundAmount}`,
@@ -3137,6 +3149,7 @@ export class ShopifyService {
         success: true,
         cancellationsProcessed,
         refundsProcessed,
+        shippingRefundsProcessed,
       };
 
       if (webhookLog) {

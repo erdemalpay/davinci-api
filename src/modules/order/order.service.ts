@@ -2809,6 +2809,40 @@ export class OrderService {
     }
   }
 
+  async refundShopifyShipping(
+    shopifyOrderId: string,
+    amount: number,
+    refundId: string,
+  ) {
+    const collection = await this.collectionModel
+      .findOne({
+        shopifyId: shopifyOrderId,
+        status: { $ne: OrderCollectionStatus.CANCELLED },
+      })
+      .sort({ shopifyShippingAmount: -1 });
+
+    if (!collection || collection.shopifyRefundIds?.includes(refundId)) {
+      return null;
+    }
+
+    const updatedCollection = await this.collectionModel.findByIdAndUpdate(
+      collection._id,
+      {
+        $set: {
+          shopifyShippingAmount: Math.max(
+            (collection.shopifyShippingAmount ?? 0) - amount,
+            0,
+          ),
+        },
+        $addToSet: { shopifyRefundIds: refundId },
+      },
+      { new: true },
+    );
+
+    this.websocketGateway.emitCollectionChanged(updatedCollection);
+    return updatedCollection;
+  }
+
   async cancelTrendyolOrder(
     user: User,
     trendyolLineItemId: string,
