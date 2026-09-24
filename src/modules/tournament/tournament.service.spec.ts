@@ -184,6 +184,15 @@ describe('TournamentService.update', () => {
     ).rejects.toThrow('Puan turlarında en az 1 tur olmalı');
   });
 
+  it('3.lük maçını sadece 2 kişilik elemede kabul eder', async () => {
+    const { service, tournamentModel } = createService();
+    await expect(service.update(1, { thirdPlaceMatch: true })).rejects.toThrow(
+      "3.'lük maçı sadece 2 kişilik masalarla oynanan elemede açılabilir",
+    );
+    await service.update(1, { thirdPlaceMatch: true, eliminationTableSize: 2 });
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalled();
+  });
+
   it('masadan çıkan sayısını eleme masasına göre denetler', async () => {
     const { service } = createService();
     await expect(
@@ -355,6 +364,19 @@ describe('TournamentService.submitScores', () => {
       participantIds: [1, 2],
       slots: 1,
     });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('3.lük masası skorlanmadıysa final oynansa da turnuvayı bitirmez', async () => {
+    const { service, matchModel, tournamentModel } = createService({
+      match: tableMatch,
+      tablesInRound: 1,
+    });
+    matchModel.exists
+      .mockReturnValueOnce(query(null)) // sonraki tur yok
+      .mockReturnValueOnce(query({ _id: 11 })); // 3.lük masası açık
+    await service.submitScores(9, { scores });
+
     expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 });

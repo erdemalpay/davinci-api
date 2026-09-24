@@ -61,6 +61,10 @@ export class Tournament extends Document {
   @Prop({ required: false, type: Number })
   eliminationTableSize: number;
 
+  // Final turunda yarı finalde elenenler de bir masada 3.'lük için oynar
+  @Prop({ required: false, type: Boolean, default: false })
+  thirdPlaceMatch: boolean;
+
   @Prop({ required: false, type: Number })
   minTableSize: number;
 

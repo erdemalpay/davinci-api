@@ -234,6 +234,69 @@ describe('planNextRound', () => {
     ).toBeNull();
   });
 
+  describe('3.lük maçı', () => {
+    const twoSeat = rules({
+      format: TournamentFormat.ELIMINATION,
+      tableSize: 2,
+      advancePerTable: 1,
+      thirdPlaceMatch: true,
+    });
+    const semiFinal = [
+      table(MatchStage.ELIMINATION, 1, 1, [
+        [1, 1, 0],
+        [4, 2, 0],
+      ]),
+      table(MatchStage.ELIMINATION, 1, 2, [
+        [2, 1, 0],
+        [3, 2, 0],
+      ]),
+    ];
+
+    it('final kurulurken yarı finalde elenenleri 3.lük masasına oturtur', () => {
+      expect(planNextRound(twoSeat, ids(4), semiFinal, noShuffle)).toEqual({
+        stage: MatchStage.ELIMINATION,
+        round: 2,
+        tables: [{ tableNo: 1, participantIds: [1, 2] }],
+        byes: [],
+        thirdPlace: [4, 3],
+      });
+    });
+
+    it('ayar kapalıysa 3.lük masası kurulmaz', () => {
+      const next = planNextRound(
+        { ...twoSeat, thirdPlaceMatch: false },
+        ids(4),
+        semiFinal,
+        noShuffle,
+      );
+      expect(next?.thirdPlace).toBeUndefined();
+    });
+
+    it('final ile 3.lük masası oynandıysa turnuva biter', () => {
+      const finalRound = [
+        table(MatchStage.ELIMINATION, 2, 1, [
+          [1, 1, 0],
+          [2, 2, 0],
+        ]),
+        {
+          ...table(MatchStage.ELIMINATION, 2, 2, [
+            [3, 1, 0],
+            [4, 2, 0],
+          ]),
+          isThirdPlace: true,
+        },
+      ];
+      expect(
+        planNextRound(
+          twoSeat,
+          ids(4),
+          [...semiFinal, ...finalRound],
+          noShuffle,
+        ),
+      ).toBeNull();
+    });
+  });
+
   it('turnuvadan çıkarılan oyuncuyu sonraki eleme turuna almaz', () => {
     const activeWithout1 = ids(8).filter((id) => id !== 1);
     const next = planNextRound(

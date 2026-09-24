@@ -349,6 +349,37 @@ describe('computeFinalRanking', () => {
     expect(computeFinalRanking(standings, [])).toEqual(standings);
   });
 
+  it('3.lük masasındakiler finalistlerin arkasından masa sırasıyla gelir', () => {
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5]), [
+      table(1, [
+        [1, 1],
+        [4, 2],
+      ]),
+      table(1, [
+        [2, 1],
+        [3, 2],
+      ]),
+      table(2, [
+        [2, 1],
+        [1, 2],
+      ]),
+      {
+        ...table(2, [
+          [4, 1],
+          [3, 2],
+        ]),
+        isThirdPlace: true,
+      },
+    ]);
+    expect(result.map((r) => r.participantId)).toEqual([2, 1, 4, 3, 5]);
+    expect(result[2].elimination).toEqual({
+      round: 2,
+      isFinal: false,
+      isThirdPlace: true,
+      tableRank: 1,
+    });
+  });
+
   it('doğrudan elemede finalden başlayıp elendiği tura göre sıralar', () => {
     const result = computeFinalRanking(
       league([29, 30, 31, 32, 33, 34, 35, 36]),

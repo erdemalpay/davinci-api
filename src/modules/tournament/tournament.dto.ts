@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -52,6 +53,10 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(2)
   eliminationTableSize?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  thirdPlaceMatch?: boolean;
 
   @IsOptional()
   @IsNumber()

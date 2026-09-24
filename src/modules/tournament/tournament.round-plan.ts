@@ -34,6 +34,7 @@ export interface TournamentRules {
   leagueRounds: number;
   advanceCount: number;
   advancePerTable: number;
+  thirdPlaceMatch?: boolean; // final turunda yarı finalde elenenler de bir masada oynar
 }
 
 export interface MatchState {
@@ -42,6 +43,7 @@ export interface MatchState {
   tableNo: number;
   isBye: boolean;
   isCompleted: boolean;
+  isThirdPlace?: boolean;
   players: {
     participantId: number;
     score?: number;
@@ -55,6 +57,7 @@ export interface NextRound {
   round: number;
   tables: TableAssignment[];
   byes: number[];
+  thirdPlace?: number[]; // 3.'lük masasında oturanlar
 }
 
 export type FixtureErrorCode =
@@ -140,8 +143,26 @@ function firstEliminationRound(
   };
 }
 
-// Son eleme turu tek masaysa final oynanmıştır → null. Bay geçenler (tek oyunculu,
-// sırası olmayan maç) masa birincisi gibi üst tura çıkar.
+// Final kurulurken 3.'lük maçı açıksa bir önceki turda elenenler (masa sırasına göre,
+// en fazla bir masa dolusu) ayrı bir masada oynar
+function thirdPlacePlayers(
+  rules: TournamentRules,
+  rankedTables: RankedTableEntry[][],
+  advancers: number[],
+  active: Set<number>,
+) {
+  const eliminated = rankedTables
+    .flat()
+    .filter((p) => active.has(p.participantId))
+    .filter((p) => !advancers.includes(p.participantId))
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, eliminationTableSize(rules))
+    .map((p) => p.participantId);
+  return eliminated.length >= 2 ? eliminated : undefined;
+}
+
+// Son eleme turu tek masaysa (3.'lük masası sayılmaz) final oynanmıştır → null.
+// Bay geçenler (tek oyunculu, sırası olmayan maç) masa birincisi gibi üst tura çıkar.
 function nextEliminationRound(
   rules: TournamentRules,
   participantIds: number[],
@@ -149,7 +170,7 @@ function nextEliminationRound(
 ): NextRound | null {
   const round = lastRound(elimination);
   const lastTables = elimination
-    .filter((m) => m.round === round)
+    .filter((m) => m.round === round && !m.isThirdPlace)
     .sort((a, b) => a.tableNo - b.tableNo);
   if (lastTables.length === 1) return null;
 
@@ -177,14 +198,20 @@ function nextEliminationRound(
       .filter((m) => m.isBye)
       .flatMap((m) => m.players.map((p) => p.participantId)),
   );
+  const pairing = seedEliminationTables(
+    advancers,
+    eliminationTableSize(rules),
+    previousByes,
+  );
+  const isFinal = pairing.tables.length === 1 && !pairing.byes.length;
   return {
     stage: MatchStage.ELIMINATION,
     round: round + 1,
-    ...seedEliminationTables(
-      advancers,
-      eliminationTableSize(rules),
-      previousByes,
-    ),
+    ...pairing,
+    thirdPlace:
+      isFinal && rules.thirdPlaceMatch
+        ? thirdPlacePlayers(rules, rankedTables, advancers, active)
+        : undefined,
   };
 }
 
