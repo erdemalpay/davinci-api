@@ -29,6 +29,7 @@ import {
   computeStandings,
   findCutTie,
   rankTable,
+  roundResults,
 } from './tournament.fixture';
 import {
   FixtureError,
@@ -445,14 +446,22 @@ export class TournamentService {
       this.matchModel.find({ tournamentId }).exec(),
     ]);
     const names = new Map(participants.map((p) => [p._id, p.name]));
+    const leagueMatches = matches.filter(
+      (m) => m.stage === MatchStage.LEAGUE && m.isCompleted,
+    );
     const leagueStandings = computeStandings(
       participants.map((p) => p._id),
-      matches.filter((m) => m.stage === MatchStage.LEAGUE && m.isCompleted),
+      leagueMatches,
     );
+    const rounds = roundResults(leagueMatches);
     return computeFinalRanking(
       leagueStandings,
       matches.filter((m) => m.stage === MatchStage.ELIMINATION),
-    ).map((row) => ({ ...row, name: names.get(row.participantId) }));
+    ).map((row) => ({
+      ...row,
+      name: names.get(row.participantId),
+      rounds: rounds.get(row.participantId) ?? [],
+    }));
   }
 
   // ─── Yardımcılar ─────────────────────────────────────────────────────────────

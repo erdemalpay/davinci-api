@@ -294,6 +294,30 @@ export function applyTieBreak<T extends RankedTableEntry>(
   return reranked.sort((a, b) => a.rank - b.rank);
 }
 
+export interface RoundResult {
+  round: number;
+  points: number;
+  isBye: boolean;
+}
+
+// Puan tablosunda tur tur gösterim için her oyuncunun her turda aldığı puan
+export function roundResults(
+  matches: (PlayedMatch & { round: number })[],
+): Map<number, RoundResult[]> {
+  const results = new Map<number, RoundResult[]>();
+  [...matches]
+    .sort((a, b) => a.round - b.round)
+    .forEach((match) =>
+      match.players.forEach((player) =>
+        results.set(player.participantId, [
+          ...(results.get(player.participantId) ?? []),
+          { round: match.round, points: player.points, isBye: match.isBye },
+        ]),
+      ),
+    );
+  return results;
+}
+
 // Sıralama: toplam puan → rakiplerin ortalama puanı (BGA'daki gibi) → id.
 export function computeStandings(
   participantIds: number[],
