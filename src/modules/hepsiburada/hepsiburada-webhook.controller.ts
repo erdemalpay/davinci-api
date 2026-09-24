@@ -37,43 +37,65 @@ export class HepsiburadaWebhookController {
 
   @Public()
   @Post('/packages')
-  createPackages(@Body() data?: any) {
+  async createPackages(@Body() data?: any) {
     this.logger.log('Received Hepsiburada create packages webhook via /packages');
     this.logger.debug('Packages data:', JSON.stringify(data, null, 2));
+    await this.runPackageUpdate(() =>
+      this.hepsiburadaService.markPackageCreated(data),
+    );
     return { success: true };
   }
 
   @Public()
   @Put('/packages/:packagenumber/unpack')
-  unpackPackage(
+  async unpackPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
     this.logger.log(`Received Hepsiburada unpack webhook for package: ${packagenumber}`);
     this.logger.debug('Unpack data:', JSON.stringify(data, null, 2));
+    await this.runPackageUpdate(() =>
+      this.hepsiburadaService.markPackageUnpacked(packagenumber),
+    );
     return { success: true };
   }
 
   @Public()
   @Put('/packages/:packagenumber/intransit')
-  intransitPackage(
+  async intransitPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
     this.logger.log(`Received Hepsiburada intransit webhook for package: ${packagenumber}`);
     this.logger.debug('Intransit data:', JSON.stringify(data, null, 2));
+    await this.runPackageUpdate(() =>
+      this.hepsiburadaService.markPackageShipped(packagenumber),
+    );
     return { success: true };
   }
 
   @Public()
   @Put('/packages/:packagenumber/deliver')
-  deliverPackage(
+  async deliverPackage(
     @Param('packagenumber') packagenumber: string,
     @Body() data?: any,
   ) {
     this.logger.log(`Received Hepsiburada deliver webhook for package: ${packagenumber}`);
     this.logger.debug('Deliver data:', JSON.stringify(data, null, 2));
+    await this.runPackageUpdate(() =>
+      this.hepsiburadaService.markPackageShipped(packagenumber),
+    );
     return { success: true };
+  }
+
+  // Paket takibi yalnızca sayımdaki ayrılmış adet için kullanılıyor; bir hata
+  // Hepsiburada'nın bildirimi tekrar tekrar göndermesine yol açmamalı.
+  private async runPackageUpdate(update: () => Promise<void>) {
+    try {
+      await update();
+    } catch (error) {
+      this.logger.error('Failed to process Hepsiburada package webhook', error);
+    }
   }
 
   @Public()

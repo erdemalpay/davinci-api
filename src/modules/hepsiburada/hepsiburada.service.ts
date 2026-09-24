@@ -12,6 +12,8 @@ import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
 import { StockHistoryStatusEnum } from '../accounting/accounting.dto';
 import { AccountingService } from '../accounting/accounting.service';
+import { isOrderOnShelf, toReservedStockEntries } from 'src/lib/mappers';
+import { ReservedStockEntry } from '../accounting/count.schema';
 import { MenuService } from '../menu/menu.service';
 import { OrderCollectionStatus, OrderStatus } from '../order/order.dto';
 import { Order } from '../order/order.schema';
@@ -33,6 +35,10 @@ interface PopulatedMenuItem {
   }>;
 }
 
+// Hepsiburada'nın paketlenme bildirimini gönderdiği yol; webhook kayıtlarında
+// bu adla tutulur.
+const PACKAGE_WEBHOOK_ENDPOINT = '/packages';
+
 function isPopulatedMenuItem(item: unknown): item is PopulatedMenuItem {
   return typeof item === 'object' && item !== null && 'itemProduction' in item;
 }
@@ -51,6 +57,9 @@ export class HepsiburadaService {
   private readonly merchantId: string;
   private readonly secretKey: string;
   private readonly userAgent: string;
+  // İlk paket bildiriminin geldiği an; webhook kayıtlarından okunur, değişmediği
+  // için bir kez bulununca saklanır.
+  private shipmentTrackingStart: Date | null = null;
   private readonly OnlineStoreLocation = 4; // Location ID for online store (UI)
   private readonly OnlineStoreStockLocation = 6; // Location ID for stock management
 
@@ -1440,5 +1449,109 @@ export class HepsiburadaService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Paket oluşturma bildirimindeki kalemlere paket numarasını yazar; kargoya
+   * verildi bildirimi yalnızca paket numarası taşıdığı için gerekli.
+   */
+  /**
+   * Paket takibinin başladığı an: işlenen ilk paket bildirimi. Ayrıca bir ayar
+   * tutulmuyor, mevcut webhook kayıtlarından okunuyor. Bu andan önceki
+   * siparişler hiç "gönderildi" işaretlenmediği için ayrılmış sayılamaz.
+   */
+  private async getShipmentTrackingStart(): Promise<Date | null> {
+    if (this.shipmentTrackingStart) return this.shipmentTrackingStart;
+    const firstPackageWebhook = await this.webhookLogService.findEarliest(
+      WebhookSource.HEPSIBURADA,
+      PACKAGE_WEBHOOK_ENDPOINT,
+    );
+    const createdAt = (firstPackageWebhook as any)?.createdAt;
+    this.shipmentTrackingStart = createdAt ? new Date(createdAt) : null;
+    return this.shipmentTrackingStart;
+  }
+
+  async markPackageCreated(data?: any) {
+    // Diğer Hepsiburada bildirimleri gibi kaydedilir; bu kayıt aynı zamanda
+    // paket takibinin ne zaman başladığını gösterir.
+    const webhookLog = await this.webhookLogService.logWebhookRequest(
+      WebhookSource.HEPSIBURADA,
+      PACKAGE_WEBHOOK_ENDPOINT,
+      data,
+    );
+
+    const packageNumber = data?.packageNumber?.toString();
+    const lineItemIds = (data?.items ?? [])
+      .map((item: any) => item?.lineItemId?.toString())
+      .filter(Boolean);
+    if (!packageNumber || lineItemIds.length === 0) {
+      await this.webhookLogService.updateWebhookResponse(
+        webhookLog._id,
+        { message: 'No package number or line items in payload' },
+        200,
+        WebhookStatus.ORDER_NOT_CREATED,
+      );
+      return;
+    }
+
+    await this.orderModel.updateMany(
+      { hepsiburadaLineItemId: { $in: lineItemIds } },
+      { $set: { hepsiburadaPackageNumber: packageNumber } },
+    );
+    await this.webhookLogService.updateWebhookResponse(
+      webhookLog._id,
+      { packageNumber, lineItemIds },
+      200,
+      WebhookStatus.SUCCESS,
+    );
+  }
+
+  async markPackageShipped(packageNumber: string) {
+    if (!packageNumber) return;
+    await this.orderModel.updateMany(
+      { hepsiburadaPackageNumber: packageNumber },
+      { $set: { isShipped: true } },
+    );
+    this.accountingService.invalidateReservedStocks();
+  }
+
+  async markPackageUnpacked(packageNumber: string) {
+    if (!packageNumber) return;
+    await this.orderModel.updateMany(
+      { hepsiburadaPackageNumber: packageNumber },
+      { $unset: { hepsiburadaPackageNumber: '' } },
+    );
+  }
+
+  /**
+   * Sayımda ayrılmış gösterilecek, Hepsiburada'da henüz kargoya verilmemiş
+   * siparişler. Paket takibi başlamadan önceki siparişler hiç işaretlenmediği
+   * için hesaba katılmaz.
+   */
+  async getReservedStocks(
+    stockLocation: number,
+  ): Promise<ReservedStockEntry[]> {
+    // Hiç paket bildirimi gelmediyse hangi siparişin kargoya verildiği
+    // bilinemez; yanlış adet üretmektense hiç ayrılmış göstermemek güvenlidir.
+    const trackingStart = await this.getShipmentTrackingStart();
+    if (!trackingStart) return [];
+
+    const orders = await this.orderModel
+      .find({
+        hepsiburadaLineItemId: { $type: 'string' },
+        isShipped: { $ne: true },
+        createdAt: { $gte: trackingStart },
+      })
+      .populate('item')
+      .lean();
+
+    return orders
+      .filter((order) => isOrderOnShelf(order as Order, stockLocation))
+      .flatMap((order) =>
+        toReservedStockEntries(order.item, order.quantity, {
+          channel: 'hepsiburada',
+          orderNumber: order.hepsiburadaOrderNumber,
+        }),
+      );
   }
 }

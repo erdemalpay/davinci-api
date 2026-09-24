@@ -2163,6 +2163,13 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+      // Gel-al ürünü depodan çıkınca sayımdaki ayrılmış adet değişir.
+      if (
+        'isShopifyPickUpOrderBrought' in updates ||
+        'isShopifyCustomerPicked' in updates
+      ) {
+        this.accountingService.invalidateReservedStocks();
+      }
       let shopifyWarning: string | undefined;
 
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
@@ -2243,6 +2250,7 @@ export class OrderService {
     );
 
     const found = updated.filter(Boolean);
+    this.accountingService.invalidateReservedStocks();
     const shopifyOrderIds = [
       ...new Set(
         found
@@ -6205,6 +6213,15 @@ export class OrderService {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
   }
 
+  // Ayrılmış adet hesabında Shopify'daki yüzlerce gönderilmemiş kalem tek
+  // sorguda panel siparişleriyle eşleştirilir; kalem başına sorgu atılmaz.
+  findByShopifyOrderLineItemIds(shopifyOrderLineItemIds: string[]) {
+    return this.orderModel
+      .find({ shopifyOrderLineItemId: { $in: shopifyOrderLineItemIds } })
+      .populate('item')
+      .exec();
+  }
+
   // orders/edited payload'ında müşteri bilgisi gelmediği için, sonradan eklenen
   // satıra kopyalamak üzere aynı siparişin müşterisi dolu satırını döner.
   findShopifyOrderWithCustomer(shopifyOrderId: string) {
@@ -6241,6 +6258,15 @@ export class OrderService {
   findByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
     return this.orderModel
       .find({ trendyolShipmentPackageId })
+      .populate('item')
+      .exec();
+  }
+
+  // Ayrılmış adet hesabında açık paketler tek sorguda eşleştirilir; paket
+  // başına sorgu atılmaz.
+  findByTrendyolShipmentPackageIds(trendyolShipmentPackageIds: string[]) {
+    return this.orderModel
+      .find({ trendyolShipmentPackageId: { $in: trendyolShipmentPackageIds } })
       .populate('item')
       .exec();
   }
