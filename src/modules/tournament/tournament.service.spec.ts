@@ -161,8 +161,25 @@ describe('TournamentService.update', () => {
   it('en küçük masa masa boyutundan büyükse reddeder', async () => {
     const { service } = createService();
     await expect(service.update(1, { minTableSize: 4 })).rejects.toThrow(
-      'En küçük masa, masa başına oyuncu sayısından büyük olamaz',
+      'En küçük masa 2 ile masa başına oyuncu sayısı arasında olmalı',
     );
+  });
+
+  it('doğrudan elemede Swiss ayarlarını istemez', async () => {
+    const { service, tournamentModel } = createService();
+    await service.update(1, {
+      format: TournamentFormat.ELIMINATION,
+      leagueRounds: 0,
+      placementPoints: [],
+    });
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalled();
+  });
+
+  it('sadece Swiss formatında en az 1 tur ister', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, { format: TournamentFormat.LEAGUE, leagueRounds: 0 }),
+    ).rejects.toThrow('Swiss aşamasında en az 1 tur olmalı');
   });
 });
 
@@ -211,6 +228,24 @@ describe('TournamentService.generateNextRound', () => {
       new BadRequestException(
         'Skoru girilmemiş maçlar var, önce onları tamamlayın',
       ),
+    );
+  });
+
+  it('karar bekleyen beraberlik varken yeni tur üretmez', async () => {
+    const { service } = createService({
+      tournament: { ...baseTournament, status: TournamentStatus.ONGOING },
+      matches: [
+        {
+          stage: MatchStage.ELIMINATION,
+          round: 1,
+          isCompleted: true,
+          pendingTie: { participantIds: [1, 2], slots: 1 },
+          players: [],
+        },
+      ],
+    });
+    await expect(service.generateNextRound(1)).rejects.toThrow(
+      'Berabere kalan masada kimin çıkacağı seçilmeden sonraki tur oluşturulamaz',
     );
   });
 
@@ -283,12 +318,98 @@ describe('TournamentService.submitScores', () => {
           { participantId: 3, score: 5, rank: 3, points: 0 },
         ],
         isCompleted: true,
+        pendingTie: null,
       },
       { new: true },
     );
     expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
       status: TournamentStatus.FINISHED,
     });
+  });
+
+  it('finalde 1.lik berabereyse karar bekler, turnuvayı bitirmez', async () => {
+    const { service, matchModel, tournamentModel } = createService({
+      match: tableMatch,
+      tablesInRound: 1,
+    });
+    await service.submitScores(9, {
+      scores: [
+        { participantId: 1, score: 50 },
+        { participantId: 2, score: 50 },
+        { participantId: 3, score: 5 },
+      ],
+    });
+
+    expect(matchModel.findByIdAndUpdate.mock.calls[0][1].pendingTie).toEqual({
+      participantIds: [1, 2],
+      slots: 1,
+    });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('TournamentService.resolveTie', () => {
+  const tiedFinal = {
+    _id: 9,
+    tournamentId: 1,
+    stage: MatchStage.ELIMINATION,
+    round: 2,
+    isBye: false,
+    pendingTie: { participantIds: [1, 2], slots: 1 },
+    players: [
+      { participantId: 1, score: 50, rank: 1, points: 4 },
+      { participantId: 2, score: 50, rank: 1, points: 4 },
+      { participantId: 3, score: 5, rank: 3, points: 0 },
+    ],
+  };
+
+  it('seçileni öne alır, diğerini bir alt sıraya indirir ve finali bitirir', async () => {
+    const { service, matchModel, tournamentModel } = createService({
+      match: tiedFinal,
+      tablesInRound: 1,
+    });
+    await service.resolveTie(9, { winnerIds: [2] });
+
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      9,
+      {
+        players: [
+          {
+            participantId: 2,
+            score: 50,
+            rank: 1,
+            points: 4,
+            wonTieBreak: true,
+          },
+          { participantId: 1, score: 50, rank: 2, points: 4 },
+          { participantId: 3, score: 5, rank: 3, points: 0 },
+        ],
+        pendingTie: null,
+      },
+      { new: true },
+    );
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
+      status: TournamentStatus.FINISHED,
+    });
+  });
+
+  it('berabere olmayan ya da eksik seçimi reddeder', async () => {
+    const { service } = createService({ match: tiedFinal });
+    await expect(service.resolveTie(9, { winnerIds: [3] })).rejects.toThrow(
+      'Berabere kalanlardan 1 kişi seçilmeli',
+    );
+    await expect(service.resolveTie(9, { winnerIds: [1, 2] })).rejects.toThrow(
+      'Berabere kalanlardan 1 kişi seçilmeli',
+    );
+  });
+
+  it('karar bekleyen beraberlik yoksa reddeder', async () => {
+    const { service } = createService({
+      match: { ...tiedFinal, pendingTie: null },
+    });
+    await expect(service.resolveTie(9, { winnerIds: [1] })).rejects.toThrow(
+      'Bu masada karar bekleyen beraberlik yok',
+    );
   });
 });
 
@@ -325,5 +446,82 @@ describe('TournamentService.removeParticipant', () => {
     await expect(service.removeParticipant(4)).rejects.toThrow(
       'Katılımcı skoru girilmemiş bir maçta, önce maçı tamamlayın',
     );
+  });
+});
+
+describe('TournamentService.getStandings', () => {
+  it('elemede final sıralamasını ve ulaşılan aşamayı döner', async () => {
+    const { service } = createService({
+      participants: [
+        { _id: 1, name: 'Ali' },
+        { _id: 2, name: 'Veli' },
+        { _id: 3, name: 'Can' },
+      ],
+      matches: [
+        {
+          stage: MatchStage.ELIMINATION,
+          round: 1,
+          tableNo: 1,
+          isBye: false,
+          isCompleted: true,
+          players: [
+            { participantId: 2, rank: 1, points: 4 },
+            { participantId: 1, rank: 2, points: 2 },
+            { participantId: 3, rank: 3, points: 0 },
+          ],
+        },
+      ],
+    });
+    const result = await service.getStandings(1);
+    expect(result.map((r) => [r.rank, r.name])).toEqual([
+      [1, 'Veli'],
+      [2, 'Ali'],
+      [3, 'Can'],
+    ]);
+    expect(result[0].elimination).toEqual({
+      round: 1,
+      isFinal: true,
+      tableRank: 1,
+    });
+  });
+});
+
+describe('TournamentService.submitScores (sadece Swiss)', () => {
+  const leagueTournament = {
+    ...baseTournament,
+    format: TournamentFormat.LEAGUE,
+    leagueRounds: 2,
+  };
+  const leagueMatch = (round: number) => ({
+    _id: 9,
+    tournamentId: 1,
+    stage: MatchStage.LEAGUE,
+    round,
+    isBye: false,
+    players: [{ participantId: 1 }, { participantId: 2 }],
+  });
+  const scores = [
+    { participantId: 1, score: 10 },
+    { participantId: 2, score: 5 },
+  ];
+
+  it('son turun son maçı skorlanınca turnuvayı bitirir', async () => {
+    const { service, tournamentModel } = createService({
+      tournament: leagueTournament,
+      match: leagueMatch(2),
+    });
+    await service.submitScores(9, { scores });
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
+      status: TournamentStatus.FINISHED,
+    });
+  });
+
+  it('son tur değilse turnuvayı bitirmez', async () => {
+    const { service, tournamentModel } = createService({
+      tournament: leagueTournament,
+      match: leagueMatch(1),
+    });
+    await service.submitScores(9, { scores });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 });

@@ -180,6 +180,46 @@ export function rankTable(
   });
 }
 
+export interface PendingTie {
+  participantIds: number[];
+  slots: number; // eşitlerden kaç kişi çıkacak
+}
+
+// Masadan ilk `cut` kişi çıkıyorsa ve sınırdaki sıra paylaşılıyorsa (ör. 2 kişi çıkacak,
+// 2. ve 3. aynı skor) kimin çıkacağına organizatör karar vermeli.
+export function findCutTie(
+  ranked: RankedTableEntry[],
+  cut: number,
+): PendingTie | null {
+  if (cut <= 0 || cut >= ranked.length) return null;
+  const boundaryRank = ranked[cut - 1].rank;
+  if (ranked[cut].rank !== boundaryRank) return null;
+  const tied = ranked.filter((entry) => entry.rank === boundaryRank);
+  const ahead = ranked.filter((entry) => entry.rank < boundaryRank).length;
+  return {
+    participantIds: tied.map((entry) => entry.participantId),
+    slots: cut - ahead,
+  };
+}
+
+// Seçilenler paylaşılan sırada kalır, diğer eşitler seçilenlerin arkasına iner.
+export function applyTieBreak<T extends RankedTableEntry>(
+  ranked: T[],
+  tie: PendingTie,
+  winnerIds: number[],
+): (T & { wonTieBreak?: boolean })[] {
+  const tiedRank = ranked.find(
+    (entry) => entry.participantId === tie.participantIds[0],
+  )?.rank;
+  const reranked = ranked.map((entry) => {
+    if (!tie.participantIds.includes(entry.participantId)) return entry;
+    return winnerIds.includes(entry.participantId)
+      ? { ...entry, wonTieBreak: true }
+      : { ...entry, rank: (tiedRank ?? entry.rank) + winnerIds.length };
+  });
+  return reranked.sort((a, b) => a.rank - b.rank);
+}
+
 // Sıralama: toplam puan → rakiplerin ortalama puanı (BGA'daki gibi) → id.
 export function computeStandings(
   participantIds: number[],
@@ -240,31 +280,42 @@ export function computeStandings(
 }
 
 // Güçlü oyuncuları masalara yayar: 8 kişi / 2 masa → 1-4-5-8 ve 2-3-6-7.
+// Masaya sığmayan artan oyuncular (2 kişilik oyunda tek sayı) bay geçer; Challonge ve
+// BGA'daki gibi bay hakkı en üst sıradakilere verilir; daha önce bay geçen önceliği kaybeder.
 export function seedEliminationTables(
   rankedIds: number[],
   tableSize: number,
-): TableAssignment[] {
-  if (rankedIds.length < 2) return [];
-  const { sizes } = planTableSizes(rankedIds.length, tableSize, 2);
+  previousByes: Set<number> = new Set(),
+): RoundPairing {
+  if (rankedIds.length < 2) return { tables: [], byes: [] };
+  const { sizes, byeCount } = planTableSizes(rankedIds.length, tableSize, 2);
+  const byes = [
+    ...rankedIds.filter((id) => !previousByes.has(id)),
+    ...rankedIds.filter((id) => previousByes.has(id)),
+  ].slice(0, byeCount);
+  const seated = rankedIds.filter((id) => !byes.includes(id));
   const tables: number[][] = sizes.map(() => []);
 
   const snake: number[] = [];
-  while (snake.length < rankedIds.length * 2) {
+  while (snake.length < seated.length * 2) {
     for (let i = 0; i < sizes.length; i++) snake.push(i);
     for (let i = sizes.length - 1; i >= 0; i--) snake.push(i);
   }
 
   let cursor = 0;
-  for (const id of rankedIds) {
+  for (const id of seated) {
     while (tables[snake[cursor]].length >= sizes[snake[cursor]]) cursor++;
     tables[snake[cursor]].push(id);
     cursor++;
   }
 
-  return tables.map((participantIds, i) => ({
-    tableNo: i + 1,
-    participantIds,
-  }));
+  return {
+    tables: tables.map((participantIds, i) => ({
+      tableNo: i + 1,
+      participantIds,
+    })),
+    byes,
+  };
 }
 
 // Her masadan ilk `advancePerTable` kişi çıkar; sıra: tüm birinciler, sonra ikinciler...
@@ -280,4 +331,65 @@ export function pickAdvancers(
       if (entry) result.push(entry.participantId);
     }
   return result;
+}
+
+export interface EliminationResult {
+  round: number;
+  isFinal: boolean;
+  tableRank?: number; // masa henüz skorlanmadıysa boş
+}
+
+export interface FinalRankingRow extends StandingRow {
+  elimination?: EliminationResult;
+}
+
+export interface EliminationTable {
+  round: number;
+  isCompleted: boolean;
+  players: { participantId: number; rank?: number }[];
+}
+
+// Turnuvanın genel sıralaması: elemede en ileri gidenler üstte (aynı turda
+// masadaki sıraya, sonra lig sırasına göre), elemeye çıkamayanlar lig sırasıyla sonda.
+export function computeFinalRanking(
+  leagueStandings: StandingRow[],
+  eliminationTables: EliminationTable[],
+): FinalRankingRow[] {
+  if (!eliminationTables.length) return leagueStandings;
+
+  const lastRound = Math.max(...eliminationTables.map((t) => t.round));
+  const isFinalRound =
+    eliminationTables.filter((t) => t.round === lastRound).length === 1;
+
+  const reached = new Map<number, EliminationResult>();
+  [...eliminationTables]
+    .sort((a, b) => a.round - b.round)
+    .forEach((table) =>
+      table.players.forEach((player) =>
+        reached.set(player.participantId, {
+          round: table.round,
+          isFinal: isFinalRound && table.round === lastRound,
+          tableRank: table.isCompleted ? player.rank : undefined,
+        }),
+      ),
+    );
+
+  const inElimination = leagueStandings
+    .filter((row) => reached.has(row.participantId))
+    .sort((a, b) => {
+      const ra = reached.get(a.participantId);
+      const rb = reached.get(b.participantId);
+      return (
+        rb.round - ra.round ||
+        (ra.tableRank ?? 0) - (rb.tableRank ?? 0) ||
+        a.rank - b.rank
+      );
+    });
+  const rest = leagueStandings.filter((row) => !reached.has(row.participantId));
+
+  return [...inElimination, ...rest].map((row, i) => ({
+    ...row,
+    rank: i + 1,
+    elimination: reached.get(row.participantId),
+  }));
 }

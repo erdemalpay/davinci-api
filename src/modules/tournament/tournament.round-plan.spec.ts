@@ -102,6 +102,17 @@ describe('planNextRound', () => {
     ]);
   });
 
+  it('sadece Swiss formatında lig turları bitince turnuvayı bitirir', () => {
+    expect(
+      planNextRound(
+        rules({ format: TournamentFormat.LEAGUE, leagueRounds: 1 }),
+        ids(6),
+        leagueRound1,
+        noShuffle,
+      ),
+    ).toBeNull();
+  });
+
   it('lig turları bitince ilk advanceCount kişiyle elemeye geçer', () => {
     const next = planNextRound(
       rules({ leagueRounds: 1, tableSize: 4 }),
@@ -160,6 +171,34 @@ describe('planNextRound', () => {
       tables: [{ tableNo: 1, participantIds: [1, 3, 5, 2] }],
       byes: [],
     });
+  });
+
+  it('2 kişilik elemede tek sayıda oyuncuyu bay geçirir, bay geçen üst tura çıkar', () => {
+    const elim = rules({
+      format: TournamentFormat.ELIMINATION,
+      tableSize: 2,
+      advancePerTable: 1,
+    });
+    const first = planNextRound(elim, ids(5), [], noShuffle);
+    expect(first?.byes).toHaveLength(1);
+    expect(first?.tables.map((t) => t.participantIds.length)).toEqual([2, 2]);
+
+    const [byeId] = first?.byes ?? [];
+    const played: MatchState[] = [
+      { ...table(MatchStage.ELIMINATION, 1, 0, [[byeId, 0, 0]]), isBye: true },
+      ...(first?.tables ?? []).map((t) =>
+        table(MatchStage.ELIMINATION, 1, t.tableNo, [
+          [t.participantIds[0], 1, 0],
+          [t.participantIds[1], 2, 0],
+        ]),
+      ),
+    ];
+    const second = planNextRound(elim, ids(5), played, noShuffle);
+    // 3 kişi kaldı: 1 masa + 1 bay; bir önceki turda bay geçen tekrar bay geçmez
+    expect(second?.tables).toHaveLength(1);
+    expect(second?.byes).toHaveLength(1);
+    expect(second?.byes).not.toContain(byeId);
+    expect(second?.tables[0].participantIds).toContain(byeId);
   });
 
   it('final masası oynandıysa null döner', () => {

@@ -19,10 +19,17 @@ import {
   AddParticipantDto,
   CreateTournamentDto,
   RegisterTournamentDto,
+  ResolveTieDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
 } from './tournament.dto';
-import { computeStandings, rankTable } from './tournament.fixture';
+import {
+  applyTieBreak,
+  computeFinalRanking,
+  computeStandings,
+  findCutTie,
+  rankTable,
+} from './tournament.fixture';
 import {
   FixtureError,
   FixtureErrorCode,
@@ -118,10 +125,7 @@ export class TournamentService {
   // ─── Kayıt (Public) ──────────────────────────────────────────────────────────
 
   async findPublicBySlug(slug: string) {
-    const tournament = await this.tournamentModel
-      .findOne({ slug, isDeleted: { $ne: true } })
-      .exec();
-    if (!tournament) throw new NotFoundException('Turnuva bulunamadı');
+    const tournament = await this.findTournament({ slug });
     return {
       _id: tournament._id,
       name: tournament.name,
@@ -133,10 +137,7 @@ export class TournamentService {
   }
 
   async register(slug: string, dto: RegisterTournamentDto) {
-    const tournament = await this.tournamentModel
-      .findOne({ slug, isDeleted: { $ne: true } })
-      .exec();
-    if (!tournament) throw new NotFoundException('Turnuva bulunamadı');
+    const tournament = await this.findTournament({ slug });
     if (!this.isRegistrationOpen(tournament))
       throw new BadRequestException('Bu turnuvanın kayıtları kapandı');
 
@@ -279,6 +280,10 @@ export class TournamentService {
       this.participantModel.find({ tournamentId, isActive: true }).exec(),
       this.matchModel.find({ tournamentId }).exec(),
     ]);
+    if (matches.some((m) => m.pendingTie))
+      throw new BadRequestException(
+        'Berabere kalan masada kimin çıkacağı seçilmeden sonraki tur oluşturulamaz',
+      );
 
     let next: ReturnType<typeof planNextRound>;
     try {
@@ -294,9 +299,7 @@ export class TournamentService {
     }
 
     if (!next) {
-      await this.tournamentModel
-        .findByIdAndUpdate(tournamentId, { status: TournamentStatus.FINISHED })
-        .exec();
+      await this.finishTournament(tournamentId);
       this.websocketGateway.emitTournamentChanged();
       return [];
     }
@@ -337,8 +340,7 @@ export class TournamentService {
   }
 
   async submitScores(matchId: number, dto: SubmitScoresDto) {
-    const match = await this.matchModel.findById(matchId).exec();
-    if (!match) throw new NotFoundException('Maç bulunamadı');
+    const match = await this.findMatch(matchId);
     if (match.isBye) throw new BadRequestException('Bay maçına skor girilmez');
 
     const seated = match.players.map((p) => p.participantId).sort();
@@ -346,78 +348,128 @@ export class TournamentService {
     if (seated.join() !== scored.join())
       throw new BadRequestException('Skorlar masadaki oyuncularla eşleşmiyor');
 
-    // Sonraki tur bu maçın sonucuna göre kurulduysa skor artık değiştirilemez
-    const hasLaterRound = await this.matchModel
-      .exists({
-        tournamentId: match.tournamentId,
-        $or: [
-          { stage: match.stage, round: { $gt: match.round } },
-          ...(match.stage === MatchStage.LEAGUE
-            ? [{ stage: MatchStage.ELIMINATION }]
-            : []),
-        ],
-      })
-      .exec();
+    // Birbirinden bağımsız okumalar tek seferde (her biri uzak veritabanına ayrı gidiş)
+    const isElimination = match.stage === MatchStage.ELIMINATION;
+    const [hasLaterRound, tournament, isFinal] = await Promise.all([
+      // Sonraki tur bu maçın sonucuna göre kurulduysa skor artık değiştirilemez
+      this.matchModel
+        .exists({
+          tournamentId: match.tournamentId,
+          $or: [
+            { stage: match.stage, round: { $gt: match.round } },
+            ...(match.stage === MatchStage.LEAGUE
+              ? [{ stage: MatchStage.ELIMINATION }]
+              : []),
+          ],
+        })
+        .exec(),
+      this.findTournament(match.tournamentId),
+      isElimination ? this.isFinalTable(match) : false,
+    ]);
     if (hasLaterRound)
       throw new BadRequestException(
         'Sonraki tur oluşturulduğu için bu maçın skoru değiştirilemez',
       );
 
-    const tournament = await this.findTournament(match.tournamentId);
+    const players = rankTable(dto.scores, tournament.placementPoints);
+    // Elemede masadan çıkanlar (finalde şampiyon) eşit skorla belirsiz kalırsa karar beklenir
+    const pendingTie = isElimination
+      ? findCutTie(players, isFinal ? 1 : tournament.advancePerTable)
+      : null;
     const updated = await this.matchModel
       .findByIdAndUpdate(
         matchId,
-        {
-          players: rankTable(dto.scores, tournament.placementPoints),
-          isCompleted: true,
-        },
+        { players, isCompleted: true, pendingTie },
         { new: true },
       )
       .exec();
 
-    // Tek masalı eleme turu finaldir; skoru girilince turnuva biter
-    if (match.stage === MatchStage.ELIMINATION) {
-      const tablesInRound = await this.matchModel
-        .countDocuments({
-          tournamentId: match.tournamentId,
-          stage: MatchStage.ELIMINATION,
-          round: match.round,
-        })
-        .exec();
-      if (tablesInRound === 1)
-        await this.tournamentModel
-          .findByIdAndUpdate(match.tournamentId, {
-            status: TournamentStatus.FINISHED,
-          })
-          .exec();
-    }
+    const isLastMatch = isElimination
+      ? isFinal
+      : await this.isLastMatchOfTournament(tournament, match);
+    if (isLastMatch && !pendingTie)
+      await this.finishTournament(match.tournamentId);
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
   }
 
-  async getStandings(tournamentId: number) {
-    const [participants, leagueMatches] = await Promise.all([
-      this.participantModel.find({ tournamentId }).exec(),
+  async resolveTie(matchId: number, dto: ResolveTieDto) {
+    const match = await this.findMatch(matchId);
+    const tie = match.pendingTie;
+    if (!tie)
+      throw new BadRequestException('Bu masada karar bekleyen beraberlik yok');
+
+    const winnerIds = [...new Set(dto.winnerIds)];
+    if (
+      winnerIds.length !== tie.slots ||
+      winnerIds.some((id) => !tie.participantIds.includes(id))
+    )
+      throw new BadRequestException(
+        `Berabere kalanlardan ${tie.slots} kişi seçilmeli`,
+      );
+
+    const players = applyTieBreak(
+      match.players.map((p) => ({
+        participantId: p.participantId,
+        score: p.score,
+        rank: p.rank,
+        points: p.points,
+      })),
+      tie,
+      winnerIds,
+    );
+    // Beraberlik sadece eleme masasında olur; son maç olup olmadığı final masası olmasıdır
+    const [updated, isFinal] = await Promise.all([
       this.matchModel
-        .find({ tournamentId, stage: MatchStage.LEAGUE, isCompleted: true })
+        .findByIdAndUpdate(
+          matchId,
+          { players, pendingTie: null },
+          { new: true },
+        )
         .exec(),
+      this.isFinalTable(match),
+    ]);
+    if (isFinal) await this.finishTournament(match.tournamentId);
+
+    this.websocketGateway.emitTournamentChanged();
+    return updated;
+  }
+
+  // Lig puan tablosu + eleme sonucu: turnuvanın genel sıralaması
+  async getStandings(tournamentId: number) {
+    const [participants, matches] = await Promise.all([
+      this.participantModel.find({ tournamentId }).exec(),
+      this.matchModel.find({ tournamentId }).exec(),
     ]);
     const names = new Map(participants.map((p) => [p._id, p.name]));
-    return computeStandings(
+    const leagueStandings = computeStandings(
       participants.map((p) => p._id),
-      leagueMatches,
+      matches.filter((m) => m.stage === MatchStage.LEAGUE && m.isCompleted),
+    );
+    return computeFinalRanking(
+      leagueStandings,
+      matches.filter((m) => m.stage === MatchStage.ELIMINATION),
     ).map((row) => ({ ...row, name: names.get(row.participantId) }));
   }
 
   // ─── Yardımcılar ─────────────────────────────────────────────────────────────
 
-  private async findTournament(id: number) {
+  private async findTournament(filter: number | { slug: string }) {
     const tournament = await this.tournamentModel
-      .findOne({ _id: id, isDeleted: { $ne: true } })
+      .findOne({
+        ...(typeof filter === 'number' ? { _id: filter } : filter),
+        isDeleted: { $ne: true },
+      })
       .exec();
     if (!tournament) throw new NotFoundException('Turnuva bulunamadı');
     return tournament;
+  }
+
+  private async findMatch(matchId: number) {
+    const match = await this.matchModel.findById(matchId).exec();
+    if (!match) throw new NotFoundException('Maç bulunamadı');
+    return match;
   }
 
   private isRegistrationOpen(tournament: Tournament) {
@@ -439,19 +491,70 @@ export class TournamentService {
       );
   }
 
-  private assertValidRules(rules: TournamentRules) {
-    if (rules.minTableSize > rules.tableSize)
+  private finishTournament(tournamentId: number) {
+    return this.tournamentModel
+      .findByIdAndUpdate(tournamentId, { status: TournamentStatus.FINISHED })
+      .exec();
+  }
+
+  // Tek masalı eleme turu finaldir
+  private async isFinalTable(match: TournamentMatch) {
+    const tablesInRound = await this.matchModel
+      .countDocuments({
+        tournamentId: match.tournamentId,
+        stage: MatchStage.ELIMINATION,
+        round: match.round,
+      })
+      .exec();
+    return tablesInRound === 1;
+  }
+
+  // Final masası ya da sadece Swiss'te son turun son maçı
+  private async isLastMatchOfTournament(
+    tournament: Tournament,
+    match: TournamentMatch,
+  ) {
+    if (match.stage === MatchStage.ELIMINATION) return this.isFinalTable(match);
+    if (
+      tournament.format !== TournamentFormat.LEAGUE ||
+      match.round !== tournament.leagueRounds
+    )
+      return false;
+    const hasOpenMatch = await this.matchModel
+      .exists({ tournamentId: match.tournamentId, isCompleted: false })
+      .exec();
+    return !hasOpenMatch;
+  }
+
+  // Sadece seçilen formatta kullanılan ayarlar zorunlu
+  private assertValidRules(
+    rules: TournamentRules & { placementPoints?: number[]; byePoints?: number },
+  ) {
+    const hasLeague = rules.format !== TournamentFormat.ELIMINATION;
+    const hasElimination = rules.format !== TournamentFormat.LEAGUE;
+    if (hasLeague) {
+      if (!(rules.leagueRounds >= 1))
+        throw new BadRequestException('Swiss aşamasında en az 1 tur olmalı');
+      if (!(rules.minTableSize >= 2) || rules.minTableSize > rules.tableSize)
+        throw new BadRequestException(
+          'En küçük masa 2 ile masa başına oyuncu sayısı arasında olmalı',
+        );
+      if (!rules.placementPoints?.length)
+        throw new BadRequestException('Sıraya göre puanlar girilmeli');
+      if (rules.byePoints === undefined || rules.byePoints === null)
+        throw new BadRequestException('Bay puanı girilmeli');
+    }
+    if (
+      hasElimination &&
+      !(rules.advancePerTable >= 1 && rules.advancePerTable < rules.tableSize)
+    )
       throw new BadRequestException(
-        'En küçük masa, masa başına oyuncu sayısından büyük olamaz',
-      );
-    if (rules.advancePerTable >= rules.tableSize)
-      throw new BadRequestException(
-        'Masadan çıkacak kişi sayısı masa büyüklüğünden az olmalı',
+        'Masadan çıkacak kişi sayısı 1 ile masa büyüklüğü arasında olmalı',
       );
     if (
       rules.format === TournamentFormat.LEAGUE_THEN_ELIMINATION &&
-      rules.leagueRounds < 1
+      !(rules.advanceCount >= 2)
     )
-      throw new BadRequestException('Lig formatında en az 1 tur olmalı');
+      throw new BadRequestException('Elemeye en az 2 kişi çıkmalı');
   }
 }
