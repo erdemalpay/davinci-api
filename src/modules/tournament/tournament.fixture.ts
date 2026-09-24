@@ -56,7 +56,7 @@ export function planTableSizes(
 
   const fullTables = Math.floor(playerCount / tableSize);
   return {
-    sizes: Array(fullTables).fill(tableSize),
+    sizes: new Array(fullTables).fill(tableSize),
     byeCount: playerCount - fullTables * tableSize,
   };
 }
@@ -162,6 +162,51 @@ function seatingCost(
 // takasla yerinden oynatıp tekrar dener ve görülen en iyi düzeni döner.
 const MAX_IMPROVEMENT_STEPS = 300;
 
+type Seating = { tables: number[][]; cost: number };
+
+const swapPlayers = (
+  tables: number[][],
+  [t, i]: [number, number],
+  [u, j]: [number, number],
+) => {
+  const next = tables.map((table) => [...table]);
+  [next[t][i], next[u][j]] = [next[u][j], next[t][i]];
+  return next;
+};
+
+// Farklı masalardaki iki oyuncunun yer değiştirdiği tüm düzenler arasından en ucuzu;
+// mevcut düzenden ucuzu yoksa null.
+function bestSwap(
+  current: Seating,
+  cost: (tables: number[][]) => number,
+): Seating | null {
+  let best: Seating | null = null;
+  const { tables } = current;
+  for (let t = 0; t < tables.length; t++)
+    for (let u = t + 1; u < tables.length; u++)
+      for (let i = 0; i < tables[t].length; i++)
+        for (let j = 0; j < tables[u].length; j++) {
+          const next = swapPlayers(tables, [t, i], [u, j]);
+          const nextCost = cost(next);
+          if (nextCost < (best?.cost ?? current.cost))
+            best = { tables: next, cost: nextCost };
+        }
+  return best;
+}
+
+// Yerel en iyide takılınca rastgele iki masadan birer oyuncuyu yer değiştirir
+function randomSwap(tables: number[][], random: () => number) {
+  const pick = (length: number) => Math.floor(random() * length);
+  const t = pick(tables.length);
+  const u = pick(tables.length);
+  if (t === u) return tables;
+  return swapPlayers(
+    tables,
+    [t, pick(tables[t].length)],
+    [u, pick(tables[u].length)],
+  );
+}
+
 function improveSeating(
   start: number[][],
   rankTableOf: Map<number, number>,
@@ -170,43 +215,24 @@ function improveSeating(
 ): number[][] {
   const cost = (tables: number[][]) =>
     seatingCost(tables, rankTableOf, previousOpponents);
-  let current = start.map((table) => [...table]);
-  let currentCost = cost(current);
+  let current: Seating = { tables: start, cost: cost(start) };
   let best = current;
-  let bestCost = currentCost;
 
-  for (let step = 0; step < MAX_IMPROVEMENT_STEPS && bestCost >= 1000; step++) {
-    let move: { tables: number[][]; cost: number } | null = null;
-    for (let t = 0; t < current.length; t++)
-      for (let u = t + 1; u < current.length; u++)
-        for (let i = 0; i < current[t].length; i++)
-          for (let j = 0; j < current[u].length; j++) {
-            const next = current.map((table) => [...table]);
-            [next[t][i], next[u][j]] = [next[u][j], next[t][i]];
-            const nextCost = cost(next);
-            if (nextCost < (move?.cost ?? currentCost))
-              move = { tables: next, cost: nextCost };
-          }
-
+  for (
+    let step = 0;
+    step < MAX_IMPROVEMENT_STEPS && best.cost >= 1000;
+    step++
+  ) {
+    const move = bestSwap(current, cost);
     if (move) {
-      current = move.tables;
-      currentCost = move.cost;
+      current = move;
     } else {
-      // Yerel en iyide takıldı: rastgele iki oyuncuyu takasla yerinden oynat
-      const t = Math.floor(random() * current.length);
-      const u = Math.floor(random() * current.length);
-      if (t === u) continue;
-      const i = Math.floor(random() * current[t].length);
-      const j = Math.floor(random() * current[u].length);
-      [current[t][i], current[u][j]] = [current[u][j], current[t][i]];
-      currentCost = cost(current);
+      const tables = randomSwap(current.tables, random);
+      current = { tables, cost: cost(tables) };
     }
-    if (currentCost < bestCost) {
-      best = current.map((table) => [...table]);
-      bestCost = currentCost;
-    }
+    if (current.cost < best.cost) best = current;
   }
-  return best;
+  return best.tables;
 }
 
 export function pairRound(input: PairRoundInput): RoundPairing {
@@ -219,13 +245,13 @@ export function pairRound(input: PairRoundInput): RoundPairing {
   const byeSet = new Set(byes);
   const seated = input.rankedIds.filter((id) => !byeSet.has(id));
 
+  // Tekrar önlenmeseydi her oyuncunun puan sırasına göre oturacağı masa
   const rankTableOf = new Map<number, number>();
   let cursor = 0;
-  sizes.forEach((size, t) =>
-    seated
-      .slice(cursor, (cursor += size))
-      .forEach((id) => rankTableOf.set(id, t)),
-  );
+  sizes.forEach((size, t) => {
+    seated.slice(cursor, cursor + size).forEach((id) => rankTableOf.set(id, t));
+    cursor += size;
+  });
   const tables = improveSeating(
     seatAvoidingRematches(seated, sizes, input.previousOpponents),
     rankTableOf,

@@ -55,6 +55,10 @@ const RULE_FIELDS = [
   'advancePerTable',
 ];
 
+// Girilmemiş (undefined/null) değer de geçersiz sayılır
+const isAtLeast = (value: number | undefined | null, min: number) =>
+  typeof value === 'number' && value >= min;
+
 const FIXTURE_ERROR_MESSAGES: Record<FixtureErrorCode, string> = {
   INCOMPLETE_ROUND: 'Skoru girilmemiş maçlar var, önce onları tamamlayın',
   NOT_ENOUGH_PARTICIPANTS: 'Masa kurmaya yetecek katılımcı yok',
@@ -346,8 +350,9 @@ export class TournamentService {
     const match = await this.findMatch(matchId);
     if (match.isBye) throw new BadRequestException('Bay maçına skor girilmez');
 
-    const seated = match.players.map((p) => p.participantId).sort();
-    const scored = dto.scores.map((s) => s.participantId).sort();
+    const byId = (a: number, b: number) => a - b;
+    const seated = match.players.map((p) => p.participantId).sort(byId);
+    const scored = dto.scores.map((s) => s.participantId).sort(byId);
     if (seated.join() !== scored.join())
       throw new BadRequestException('Skorlar masadaki oyuncularla eşleşmiyor');
 
@@ -376,9 +381,8 @@ export class TournamentService {
 
     const players = rankTable(dto.scores, tournament.placementPoints);
     // Elemede masadan çıkanlar (finalde şampiyon) eşit skorla belirsiz kalırsa karar beklenir
-    const pendingTie = isElimination
-      ? findCutTie(players, isFinal ? 1 : tournament.advancePerTable)
-      : null;
+    const cut = isFinal ? 1 : tournament.advancePerTable;
+    const pendingTie = isElimination ? findCutTie(players, cut) : null;
     const updated = await this.matchModel
       .findByIdAndUpdate(
         matchId,
@@ -553,9 +557,12 @@ export class TournamentService {
     const hasLeague = rules.format !== TournamentFormat.ELIMINATION;
     const hasElimination = rules.format !== TournamentFormat.LEAGUE;
     if (hasLeague) {
-      if (!(rules.leagueRounds >= 1))
+      if (!isAtLeast(rules.leagueRounds, 1))
         throw new BadRequestException('Puan turlarında en az 1 tur olmalı');
-      if (!(rules.minTableSize >= 2) || rules.minTableSize > rules.tableSize)
+      if (
+        !isAtLeast(rules.minTableSize, 2) ||
+        rules.minTableSize > rules.tableSize
+      )
         throw new BadRequestException(
           'En küçük masa 2 ile masa başına oyuncu sayısı arasında olmalı',
         );
@@ -567,7 +574,7 @@ export class TournamentService {
     if (
       hasElimination &&
       !(
-        rules.advancePerTable >= 1 &&
+        isAtLeast(rules.advancePerTable, 1) &&
         rules.advancePerTable < eliminationTableSize(rules)
       )
     )
@@ -576,7 +583,7 @@ export class TournamentService {
       );
     if (
       rules.format === TournamentFormat.LEAGUE_THEN_ELIMINATION &&
-      !(rules.advanceCount >= 2)
+      !isAtLeast(rules.advanceCount, 2)
     )
       throw new BadRequestException('Elemeye en az 2 kişi çıkmalı');
   }
