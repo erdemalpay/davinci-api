@@ -128,6 +128,19 @@ describe('planNextRound', () => {
     });
   });
 
+  it('eleme masası ayrı verilmişse elemeyi o büyüklükte kurar', () => {
+    const next = planNextRound(
+      rules({ leagueRounds: 1, eliminationTableSize: 2, advancePerTable: 1 }),
+      ids(6),
+      leagueRound1,
+      noShuffle,
+    );
+    expect(next?.tables).toEqual([
+      { tableNo: 1, participantIds: [1, 5] },
+      { tableNo: 2, participantIds: [4, 2] },
+    ]);
+  });
+
   it('doğrudan eleme formatında herkesi yılan sırasıyla dağıtır', () => {
     const next = planNextRound(
       rules({ format: TournamentFormat.ELIMINATION, tableSize: 2 }),
@@ -218,15 +231,27 @@ describe('planNextRound', () => {
     ).toBeNull();
   });
 
-  it('eleme oyuncu sayısını azaltmıyorsa hata verir', () => {
-    expect(() =>
-      planNextRound(
-        { ...eliminationRules, advancePerTable: 4 },
-        ids(8),
-        eliminationRound1,
-        noShuffle,
-      ),
-    ).toThrow(new FixtureError('NO_PROGRESS'));
+  it('turnuvadan çıkarılan oyuncuyu sonraki eleme turuna almaz', () => {
+    const activeWithout1 = ids(8).filter((id) => id !== 1);
+    const next = planNextRound(
+      eliminationRules,
+      activeWithout1,
+      eliminationRound1,
+      noShuffle,
+    );
+    const seated = next?.tables.flatMap((t) => t.participantIds) ?? [];
+    expect(seated).not.toContain(1);
+  });
+
+  it('masadan herkes çıkacaksa her masadan en az bir kişi elenir', () => {
+    const next = planNextRound(
+      { ...eliminationRules, advancePerTable: 4 },
+      ids(8),
+      eliminationRound1,
+      noShuffle,
+    );
+    const seated = next?.tables.flatMap((t) => t.participantIds) ?? [];
+    expect(seated).toHaveLength(6);
   });
 
   it('yeterli katılımcı yoksa hata verir', () => {

@@ -34,6 +34,7 @@ import {
   FixtureError,
   FixtureErrorCode,
   MatchStage,
+  eliminationTableSize,
   planNextRound,
   TournamentFormat,
   TournamentRules,
@@ -44,6 +45,7 @@ const RULE_FIELDS = [
   'format',
   'pairingMode',
   'tableSize',
+  'eliminationTableSize',
   'minTableSize',
   'leagueRounds',
   'placementPoints',
@@ -194,7 +196,7 @@ export class TournamentService {
 
   // Sadece gönderilen başvurular katılımcı olur; daha önce eklenen tekrar eklenmez.
   async promoteRegistrations(tournamentId: number, registrationIds: number[]) {
-    await this.assertNoOpenRound(tournamentId);
+    await this.assertCanAddParticipants(tournamentId);
     const [registrations, existing] = await Promise.all([
       this.registrationModel
         .find({ tournamentId, _id: { $in: registrationIds } })
@@ -219,7 +221,7 @@ export class TournamentService {
 
   async addParticipant(tournamentId: number, dto: AddParticipantDto) {
     await this.findTournament(tournamentId);
-    await this.assertNoOpenRound(tournamentId);
+    await this.assertCanAddParticipants(tournamentId);
     const participant = await this.participantModel.create({
       tournamentId,
       name: dto.name,
@@ -481,11 +483,20 @@ export class TournamentService {
     );
   }
 
-  private async assertNoOpenRound(tournamentId: number) {
-    const hasOpenMatch = await this.matchModel
-      .exists({ tournamentId, isCompleted: false })
+  // Geç gelen puan turlarına tur aralarında katılabilir; elemede masalar bir önceki
+  // turdan çıkanlarla kurulduğu için yeni oyuncunun yeri yoktur.
+  private async assertCanAddParticipants(tournamentId: number) {
+    const blocking = await this.matchModel
+      .findOne({
+        tournamentId,
+        $or: [{ isCompleted: false }, { stage: MatchStage.ELIMINATION }],
+      })
       .exec();
-    if (hasOpenMatch)
+    if (blocking?.stage === MatchStage.ELIMINATION)
+      throw new BadRequestException(
+        'Eleme başladıktan sonra katılımcı eklenemez',
+      );
+    if (blocking)
       throw new BadRequestException(
         'Tur devam ediyor; katılımcı skorlar girildikten sonra eklenebilir',
       );
@@ -534,7 +545,7 @@ export class TournamentService {
     const hasElimination = rules.format !== TournamentFormat.LEAGUE;
     if (hasLeague) {
       if (!(rules.leagueRounds >= 1))
-        throw new BadRequestException('Swiss aşamasında en az 1 tur olmalı');
+        throw new BadRequestException('Puan turlarında en az 1 tur olmalı');
       if (!(rules.minTableSize >= 2) || rules.minTableSize > rules.tableSize)
         throw new BadRequestException(
           'En küçük masa 2 ile masa başına oyuncu sayısı arasında olmalı',
@@ -546,10 +557,13 @@ export class TournamentService {
     }
     if (
       hasElimination &&
-      !(rules.advancePerTable >= 1 && rules.advancePerTable < rules.tableSize)
+      !(
+        rules.advancePerTable >= 1 &&
+        rules.advancePerTable < eliminationTableSize(rules)
+      )
     )
       throw new BadRequestException(
-        'Masadan çıkacak kişi sayısı 1 ile masa büyüklüğü arasında olmalı',
+        'Masadan çıkacak kişi sayısı 1 ile eleme masası büyüklüğü arasında olmalı',
       );
     if (
       rules.format === TournamentFormat.LEAGUE_THEN_ELIMINATION &&

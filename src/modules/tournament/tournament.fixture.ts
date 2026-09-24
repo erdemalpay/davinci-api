@@ -320,6 +320,8 @@ export function seedEliminationTables(
 
 // Her masadan ilk `advancePerTable` kişi çıkar; sıra: tüm birinciler, sonra ikinciler...
 // Bu sıra bir sonraki turun yılan dağıtımında seed olarak kullanılır.
+// Masa küçük kaldıysa (ör. 3'lük oyunda 2 kişilik masa) en az bir kişi elenir ki tur
+// ilerlesin; tek kişilik bay masasındaki oyuncu her zaman çıkar.
 export function pickAdvancers(
   rankedTables: RankedTableEntry[][],
   advancePerTable: number,
@@ -327,8 +329,9 @@ export function pickAdvancers(
   const result: number[] = [];
   for (let place = 0; place < advancePerTable; place++)
     for (const table of rankedTables) {
+      const limit = table.length === 1 ? 1 : table.length - 1;
       const entry = table[place];
-      if (entry) result.push(entry.participantId);
+      if (entry && place < limit) result.push(entry.participantId);
     }
   return result;
 }
