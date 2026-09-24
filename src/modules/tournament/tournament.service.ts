@@ -53,6 +53,7 @@ const RULE_FIELDS = [
   'byePoints',
   'advanceCount',
   'advancePerTable',
+  'thirdPlaceMatch',
 ];
 
 // Girilmemiş (undefined/null) değer de geçersiz sayılır
@@ -324,6 +325,22 @@ export class TournamentService {
           participantId,
         })),
       })),
+      ...(next.thirdPlace
+        ? [
+            {
+              tournamentId,
+              stage,
+              round,
+              tableNo: next.tables.length + 1,
+              isBye: false,
+              isCompleted: false,
+              isThirdPlace: true,
+              players: next.thirdPlace.map((participantId) => ({
+                participantId,
+              })),
+            },
+          ]
+        : []),
       ...next.byes.map((participantId) => ({
         tournamentId,
         stage,
@@ -372,7 +389,7 @@ export class TournamentService {
         })
         .exec(),
       this.findTournament(match.tournamentId),
-      isElimination ? this.isFinalTable(match) : false,
+      isElimination ? this.isFinalRound(match) : false,
     ]);
     if (hasLaterRound)
       throw new BadRequestException(
@@ -380,7 +397,8 @@ export class TournamentService {
       );
 
     const players = rankTable(dto.scores, tournament.placementPoints);
-    // Elemede masadan çıkanlar (finalde şampiyon) eşit skorla belirsiz kalırsa karar beklenir
+    // Elemede masadan çıkanlar (finalde şampiyon, 3.'lük masasında 3.) eşit skorla
+    // belirsiz kalırsa karar beklenir
     const cut = isFinal ? 1 : tournament.advancePerTable;
     const pendingTie = isElimination ? findCutTie(players, cut) : null;
     const updated = await this.matchModel
@@ -392,10 +410,9 @@ export class TournamentService {
       .exec();
 
     const isLastMatch = isElimination
-      ? isFinal
+      ? isFinal && !pendingTie && (await this.isFinalRoundDone(match))
       : await this.isLastMatchOfTournament(tournament, match);
-    if (isLastMatch && !pendingTie)
-      await this.finishTournament(match.tournamentId);
+    if (isLastMatch) await this.finishTournament(match.tournamentId);
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
@@ -426,7 +443,7 @@ export class TournamentService {
       tie,
       winnerIds,
     );
-    // Beraberlik sadece eleme masasında olur; son maç olup olmadığı final masası olmasıdır
+    // Beraberlik sadece eleme masasında olur; final turundaysa turnuva bitmiş olabilir
     const [updated, isFinal] = await Promise.all([
       this.matchModel
         .findByIdAndUpdate(
@@ -435,9 +452,10 @@ export class TournamentService {
           { new: true },
         )
         .exec(),
-      this.isFinalTable(match),
+      this.isFinalRound(match),
     ]);
-    if (isFinal) await this.finishTournament(match.tournamentId);
+    if (isFinal && (await this.isFinalRoundDone(match)))
+      await this.finishTournament(match.tournamentId);
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
@@ -521,24 +539,37 @@ export class TournamentService {
       .exec();
   }
 
-  // Tek masalı eleme turu finaldir
-  private async isFinalTable(match: TournamentMatch) {
+  // Tek masalı eleme turu finaldir (yanındaki 3.'lük masası sayılmaz)
+  private async isFinalRound(match: TournamentMatch) {
     const tablesInRound = await this.matchModel
       .countDocuments({
         tournamentId: match.tournamentId,
         stage: MatchStage.ELIMINATION,
         round: match.round,
+        isThirdPlace: { $ne: true },
       })
       .exec();
     return tablesInRound === 1;
   }
 
-  // Final masası ya da sadece Swiss'te son turun son maçı
+  // Final ve varsa 3.'lük masası skorlandı, bekleyen beraberlik kararı yok
+  private async isFinalRoundDone(match: TournamentMatch) {
+    const hasOpenTable = await this.matchModel
+      .exists({
+        tournamentId: match.tournamentId,
+        stage: MatchStage.ELIMINATION,
+        round: match.round,
+        $or: [{ isCompleted: false }, { pendingTie: { $ne: null } }],
+      })
+      .exec();
+    return !hasOpenTable;
+  }
+
+  // Sadece Swiss'te son turun son maçı (elemede final turu ayrıca denetlenir)
   private async isLastMatchOfTournament(
     tournament: Tournament,
     match: TournamentMatch,
   ) {
-    if (match.stage === MatchStage.ELIMINATION) return this.isFinalTable(match);
     if (
       tournament.format !== TournamentFormat.LEAGUE ||
       match.round !== tournament.leagueRounds
@@ -586,5 +617,12 @@ export class TournamentService {
       !isAtLeast(rules.advanceCount, 2)
     )
       throw new BadRequestException('Elemeye en az 2 kişi çıkmalı');
+    if (
+      rules.thirdPlaceMatch &&
+      !(hasElimination && eliminationTableSize(rules) === 2)
+    )
+      throw new BadRequestException(
+        "3.'lük maçı sadece 2 kişilik masalarla oynanan elemede açılabilir",
+      );
   }
 }

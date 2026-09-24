@@ -62,6 +62,10 @@ export class TournamentMatch extends Document {
   @Prop({ required: true, type: Boolean, default: false })
   isCompleted: boolean;
 
+  // Final turundaki 3.'lük masası; üst tur hesabında ve final kontrolünde sayılmaz
+  @Prop({ required: false, type: Boolean, default: false })
+  isThirdPlace: boolean;
+
   @Prop({ required: true, type: [TournamentMatchPlayerSchema] })
   players: TournamentMatchPlayer[];
 

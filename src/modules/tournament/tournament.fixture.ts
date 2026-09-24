@@ -463,6 +463,7 @@ export function pickAdvancers(
 export interface EliminationResult {
   round: number;
   isFinal: boolean;
+  isThirdPlace?: boolean;
   tableRank?: number; // masa henüz skorlanmadıysa boş
 }
 
@@ -473,11 +474,13 @@ export interface FinalRankingRow extends StandingRow {
 export interface EliminationTable {
   round: number;
   isCompleted: boolean;
+  isThirdPlace?: boolean;
   players: { participantId: number; rank?: number }[];
 }
 
 // Turnuvanın genel sıralaması: elemede en ileri gidenler üstte (aynı turda
-// masadaki sıraya, sonra lig sırasına göre), elemeye çıkamayanlar lig sırasıyla sonda.
+// masadaki sıraya, sonra lig sırasına göre; final turunda 3.'lük masası finalin
+// arkasından gelir), elemeye çıkamayanlar lig sırasıyla sonda.
 export function computeFinalRanking(
   leagueStandings: StandingRow[],
   eliminationTables: EliminationTable[],
@@ -486,7 +489,8 @@ export function computeFinalRanking(
 
   const lastRound = Math.max(...eliminationTables.map((t) => t.round));
   const isFinalRound =
-    eliminationTables.filter((t) => t.round === lastRound).length === 1;
+    eliminationTables.filter((t) => t.round === lastRound && !t.isThirdPlace)
+      .length === 1;
 
   const reached = new Map<number, EliminationResult>();
   [...eliminationTables]
@@ -495,7 +499,9 @@ export function computeFinalRanking(
       table.players.forEach((player) =>
         reached.set(player.participantId, {
           round: table.round,
-          isFinal: isFinalRound && table.round === lastRound,
+          isFinal:
+            isFinalRound && table.round === lastRound && !table.isThirdPlace,
+          isThirdPlace: table.isThirdPlace || undefined,
           tableRank: table.isCompleted ? player.rank : undefined,
         }),
       ),
@@ -508,6 +514,7 @@ export function computeFinalRanking(
       const rb = reached.get(b.participantId);
       return (
         rb.round - ra.round ||
+        Number(!!ra.isThirdPlace) - Number(!!rb.isThirdPlace) ||
         (ra.tableRank ?? 0) - (rb.tableRank ?? 0) ||
         a.rank - b.rank
       );
