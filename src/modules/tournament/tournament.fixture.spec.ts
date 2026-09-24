@@ -251,6 +251,22 @@ describe('pickAdvancers', () => {
     );
     expect(result).toEqual([1, 3, 5, 2]);
   });
+
+  it('küçük kalan masada herkesi çıkarmaz, bay masasındakini çıkarır', () => {
+    const entry = (participantId: number, rank: number) => ({
+      participantId,
+      score: 0,
+      rank,
+      points: 0,
+    });
+    // 3'lük oyunda 2 kişilik masalar, masadan 2 kişi çıkacak ayarı
+    expect(
+      pickAdvancers(
+        [[entry(1, 1), entry(4, 2)], [entry(2, 1), entry(3, 2)], [entry(5, 0)]],
+        2,
+      ),
+    ).toEqual([1, 2, 5]);
+  });
 });
 
 describe('computeFinalRanking', () => {

@@ -57,6 +57,10 @@ export class Tournament extends Document {
   @Prop({ required: true, type: Number })
   tableSize: number;
 
+  // Eleme aşamasında farklı masa (ör. puan turları 4'lük, eleme 2'lik); boşsa tableSize
+  @Prop({ required: false, type: Number })
+  eliminationTableSize: number;
+
   @Prop({ required: false, type: Number })
   minTableSize: number;
 

@@ -29,6 +29,7 @@ export interface TournamentRules {
   format: TournamentFormat;
   pairingMode: PairingMode;
   tableSize: number;
+  eliminationTableSize?: number; // boşsa tableSize
   minTableSize: number;
   leagueRounds: number;
   advanceCount: number;
@@ -123,6 +124,9 @@ function nextLeagueRound(
   return { stage: MatchStage.LEAGUE, round, tables, byes };
 }
 
+export const eliminationTableSize = (rules: TournamentRules) =>
+  rules.eliminationTableSize || rules.tableSize;
+
 function firstEliminationRound(
   rules: TournamentRules,
   seeds: number[],
@@ -131,7 +135,7 @@ function firstEliminationRound(
   return {
     stage: MatchStage.ELIMINATION,
     round: 1,
-    ...seedEliminationTables(seeds, rules.tableSize),
+    ...seedEliminationTables(seeds, eliminationTableSize(rules)),
   };
 }
 
@@ -139,6 +143,7 @@ function firstEliminationRound(
 // sırası olmayan maç) masa birincisi gibi üst tura çıkar.
 function nextEliminationRound(
   rules: TournamentRules,
+  participantIds: number[],
   elimination: MatchState[],
 ): NextRound | null {
   const round = lastRound(elimination);
@@ -157,7 +162,11 @@ function nextEliminationRound(
         points: p.points ?? 0,
       })),
   );
-  const advancers = pickAdvancers(rankedTables, rules.advancePerTable);
+  // Turnuvadan çıkarılan (pasif) oyuncu masadan çıkmış olsa da sonraki tura alınmaz
+  const active = new Set(participantIds);
+  const advancers = pickAdvancers(rankedTables, rules.advancePerTable).filter(
+    (id) => active.has(id),
+  );
   const playerCount = lastTables.reduce((sum, m) => sum + m.players.length, 0);
   if (advancers.length < 2 || advancers.length >= playerCount)
     throw new FixtureError('NO_PROGRESS');
@@ -170,7 +179,11 @@ function nextEliminationRound(
   return {
     stage: MatchStage.ELIMINATION,
     round: round + 1,
-    ...seedEliminationTables(advancers, rules.tableSize, previousByes),
+    ...seedEliminationTables(
+      advancers,
+      eliminationTableSize(rules),
+      previousByes,
+    ),
   };
 }
 
@@ -186,7 +199,8 @@ export function planNextRound(
 
   const league = matches.filter((m) => m.stage === MatchStage.LEAGUE);
   const elimination = matches.filter((m) => m.stage === MatchStage.ELIMINATION);
-  if (elimination.length) return nextEliminationRound(rules, elimination);
+  if (elimination.length)
+    return nextEliminationRound(rules, participantIds, elimination);
 
   if (rules.format === TournamentFormat.ELIMINATION)
     return firstEliminationRound(rules, shuffle(participantIds, random));

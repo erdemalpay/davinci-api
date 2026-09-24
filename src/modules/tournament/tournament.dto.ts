@@ -47,6 +47,12 @@ export class CreateTournamentDto {
   @Min(2)
   tableSize: number;
 
+  // Eleme aşamasında farklı masa (ör. puan turları 4'lük, eleme 2'lik); boşsa tableSize
+  @IsOptional()
+  @IsNumber()
+  @Min(2)
+  eliminationTableSize?: number;
+
   @IsOptional()
   @IsNumber()
   @Min(2)

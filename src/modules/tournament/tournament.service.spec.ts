@@ -33,6 +33,7 @@ const createService = ({
   matches = [] as unknown[],
   match = null as unknown,
   exists = null as unknown,
+  blockingMatch = null as unknown,
   tablesInRound = 1,
 } = {}) => {
   const tournamentDoc = tournament && {
@@ -57,6 +58,7 @@ const createService = ({
     findById: jest.fn().mockReturnValue(query(match)),
     findByIdAndUpdate: jest.fn().mockReturnValue(query(match)),
     exists: jest.fn().mockReturnValue(query(exists)),
+    findOne: jest.fn().mockReturnValue(query(blockingMatch)),
     countDocuments: jest.fn().mockReturnValue(query(tablesInRound)),
     create: jest.fn().mockImplementation(async (docs) => docs),
   };
@@ -179,7 +181,16 @@ describe('TournamentService.update', () => {
     const { service } = createService();
     await expect(
       service.update(1, { format: TournamentFormat.LEAGUE, leagueRounds: 0 }),
-    ).rejects.toThrow('Swiss aşamasında en az 1 tur olmalı');
+    ).rejects.toThrow('Puan turlarında en az 1 tur olmalı');
+  });
+
+  it('masadan çıkan sayısını eleme masasına göre denetler', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, { eliminationTableSize: 2, advancePerTable: 2 }),
+    ).rejects.toThrow(
+      'Masadan çıkacak kişi sayısı 1 ile eleme masası büyüklüğü arasında olmalı',
+    );
   });
 });
 
@@ -410,6 +421,36 @@ describe('TournamentService.resolveTie', () => {
     await expect(service.resolveTie(9, { winnerIds: [1] })).rejects.toThrow(
       'Bu masada karar bekleyen beraberlik yok',
     );
+  });
+});
+
+describe('TournamentService.addParticipant', () => {
+  it('tur aralarında geç gelen oyuncuyu ekler', async () => {
+    const { service, participantModel } = createService();
+    (participantModel as any).create = jest.fn().mockResolvedValue({ _id: 7 });
+    await service.addParticipant(1, { name: 'Geç Gelen' });
+    expect((participantModel as any).create).toHaveBeenCalledWith({
+      tournamentId: 1,
+      name: 'Geç Gelen',
+    });
+  });
+
+  it('eleme başladıysa reddeder', async () => {
+    const { service } = createService({
+      blockingMatch: { stage: MatchStage.ELIMINATION, isCompleted: true },
+    });
+    await expect(
+      service.addParticipant(1, { name: 'Geç Gelen' }),
+    ).rejects.toThrow('Eleme başladıktan sonra katılımcı eklenemez');
+  });
+
+  it('skoru girilmemiş tur varken reddeder', async () => {
+    const { service } = createService({
+      blockingMatch: { stage: MatchStage.LEAGUE, isCompleted: false },
+    });
+    await expect(
+      service.addParticipant(1, { name: 'Geç Gelen' }),
+    ).rejects.toThrow('Tur devam ediyor');
   });
 });
 
