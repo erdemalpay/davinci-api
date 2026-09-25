@@ -463,7 +463,8 @@ export class TournamentService {
 
   // Lig puan tablosu + eleme sonucu: turnuvanın genel sıralaması
   async getStandings(tournamentId: number) {
-    const [participants, matches] = await Promise.all([
+    const [tournament, participants, matches] = await Promise.all([
+      this.findTournament(tournamentId),
       this.participantModel.find({ tournamentId }).exec(),
       this.matchModel.find({ tournamentId }).exec(),
     ]);
@@ -479,6 +480,10 @@ export class TournamentService {
     return computeFinalRanking(
       leagueStandings,
       matches.filter((m) => m.stage === MatchStage.ELIMINATION),
+      {
+        shareTies: tournament.format === TournamentFormat.ELIMINATION,
+        advancePerTable: tournament.advancePerTable,
+      },
     ).map((row) => ({
       ...row,
       name: names.get(row.participantId),

@@ -433,6 +433,108 @@ describe('computeFinalRanking', () => {
     expect(result[4].elimination).toBeUndefined();
   });
 
+  it('puan turu yoksa aynı turda aynı sırayla elenenler sırayı paylaşır', () => {
+    // 7 kişilik 2'lik eleme: çeyrek final (3 masa + bay), yarı final, final
+    const result = computeFinalRanking(
+      league([1, 2, 3, 4, 5, 6, 7]),
+      [
+        table(1, [
+          [1, 1],
+          [5, 2],
+        ]),
+        table(1, [
+          [2, 1],
+          [6, 2],
+        ]),
+        table(1, [
+          [3, 1],
+          [7, 2],
+        ]),
+        table(1, [[4]]),
+        table(2, [
+          [1, 1],
+          [4, 2],
+        ]),
+        table(2, [
+          [2, 1],
+          [3, 2],
+        ]),
+        table(3, [
+          [2, 1],
+          [1, 2],
+        ]),
+      ],
+      { shareTies: true, advancePerTable: 1 },
+    );
+    expect(result.map((r) => [r.participantId, r.rank])).toEqual([
+      [2, 1],
+      [1, 2],
+      [3, 3],
+      [4, 3],
+      [5, 5],
+      [6, 5],
+      [7, 5],
+    ]);
+  });
+
+  it('tur oynanırken masası bitmeyenler çıkanlarla elenenlerin arasında durur', () => {
+    const result = computeFinalRanking(
+      league([1, 2, 3, 4, 5, 6]),
+      [
+        table(1, [
+          [5, 1],
+          [1, 2],
+        ]),
+        table(1, [[2], [6]], false),
+        table(1, [[3], [4]], false),
+      ],
+      { shareTies: true, advancePerTable: 1 },
+    );
+    expect(result.map((r) => [r.participantId, r.rank])).toEqual([
+      [5, 1],
+      [2, 2],
+      [3, 2],
+      [4, 2],
+      [6, 2],
+      [1, 6],
+    ]);
+  });
+
+  it('bay geçen, masasını kazananlarla aynı sırayı paylaşır', () => {
+    const result = computeFinalRanking(
+      league([1, 2, 3]),
+      [
+        table(1, [
+          [1, 1],
+          [3, 2],
+        ]),
+        { ...table(1, [[2]]), isBye: true },
+      ],
+      { shareTies: true, advancePerTable: 1 },
+    );
+    expect(result.map((r) => [r.participantId, r.rank])).toEqual([
+      [1, 1],
+      [2, 1],
+      [3, 3],
+    ]);
+  });
+
+  it('beraberlik kararı bekleyen masa sonuçlanmamış sayılır', () => {
+    const result = computeFinalRanking(league([1, 2]), [
+      {
+        ...table(1, [
+          [1, 1],
+          [2, 1],
+        ]),
+        pendingTie: { participantIds: [1, 2], slots: 1 },
+      },
+    ]);
+    expect(result.map((r) => r.elimination?.tableRank)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('final henüz oynanmadıysa finalistleri lig sırasıyla üste koyar', () => {
     const result = computeFinalRanking(league([1, 2, 3, 4, 5]), [
       table(1, [[4], [2], [1], [3]], false),
