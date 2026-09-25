@@ -73,6 +73,7 @@ import {
 import { planRefundActions } from './shopify.refund-plan';
 
 const NEORAMA_DEPO_LOCATION = 6;
+const GAMES_FOR_WEBSITE_CACHE_TTL_SECONDS = 600;
 
 interface SeenUsers {
   [key: string]: boolean;
@@ -499,7 +500,18 @@ export class ShopifyService {
     throw new Error('Max retries exceeded for GraphQL request');
   }
 
+  // Cache SADECE bu fonksiyonun ciktisinda; getAllProducts() cagiranlar
+  // (stok senkronu, toplu fiyat guncelleme) canli veriyle calismaya devam eder.
   async getGamesForWebSite() {
+    try {
+      const cached = await this.redisService.get(RedisKeys.ShopifyWebsiteGames);
+      if (cached) {
+        return cached;
+      }
+    } catch (error) {
+      this.logError('Failed to read website games from Redis', error);
+    }
+
     const [games, items, shopify] = await Promise.all([
       this.gameService.getGamesWithBgg(),
       this.menuService.findAllItems(),
@@ -513,7 +525,7 @@ export class ShopifyService {
     );
     const shopifyById = new Map(shopify.map((p) => [p.id, p]));
 
-    return games.map((game) => {
+    const result = games.map((game) => {
       const foundMenuItem = game.product
         ? itemsByProduct.get(game.product)
         : undefined;
@@ -532,6 +544,18 @@ export class ShopifyService {
 
       return { ...game.toObject(), shopifyPrice, shopifyUrl, onlineStoreUrl };
     });
+
+    try {
+      await this.redisService.set(
+        RedisKeys.ShopifyWebsiteGames,
+        result,
+        GAMES_FOR_WEBSITE_CACHE_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logError('Failed to cache website games in Redis', error);
+    }
+
+    return result;
   }
 
   async getAllProducts() {
@@ -3077,6 +3101,8 @@ export class ShopifyService {
       // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
       let refundsProcessed = 0;
+      let shippingRefundsProcessed = 0;
+      const shopifyOrderId = String(data?.order_id ?? data?.id);
 
       for (const action of actions) {
         try {
@@ -3091,6 +3117,16 @@ export class ShopifyService {
               action.restock,
             );
             cancellationsProcessed++;
+          } else if (action.type === 'shipping_refund') {
+            this.logger.log(
+              `Shipping refund for order ${shopifyOrderId}: ${action.amount}`,
+            );
+            await this.orderService.refundShopifyShipping(
+              shopifyOrderId,
+              action.amount,
+              action.refundId,
+            );
+            shippingRefundsProcessed++;
           } else {
             this.logger.log(
               `Partial refund for line item ${action.lineItemId}: ${action.refundAmount}`,
@@ -3113,6 +3149,7 @@ export class ShopifyService {
         success: true,
         cancellationsProcessed,
         refundsProcessed,
+        shippingRefundsProcessed,
       };
 
       if (webhookLog) {
