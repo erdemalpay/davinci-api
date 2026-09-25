@@ -475,15 +475,24 @@ export interface EliminationTable {
   round: number;
   isCompleted: boolean;
   isThirdPlace?: boolean;
+  isBye?: boolean;
+  pendingTie?: PendingTie | null;
   players: { participantId: number; rank?: number }[];
 }
 
 // Turnuvanın genel sıralaması: elemede en ileri gidenler üstte (aynı turda
 // masadaki sıraya, sonra lig sırasına göre; final turunda 3.'lük masası finalin
 // arkasından gelir), elemeye çıkamayanlar lig sırasıyla sonda.
+// Puan turu yoksa lig sırası anlamsızdır: aynı turda aynı masa sırasıyla
+// elenenler aynı sırayı paylaşır (yarı finalde elenen ikisi de 3.).
+// Masası henüz oynanmayanlar, o turda çıkanlarla elenenlerin arasına girer.
 export function computeFinalRanking(
   leagueStandings: StandingRow[],
   eliminationTables: EliminationTable[],
+  {
+    shareTies = false,
+    advancePerTable = 0,
+  }: { shareTies?: boolean; advancePerTable?: number } = {},
 ): FinalRankingRow[] {
   if (!eliminationTables.length) return leagueStandings;
 
@@ -502,11 +511,19 @@ export function computeFinalRanking(
           isFinal:
             isFinalRound && table.round === lastRound && !table.isThirdPlace,
           isThirdPlace: table.isThirdPlace || undefined,
-          tableRank: table.isCompleted ? player.rank : undefined,
+          // Bay geçen masasını kazanmış sayılır; beraberlik kararı bekleyen masa
+          // henüz sonuçlanmamıştır
+          tableRank: table.isBye
+            ? 1
+            : table.isCompleted && !table.pendingTie
+            ? player.rank
+            : undefined,
         }),
       ),
     );
 
+  const place = (result: EliminationResult) =>
+    result.tableRank ?? advancePerTable + 0.5;
   const inElimination = leagueStandings
     .filter((row) => reached.has(row.participantId))
     .sort((a, b) => {
@@ -515,15 +532,25 @@ export function computeFinalRanking(
       return (
         rb.round - ra.round ||
         Number(!!ra.isThirdPlace) - Number(!!rb.isThirdPlace) ||
-        (ra.tableRank ?? 0) - (rb.tableRank ?? 0) ||
+        place(ra) - place(rb) ||
         a.rank - b.rank
       );
     });
   const rest = leagueStandings.filter((row) => !reached.has(row.participantId));
 
-  return [...inElimination, ...rest].map((row, i) => ({
-    ...row,
-    rank: i + 1,
-    elimination: reached.get(row.participantId),
-  }));
+  const sameStage = (a: StandingRow, b: StandingRow) => {
+    const ra = reached.get(a.participantId);
+    const rb = reached.get(b.participantId);
+    return (
+      ra?.round === rb?.round &&
+      !!ra?.isThirdPlace === !!rb?.isThirdPlace &&
+      ra?.tableRank === rb?.tableRank
+    );
+  };
+  const ordered = [...inElimination, ...rest];
+  let rank = 0;
+  return ordered.map((row, i) => {
+    if (!shareTies || i === 0 || !sameStage(ordered[i - 1], row)) rank = i + 1;
+    return { ...row, rank, elimination: reached.get(row.participantId) };
+  });
 }
