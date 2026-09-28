@@ -217,6 +217,33 @@ describe('planNextRound', () => {
     expect(second?.tables[0].participantIds).toContain(byeId);
   });
 
+  it('2 kişilik elemede favoriler kazanırsa lig 1. ve 2.si ancak finalde karşılaşır', () => {
+    const elim = rules({
+      format: TournamentFormat.ELIMINATION,
+      tableSize: 2,
+      advancePerTable: 1,
+    });
+    const quarterFinal = [
+      [1, 8],
+      [2, 7],
+      [3, 6],
+      [4, 5],
+    ].map(([winner, loser], i) =>
+      table(MatchStage.ELIMINATION, 1, i + 1, [
+        [winner, 1, 0],
+        [loser, 2, 0],
+      ]),
+    );
+    expect(
+      planNextRound(elim, ids(8), quarterFinal, noShuffle)?.tables.map(
+        (t) => t.participantIds,
+      ),
+    ).toEqual([
+      [1, 4],
+      [2, 3],
+    ]);
+  });
+
   it('final masası oynandıysa null döner', () => {
     const final = table(MatchStage.ELIMINATION, 2, 1, [
       [3, 1, 0],
