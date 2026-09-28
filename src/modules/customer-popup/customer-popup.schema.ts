@@ -42,6 +42,10 @@ export class CustomerPopup extends Document {
   @Prop({ required: false, type: String })
   specialDate: string;
 
+  // "YYYY-MM-DD"; bu gün dahil gösterilir, boşsa süresiz
+  @Prop({ required: false, type: String })
+  endDate: string;
+
   @Prop({ required: false, type: Number, default: 24 })
   cooldownHours: number;
 

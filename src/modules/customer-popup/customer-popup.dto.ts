@@ -54,6 +54,13 @@ export class CreateCustomerPopupDto {
   specialDate?: string;
 
   @IsOptional()
+  @IsString()
+  @Matches(/^$|^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format or empty',
+  })
+  endDate?: string;
+
+  @IsOptional()
   @IsNumber()
   cooldownHours?: number;
 
