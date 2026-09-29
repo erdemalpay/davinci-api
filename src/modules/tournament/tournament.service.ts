@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { isMongoDuplicateKey } from 'src/utils/mongoErrors';
 import { generateUniqueSlug } from 'src/utils/uniqueSlug';
@@ -90,10 +91,6 @@ export class TournamentService {
       .exec();
   }
 
-  findById(id: number) {
-    return this.findTournament(id);
-  }
-
   async create(dto: CreateTournamentDto) {
     this.assertValidRules(dto as TournamentRules);
     const slug = await generateUniqueSlug(this.tournamentModel, dto.name);
@@ -138,8 +135,6 @@ export class TournamentService {
       _id: tournament._id,
       name: tournament.name,
       date: tournament.date,
-      game: tournament.game,
-      location: tournament.location,
       isRegistrationOpen: this.isRegistrationOpen(tournament),
     };
   }
@@ -243,25 +238,23 @@ export class TournamentService {
       .exec();
     if (!participant) throw new NotFoundException('Katılımcı bulunamadı');
 
-    const inOpenMatch = await this.matchModel
-      .exists({
-        tournamentId: participant.tournamentId,
-        isCompleted: false,
-        'players.participantId': participantId,
-      })
+    // Açık maçı varsa o gelir (isCompleted: false önce sıralanır); hiç maçı yoksa null
+    const match = await this.matchModel
+      .findOne(
+        {
+          tournamentId: participant.tournamentId,
+          'players.participantId': participantId,
+        },
+        { isCompleted: 1 },
+        { sort: { isCompleted: 1 } },
+      )
       .exec();
-    if (inOpenMatch)
+    if (match && !match.isCompleted)
       throw new BadRequestException(
         'Katılımcı skoru girilmemiş bir maçta, önce maçı tamamlayın',
       );
 
-    const hasPlayed = await this.matchModel
-      .exists({
-        tournamentId: participant.tournamentId,
-        'players.participantId': participantId,
-      })
-      .exec();
-    const result = hasPlayed
+    const result = match
       ? await this.participantModel
           .findByIdAndUpdate(participantId, { isActive: false }, { new: true })
           .exec()
@@ -515,7 +508,9 @@ export class TournamentService {
       tournament.status === TournamentStatus.NOT_STARTED &&
       tournament.isRegistrationOpen &&
       (!tournament.registrationDeadline ||
-        new Date() < tournament.registrationDeadline)
+        // Panel tarihi "YYYY-MM-DD" gönderir (UTC gece yarısı saklanır); son gün dahil
+        moment.tz('Europe/Istanbul').format('YYYY-MM-DD') <=
+          moment.utc(tournament.registrationDeadline).format('YYYY-MM-DD'))
     );
   }
 

@@ -50,11 +50,6 @@ export class TournamentController {
     return this.tournamentService.findAll();
   }
 
-  @Get('/:id')
-  findById(@Param('id') id: number) {
-    return this.tournamentService.findById(id);
-  }
-
   @Post()
   create(@Body() dto: CreateTournamentDto) {
     return this.tournamentService.create(dto);

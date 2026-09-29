@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import * as moment from 'moment-timezone';
 import {
   MatchStage,
   PairingMode,
@@ -109,12 +110,28 @@ describe('TournamentService.register', () => {
     ).rejects.toThrow('Bu turnuvanın kayıtları kapandı');
   });
 
+  // Panelden gelen tarih gibi: seçilen günün UTC gece yarısı
+  const istanbulDay = (offsetDays: number) =>
+    new Date(
+      moment.tz('Europe/Istanbul').add(offsetDays, 'day').format('YYYY-MM-DD'),
+    );
+
+  it('son kayıt günü dahil başvuru alır', async () => {
+    const { service } = createService({
+      tournament: { ...baseTournament, registrationDeadline: istanbulDay(0) },
+    });
+    await expect(
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '1',
+        email: 'ali@mail.com',
+      }),
+    ).resolves.toEqual({ _id: 5 });
+  });
+
   it('son kayıt tarihi geçtiyse reddeder', async () => {
     const { service } = createService({
-      tournament: {
-        ...baseTournament,
-        registrationDeadline: new Date(Date.now() - 1000),
-      },
+      tournament: { ...baseTournament, registrationDeadline: istanbulDay(-1) },
     });
     await expect(
       service.register('catan', {
@@ -481,9 +498,7 @@ describe('TournamentService.removeParticipant', () => {
     const { service, participantModel, matchModel } = createService({
       participants: [{ _id: 4, tournamentId: 1 }],
     });
-    matchModel.exists
-      .mockReturnValueOnce(query(null)) // açık maçta değil
-      .mockReturnValueOnce(query({ _id: 1 })); // maç oynamış
+    matchModel.findOne.mockReturnValueOnce(query({ isCompleted: true })); // maç oynamış
     await service.removeParticipant(4);
     expect(participantModel.findByIdAndUpdate).toHaveBeenCalledWith(
       4,
@@ -505,7 +520,7 @@ describe('TournamentService.removeParticipant', () => {
     const { service, matchModel } = createService({
       participants: [{ _id: 4, tournamentId: 1 }],
     });
-    matchModel.exists.mockReturnValueOnce(query({ _id: 1 }));
+    matchModel.findOne.mockReturnValueOnce(query({ isCompleted: false }));
     await expect(service.removeParticipant(4)).rejects.toThrow(
       'Katılımcı skoru girilmemiş bir maçta, önce maçı tamamlayın',
     );
