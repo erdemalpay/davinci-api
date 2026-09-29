@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { PartialType } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
@@ -386,12 +387,55 @@ export class CreateDiscountDto {
   isMemberDiscount?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isCustom?: boolean;
+
+  @IsOptional()
   @IsString()
   status?: string;
 
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+export class UpdateDiscountDto extends PartialType(CreateDiscountDto) {}
+
+export class ApplyOrderDiscountItemDto {
+  @IsNumber()
+  totalQuantity: number;
+
+  @IsNumber()
+  selectedQuantity: number;
+
+  @IsNumber()
+  orderId: number;
+}
+
+export class ApplyOrderDiscountDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ApplyOrderDiscountItemDto)
+  orders: ApplyOrderDiscountItemDto[];
+
+  @IsNumber()
+  discount: number;
+
+  @IsOptional()
+  @IsNumber()
+  discountPercentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  customDiscountAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  discountNote?: string;
 }
 
 export class CreateRetailerDto {

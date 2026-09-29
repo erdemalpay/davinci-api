@@ -65,6 +65,9 @@ export class User extends Document {
   @Prop({ type: String })
   iban: string;
 
+  @Prop({ type: Boolean })
+  isVisitDisabled: boolean;
+
   @Prop({ type: String })
   birthDate: Date;
 
