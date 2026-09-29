@@ -413,10 +413,8 @@ export function seedEliminationTables(
 ): RoundPairing {
   if (rankedIds.length < 2) return { tables: [], byes: [] };
   const { sizes, byeCount } = planTableSizes(rankedIds.length, tableSize, 2);
-  const byes = [
-    ...rankedIds.filter((id) => !previousByes.has(id)),
-    ...rankedIds.filter((id) => previousByes.has(id)),
-  ].slice(0, byeCount);
+  // selectByes alttan seçer; ters listeyle en üst sıradakiler öncelik alır
+  const byes = selectByes([...rankedIds].reverse(), byeCount, previousByes);
   const seated = rankedIds.filter((id) => !byes.includes(id));
   const tables: number[][] = sizes.map(() => []);
 
