@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { setCors } from './lib/cors';
 import { JwtAuthGuard } from './modules/auth/auth.guards';
 import { RolesGuard } from './modules/authorization/authorization.guard';
+import { SHOPIFY_HMAC_HEADER } from './modules/shopify/shopify-webhook.guard';
 
 EventEmitter.defaultMaxListeners = 50;
 const express = require('express');
@@ -47,7 +48,17 @@ process.on('uncaughtException', (error: Error) => {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(express.json({ limit: '50mb' }));
+  app.use(
+    express.json({
+      limit: '50mb',
+      // Keep the raw body for webhooks that are verified by HMAC signature.
+      verify: (req, _res, buf: Buffer) => {
+        if (req.headers[SHOPIFY_HMAC_HEADER]) {
+          req.rawBody = buf;
+        }
+      },
+    }),
+  );
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   app.useGlobalPipes(
