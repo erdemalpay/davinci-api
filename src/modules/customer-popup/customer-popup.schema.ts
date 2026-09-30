@@ -21,6 +21,13 @@ export class CustomerPopup extends Document {
   @Prop({ required: false, type: String })
   imageUrl: string;
 
+  // İsteğe bağlı buton: yazı + tıklanınca gidilecek link (ör. turnuva kayıt formu)
+  @Prop({ required: false, type: String })
+  buttonText: string;
+
+  @Prop({ required: false, type: String })
+  buttonUrl: string;
+
   @Prop({ required: true, type: Boolean, default: true })
   isActive: boolean;
 
@@ -34,6 +41,10 @@ export class CustomerPopup extends Document {
   // "MM-DD" format, e.g. "02-14" for Valentine's Day
   @Prop({ required: false, type: String })
   specialDate: string;
+
+  // "YYYY-MM-DD"; bu gün dahil gösterilir, boşsa süresiz
+  @Prop({ required: false, type: String })
+  endDate: string;
 
   @Prop({ required: false, type: Number, default: 24 })
   cooldownHours: number;

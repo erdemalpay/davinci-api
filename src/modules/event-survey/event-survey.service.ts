@@ -6,7 +6,8 @@ import {
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'crypto';
 import { ClientSession, Connection, Model, UpdateQuery } from 'mongoose';
-import { usernamify } from 'src/utils/usernamify';
+import { isMongoDuplicateKey } from 'src/utils/mongoErrors';
+import { generateUniqueSlug } from 'src/utils/uniqueSlug';
 import { User } from '../user/user.schema';
 import {
   CreateEventDto,
@@ -44,8 +45,7 @@ export class EventSurveyService {
   // ─── Event (Etkinlik) ────────────────────────────────────────────────────────
 
   async createEvent(dto: CreateEventDto): Promise<SurveyEvent> {
-    const baseSlug = usernamify(dto.name).replaceAll('_', '-');
-    const slug = await this.generateUniqueSlug(baseSlug);
+    const slug = await generateUniqueSlug(this.eventModel, dto.name);
     return this.eventModel.create({ ...dto, slug });
   }
 
@@ -207,7 +207,7 @@ export class EventSurveyService {
       };
     } catch (err: unknown) {
       if (
-        this.isMongoDuplicateKey(err) &&
+        isMongoDuplicateKey(err) &&
         this.isSurveyResponseDuplicateKey(err)
       ) {
         throw new BadRequestException(
@@ -568,16 +568,6 @@ export class EventSurveyService {
     };
   }
 
-  private async generateUniqueSlug(base: string): Promise<string> {
-    let slug = base;
-    let counter = 2;
-    while (await this.eventModel.findOne({ slug }).exec()) {
-      slug = `${base}-${counter}`;
-      counter++;
-    }
-    return slug;
-  }
-
   private async generateUniqueCode(session: ClientSession): Promise<string> {
     let code: string;
     let attempts = 0;
@@ -590,15 +580,6 @@ export class EventSurveyService {
       await this.rewardCodeModel.findOne({ code }).session(session).exec()
     );
     return code;
-  }
-
-  private isMongoDuplicateKey(err: unknown): boolean {
-    return (
-      typeof err === 'object' &&
-      err !== null &&
-      'code' in err &&
-      (err as { code: number }).code === 11000
-    );
   }
 
   private isSurveyResponseDuplicateKey(err: unknown): boolean {

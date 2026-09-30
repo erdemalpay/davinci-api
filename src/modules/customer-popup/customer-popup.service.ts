@@ -33,6 +33,7 @@ export class CustomerPopupService {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const todayMMDD = `${day}-${month}`;
+    const todayISO = `${now.getFullYear()}-${month}-${day}`;
 
     const popups = await this.customerPopupModel
       .find({
@@ -52,8 +53,13 @@ export class CustomerPopupService {
       })
       .exec();
 
+    // Bitiş tarihi geçenler gösterilmez (bitiş günü dahil)
+    const visible = popups.filter(
+      (popup) => !popup.endDate || popup.endDate >= todayISO,
+    );
+
     // special_day önce, periodic sonra
-    return popups.sort((a, b) => {
+    return visible.sort((a, b) => {
       if (a.triggerType === TriggerType.SPECIAL_DAY && b.triggerType !== TriggerType.SPECIAL_DAY) return -1;
       if (a.triggerType !== TriggerType.SPECIAL_DAY && b.triggerType === TriggerType.SPECIAL_DAY) return 1;
       return 0;
