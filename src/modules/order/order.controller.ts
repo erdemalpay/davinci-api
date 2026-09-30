@@ -21,6 +21,7 @@ import { Collection } from './collection.schema';
 import { Discount } from './discount.schema';
 import {
   AddCollectionToRetailerDto,
+  ApplyOrderDiscountDto,
   BulkAddCollectionsToRetailerDto,
   BulkRemoveCollectionsFromRetailerDto,
   CancelHepsiburadaOrderDto,
@@ -39,6 +40,7 @@ import {
   RetailerOrdersQueryDto,
   UpdateRetailerOrderRequestStatusBySlugsDto,
   UpdateRetailerOrderRequestStatusDto,
+  UpdateDiscountDto,
 } from './order.dto';
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
@@ -185,20 +187,28 @@ export class OrderController {
   }
 
   @Post('/create_order_for_discount')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => {
+      const orderIds = Array.isArray(req.body?.orders)
+        ? req.body.orders
+            .map((order) => Number(order?.orderId))
+            .filter((orderId) => Number.isFinite(orderId))
+        : [];
+      const uniqueOrderIds = [...new Set<number>(orderIds)].sort(
+        (a, b) => a - b,
+      );
+      return uniqueOrderIds.length > 0
+        ? uniqueOrderIds.map(
+            (orderId) => `${RedisKeys.OrderLock}:${orderId}`,
+          )
+        : [`${RedisKeys.OrderLock}:discount-invalid`];
+    },
+    ttlSeconds: 30,
+  })
   createOrderForDiscount(
     @ReqUser() user: User,
-    @Body()
-    payload: {
-      orders: {
-        totalQuantity: number;
-        selectedQuantity: number;
-        orderId: number;
-      }[];
-      discount: number;
-      discountPercentage?: number;
-      discountAmount?: number;
-      discountNote?: string;
-    },
+    @Body() payload: ApplyOrderDiscountDto,
   ) {
     return this.orderService.createOrderForDiscount(
       user,
@@ -207,6 +217,7 @@ export class OrderController {
       payload?.discountPercentage,
       payload?.discountAmount,
       payload?.discountNote,
+      payload?.customDiscountAmount,
     );
   }
 
@@ -550,6 +561,30 @@ export class OrderController {
   }
 
   @Post('/collection/table')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => {
+      const collectionOrderIds = Array.isArray(req.body?.orders)
+        ? req.body.orders.map((order) => Number(order?.order))
+        : [];
+      const updatedOrderIds = Array.isArray(req.body?.newOrders)
+        ? req.body.newOrders.map((order) => Number(order?._id))
+        : [];
+      const uniqueOrderIds = [
+        ...new Set<number>(
+          [...collectionOrderIds, ...updatedOrderIds].filter((orderId) =>
+            Number.isFinite(orderId),
+          ),
+        ),
+      ].sort((a, b) => a - b);
+      return uniqueOrderIds.length > 0
+        ? uniqueOrderIds.map(
+            (orderId) => `${RedisKeys.OrderLock}:${orderId}`,
+          )
+        : [`${RedisKeys.OrderLock}:collection-without-orders`];
+    },
+    ttlSeconds: 30,
+  })
   createCollection(
     @ReqUser() user: User,
     @Body() createCollectionDto: CreateCollectionDto,
@@ -563,6 +598,25 @@ export class OrderController {
   }
 
   @Patch('/collection/table/:id')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => {
+      const orderIds = Array.isArray(req.body?.newOrders)
+        ? req.body.newOrders
+            .map((order) => Number(order?._id))
+            .filter((orderId) => Number.isFinite(orderId))
+        : [];
+      const uniqueOrderIds = [...new Set<number>(orderIds)].sort(
+        (a, b) => a - b,
+      );
+      return uniqueOrderIds.length > 0
+        ? uniqueOrderIds.map(
+            (orderId) => `${RedisKeys.OrderLock}:${orderId}`,
+          )
+        : [`${RedisKeys.OrderLock}:collection:${req.params.id}`];
+    },
+    ttlSeconds: 30,
+  })
   updateCollection(
     @ReqUser() user: User,
     @Param('id') id: number,
@@ -582,6 +636,11 @@ export class OrderController {
   }
 
   @Post('/discount')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: `${RedisKeys.Discounts}:custom-config`,
+    ttlSeconds: 10,
+  })
   createDiscount(
     @ReqUser() user: User,
     @Body() createDiscountDto: CreateDiscountDto,
@@ -590,10 +649,15 @@ export class OrderController {
   }
 
   @Patch('/discount/:id')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: `${RedisKeys.Discounts}:custom-config`,
+    ttlSeconds: 10,
+  })
   updateDiscount(
     @ReqUser() user: User,
     @Param('id') id: number,
-    @Body() updates: UpdateQuery<Discount>,
+    @Body() updates: UpdateDiscountDto,
   ) {
     return this.orderService.updateDiscount(user, id, updates);
   }
