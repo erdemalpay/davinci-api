@@ -1,52 +1,52 @@
 # davinci-api
 
-NestJS 8 + Mongoose 6 backend for the Da Vinci board game cafe panel (orders, tables, menu, stock/accounting, shifts) and its sales channels (Shopify, ikas, Trendyol, Hepsiburada). The frontend is `../davinci-react`; most features touch both repos.
+Da Vinci kutu oyunu kafesinin paneli (siparişler, masalar, menü, stok/muhasebe, vardiyalar) ve satış kanalları (Shopify, ikas, Trendyol, Hepsiburada) için NestJS 8 + Mongoose 6 backend. Frontend `../davinci-react` reposunda; özelliklerin çoğu iki repoya da dokunur.
 
-## Commands
+## Komutlar
 
 ```bash
-yarn start:dev                         # watch mode, NODE_ENV=development, port 4000
-yarn build                             # nest build + copy src/assets
-yarn test                              # all jest specs (src/**/*.spec.ts)
-npx jest src/modules/order/order.service.spec.ts   # single spec
-npx tsc --noEmit -p tsconfig.json      # typecheck
-npx prettier --check <files>           # formatting
+yarn start:dev                         # watch modu, NODE_ENV=development, port 4000
+yarn build                             # nest build + src/assets kopyalama
+yarn test                              # tüm jest spec'leri (src/**/*.spec.ts)
+npx jest src/modules/order/order.service.spec.ts   # tek bir spec
+npx tsc --noEmit -p tsconfig.json      # tip kontrolü
+npx prettier --check <dosyalar>        # format kontrolü
 ```
 
-`yarn lint` is currently broken (`.eslintrc.js` extends `prettier/@typescript-eslint`, removed in eslint-config-prettier 8). Use `tsc` + `prettier` until it is fixed.
+`yarn lint` şu an çalışmıyor: `.eslintrc.js`, eslint-config-prettier 8'de kaldırılan `prettier/@typescript-eslint` config'ini extend ediyor. Düzeltilene kadar `tsc` + `prettier` kullan.
 
-Swagger UI is served at `/docs`.
+Swagger arayüzü `/docs` adresinde.
 
-## Configuration
+## Konfigürasyon
 
-- Non-secret settings live in `config/<NODE_ENV>.json` (node-config, read with `config.get(...)`). Environments: `development`, `staging`, `production`, `franchise1`, `migration`.
-- Secrets come from `.env` and are read with `ConfigService` (global). Code usually picks the production or staging key with `process.env.NODE_ENV === 'production'` (see `shopify.service.ts` constructor).
-- A new secret must also be added to `.github/workflows/node.js.yml` (both the `env:` block and the `echo ... >> .env` lines). The production deploy reuses the `.env` that workflow writes to the server.
-- Local dev needs MongoDB as a **replica set** (transactions are used) and Redis.
+- Gizli olmayan ayarlar `config/<NODE_ENV>.json` içinde (node-config, `config.get(...)` ile okunur). Ortamlar: `development`, `staging`, `production`, `franchise1`, `migration`.
+- Secret'lar `.env`'den gelir ve (global) `ConfigService` ile okunur. Kod genelde production ya da staging anahtarını `process.env.NODE_ENV === 'production'` ile seçer (bkz. `shopify.service.ts` constructor).
+- Yeni bir secret `.github/workflows/node.js.yml`'a da eklenmeli (hem `env:` bloğuna hem `echo ... >> .env` satırlarına). Production deploy'u, bu workflow'un sunucuya yazdığı `.env`'i kullanır.
+- Lokal geliştirme için MongoDB'nin **replica set** olarak çalışması (transaction kullanılıyor) ve Redis gerekir.
 
 ## Deploy
 
-- Push to `master` → builds and deploys **staging** (`node.js.yml`). Push to `franchise1` → franchise1.
-- Push to `production` → deploys production and franchise1 (`production.yml`).
-- CI runs no tests or lint before deploying, so run `yarn test` and `tsc` yourself before pushing.
+- `master`'a push → **staging**'e build + deploy (`node.js.yml`). `franchise1`'e push → franchise1.
+- `production`'a push → production ve franchise1'e deploy (`production.yml`).
+- CI deploy'dan önce test veya lint çalıştırmaz; push etmeden önce `yarn test` ve `tsc`'yi kendin çalıştır.
 
-## Architecture and conventions
+## Mimari ve kurallar
 
-- One folder per domain under `src/modules/<name>/` with `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.dto.ts`, `*.schema.ts`. The Swagger CLI plugin (`nest-cli.json`) documents `.dto.ts` and `.schema.ts` classes automatically.
-- **IDs are auto-increment numbers**, not ObjectIds. Register models with `MongooseModule.forFeatureAsync([createAutoIncrementConfig(Model.name, Schema)])` (`src/lib/autoIncrement.ts`). Call `purifySchema(Schema)` on new schemas.
-- **Realtime updates:** after a write, call the matching `this.websocketGateway.emitXChanged()` (`src/modules/websocket/websocket.gateway.ts`). The frontend invalidates React Query caches by event name, so add a new event in both places (see `../davinci-react/src/hooks/socketConstant.ts`).
-- **Transactions:** pass sessions with `withSession(opts, session)` (`src/utils/withSession.ts`). Methods that accept `SessionOpts` use `deferEmit` to hold websocket emits until the transaction commits.
-- Cross-module calls go through services. Circular dependencies are common and are resolved with `forwardRef(() => XModule)` / `@Inject(forwardRef(() => XService))`.
-- Activity/audit logging: `ActivityService.addActivity` / `addUpdateActivity` with an `ActivityType`.
-- `order.service.ts`, `shopify.service.ts` and `accounting.service.ts` are very large (5–7k lines). Read the relevant section instead of the whole file, and put new logic in a separate service when it is a distinct concern.
+- Her domain için `src/modules/<isim>/` altında bir klasör: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.dto.ts`, `*.schema.ts`. Swagger CLI plugin'i (`nest-cli.json`) `.dto.ts` ve `.schema.ts` class'larını otomatik dokümante eder.
+- **ID'ler ObjectId değil, auto-increment sayılardır.** Modelleri `MongooseModule.forFeatureAsync([createAutoIncrementConfig(Model.name, Schema)])` ile kaydet (`src/lib/autoIncrement.ts`). Yeni schema'larda `purifySchema(Schema)` çağır.
+- **Gerçek zamanlı güncellemeler:** bir yazma işleminden sonra ilgili `this.websocketGateway.emitXChanged()`'i çağır (`src/modules/websocket/websocket.gateway.ts`). Frontend React Query cache'lerini event adına göre invalidate eder; yeni bir event'i iki tarafa da ekle (bkz. `../davinci-react/src/hooks/socketConstant.ts`).
+- **Transaction'lar:** session'ları `withSession(opts, session)` ile geçir (`src/utils/withSession.ts`). `SessionOpts` alan metotlar, websocket emit'lerini transaction commit olana kadar bekletmek için `deferEmit` kullanır.
+- Modüller arası çağrılar servisler üzerinden yapılır. Döngüsel bağımlılıklar yaygındır ve `forwardRef(() => XModule)` / `@Inject(forwardRef(() => XService))` ile çözülür.
+- Aktivite/denetim kaydı: `ActivityService.addActivity` / `addUpdateActivity` + bir `ActivityType`.
+- `order.service.ts`, `shopify.service.ts` ve `accounting.service.ts` çok büyük (5–7 bin satır). Dosyanın tamamı yerine ilgili bölümü oku. Yeni mantık ayrı bir konuysa ayrı bir servise koy.
 
-## Auth
+## Yetkilendirme
 
-- Global guards (`main.ts`): `JwtAuthGuard` then `RolesGuard`. Every route requires a JWT unless marked.
-- `@Public()` skips both guards. Use it only for truly public endpoints.
-- `@ApiTokenProtected('CONFIG_KEY')` is for server-to-server endpoints (bearer or `x-api-token`).
-- `RolesGuard` reads path+method → roles records from the `authorization` collection (cached in Redis) and matches on `req.path`. **Routes without a record are allowed for any logged-in user.** Role IDs are numbers (`user.role._id`).
+- Global guard'lar (`main.ts`): önce `JwtAuthGuard`, sonra `RolesGuard`. İşaretlenmemiş her route JWT ister.
+- `@Public()` iki guard'ı da atlar; sadece gerçekten herkese açık uçlarda kullan.
+- `@ApiTokenProtected('CONFIG_KEY')` sunucudan sunucuya uçlar içindir (bearer veya `x-api-token`).
+- `RolesGuard`, `authorization` koleksiyonundaki path+method → roller kayıtlarını okur (Redis'te cache'lenir) ve `req.path` ile eşleştirir. **Kaydı olmayan route'lara giriş yapmış her kullanıcı erişebilir.** Rol ID'leri sayıdır (`user.role._id`).
 
-## Tests
+## Testler
 
-Jest + ts-jest, specs next to the code (`*.spec.ts`). Existing specs mostly unit-test services and guards with hand-written mocks (see `src/modules/auth/api-token.guard.spec.ts`). The `NODE_ENV 'test' did not match any deployment config` warning is expected.
+Jest + ts-jest; spec'ler kodun yanında (`*.spec.ts`). Mevcut spec'ler çoğunlukla servisleri ve guard'ları elle yazılmış mock'larla birim test eder (bkz. `src/modules/auth/api-token.guard.spec.ts`). `NODE_ENV 'test' did not match any deployment config` uyarısı beklenen bir durum.
