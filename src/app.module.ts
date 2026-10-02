@@ -47,6 +47,7 @@ import { RewardModule } from './modules/reward/reward.module';
 import { ShiftModule } from './modules/shift/shift.module';
 import { ShopifyModule } from './modules/shopify/shopify.module';
 import { TableModule } from './modules/table/table.module';
+import { TournamentModule } from './modules/tournament/tournament.module';
 import { TrendyolModule } from './modules/trendyol/trendyol.module';
 import { UserModule } from './modules/user/user.module';
 import { VisitModule } from './modules/visit/visit.module';
@@ -99,6 +100,7 @@ const modules = [
   CustomerPopupModule,
   MonthlyActivityModule,
   EventSurveyModule,
+  TournamentModule,
   ConsumerModule,
   AssignmentModule,
   AssignmentReminderModule,
