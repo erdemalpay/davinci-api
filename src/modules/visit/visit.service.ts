@@ -289,7 +289,7 @@ export class VisitService {
   }
 
   async getUniqueVisits(startDate: string, endDate?: string) {
-    let matchStage: any = { date: { $gte: startDate } };
+    const matchStage: any = { date: { $gte: startDate } };
     if (endDate) {
       matchStage.date.$lte = endDate;
     }

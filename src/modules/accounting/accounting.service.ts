@@ -79,8 +79,6 @@ import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { Vendor } from './vendor.schema';
 
-const path = require('path');
-
 type RoleId = number;
 
 type ExpenseTypeId = string;
@@ -1382,9 +1380,7 @@ export class AccountingService {
           !productLastExpense[0] ||
           productLastExpense[0]?.date <= adjustedDate
         ) {
-          let updatedUnitPrice: number;
-
-          updatedUnitPrice = parseFloat(
+          const updatedUnitPrice = parseFloat(
             (Number(totalExpense) / Number(quantity)).toFixed(4),
           );
 
@@ -1604,9 +1600,7 @@ export class AccountingService {
           !productLastExpense[0] ||
           productLastExpense[0]?.date <= createExpenseDto.date
         ) {
-          let updatedUnitPrice: number;
-
-          updatedUnitPrice = parseFloat(
+          const updatedUnitPrice = parseFloat(
             (createExpenseDto.totalExpense / createExpenseDto.quantity).toFixed(
               4,
             ),
@@ -2014,7 +2008,7 @@ export class AccountingService {
       filterQuery['location'] = Number(location);
     }
     try {
-      let filteredStocks = [];
+      const filteredStocks = [];
       const stockHistory = await this.productStockHistoryModel.find(
         filterQuery,
       );
@@ -2024,7 +2018,7 @@ export class AccountingService {
             history.product.toString() === stock.product.toString() &&
             history.location === stock.location,
         );
-        let changeSum = productStockHistory.reduce(
+        const changeSum = productStockHistory.reduce(
           (acc, history) => acc + history.change * -1,
           0,
         );
@@ -4199,7 +4193,7 @@ export class AccountingService {
     const products = await this.productModel.find();
     for (const product of products) {
       if (product.baseQuantities?.length > 0) {
-        let newBaseQuantities = [];
+        const newBaseQuantities = [];
         for (const baseQuantity of product.baseQuantities) {
           newBaseQuantities.push({
             ...baseQuantity,
@@ -4238,7 +4232,7 @@ export class AccountingService {
   async updateMultipleProduct(
     updateMultipleProductDto: UpdateMultipleProduct[],
   ) {
-    let errorDatas = [];
+    const errorDatas = [];
     for (const updateDto of updateMultipleProductDto) {
       try {
         const {
@@ -4276,9 +4270,9 @@ export class AccountingService {
               .map((item) => item.trim())
               .filter(Boolean)
           : [];
-        let newExpenseTypes = [];
-        let newVendor = [];
-        let newBrand = [];
+        const newExpenseTypes = [];
+        const newVendor = [];
+        const newBrand = [];
         // find the ids of the expenseType, vendor and brand
         for (const expTypeName of expenseTypeArray) {
           const foundExpenseType = await this.expenseTypeModel.find({

@@ -159,8 +159,8 @@ export class HepsiburadaService {
     barcode?: string,
     merchantSku?: string,
     hbSku?: string,
-    page: number = 0,
-    size: number = 1000,
+    page = 0,
+    size = 1000,
   ) {
     try {
       const params: any = { page, size };
@@ -188,11 +188,11 @@ export class HepsiburadaService {
    * @param size Size per page (max: 1000, default: 1000)
    */
   async getProductsByStatus(
-    productStatus: string = 'MATCHED',
+    productStatus = 'MATCHED',
     taskStatus?: boolean,
-    version: number = 1,
-    page: number = 0,
-    size: number = 1000,
+    version = 1,
+    page = 0,
+    size = 1000,
   ) {
     try {
       const params: any = {
@@ -311,7 +311,7 @@ export class HepsiburadaService {
    * Get current listings with prices
    * This returns actual listing data including current prices
    */
-  async getListings(page: number = 0, limit: number = 1000) {
+  async getListings(page = 0, limit = 1000) {
     try {
       const response = await this.listingAxiosInstance.get(
         `/listings/merchantid/${this.merchantId}`,
@@ -1016,7 +1016,7 @@ export class HepsiburadaService {
    *
    * @param limit Sayfa başına kayıt sayısı (default 100)
    */
-  async getAllClaims(limit: number = 100): Promise<any[]> {
+  async getAllClaims(limit = 100): Promise<any[]> {
     const allClaims: any[] = [];
     let offset = 0;
     let hasMore = true;

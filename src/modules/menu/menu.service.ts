@@ -1866,7 +1866,7 @@ export class MenuService {
     const items = await this.itemModel.find({
       _id: { $in: itemIds },
     });
-    let failedItems = [];
+    const failedItems = [];
     const shopifyCollections =
       await this.accountingService.findAllProductCategory();
     for (const item of items) {

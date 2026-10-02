@@ -70,7 +70,7 @@ export class AssetService {
 
     // Upload the image
     return new Promise((resolve, reject) => {
-      let cld_upload_stream = cloudinary.v2.uploader.upload_stream(
+      const cld_upload_stream = cloudinary.v2.uploader.upload_stream(
         options,
         function (error, result) {
           console.log(error, result);
@@ -90,7 +90,7 @@ export class AssetService {
   getAllFolders = async () => {
     try {
       let folders = [];
-      let nextCursor = null;
+      const nextCursor = null;
 
       // Function to recursively fetch all folders
       async function fetchFolders(cursor) {

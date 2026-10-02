@@ -257,7 +257,7 @@ export class NotificationService {
     createNotificationDto: CreateNotificationDto,
     user?: User,
   ) {
-    let finalCreateDto: CreateNotificationDto = { ...createNotificationDto };
+    const finalCreateDto: CreateNotificationDto = { ...createNotificationDto };
 
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();

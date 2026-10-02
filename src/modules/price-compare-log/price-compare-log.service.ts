@@ -85,8 +85,8 @@ export class PriceCompareLogService {
   }
 
   async findAll(
-    page: number = 1,
-    limit: number = 50,
+    page = 1,
+    limit = 50,
     filters?: {
       type?: PriceCompareLogType;
       status?: PriceCompareLogStatus;
