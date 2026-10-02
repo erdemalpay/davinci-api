@@ -181,77 +181,42 @@ export class GetTrendyolProductsQueryDto {
   onsale?: string;
 }
 
-// Product Image Interface
-export interface TrendyolProductImage {
-  url: string;
-}
-
-// Product Attribute Interface
-export interface TrendyolProductAttribute {
-  attributeId: number;
-  attributeName: string;
-  attributeValueId?: number;
-  attributeValue?: string;
-}
-
-// Delivery Option Interface
-export interface TrendyolDeliveryOption {
-  deliveryDuration: number;
-  fastDeliveryType?: string;
-}
-
-// Product Response Interface
-export interface TrendyolProductDto {
-  id: string;
-  approved: boolean;
-  archived: boolean;
-  productCode: number;
-  batchRequestId: string;
-  supplierId: number;
-  createDateTime: number;
-  lastUpdateDate: number;
-  gender?: string;
-  brand: string;
+// Product V2 - Onaylı Ürün Stok ve Fiyat (GET .../products/approved/inventory-and-price)
+export interface TrendyolInventoryVariantDto {
+  variantId: number;
   barcode: string;
-  trendyolBarcode: string;
-  title: string;
-  categoryName: string;
-  productMainId: string;
-  description: string;
-  stockUnitType: string;
-  quantity: number;
-  listPrice: number;
   salePrice: number;
-  vatRate: number;
-  dimensionalWeight: number;
+  listPrice: number;
+  quantity: number;
   stockCode: string;
-  locationBasedDelivery?: string;
-  lotNumber?: string;
-  deliveryOption?: TrendyolDeliveryOption;
-  images: TrendyolProductImage[];
-  attributes: TrendyolProductAttribute[];
-  platformListingId: string;
-  stockId: string;
-  hasActiveCampaign: boolean;
-  locked: boolean;
-  productContentId: number;
-  pimCategoryId: number;
-  brandId: number;
-  version: number;
-  color?: string;
-  size?: string;
-  lockedByUnSuppliedReason: boolean;
-  onsale: boolean;
-  productUrl?: string;
+  stockLastModifiedDate?: number | null;
 }
 
-// Paginated Products Response
-export interface TrendyolProductsResponseDto {
+export interface TrendyolInventoryContentDto {
+  contentId: number;
+  productMainId: string;
+  variants: TrendyolInventoryVariantDto[];
+}
+
+export interface TrendyolInventoryResponseDto {
   totalElements: number;
   totalPages: number;
   page: number;
   size: number;
-  content: TrendyolProductDto[];
+  nextPageToken?: string;
+  content: TrendyolInventoryContentDto[];
+}
+
+/** V2 cevabının varyant başına düz satırı; panel de bu 6 alanı kullanıyor. */
+export interface TrendyolInventoryProduct {
+  contentId: number;
+  variantId: number;
+  productMainId: string;
+  barcode: string;
+  stockCode: string;
+  quantity: number;
+  salePrice: number;
+  listPrice: number;
 }
 
 // Update Price and Inventory Item
