@@ -4,6 +4,7 @@ import {
   computeStandings,
   countRematches,
   findCutTie,
+  findTieAfter,
   pairRound,
   pickAdvancers,
   planTableSizes,
@@ -570,6 +571,30 @@ describe('findCutTie', () => {
     expect(findCutTie(ranked([60, 60, 50, 40]), 2)).toBeNull();
     expect(findCutTie(ranked([60, 50, 40, 40]), 2)).toBeNull();
     expect(findCutTie(ranked([50, 50]), 2)).toBeNull();
+  });
+});
+
+describe('findTieAfter', () => {
+  const ranked = (scores: number[]) =>
+    rankTable(
+      scores.map((score, i) => ({ participantId: i + 1, score })),
+      [4, 2, 1, 0],
+    );
+
+  it('verilen sıradan sonraki ilk eşitliği tek kişilik seçim olarak döner', () => {
+    expect(findTieAfter(ranked([60, 60, 50, 50]), 0)).toEqual({
+      participantIds: [1, 2],
+      slots: 1,
+    });
+    expect(findTieAfter(ranked([60, 60, 50, 50]), 1)).toEqual({
+      participantIds: [3, 4],
+      slots: 1,
+    });
+  });
+
+  it('eşitlik yoksa ya da hepsi verilen sıradaysa karar gerekmez', () => {
+    expect(findTieAfter(ranked([60, 50, 40, 30]), 0)).toBeNull();
+    expect(findTieAfter(ranked([60, 60, 40, 30]), 1)).toBeNull();
   });
 });
 

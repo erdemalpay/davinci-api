@@ -194,6 +194,13 @@ describe('TournamentService.update', () => {
     expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalled();
   });
 
+  it('eksik masa puanlarında sayı olmayan değeri reddeder', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, { placementPointsBySize: { 2: ['4', 0] } } as never),
+    ).rejects.toThrow('Eksik masa puanları sayılardan oluşmalı');
+  });
+
   it('sadece Swiss formatında en az 1 tur ister', async () => {
     const { service } = createService();
     await expect(
@@ -282,7 +289,7 @@ describe('TournamentService.generateNextRound', () => {
       ],
     });
     await expect(service.generateNextRound(1)).rejects.toThrow(
-      'Berabere kalan masada kimin çıkacağı seçilmeden sonraki tur oluşturulamaz',
+      'Berabere kalan masada karar verilmeden sonraki tur oluşturulamaz',
     );
   });
 
@@ -451,6 +458,10 @@ describe('TournamentService.resolveTie', () => {
     await expect(service.resolveTie(9, { winnerIds: [1, 2] })).rejects.toThrow(
       'Berabere kalanlardan 1 kişi seçilmeli',
     );
+    // Elemede beraberlik olduğu gibi bırakılamaz
+    await expect(service.resolveTie(9, { winnerIds: [] })).rejects.toThrow(
+      'Berabere kalanlardan 1 kişi seçilmeli',
+    );
   });
 
   it('karar bekleyen beraberlik yoksa reddeder', async () => {
@@ -460,6 +471,80 @@ describe('TournamentService.resolveTie', () => {
     await expect(service.resolveTie(9, { winnerIds: [1] })).rejects.toThrow(
       'Bu masada karar bekleyen beraberlik yok',
     );
+  });
+});
+
+describe('TournamentService.resolveTie (puan turları)', () => {
+  const tiedLeague = {
+    _id: 9,
+    tournamentId: 1,
+    stage: MatchStage.LEAGUE,
+    round: 1,
+    isBye: false,
+    pendingTie: { participantIds: [1, 2], slots: 1 },
+    players: [
+      { participantId: 1, score: 50, rank: 1, points: 4 },
+      { participantId: 2, score: 50, rank: 1, points: 4 },
+      { participantId: 3, score: 5, rank: 3, points: 0 },
+    ],
+  };
+  const savedPlayers = (matchModel: { findByIdAndUpdate: jest.Mock }) =>
+    matchModel.findByIdAndUpdate.mock.calls[0][1];
+
+  it('seçilen üst sıranın, diğeri bir alt sıranın puanını alır', async () => {
+    const { service, matchModel } = createService({ match: tiedLeague });
+    await service.resolveTie(9, { winnerIds: [2] });
+    const { players, pendingTie } = savedPlayers(matchModel);
+    expect(players.map((p) => [p.participantId, p.rank, p.points])).toEqual([
+      [2, 1, 4],
+      [1, 2, 2],
+      [3, 3, 0],
+    ]);
+    expect(pendingTie).toBeNull();
+  });
+
+  it('berabere bırakılırsa ikisi de aynı sıranın puanını korur', async () => {
+    const { service, matchModel } = createService({ match: tiedLeague });
+    await service.resolveTie(9, { winnerIds: [] });
+    const { players, pendingTie } = savedPlayers(matchModel);
+    expect(players.map((p) => p.points)).toEqual([4, 4, 0]);
+    expect(pendingTie).toBeNull();
+  });
+
+  it('berabere bırakılırken verilen puanı sadece eşitlere yazar', async () => {
+    const { service, matchModel } = createService({ match: tiedLeague });
+    await service.resolveTie(9, { winnerIds: [], points: 3 });
+    const { players } = savedPlayers(matchModel);
+    expect(players.map((p) => p.points)).toEqual([3, 3, 0]);
+  });
+
+  it('birini seçerken elle puanı reddeder', async () => {
+    const { service } = createService({ match: tiedLeague });
+    await expect(
+      service.resolveTie(9, { winnerIds: [2], points: 3 }),
+    ).rejects.toThrow(
+      'Elle puan sadece puan turlarında beraberlik bırakılırken verilebilir',
+    );
+  });
+
+  it('üçlü eşitlikte seçimden sonra kalan ikisini ayrıca sorar', async () => {
+    const { service, matchModel } = createService({
+      match: {
+        ...tiedLeague,
+        pendingTie: { participantIds: [1, 2, 3], slots: 1 },
+        players: [1, 2, 3].map((participantId) => ({
+          participantId,
+          score: 50,
+          rank: 1,
+          points: 4,
+        })),
+      },
+    });
+    await service.resolveTie(9, { winnerIds: [3] });
+    expect(savedPlayers(matchModel).pendingTie).toEqual({
+      participantIds: [1, 2],
+      slots: 1,
+    });
   });
 });
 
@@ -646,6 +731,33 @@ describe('TournamentService.submitScores (sadece Swiss)', () => {
     await service.submitScores(9, { scores });
     expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
       status: TournamentStatus.FINISHED,
+    });
+  });
+
+  it('eksik masada o masa büyüklüğünün puanlarını yazar', async () => {
+    const { service, matchModel } = createService({
+      tournament: { ...leagueTournament, placementPointsBySize: { 2: [4, 0] } },
+      match: leagueMatch(1),
+    });
+    await service.submitScores(9, { scores });
+    const [, update] = matchModel.findByIdAndUpdate.mock.calls[0];
+    expect(update.players.map((p) => p.points)).toEqual([4, 0]);
+  });
+
+  it('eşit skorda kimin üst sıraya geçeceğini sorar', async () => {
+    const { service, matchModel } = createService({
+      tournament: leagueTournament,
+      match: leagueMatch(1),
+    });
+    await service.submitScores(9, {
+      scores: [
+        { participantId: 1, score: 10 },
+        { participantId: 2, score: 10 },
+      ],
+    });
+    expect(matchModel.findByIdAndUpdate.mock.calls[0][1].pendingTie).toEqual({
+      participantIds: [1, 2],
+      slots: 1,
     });
   });
 

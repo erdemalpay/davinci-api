@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -73,6 +74,11 @@ export class CreateTournamentDto {
   @IsNumber({}, { each: true })
   placementPoints?: number[];
 
+  // Eksik kurulan masaların puanları, masa büyüklüğüne göre: { 3: [4, 1, 0] }
+  @IsOptional()
+  @IsObject()
+  placementPointsBySize?: Record<number, number[]>;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -139,4 +145,10 @@ export class ResolveTieDto {
   @IsArray()
   @IsNumber({}, { each: true })
   winnerIds: number[];
+
+  // Puan turlarında beraberlik bırakılırsa eşitlere elle verilen puan; boşsa sıranın puanı
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  points?: number;
 }
