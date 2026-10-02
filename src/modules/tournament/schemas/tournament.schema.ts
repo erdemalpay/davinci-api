@@ -75,6 +75,10 @@ export class Tournament extends Document {
   @Prop({ required: false, type: [Number], default: [] })
   placementPoints: number[];
 
+  // Eksik kurulan masaların puanları, masa büyüklüğüne göre: { 3: [4, 1, 0] }
+  @Prop({ required: false, type: Object })
+  placementPointsBySize: Record<number, number[]>;
+
   @Prop({ required: false, type: Number })
   byePoints: number;
 

@@ -268,6 +268,9 @@ export function pairRound(input: PairRoundInput): RoundPairing {
   };
 }
 
+export const pointsForRank = (placementPoints: number[], rank: number) =>
+  placementPoints[rank - 1] ?? 0;
+
 // Aynı skor aynı sırayı alır (50, 50, 5 → 1., 1., 3.).
 export function rankTable(
   scores: TableScore[],
@@ -276,7 +279,7 @@ export function rankTable(
   const sorted = [...scores].sort((a, b) => b.score - a.score);
   return sorted.map((entry) => {
     const rank = sorted.findIndex((other) => other.score === entry.score) + 1;
-    return { ...entry, rank, points: placementPoints[rank - 1] ?? 0 };
+    return { ...entry, rank, points: pointsForRank(placementPoints, rank) };
   });
 }
 
@@ -299,6 +302,24 @@ export function findCutTie(
   return {
     participantIds: tied.map((entry) => entry.participantId),
     slots: cut - ahead,
+  };
+}
+
+// Puan turlarında verilen sıradan sonraki ilk eşitlik sorulur; her seferinde bir kişi
+// üst sıraya geçer (üçlü eşitlikte önce 1., sonra kalan ikisi arasında 2. seçilir)
+export function findTieAfter(
+  ranked: RankedTableEntry[],
+  afterRank: number,
+): PendingTie | null {
+  const first = ranked.find(
+    (entry, i) => entry.rank > afterRank && ranked[i + 1]?.rank === entry.rank,
+  );
+  if (!first) return null;
+  return {
+    participantIds: ranked
+      .filter((entry) => entry.rank === first.rank)
+      .map((entry) => entry.participantId),
+    slots: 1,
   };
 }
 
