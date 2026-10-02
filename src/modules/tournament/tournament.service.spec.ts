@@ -155,6 +155,27 @@ describe('TournamentService.register', () => {
   });
 });
 
+describe('TournamentService.findOpenForRegistration', () => {
+  it('son kayıt tarihi geçenleri çıkarır, sadece menüye gerekli alanları döner', async () => {
+    const { service, tournamentModel } = createService();
+    (tournamentModel as any).find = jest.fn().mockReturnValue({
+      sort: () =>
+        query([
+          { ...baseTournament, name: 'Catan', date: '2026-10-10' },
+          {
+            ...baseTournament,
+            _id: 2,
+            slug: 'azul',
+            registrationDeadline: new Date('2000-01-01'),
+          },
+        ]),
+    });
+    await expect(service.findOpenForRegistration()).resolves.toEqual([
+      { _id: 1, name: 'Catan', date: '2026-10-10', slug: 'catan' },
+    ]);
+  });
+});
+
 describe('TournamentService.update', () => {
   it('başladıktan sonra kural değişikliğini reddeder', async () => {
     const { service } = createService({

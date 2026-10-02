@@ -136,6 +136,21 @@ export class TournamentService {
 
   // ─── Kayıt (Public) ──────────────────────────────────────────────────────────
 
+  // Menüdeki "Turnuvalar" butonu: sadece kaydı açık olanlar, en yakın tarihli önce
+  async findOpenForRegistration() {
+    const tournaments = await this.tournamentModel
+      .find({
+        isDeleted: { $ne: true },
+        status: TournamentStatus.NOT_STARTED,
+        isRegistrationOpen: true,
+      })
+      .sort({ date: 1 })
+      .exec();
+    return tournaments
+      .filter((tournament) => this.isRegistrationOpen(tournament))
+      .map(({ _id, name, date, slug }) => ({ _id, name, date, slug }));
+  }
+
   async findPublicBySlug(slug: string) {
     const tournament = await this.findTournament({ slug });
     return {
