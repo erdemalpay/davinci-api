@@ -10,10 +10,11 @@ yarn build                             # nest build + src/assets kopyalama
 yarn test                              # tüm jest spec'leri (src/**/*.spec.ts)
 npx jest src/modules/order/order.service.spec.ts   # tek bir spec
 npx tsc --noEmit -p tsconfig.json      # tip kontrolü
+yarn lint                              # eslint --fix (dosyaları değiştirir)
 npx prettier --check <dosyalar>        # format kontrolü
 ```
 
-`yarn lint` şu an çalışmıyor: `.eslintrc.js`, eslint-config-prettier 8'de kaldırılan `prettier/@typescript-eslint` config'ini extend ediyor. Düzeltilene kadar `tsc` + `prettier` kullan.
+`yarn lint` `--fix` ile çalışır ve dosyaları değiştirir. Sadece kontrol için: `npx eslint "{src,apps,libs,test}/**/*.ts"`. Lint 0 hata ile geçmeli; mevcut `no-unused-vars` uyarıları biliniyor.
 
 Swagger arayüzü `/docs` adresinde.
 
@@ -28,7 +29,7 @@ Swagger arayüzü `/docs` adresinde.
 
 - `master`'a push → **staging**'e build + deploy (`node.js.yml`). `franchise1`'e push → franchise1.
 - `production`'a push → production ve franchise1'e deploy (`production.yml`).
-- CI deploy'dan önce test veya lint çalıştırmaz; push etmeden önce `yarn test` ve `tsc`'yi kendin çalıştır.
+- CI deploy'dan önce test veya lint çalıştırmaz; push etmeden önce `yarn lint`, `tsc` ve `yarn test`'i kendin çalıştır.
 
 ## Mimari ve kurallar
 
