@@ -45,7 +45,8 @@ Swagger arayüzü `/docs` adresinde.
 - Global guard'lar (`main.ts`): önce `JwtAuthGuard`, sonra `RolesGuard`. İşaretlenmemiş her route JWT ister.
 - `@Public()` iki guard'ı da atlar; sadece gerçekten herkese açık uçlarda kullan.
 - `@ApiTokenProtected('CONFIG_KEY')` sunucudan sunucuya uçlar içindir (bearer veya `x-api-token`).
-- `RolesGuard`, `authorization` koleksiyonundaki path+method → roller kayıtlarını okur (Redis'te cache'lenir) ve `req.path` ile eşleştirir. **Kaydı olmayan route'lara giriş yapmış her kullanıcı erişebilir.** Rol ID'leri sayıdır (`user.role._id`).
+- `@ShopifyWebhook()` Shopify webhook'ları içindir (ham body üzerinden HMAC doğrulaması, `src/modules/shopify/shopify-webhook.guard.ts`). Secret: `SHOPIFY_WEBHOOK_SECRET` / `SHOPIFY_STAGING_WEBHOOK_SECRET`, yoksa app secret.
+- `RolesGuard`, `authorization` koleksiyonundaki path+method → roller kayıtlarını okur (Redis'te cache'lenir) ve route pattern'i ile eşleştirir (`req.route.path`, ör. `/order/:id`). **Kaydı olmayan route'lara giriş yapmış her kullanıcı erişebilir.** Rol ID'leri sayıdır (`user.role._id`).
 
 ## Testler
 
