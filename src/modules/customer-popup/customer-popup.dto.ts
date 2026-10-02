@@ -22,6 +22,17 @@ export class CreateCustomerPopupDto {
   @IsString()
   imageUrl?: string;
 
+  @IsOptional()
+  @IsString()
+  buttonText?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^https?:\/\//, {
+    message: 'buttonUrl must start with http:// or https://',
+  })
+  buttonUrl?: string;
+
   @IsBoolean()
   isActive: boolean;
 
@@ -41,6 +52,13 @@ export class CreateCustomerPopupDto {
     message: 'specialDate must be in DD-MM format (e.g. 14-02) or empty',
   })
   specialDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format or empty',
+  })
+  endDate?: string;
 
   @IsOptional()
   @IsNumber()
