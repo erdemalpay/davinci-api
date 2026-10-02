@@ -285,6 +285,11 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   hepsiburadaLineItemSku: string;
 
+  // Hepsiburada'nın "kargoya verildi" bildirimi yalnızca paket numarası
+  // taşıyor; siparişi bulabilmek için paketlenme bildiriminde buraya yazılır.
+  @Prop({ required: false, type: String })
+  hepsiburadaPackageNumber: string;
+
   @Prop({ required: false, type: Number, ref: 'Retailer' })
   retailer?: number;
 
@@ -336,6 +341,12 @@ OrderSchema.index(
   {
     unique: true,
     partialFilterExpression: { hepsiburadaLineItemId: { $type: 'string' } },
+  },
+);
+OrderSchema.index(
+  { hepsiburadaPackageNumber: 1 },
+  {
+    partialFilterExpression: { hepsiburadaPackageNumber: { $type: 'string' } },
   },
 );
 OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });

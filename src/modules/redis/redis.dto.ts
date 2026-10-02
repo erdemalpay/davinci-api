@@ -31,4 +31,6 @@ export enum RedisKeys {
   QrCode = 'qr-code',
   InstagramPosts = 'instagram-posts',
   ScreenImages = 'screen-images',
+  MarketplaceReservedStocks = 'marketplace-reserved-stocks',
+  MarketplaceReservedStocksInvalidatedAt = 'marketplace-reserved-stocks-invalidated-at',
 }
