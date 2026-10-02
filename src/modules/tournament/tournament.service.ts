@@ -29,6 +29,8 @@ import {
   computeFinalRanking,
   computeStandings,
   findCutTie,
+  findTieAfter,
+  pointsForRank,
   rankTable,
   roundResults,
 } from './tournament.fixture';
@@ -51,6 +53,7 @@ const RULE_FIELDS = [
   'minTableSize',
   'leagueRounds',
   'placementPoints',
+  'placementPointsBySize',
   'byePoints',
   'advanceCount',
   'advancePerTable',
@@ -60,6 +63,10 @@ const RULE_FIELDS = [
 // Girilmemiş (undefined/null) değer de geçersiz sayılır
 const isAtLeast = (value: number | undefined | null, min: number) =>
   typeof value === 'number' && value >= min;
+
+// Masadaki oyuncu sayısına göre sıra puanları; eksik masanın ayrı puanı olabilir
+const placementPointsFor = (tournament: Tournament, tableSize: number) =>
+  tournament.placementPointsBySize?.[tableSize] ?? tournament.placementPoints;
 
 const FIXTURE_ERROR_MESSAGES: Record<FixtureErrorCode, string> = {
   INCOMPLETE_ROUND: 'Skoru girilmemiş maçlar var, önce onları tamamlayın',
@@ -283,7 +290,7 @@ export class TournamentService {
     ]);
     if (matches.some((m) => m.pendingTie))
       throw new BadRequestException(
-        'Berabere kalan masada kimin çıkacağı seçilmeden sonraki tur oluşturulamaz',
+        'Berabere kalan masada karar verilmeden sonraki tur oluşturulamaz',
       );
 
     let next: ReturnType<typeof planNextRound>;
@@ -389,11 +396,16 @@ export class TournamentService {
         'Sonraki tur oluşturulduğu için bu maçın skoru değiştirilemez',
       );
 
-    const players = rankTable(dto.scores, tournament.placementPoints);
+    const players = rankTable(
+      dto.scores,
+      placementPointsFor(tournament, dto.scores.length),
+    );
     // Elemede masadan çıkanlar (finalde şampiyon, 3.'lük masasında 3.) eşit skorla
-    // belirsiz kalırsa karar beklenir
+    // belirsiz kalırsa, puan turlarında her eşitlikte karar beklenir
     const cut = isFinal ? 1 : tournament.advancePerTable;
-    const pendingTie = isElimination ? findCutTie(players, cut) : null;
+    const pendingTie = isElimination
+      ? findCutTie(players, cut)
+      : findTieAfter(players, 0);
     const updated = await this.matchModel
       .findByIdAndUpdate(
         matchId,
@@ -418,37 +430,64 @@ export class TournamentService {
       throw new BadRequestException('Bu masada karar bekleyen beraberlik yok');
 
     const winnerIds = [...new Set(dto.winnerIds)];
+    // Puan turlarında beraberlik olduğu gibi bırakılabilir (kimse seçilmez)
+    const isLeague = match.stage === MatchStage.LEAGUE;
+    const keepsTie = isLeague && winnerIds.length === 0;
     if (
-      winnerIds.length !== tie.slots ||
-      winnerIds.some((id) => !tie.participantIds.includes(id))
+      !keepsTie &&
+      (winnerIds.length !== tie.slots ||
+        winnerIds.some((id) => !tie.participantIds.includes(id)))
     )
       throw new BadRequestException(
         `Berabere kalanlardan ${tie.slots} kişi seçilmeli`,
       );
+    const hasCustomPoints = dto.points !== undefined && dto.points !== null;
+    if (hasCustomPoints && !keepsTie)
+      throw new BadRequestException(
+        'Elle puan sadece puan turlarında beraberlik bırakılırken verilebilir',
+      );
 
-    const players = applyTieBreak(
-      match.players.map((p) => ({
-        participantId: p.participantId,
-        score: p.score,
-        rank: p.rank,
-        points: p.points,
-      })),
-      tie,
-      winnerIds,
-    );
-    // Beraberlik sadece eleme masasında olur; final turundaysa turnuva bitmiş olabilir
-    const [updated, isFinal] = await Promise.all([
+    const current = match.players.map((p) => ({
+      participantId: p.participantId,
+      score: p.score,
+      rank: p.rank,
+      points: p.points,
+    }));
+    const ranked = keepsTie ? current : applyTieBreak(current, tie, winnerIds);
+    // Puan turlarında puan yeni sıraya göre verilir; sıradaki eşitlik (varsa) ayrıca sorulur
+    const tournament = isLeague
+      ? await this.findTournament(match.tournamentId)
+      : null;
+    const tiedRank = current.find(
+      (p) => p.participantId === tie.participantIds[0],
+    )?.rank;
+    const players = tournament
+      ? ranked.map((p) => ({
+          ...p,
+          points:
+            hasCustomPoints && tie.participantIds.includes(p.participantId)
+              ? dto.points
+              : pointsForRank(
+                  placementPointsFor(tournament, ranked.length),
+                  p.rank,
+                ),
+        }))
+      : ranked;
+    const pendingTie = tournament ? findTieAfter(players, tiedRank ?? 0) : null;
+    // Birbirinden bağımsız okumalar tek seferde
+    const [updated, lastMatchCheck] = await Promise.all([
       this.matchModel
-        .findByIdAndUpdate(
-          matchId,
-          { players, pendingTie: null },
-          { new: true },
-        )
+        .findByIdAndUpdate(matchId, { players, pendingTie }, { new: true })
         .exec(),
-      this.isFinalRound(match),
+      tournament
+        ? this.isLastMatchOfTournament(tournament, match)
+        : this.isFinalRound(match),
     ]);
-    if (isFinal && (await this.isFinalRoundDone(match)))
-      await this.finishTournament(match.tournamentId);
+    // Elemede final turundaysa turnuva bitmiş olabilir
+    const isLastMatch = tournament
+      ? !pendingTie && lastMatchCheck
+      : lastMatchCheck && (await this.isFinalRoundDone(match));
+    if (isLastMatch) await this.finishTournament(match.tournamentId);
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
@@ -576,14 +615,21 @@ export class TournamentService {
     )
       return false;
     const hasOpenMatch = await this.matchModel
-      .exists({ tournamentId: match.tournamentId, isCompleted: false })
+      .exists({
+        tournamentId: match.tournamentId,
+        $or: [{ isCompleted: false }, { pendingTie: { $ne: null } }],
+      })
       .exec();
     return !hasOpenMatch;
   }
 
   // Sadece seçilen formatta kullanılan ayarlar zorunlu
   private assertValidRules(
-    rules: TournamentRules & { placementPoints?: number[]; byePoints?: number },
+    rules: TournamentRules & {
+      placementPoints?: number[];
+      placementPointsBySize?: Record<number, number[]>;
+      byePoints?: number;
+    },
   ) {
     const hasLeague = rules.format !== TournamentFormat.ELIMINATION;
     const hasElimination = rules.format !== TournamentFormat.LEAGUE;
@@ -599,6 +645,14 @@ export class TournamentService {
         );
       if (!rules.placementPoints?.length)
         throw new BadRequestException('Sıraya göre puanlar girilmeli');
+      const isInvalidPoints = (points: unknown) =>
+        !Array.isArray(points) || points.some((p) => typeof p !== 'number');
+      if (
+        Object.values(rules.placementPointsBySize ?? {}).some(isInvalidPoints)
+      )
+        throw new BadRequestException(
+          'Eksik masa puanları sayılardan oluşmalı',
+        );
       if (rules.byePoints === undefined || rules.byePoints === null)
         throw new BadRequestException('Bay puanı girilmeli');
     }
