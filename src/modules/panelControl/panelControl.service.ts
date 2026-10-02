@@ -235,8 +235,8 @@ export class PanelControlService implements OnApplicationBootstrap {
 
   async sendWhatsAppMessage(
     to: string,
-    message: string = 'hello_world',
-    languageCode: string = 'en_US',
+    message = 'hello_world',
+    languageCode = 'en_US',
   ): Promise<any> {
     const url = 'https://graph.facebook.com/v22.0/492545467283400/messages';
     const payload = {

@@ -421,7 +421,7 @@ export class ShopifyService {
    */
   private async executeGraphQLRequest<T>(
     requestFn: () => Promise<T>,
-    maxRetries: number = 3,
+    maxRetries = 3,
   ): Promise<T> {
     let retryCount = 0;
 
@@ -859,7 +859,7 @@ export class ShopifyService {
     const cursorCacheKey = `${RedisKeys.ShopifyCustomerCursors}:${searchKey}`;
     const countCacheKey = `${RedisKeys.ShopifyCustomerCount}:${searchKey}`;
 
-    let cursors: Record<number, string> =
+    const cursors: Record<number, string> =
       (await this.redisService.get(cursorCacheKey)) || {};
 
     let cursor: string | null = null;
@@ -2227,7 +2227,7 @@ export class ShopifyService {
   async createFulfillmentForPickupOrder(
     shopifyOrderId: string,
     pickedLineItemIds: string[],
-    notifyCustomer: boolean = false,
+    notifyCustomer = false,
   ): Promise<any[]> {
     try {
       const raw = await this.getFulfillmentOrdersForOrder(shopifyOrderId);
@@ -2401,7 +2401,7 @@ export class ShopifyService {
    */
   async createFulfillmentForPickup(
     fulfillmentOrderId: string,
-    notifyCustomer: boolean = false,
+    notifyCustomer = false,
   ): Promise<any> {
     const mutation = `
       mutation FulfillPickupOrder($fulfillmentOrderId: ID!, $notifyCustomer: Boolean!) {
@@ -3864,8 +3864,8 @@ export class ShopifyService {
   // we are cancelling it at our side first, then this function cancels it at shopify side(we need to call it at orderservice though)
   async cancelShopifyOrderAtShopify(
     orderId: string,
-    notifyCustomer: boolean = true,
-    restock: boolean = true,
+    notifyCustomer = true,
+    restock = true,
     reason: OrderCancelReason = OrderCancelReason.CUSTOMER,
     staffNote?: string,
   ) {
@@ -3943,7 +3943,7 @@ export class ShopifyService {
       restockType?: 'RETURN' | 'CANCEL' | 'LEGACY_RESTOCK' | 'NO_RESTOCK';
       locationId?: string; // Shopify location ID for restocking
     }>,
-    notifyCustomer: boolean = true,
+    notifyCustomer = true,
     note?: string,
   ) {
     const mutation = `

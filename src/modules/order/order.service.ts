@@ -3504,7 +3504,7 @@ export class OrderService {
         },
       };
     }
-    let categoryPipeline: PipelineStage[] = [
+    const categoryPipeline: PipelineStage[] = [
       {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
@@ -3602,7 +3602,7 @@ export class OrderService {
         },
       },
     ];
-    let upperCategoryPipeline: PipelineStage[] = [
+    const upperCategoryPipeline: PipelineStage[] = [
       {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
