@@ -40,11 +40,12 @@ import {
   GetTrendyolOrdersQueryDto,
   GetTrendyolProductsQueryDto,
   PriceAndInventoryItem,
+  TrendyolInventoryContentDto,
+  TrendyolInventoryProduct,
+  TrendyolInventoryResponseDto,
   TrendyolOrderDto,
   TrendyolOrderLineDto,
   TrendyolOrdersResponseDto,
-  TrendyolProductDto,
-  TrendyolProductsResponseDto,
 } from './trendyol.dto';
 
 @Injectable()
@@ -56,8 +57,18 @@ export class TrendyolService {
   private readonly apiSecret: string;
   private readonly OnlineStoreLocation = 6;
 
+  /** Product V2 stok-fiyat listesinin sayfa basi en fazla kaydi (Trendyol limiti). */
+  private static readonly INVENTORY_PAGE_SIZE = 100;
+  /** page x size bu degeri asinca Trendyol nextPageToken ister; henuz desteklenmiyor. */
+  private static readonly INVENTORY_MAX_WINDOW = 10000;
+  /** Sunucu loguna yazilan hata govdesinin en fazla uzunlugu. */
+  private static readonly MAX_DESCRIBED_BODY_LENGTH = 500;
+
   /** Cevabi ozet olarak loglanan yollar. */
-  private static readonly SUMMARIZED_RESPONSE_SUFFIXES = ['/products'];
+  private static readonly SUMMARIZED_RESPONSE_SUFFIXES = [
+    '/products',
+    '/inventory-and-price',
+  ];
   private static readonly MAX_LOGGED_BODY_BYTES = 100 * 1024;
   private static readonly MASKED_KEYS = [
     'password',
@@ -169,6 +180,7 @@ export class TrendyolService {
         path,
         requestBody: body ?? params,
         responseBody: error?.response?.data,
+        isErrorResponse: true,
         status: IntegrationRequestStatus.ERROR,
         // Cevap hic gelmediyse bos birakilir; uydurma kod yazilmaz.
         statusCode: error?.response?.status,
@@ -207,6 +219,7 @@ export class TrendyolService {
     path: string;
     requestBody?: any;
     responseBody?: any;
+    isErrorResponse?: boolean;
     status: IntegrationRequestStatus;
     statusCode?: number;
     errorMessage?: string;
@@ -220,7 +233,11 @@ export class TrendyolService {
         requestBody: this.buildLoggedBody(
           this.maskSensitiveValues(entry.requestBody),
         ),
-        responseBody: this.buildLoggedResponse(entry.path, entry.responseBody),
+        responseBody: this.buildLoggedResponse(
+          entry.path,
+          entry.responseBody,
+          entry.isErrorResponse,
+        ),
         status: entry.status,
         statusCode: entry.statusCode,
         errorMessage: entry.errorMessage,
@@ -255,10 +272,18 @@ export class TrendyolService {
   }
 
   /** Urun listesi cevabi ~519 KB ve gunde ~150 kez cekiliyor; icerik yerine ozet saklanir. */
-  private buildLoggedResponse(path: string, responseBody: any): any {
-    const isSummarized = TrendyolService.SUMMARIZED_RESPONSE_SUFFIXES.some(
-      (suffix) => path.endsWith(suffix),
-    );
+  private buildLoggedResponse(
+    path: string,
+    responseBody: any,
+    isErrorResponse = false,
+  ): any {
+    // Hata govdesi kucuktur ve hatanin nedenini icerir; ozetlenirse 426 gibi
+    // hatalarin mesaji kaybolur.
+    const isSummarized =
+      !isErrorResponse &&
+      TrendyolService.SUMMARIZED_RESPONSE_SUFFIXES.some((suffix) =>
+        path.endsWith(suffix),
+      );
 
     if (isSummarized && responseBody && typeof responseBody === 'object') {
       return {
@@ -413,37 +438,86 @@ export class TrendyolService {
     }
   }
 
+  /** V2 cevabındaki her varyantı, içeriğin productMainId'siyle düz satıra çevirir. */
+  private flattenInventoryContents(
+    contents?: TrendyolInventoryContentDto[],
+  ): TrendyolInventoryProduct[] {
+    return (contents ?? []).flatMap((content) =>
+      (content.variants ?? []).map((variant) => ({
+        contentId: content.contentId,
+        variantId: variant.variantId,
+        productMainId: content.productMainId,
+        barcode: variant.barcode,
+        stockCode: variant.stockCode,
+        quantity: variant.quantity,
+        salePrice: variant.salePrice,
+        listPrice: variant.listPrice,
+      })),
+    );
+  }
+
   /**
-   * Trendyol ürünlerini çeker
+   * Sunucu loguna yazılacak tek satırlık hata özeti. Axios hatasını olduğu gibi
+   * basmak config.auth ile API anahtarını sızdırır; bu yüzden sadece durum kodu,
+   * kırpılmış gövde ve Upgrade başlığı alınır.
+   */
+  private describeHttpError(error: any): string {
+    const response = error?.response;
+    if (!response) {
+      return error?.message || 'Unknown error';
+    }
+
+    const body =
+      typeof response.data === 'string'
+        ? response.data
+        : JSON.stringify(response.data);
+    const upgrade = response.headers?.upgrade;
+    const shortBody = (body ?? '').slice(
+      0,
+      TrendyolService.MAX_DESCRIBED_BODY_LENGTH,
+    );
+    return [
+      `status=${response.status}`,
+      upgrade ? `upgrade=${upgrade}` : null,
+      `body=${shortBody}`,
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  /**
+   * Onaylı ürünlerin stok/fiyat bilgisini tek sayfa çeker (Product V2:
+   * GET .../products/approved/inventory-and-price). V1 listeleme ucu Trendyol'da
+   * kapatıldığı için (426) kullanılmıyor. Sayfa başına en fazla 100 kayıt.
+   * Not: V2'de approved/startDate/endDate filtreleri yok; archived ve onsale
+   * `status` filtresine çevrilir.
    */
   async getAllProducts(
     params: GetTrendyolProductsQueryDto,
-  ): Promise<TrendyolProductsResponseDto> {
+  ): Promise<TrendyolInventoryResponseDto> {
     const {
       page = 0,
-      size = 50,
-      approved,
+      size = TrendyolService.INVENTORY_PAGE_SIZE,
       barcode,
-      startDate,
-      endDate,
       archived,
       onsale,
     } = params;
 
+    let status: string | undefined;
+    if (archived === 'true') status = 'archived';
+    else if (onsale === 'true') status = 'onSale';
+    else if (onsale === 'false') status = 'notOnSale';
+
     try {
-      const data = await this.request(
+      const data = await this.request<TrendyolInventoryResponseDto>(
         'GET',
-        `/integration/product/sellers/${this.sellerId}/products`,
+        `/integration/product/sellers/${this.sellerId}/products/approved/inventory-and-price`,
         {
           params: {
             page,
             size,
-            ...(approved && { approved }),
             ...(barcode && { barcode }),
-            ...(startDate && { startDate }),
-            ...(endDate && { endDate }),
-            ...(archived && { archived }),
-            ...(onsale && { onsale }),
+            ...(status && { status }),
           },
         },
       );
@@ -453,10 +527,13 @@ export class TrendyolService {
         totalPages: data.totalPages,
         page: data.page,
         size: data.size,
-        content: data.content,
+        nextPageToken: data.nextPageToken,
+        content: data.content ?? [],
       };
     } catch (error) {
-      this.logger.error('Error fetching Trendyol products', error);
+      this.logger.error(
+        `Error fetching Trendyol products: ${this.describeHttpError(error)}`,
+      );
       throw new HttpException(
         `Failed to fetch products: ${
           error?.response?.data?.message || error?.message || 'Unknown error'
@@ -471,11 +548,11 @@ export class TrendyolService {
    */
   async getAllProductsComplete(
     params: Omit<GetTrendyolProductsQueryDto, 'page' | 'size'> = {},
-  ): Promise<TrendyolProductDto[]> {
-    const allProducts: TrendyolProductDto[] = [];
+  ): Promise<TrendyolInventoryProduct[]> {
+    const allProducts: TrendyolInventoryProduct[] = [];
     let currentPage = 0;
     let totalPages = 1;
-    const pageSize = 200; // Maksimum sayfa boyutu
+    const pageSize = TrendyolService.INVENTORY_PAGE_SIZE;
 
     try {
       this.logger.log('Starting to fetch all Trendyol products...');
@@ -487,7 +564,15 @@ export class TrendyolService {
           size: pageSize,
         });
 
-        allProducts.push(...response.content);
+        // Sessizce ilk 10.000 kaydı alıp devam etmek yanlış stok kararı verdirir.
+        if (response.totalElements > TrendyolService.INVENTORY_MAX_WINDOW) {
+          throw new HttpException(
+            `Trendyol catalog has ${response.totalElements} products, above the ${TrendyolService.INVENTORY_MAX_WINDOW} page window; nextPageToken pagination is not implemented`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+
+        allProducts.push(...this.flattenInventoryContents(response.content));
         totalPages = response.totalPages;
         currentPage++;
 
@@ -667,7 +752,7 @@ export class TrendyolService {
             }
 
             this.logger.log(
-              `Matched product: ${trendyolProduct.title} (barcode: ${trendyolProduct.barcode}, productMainId: ${trendyolProduct.productMainId})`,
+              `Matched product: ${trendyolProduct.productMainId} (barcode: ${trendyolProduct.barcode})`,
             );
 
             const totalQuantity = productStocks.reduce(
@@ -721,9 +806,9 @@ export class TrendyolService {
    * Trendyol ürün listesinde barcode / productMainId / stockCode ile eşleşen ürünü döner.
    */
   private findTrendyolProductByBarcode(
-    products: TrendyolProductDto[],
+    products: TrendyolInventoryProduct[],
     barcode: string,
-  ): TrendyolProductDto | undefined {
+  ): TrendyolInventoryProduct | undefined {
     return products.find(
       (p) =>
         p.productMainId === barcode ||
