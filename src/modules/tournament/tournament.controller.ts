@@ -32,6 +32,12 @@ export class TournamentController {
   // ─── Public (JWT gerektirmez) ─────────────────────────────────────────────
 
   @Public()
+  @Get('/public')
+  findOpenForRegistration() {
+    return this.tournamentService.findOpenForRegistration();
+  }
+
+  @Public()
   @Get('/public/:slug')
   findPublic(@Param('slug') slug: string) {
     return this.tournamentService.findPublicBySlug(slug);
