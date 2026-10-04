@@ -21,7 +21,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - run: yarn --frozen-lockfile
+      - name: Install dependencies
+        # Lifecycle scripts are disabled; bcrypt is the only dependency that
+        # needs one (native binding), so it is rebuilt explicitly.
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npm rebuild bcrypt
 
       - name: Lint
         run: yarn lint:check
