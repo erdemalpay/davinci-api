@@ -4,6 +4,8 @@ Da Vinci kutu oyunu kafesinin paneli (siparişler, masalar, menü, stok/muhasebe
 
 ## Komutlar
 
+Node 24 (`.nvmrc`; `nvm use`). Docker imajları ve CI da aynı sürümü kullanır.
+
 ```bash
 yarn start:dev                         # watch modu, NODE_ENV=development, port 4000
 yarn build                             # nest build + src/assets kopyalama

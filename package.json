@@ -77,8 +77,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@nestjs/cli": "^8.2.0",
-    "@nestjs/schematics": "^8.0.5",
+    "@nestjs/cli": "^10",
+    "@nestjs/schematics": "^10",
     "@nestjs/testing": "^8.2.5",
     "@types/bcrypt": "^5.0.0",
     "@types/config": "^0.0.41",
