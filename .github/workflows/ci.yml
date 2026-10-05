@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Install dependencies
+        # Lifecycle scripts are disabled; bcrypt is the only dependency that
+        # needs one (native binding), so it is rebuilt explicitly.
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npm rebuild bcrypt
+
+      - name: Lint
+        run: yarn lint:check
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
+
+      - name: Build
+        run: yarn build

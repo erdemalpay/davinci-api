@@ -34,7 +34,9 @@ export class RolesGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest();
     const user = req.user;
-    const requestPath = req.path;
+    // Authorizations are stored with route patterns (e.g. "/order/:id"), so
+    // match against the matched route pattern instead of the concrete URL.
+    const requestPath = req.route?.path ?? req.path;
     const requestMethod = req.method; // Get HTTP method
 
     // Retrieve all authorizations from your service

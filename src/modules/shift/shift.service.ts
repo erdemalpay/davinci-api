@@ -415,7 +415,7 @@ export class ShiftService {
           };
         });
       }
-      let targetShift = await this.shiftModel
+      const targetShift = await this.shiftModel
         .findOne({ day: selectedDay, location: location })
         .exec();
       if (targetShift) {
@@ -485,7 +485,7 @@ export class ShiftService {
       if (!sourceShift) {
         continue;
       }
-      let targetShift = await this.shiftModel
+      const targetShift = await this.shiftModel
         .findOne({ day: targetDay, location: location })
         .exec();
       let filteredShifts = sourceShift.shifts;
