@@ -8,6 +8,31 @@ import { TrendyolService } from './trendyol.service';
 
 const BASE_URL = 'https://example.test';
 
+/** Servisi sahte bağımlılıklarla kurar ve logger çıktısını susturur. */
+function createService(configService: any, http: any, create: jest.Mock) {
+  const service = new TrendyolService(
+    configService as never,
+    http as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { create } as never,
+  );
+
+  const logger = (service as any).logger;
+  for (const level of ['log', 'debug', 'warn', 'error'] as const) {
+    jest.spyOn(logger, level).mockImplementation(() => undefined);
+  }
+
+  return { service, logger };
+}
+
 /**
  * TrendyolService'i sadece request() helper'ini sinamak icin kurar.
  * Projedeki diger spec'ler gibi NestJS test modulu kurmadan, dogrudan new ile.
@@ -32,25 +57,7 @@ function buildService(
 
   const configService = { get: jest.fn(() => BASE_URL) };
 
-  const service = new TrendyolService(
-    configService as never,
-    http as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { create } as never,
-  );
-
-  const logger = (service as any).logger;
-  for (const level of ['log', 'debug', 'warn', 'error'] as const) {
-    jest.spyOn(logger, level).mockImplementation(() => undefined);
-  }
+  const { service, logger } = createService(configService, http, create);
 
   const call = (method: any, path: string, options?: any) =>
     (service as any).request(method, path, options);
@@ -275,25 +282,7 @@ function buildRoutedService(handler: (config: any) => any) {
 
   const create = jest.fn().mockResolvedValue(undefined);
 
-  const service = new TrendyolService(
-    configService as never,
-    http as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { create } as never,
-  );
-
-  const logger = (service as any).logger;
-  for (const level of ['log', 'debug', 'warn', 'error'] as const) {
-    jest.spyOn(logger, level).mockImplementation(() => undefined);
-  }
+  const { service, logger } = createService(configService, http, create);
 
   const calls = (method: string, url: string) =>
     http.request.mock.calls
