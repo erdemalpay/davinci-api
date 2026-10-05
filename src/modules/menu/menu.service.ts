@@ -1240,12 +1240,18 @@ export class MenuService {
     );
 
     // Update Shopify price if the price changed and item has shopifyId
-    if (priceChanged && updatedItem.shopifyId && updatedItem.shopifyVariantId) {
-      await this.shopifyService.updateProductPrice(
+    if (priceChanged && updatedItem.shopifyId) {
+      const shopifyVariantId = await this.shopifyService.resolveVariantId(
         updatedItem.shopifyId,
         updatedItem.shopifyVariantId,
-        updates.price,
       );
+      if (shopifyVariantId) {
+        await this.shopifyService.updateProductPrice(
+          updatedItem.shopifyId,
+          shopifyVariantId,
+          updates.price,
+        );
+      }
     }
 
     this.websocketGateway.emitItemChanged();
