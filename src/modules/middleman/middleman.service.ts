@@ -1,3 +1,5 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, subDays } from 'date-fns';
@@ -33,6 +35,7 @@ export class MiddlemanService {
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createMiddlemanDto: CreateMiddlemanDto): Promise<Middleman> {
@@ -59,6 +62,7 @@ export class MiddlemanService {
         'start middleman',
       );
       this.websocketGateway.emitMiddlemanChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return record;
     }, 'Failed to create middleman record');
   }
@@ -188,6 +192,7 @@ export class MiddlemanService {
       }
 
       this.websocketGateway.emitMiddlemanChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return updated;
     }, 'Failed to update middleman record');
   }
@@ -196,6 +201,7 @@ export class MiddlemanService {
     const deleted = await this.middlemanModel.findByIdAndDelete(id);
     assertFound(deleted, 'Middleman record not found');
     this.websocketGateway.emitMiddlemanChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return deleted;
   }
 
@@ -233,6 +239,7 @@ export class MiddlemanService {
     }
 
     this.websocketGateway.emitMiddlemanChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return stale.length;
   }
 }

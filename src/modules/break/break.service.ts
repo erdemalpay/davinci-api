@@ -1,3 +1,5 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -33,6 +35,7 @@ export class BreakService {
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
@@ -68,6 +71,7 @@ export class BreakService {
         'start break',
       );
       this.websocketGateway.emitBreakChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
 
       if (activeOthersCount >= 2) {
         const notificationEvents =
@@ -257,6 +261,7 @@ export class BreakService {
       }
 
       this.websocketGateway.emitBreakChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return updatedBreak;
     }, 'Failed to update break record');
   }
@@ -265,6 +270,7 @@ export class BreakService {
     const deletedBreak = await this.breakModel.findByIdAndDelete(id);
     assertFound(deletedBreak, 'Break record not found');
     this.websocketGateway.emitBreakChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return deletedBreak;
   }
 }

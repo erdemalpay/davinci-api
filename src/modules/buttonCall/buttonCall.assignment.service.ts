@@ -4,10 +4,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { Break } from '../break/break.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
@@ -48,6 +50,10 @@ const nowHour = () => format(new Date(), 'HH:mm:ss');
 @Injectable()
 export class ButtonCallAssignmentService {
   private readonly logger = new Logger(ButtonCallAssignmentService.name);
+  // Assignments run one at a time so that two calls created, declined or
+  // retried at the same moment can't both pick the same free person.
+  private assignmentQueue: Promise<unknown> = Promise.resolve();
+  private isPendingRunScheduled = false;
 
   constructor(
     @InjectModel(ButtonCall.name)
@@ -67,8 +73,15 @@ export class ButtonCallAssignmentService {
   ) {}
 
   // Tries to assign an open, unassigned game master call. Leaves the call
-  // unassigned when nobody is available; the cron retries later.
-  async assign(callId: number): Promise<ButtonCall | null> {
+  // unassigned when nobody is available; it is retried when someone becomes
+  // available, and by the cron as a fallback.
+  assign(callId: number): Promise<ButtonCall | null> {
+    const run = this.assignmentQueue.then(() => this.assignNow(callId));
+    this.assignmentQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async assignNow(callId: number): Promise<ButtonCall | null> {
     const call = await this.buttonCallModel.findById(callId).lean();
     if (
       call?.type !== ButtonCallTypeEnum.GAMEMASTERCALL ||
@@ -180,8 +193,24 @@ export class ButtonCallAssignmentService {
     return claimed;
   }
 
-  // Picks up calls that could not be assigned when they were created, e.g.
-  // because every game master was explaining a game or on a break.
+  // A break, explanation or middleman shift ended, or someone checked in:
+  // assign calls that were waiting for a free game master right away.
+  // Bursts of events collapse into a single run.
+  @OnEvent(STAFF_AVAILABILITY_CHANGED)
+  handleStaffAvailabilityChanged() {
+    if (this.isPendingRunScheduled) {
+      return;
+    }
+    this.isPendingRunScheduled = true;
+    setImmediate(() => {
+      this.isPendingRunScheduled = false;
+      this.assignPendingCalls().catch((error) =>
+        this.logger.error('Failed to assign pending button calls', error),
+      );
+    });
+  }
+
+  // Fallback for anything the availability event misses.
   @Cron(CronExpression.EVERY_MINUTE)
   async assignPendingCalls() {
     const pending = await this.buttonCallModel

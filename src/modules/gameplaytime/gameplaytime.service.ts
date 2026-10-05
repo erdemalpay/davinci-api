@@ -1,3 +1,5 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import {
   forwardRef,
   HttpException,
@@ -41,6 +43,7 @@ export class GameplayTimeService {
     private readonly gameplayService: GameplayService,
     @Inject(forwardRef(() => TableService))
     private readonly tableService: TableService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -73,6 +76,7 @@ export class GameplayTimeService {
         'start gameplay time',
       );
       this.websocketGateway.emitGameplayTimeChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return gameplayTimeRecord;
     }, 'Failed to create gameplay time record');
   }
@@ -245,6 +249,7 @@ export class GameplayTimeService {
       }
 
       this.websocketGateway.emitGameplayTimeChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return updatedGameplayTime;
     }, 'Failed to update gameplay time record');
   }
@@ -255,11 +260,13 @@ export class GameplayTimeService {
     );
     assertFound(deletedGameplayTime, 'Gameplay time record not found');
     this.websocketGateway.emitGameplayTimeChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return deletedGameplayTime;
   }
 
   async deleteByGameplayId(gameplayId: number): Promise<void> {
     await this.gameplayTimeModel.deleteMany({ gameplay: gameplayId });
     this.websocketGateway.emitGameplayTimeChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
   }
 }

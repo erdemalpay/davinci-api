@@ -1,3 +1,5 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import {
   BadRequestException,
   ForbiddenException,
@@ -54,6 +56,7 @@ export class VisitService {
     private readonly shiftService: ShiftService,
     private readonly activityService: ActivityService,
     private readonly qrCodeService: QrCodeService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   findByDateAndLocation(date: string, location: number) {
@@ -128,6 +131,7 @@ export class VisitService {
     }
 
     this.websocketGateway.emitVisitChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return visit;
   }
 
@@ -224,6 +228,7 @@ export class VisitService {
     }
 
     this.websocketGateway.emitVisitChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return visit;
   }
 
@@ -235,6 +240,7 @@ export class VisitService {
       throw new HttpException('Visit not found', HttpStatus.NOT_FOUND);
     }
     this.websocketGateway.emitVisitChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return visit;
   }
 
@@ -255,6 +261,7 @@ export class VisitService {
     }
 
     this.websocketGateway.emitVisitChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return visit;
   }
 
@@ -408,6 +415,7 @@ export class VisitService {
       }
 
       this.websocketGateway.emitVisitChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return visit;
     }
     if (cafeVisitDto?.type === VisitTypes.EXIT) {
@@ -497,6 +505,7 @@ export class VisitService {
         }
 
         this.websocketGateway.emitVisitChanged();
+        this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
         return lastVisit;
       }
       const visit = await this.visitModel.create({
@@ -571,6 +580,7 @@ export class VisitService {
       }
 
       this.websocketGateway.emitVisitChanged();
+      this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
       return visit;
     }
     throw new BadRequestException();
@@ -715,6 +725,7 @@ export class VisitService {
     }
 
     this.websocketGateway.emitVisitChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return openVisits.length;
   }
 

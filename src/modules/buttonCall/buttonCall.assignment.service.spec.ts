@@ -156,3 +156,75 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(ali!.hasOpenAssignment).toBe(true);
   });
 });
+
+describe('ButtonCallAssignmentService scheduling', () => {
+  const build = () => {
+    const m = () => model([]) as never;
+    return new ButtonCallAssignmentService(
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      { emitButtonCallChanged: jest.fn() } as never,
+    );
+  };
+
+  it('assigns pending calls once per burst of availability events', async () => {
+    const service = build();
+    const run = jest
+      .spyOn(service, 'assignPendingCalls')
+      .mockResolvedValue(undefined);
+
+    service.handleStaffAvailabilityChanged();
+    service.handleStaffAvailabilityChanged();
+    service.handleStaffAvailabilityChanged();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+
+    service.handleStaffAvailabilityChanged();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs assignments one at a time', async () => {
+    const service = build();
+    const events: string[] = [];
+    let release!: () => void;
+    const firstDone = new Promise<void>((resolve) => (release = resolve));
+    jest
+      .spyOn(service as never, 'assignNow' as never)
+      .mockImplementation((async (id: number) => {
+        events.push(`start ${id}`);
+        if (id === 1) await firstDone;
+        events.push(`end ${id}`);
+        return null;
+      }) as never);
+
+    const first = service.assign(1);
+    const second = service.assign(2);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(events).toEqual(['start 1']);
+
+    release();
+    await Promise.all([first, second]);
+    expect(events).toEqual(['start 1', 'end 1', 'start 2', 'end 2']);
+  });
+
+  it('keeps assigning after a failed assignment', async () => {
+    const service = build();
+    jest
+      .spyOn(service as never, 'assignNow' as never)
+      .mockRejectedValueOnce(new Error('db down') as never)
+      .mockResolvedValueOnce(null as never);
+
+    await expect(service.assign(1)).rejects.toThrow('db down');
+    await expect(service.assign(2)).resolves.toBeNull();
+  });
+});
