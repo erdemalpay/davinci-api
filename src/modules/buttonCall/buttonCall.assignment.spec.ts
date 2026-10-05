@@ -14,7 +14,6 @@ const candidate = (
   knownGames: new Set(),
   lastActivity: hourToSeconds('12:00:00'),
   gameplayCountToday: 0,
-  hasOpenAssignment: false,
   ...overrides,
 });
 
@@ -53,18 +52,6 @@ describe('pickAssignee', () => {
     ];
 
     expect(pickAssignee(candidates, {})).toBe('calm');
-  });
-
-  it('prefers people without an open assignment', () => {
-    const candidates = [
-      candidate('handling-a-call', {
-        lastActivity: hourToSeconds('10:00:00'),
-        hasOpenAssignment: true,
-      }),
-      candidate('free', { lastActivity: hourToSeconds('14:00:00') }),
-    ];
-
-    expect(pickAssignee(candidates, {})).toBe('free');
   });
 
   describe('question about the current game', () => {

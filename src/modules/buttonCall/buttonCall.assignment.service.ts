@@ -166,7 +166,19 @@ export class ButtonCallAssignmentService {
   }
 
   async claim(user: User, callId: number): Promise<ButtonCall> {
-    await this.findOpenCall(callId);
+    const call = await this.findOpenCall(callId);
+    const otherOpenCall = await this.buttonCallModel.exists({
+      _id: { $ne: callId },
+      date: call.date,
+      type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      assignedTo: user._id,
+      finishHour: { $exists: false },
+    });
+    if (otherOpenCall) {
+      throw new BadRequestException(
+        'You already have an assigned game master call. Close it before taking another one.',
+      );
+    }
     const hour = nowHour();
     const claimed = await this.buttonCallModel.findOneAndUpdate(
       { _id: callId, finishHour: { $exists: false } },
@@ -339,7 +351,15 @@ export class ButtonCallAssignmentService {
           .lean(),
       ]);
 
-    const excluded = new Set([...busyUserIds, ...excludedUsers]);
+    // Someone already handling a call gets no other call until it's closed.
+    const handlingCall = calls
+      .filter((c) => !c.finishHour)
+      .map((c) => c.assignedTo);
+    const excluded = new Set([
+      ...busyUserIds,
+      ...excludedUsers,
+      ...handlingCall,
+    ]);
     if (serviceStaff) {
       excluded.add(serviceStaff);
     }
@@ -364,7 +384,6 @@ export class ButtonCallAssignmentService {
           ),
           lastActivity: Math.max(...activityHours.map(hourToSeconds)),
           gameplayCountToday: ownGameplays.length,
-          hasOpenAssignment: ownCalls.some((c) => !c.finishHour),
         };
       });
   }

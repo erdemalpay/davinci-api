@@ -6,6 +6,8 @@ import { Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
+import { ButtonCallTypeEnum } from '../buttonCall/dto/create-buttonCall.dto';
+import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { LocationService } from '../location/location.service';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
@@ -36,10 +38,25 @@ export class BreakService {
     private readonly activityService: ActivityService,
     private readonly notificationService: NotificationService,
     private readonly eventEmitter: EventEmitter2,
+    @InjectModel(ButtonCall.name)
+    private readonly buttonCallModel: Model<ButtonCall>,
   ) {}
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
     return wrapHttpException(async () => {
+      const assignedCall = await this.buttonCallModel.exists({
+        assignedTo: createBreakDto.user,
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        date: createBreakDto.date,
+        finishHour: { $exists: false },
+      });
+      if (assignedCall) {
+        throw new HttpException(
+          'You have an assigned game master call. Close or decline it before starting a break.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
       const existingActiveBreak = await this.breakModel.findOne({
         user: createBreakDto.user,
         date: createBreakDto.date,

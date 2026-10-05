@@ -41,6 +41,7 @@ export class ButtonCallService {
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -252,7 +253,25 @@ export class ButtonCallService {
     if (location !== undefined) query.location = location;
     if (type) query.finishHour = { $exists: !(type === 'active') };
 
-    return this.buttonCallModel.find(query);
+    const calls = await this.buttonCallModel.find(query);
+    // The cafe TV screen is public and can't load users, so it gets the
+    // assignee's name with the call.
+    const assigneeIds = [
+      ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
+    ];
+    const assignees = assigneeIds.length
+      ? await this.userModel
+          .find({ _id: { $in: assigneeIds } })
+          .select('name')
+          .lean()
+      : [];
+    const nameById = new Map(assignees.map((u) => [u._id, u.name]));
+    return calls.map((call) => ({
+      ...call.toJSON(),
+      ...(call.assignedTo && {
+        assignedToName: nameById.get(call.assignedTo),
+      }),
+    }));
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);

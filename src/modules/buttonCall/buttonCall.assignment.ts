@@ -13,7 +13,6 @@ export interface AssignmentCandidate {
   // or call assignment); the cafe check-in time when there is none yet.
   lastActivity: number;
   gameplayCountToday: number;
-  hasOpenAssignment: boolean;
 }
 
 export interface AssignmentRequest {
@@ -31,11 +30,10 @@ export interface ShiftSlot {
   chefUser?: string;
 }
 
-// Free people first, then whoever has gone the longest without an action,
-// then whoever explained fewer games today.
+// Whoever has gone the longest without an action, then whoever explained
+// fewer games today.
 function compareCandidates(a: AssignmentCandidate, b: AssignmentCandidate) {
   return (
-    Number(a.hasOpenAssignment) - Number(b.hasOpenAssignment) ||
     a.lastActivity - b.lastActivity ||
     a.gameplayCountToday - b.gameplayCountToday ||
     a.userId.localeCompare(b.userId)

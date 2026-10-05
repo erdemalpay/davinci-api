@@ -140,20 +140,89 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(byId.explained.lastActivity).toBe(hourToSeconds('14:15:00'));
     expect(byId.explained.gameplayCountToday).toBe(2);
     expect(byId.explained.knownGames.has(5)).toBe(true);
-    expect(byId.explained.hasOpenAssignment).toBe(false);
     expect(byId.new.lastActivity).toBe(hourToSeconds('16:00:00'));
   });
 
-  it('flags people with an open assigned call', async () => {
+  it('excludes people already handling an open call', async () => {
     const { service } = build({
-      visits: [visit('ali')],
-      users: [gm('ali')],
-      calls: [{ assignedTo: 'ali', assignedHour: '12:00:00' }],
+      visits: [visit('ali'), visit('ayse')],
+      users: [gm('ali'), gm('ayse')],
+      calls: [
+        { assignedTo: 'ali', assignedHour: '12:00:00' },
+        {
+          assignedTo: 'ayse',
+          assignedHour: '11:00:00',
+          finishHour: '11:10:00',
+        },
+      ],
     });
 
-    const [ali] = await service.findCandidates(location, date, '12:05:00', []);
+    const candidates = await service.findCandidates(
+      location,
+      date,
+      '12:05:00',
+      [],
+    );
 
-    expect(ali!.hasOpenAssignment).toBe(true);
+    expect(candidates.map((c) => c.userId)).toEqual(['ayse']);
+  });
+});
+
+describe('ButtonCallAssignmentService.claim', () => {
+  const openCall = {
+    _id: 7,
+    date: '2026-10-05',
+    type: 'GAMEMASTERCALL',
+    assignedTo: 'ayse',
+  };
+
+  function build(hasOtherOpenCall: boolean) {
+    const buttonCallModel = {
+      findById: jest.fn(() => query(openCall)),
+      exists: jest.fn(async () => (hasOtherOpenCall ? { _id: 3 } : null)),
+      findOneAndUpdate: jest.fn(async () => ({
+        ...openCall,
+        assignedTo: 'ali',
+      })),
+    };
+    const m = () => model([]) as never;
+    const service = new ButtonCallAssignmentService(
+      buttonCallModel as never,
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      { emitButtonCallChanged: jest.fn() } as never,
+    );
+    return { service, buttonCallModel };
+  }
+
+  it('lets a free game master take over a call', async () => {
+    const { service, buttonCallModel } = build(false);
+
+    const claimed = await service.claim({ _id: 'ali' } as never, 7);
+
+    expect(claimed.assignedTo).toBe('ali');
+    expect(buttonCallModel.exists).toHaveBeenCalledWith({
+      _id: { $ne: 7 },
+      date: '2026-10-05',
+      type: 'GAMEMASTERCALL',
+      assignedTo: 'ali',
+      finishHour: { $exists: false },
+    });
+  });
+
+  it('refuses when the game master already has an open call', async () => {
+    const { service, buttonCallModel } = build(true);
+
+    await expect(service.claim({ _id: 'ali' } as never, 7)).rejects.toThrow(
+      'You already have an assigned game master call',
+    );
+    expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });
 
