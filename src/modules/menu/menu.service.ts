@@ -1123,6 +1123,7 @@ export class MenuService {
     }
     if (updates?.matchedProduct) {
       const items = await this.itemModel.find({
+        _id: { $ne: id },
         matchedProduct: updates.matchedProduct,
       });
       if (items.length > 0) {
@@ -1137,6 +1138,18 @@ export class MenuService {
             ],
           });
         }
+      }
+      const matchedProduct = await this.accountingService.findProductById(
+        updates.matchedProduct,
+      );
+      if (matchedProduct?.matchedMenuItem !== item._id) {
+        await this.accountingService.updateItemProduct(
+          user,
+          updates.matchedProduct,
+          {
+            matchedMenuItem: item._id,
+          },
+        );
       }
       if (
         !item?.matchedProduct ||
@@ -1156,13 +1169,6 @@ export class MenuService {
           },
         ];
 
-        await this.accountingService.updateItemProduct(
-          user,
-          updates.matchedProduct,
-          {
-            matchedMenuItem: item._id,
-          },
-        );
         if (
           item?.matchedProduct &&
           item?.matchedProduct !== updates.matchedProduct
@@ -1455,6 +1461,7 @@ export class MenuService {
 
     if (updates?.matchedProduct) {
       const items = await this.itemModel.find({
+        _id: { $ne: id },
         matchedProduct: updates.matchedProduct,
       });
       if (items.length > 0) {
