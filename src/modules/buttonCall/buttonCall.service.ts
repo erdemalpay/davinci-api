@@ -18,6 +18,7 @@ import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
   ButtonCallActionEnum,
@@ -39,6 +40,7 @@ export class ButtonCallService {
     private readonly activityService: ActivityService,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
+    private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -79,6 +81,15 @@ export class ButtonCallService {
         createdButtonCall,
         ButtonCallActionEnum.CREATE,
       );
+      if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+        const assigned = await this.buttonCallAssignmentService
+          .assign(createdButtonCall._id)
+          .catch((error) => {
+            this.logger.error('Error assigning button call:', error);
+            return null;
+          });
+        return assigned ?? createdButtonCall;
+      }
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(

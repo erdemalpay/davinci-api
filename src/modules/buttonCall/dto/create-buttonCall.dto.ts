@@ -1,5 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+
+export enum GmCallReasonEnum {
+  RECOMMENDATION = 'RECOMMENDATION',
+  EXPLANATION = 'EXPLANATION',
+  QUESTION = 'QUESTION',
+}
 
 export class CreateButtonCallDto {
   @ApiProperty()
@@ -21,6 +33,22 @@ export class CreateButtonCallDto {
   @IsNotEmpty()
   @IsString()
   readonly hour: string;
+
+  @ApiProperty({ required: false, enum: GmCallReasonEnum })
+  @IsOptional()
+  @IsEnum(GmCallReasonEnum)
+  readonly gmCallReason?: GmCallReasonEnum;
+
+  // Game the table wants explained (GmCallReasonEnum.EXPLANATION).
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  readonly game?: number;
+}
+export enum AssignmentActionEnum {
+  ASSIGNED = 'assigned',
+  DECLINED = 'declined',
+  CLAIMED = 'claimed',
 }
 export enum ButtonCallTypeEnum {
   TABLECALL = 'TABLECALL',
@@ -33,6 +61,7 @@ export enum ButtonCallActionEnum {
   CREATE = 'create',
   RECALL = 'recall',
   CLOSE = 'close',
+  ASSIGN = 'assign',
 }
 
 export class ButtonCallQueryDto {

@@ -14,6 +14,7 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
@@ -21,7 +22,10 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 @ApiTags('ButtonCall')
 @Controller('button-calls')
 export class ButtonCallController {
-  constructor(private readonly buttonCallService: ButtonCallService) {}
+  constructor(
+    private readonly buttonCallService: ButtonCallService,
+    private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+  ) {}
 
   @ApiResponse({ type: [ButtonCall] })
   @Public()
@@ -97,6 +101,19 @@ export class ButtonCallController {
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
     return this.buttonCallService.close(user, closeButtonCallDto);
+  }
+
+  // The assigned game master can't go; the call moves to the next person.
+  @ApiResponse({ type: ButtonCall })
+  @Post('/:id/decline')
+  declineButtonCall(@ReqUser() user: User, @Param('id') id: number) {
+    return this.buttonCallAssignmentService.decline(user, Number(id));
+  }
+
+  @ApiResponse({ type: ButtonCall })
+  @Post('/:id/claim')
+  claimButtonCall(@ReqUser() user: User, @Param('id') id: number) {
+    return this.buttonCallAssignmentService.claim(user, Number(id));
   }
 
   @Delete('/:id')
