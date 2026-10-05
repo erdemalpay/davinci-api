@@ -1,5 +1,6 @@
 import {
   AssignmentCandidate,
+  findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
@@ -126,7 +127,7 @@ describe('pickAssignee', () => {
       ).toBe('knows-idle');
     });
 
-    it('falls back to anyone when nobody knows the game', () => {
+    it('waits instead of assigning someone who does not know the game', () => {
       const candidates = [
         candidate('a', { lastActivity: hourToSeconds('15:00:00') }),
         candidate('b', { lastActivity: hourToSeconds('09:00:00') }),
@@ -137,7 +138,7 @@ describe('pickAssignee', () => {
           reason: GmCallReasonEnum.EXPLANATION,
           game: 3,
         }),
-      ).toBe('b');
+      ).toBeUndefined();
     });
   });
 });
@@ -168,5 +169,45 @@ describe('findServiceStaff', () => {
     ];
     expect(findServiceStaff(night, '01:00:00')).toBe('night-service');
     expect(findServiceStaff(night, '03:00:00')).toBeUndefined();
+  });
+});
+
+describe('findScheduledStaff', () => {
+  const slots = [
+    {
+      shift: '10:00',
+      shiftEndHour: '16:00',
+      user: ['mert', 'ayse'],
+      chefUser: 'ayse',
+    },
+    { shift: '16:00', shiftEndHour: '23:00', user: ['ali', 'mert'] },
+  ];
+
+  it('lists people in running and upcoming slots with their start hour', () => {
+    const scheduled = findScheduledStaff(slots, '12:00:00');
+
+    expect(scheduled.get('mert')).toBe('10:00');
+    expect(scheduled.get('ali')).toBe('16:00');
+  });
+
+  it('leaves out service staff of the slot', () => {
+    expect(findScheduledStaff(slots, '12:00:00').has('ayse')).toBe(false);
+  });
+
+  it('drops slots that have already ended', () => {
+    const scheduled = findScheduledStaff(slots, '17:00:00');
+
+    expect(scheduled.get('mert')).toBe('16:00');
+    expect(scheduled.has('ayse')).toBe(false);
+  });
+
+  it('is empty after the last slot', () => {
+    expect(findScheduledStaff(slots, '23:30:00').size).toBe(0);
+  });
+
+  it('keeps a slot that passes midnight ahead during the day', () => {
+    const night = [{ shift: '20:00', shiftEndHour: '02:00', user: ['gece'] }];
+
+    expect(findScheduledStaff(night, '12:00:00').get('gece')).toBe('20:00');
   });
 });

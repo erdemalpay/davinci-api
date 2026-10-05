@@ -24,6 +24,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentCandidate,
   AssignmentRequest,
+  findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
@@ -32,6 +33,7 @@ import {
   AssignmentActionEnum,
   ButtonCallActionEnum,
   ButtonCallTypeEnum,
+  GameAvailabilityStatus,
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
@@ -300,12 +302,58 @@ export class ButtonCallAssignmentService {
     );
   }
 
-  async findCandidates(
+  // Whether a table asking for an explanation of `game` gets someone now,
+  // has to wait for a busy person in the cafe or for someone whose shift
+  // starts later today, or can't be helped today at all.
+  async getGameAvailability(
     location: number,
-    date: string,
-    hour: string,
-    excludedUsers: string[],
-  ): Promise<AssignmentCandidate[]> {
+    game: number,
+  ): Promise<{ status: GameAvailabilityStatus; availableFrom?: string }> {
+    const date = today();
+    const hour = nowHour();
+    const candidates = await this.findCandidates(location, date, hour, []);
+    if (candidates.some((c) => c.knownGames.has(game))) {
+      return { status: GameAvailabilityStatus.AVAILABLE };
+    }
+
+    const [checkInByUser, shift] = await Promise.all([
+      this.findCheckInByUser(location, date),
+      this.shiftModel.findOne({ day: date, location }).select('shifts').lean(),
+    ]);
+    const slots = shift?.shifts ?? [];
+    const serviceStaff = findServiceStaff(slots, hour);
+    const scheduled = findScheduledStaff(slots, hour);
+    const knowers = await this.userModel
+      .find({
+        _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
+        active: true,
+        role: { $in: GM_ROLES },
+        'userGames.game': game,
+      })
+      .select('_id')
+      .lean();
+    const knowerIds = knowers.map((user) => user._id as string);
+
+    // Service staff stay on service for their whole shift slot, so waiting
+    // for them makes no sense.
+    if (knowerIds.some((id) => checkInByUser.has(id) && id !== serviceStaff)) {
+      return { status: GameAvailabilityStatus.BUSY };
+    }
+    const arrivals = knowerIds
+      .filter((id) => !checkInByUser.has(id) && scheduled.has(id))
+      .map((id) => scheduled.get(id)!)
+      .sort((a, b) => hourToSeconds(a) - hourToSeconds(b));
+    if (arrivals.length > 0) {
+      return {
+        status: GameAvailabilityStatus.LATER,
+        availableFrom: arrivals[0],
+      };
+    }
+    return { status: GameAvailabilityStatus.UNAVAILABLE };
+  }
+
+  // Earliest open check-in hour of everyone in the cafe.
+  private async findCheckInByUser(location: number, date: string) {
     const visits = await this.visitModel
       .find({
         date,
@@ -323,6 +371,16 @@ export class ButtonCallAssignmentService {
         checkInByUser.set(userId, visit.startHour);
       }
     }
+    return checkInByUser;
+  }
+
+  async findCandidates(
+    location: number,
+    date: string,
+    hour: string,
+    excludedUsers: string[],
+  ): Promise<AssignmentCandidate[]> {
+    const checkInByUser = await this.findCheckInByUser(location, date);
 
     const [users, busyUserIds, serviceStaff, gameplays, calls] =
       await Promise.all([

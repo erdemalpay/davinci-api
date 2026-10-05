@@ -27,6 +27,7 @@ import {
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 
 @Injectable()
 export class ButtonCallService {
@@ -42,6 +43,7 @@ export class ButtonCallService {
     private readonly locationService: LocationService,
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -83,6 +85,13 @@ export class ButtonCallService {
         ButtonCallActionEnum.CREATE,
       );
       if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+        if (createdButtonCall.game) {
+          await this.unmetExplanationRequestService
+            .linkWaitingCall(createdButtonCall)
+            .catch((error) =>
+              this.logger.error('Error linking unmet request:', error),
+            );
+        }
         const assigned = await this.buttonCallAssignmentService
           .assign(createdButtonCall._id)
           .catch((error) => {

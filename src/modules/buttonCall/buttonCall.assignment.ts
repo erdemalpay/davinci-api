@@ -28,6 +28,7 @@ export interface ShiftSlot {
   shift: string;
   shiftEndHour?: string;
   chefUser?: string;
+  user?: string[];
 }
 
 // Whoever has gone the longest without an action, then whoever explained
@@ -69,33 +70,64 @@ export function pickAssignee(
     if (knowers.length > 0) {
       return best(knowers).userId;
     }
+    // A requested explanation only goes to someone who knows the game; the
+    // call waits in line until one of them is free.
+    if (reason === GmCallReasonEnum.EXPLANATION) {
+      return undefined;
+    }
   }
 
   return best(candidates).userId;
 }
 
+// Shift slots in start order with their time range in seconds. A slot
+// without an end hour runs until the next slot starts, or until the end of
+// the day for the last slot. An end before the start means past midnight.
+function withBounds(slots: ShiftSlot[]) {
+  const sorted = [...slots]
+    .filter((s) => s.shift)
+    .sort((a, b) => hourToSeconds(a.shift) - hourToSeconds(b.shift));
+  return sorted.map((slot, i) => {
+    const endHour = slot.shiftEndHour || sorted[i + 1]?.shift;
+    return {
+      slot,
+      start: hourToSeconds(slot.shift),
+      end: endHour ? hourToSeconds(endHour) : 24 * 3600,
+    };
+  });
+}
+
 // Service staff ("Servis Elemanı", stored as chefUser) of the shift slot
-// that covers the given hour. A slot without an end hour runs until the next
-// slot starts, or until the end of the day for the last slot.
+// that covers the given hour.
 export function findServiceStaff(
   slots: ShiftSlot[],
   hour: string,
 ): string | undefined {
   const now = hourToSeconds(hour);
-  const sorted = [...slots]
-    .filter((s) => s.shift)
-    .sort((a, b) => hourToSeconds(a.shift) - hourToSeconds(b.shift));
+  const current = withBounds(slots).find(({ start, end }) =>
+    end < start ? now >= start || now < end : now >= start && now < end,
+  );
+  return current?.slot.chefUser || undefined;
+}
 
-  for (let i = 0; i < sorted.length; i++) {
-    const slot = sorted[i]!;
-    const start = hourToSeconds(slot.shift);
-    const endHour = slot.shiftEndHour || sorted[i + 1]?.shift;
-    const end = endHour ? hourToSeconds(endHour) : 24 * 3600;
-    const covers =
-      end < start ? now >= start || now < end : now >= start && now < end;
-    if (covers) {
-      return slot.chefUser || undefined;
+// People scheduled in a slot that hasn't ended yet, with the hour their slot
+// starts; service staff of that slot are left out. Someone in several slots
+// gets the earliest one.
+export function findScheduledStaff(
+  slots: ShiftSlot[],
+  hour: string,
+): Map<string, string> {
+  const now = hourToSeconds(hour);
+  const fromByUser = new Map<string, string>();
+  for (const { slot, start, end } of withBounds(slots)) {
+    // A slot that passes midnight is still ahead or running all day.
+    const ended = end >= start && now >= end;
+    if (ended) continue;
+    for (const userId of slot.user ?? []) {
+      if (userId !== slot.chefUser && !fromByUser.has(userId)) {
+        fromByUser.set(userId, slot.shift);
+      }
     }
   }
-  return undefined;
+  return fromByUser;
 }

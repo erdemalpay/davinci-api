@@ -17,14 +17,20 @@ import { User } from '../user/user.schema';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
-import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
+import {
+  CheckGameAvailabilityDto,
+  CreateButtonCallDto,
+  UnmetExplanationRequestQueryDto,
+} from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 @ApiTags('ButtonCall')
 @Controller('button-calls')
 export class ButtonCallController {
   constructor(
     private readonly buttonCallService: ButtonCallService,
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+    private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
   ) {}
 
   @ApiResponse({ type: [ButtonCall] })
@@ -92,6 +98,21 @@ export class ButtonCallController {
       location,
       tableName,
     });
+  }
+
+  // Asked by the table before requesting an explanation of a game. Records
+  // an unmet request when nobody who knows the game is free.
+  @Public()
+  @Post('/game-availability')
+  checkGameAvailability(@Body() dto: CheckGameAvailabilityDto) {
+    return this.unmetExplanationRequestService.checkGameAvailability(dto);
+  }
+
+  @Get('/unmet-explanation-requests')
+  findUnmetExplanationRequests(
+    @Query() query: UnmetExplanationRequestQueryDto,
+  ) {
+    return this.unmetExplanationRequestService.findAll(query);
   }
 
   @ApiResponse({ type: ButtonCall })

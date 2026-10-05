@@ -19,11 +19,20 @@ import { Visit, VisitSchema } from '../visit/visit.schema';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { ButtonCallController } from './buttonCall.controller';
 import { ButtonCallService } from './buttonCall.service';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 import { ButtonCall, ButtonCallSchema } from './schemas/buttonCall.schema';
+import {
+  UnmetExplanationRequest,
+  UnmetExplanationRequestSchema,
+} from './schemas/unmetExplanationRequest.schema';
 import { WebSocketModule } from '../websocket/websocket.module';
 
 const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(ButtonCall.name, ButtonCallSchema),
+  createAutoIncrementConfig(
+    UnmetExplanationRequest.name,
+    UnmetExplanationRequestSchema,
+  ),
   // Read-only access for call assignment (who is available right now).
   createAutoIncrementConfig(Visit.name, VisitSchema),
   createAutoIncrementConfig(Break.name, BreakSchema),
@@ -44,7 +53,11 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     ActivityModule,
     forwardRef(() => LocationModule),
   ],
-  providers: [ButtonCallService, ButtonCallAssignmentService],
+  providers: [
+    ButtonCallService,
+    ButtonCallAssignmentService,
+    UnmetExplanationRequestService,
+  ],
   exports: [ButtonCallService],
   controllers: [ButtonCallController],
 })
