@@ -71,8 +71,7 @@ export class ButtonCallAssignmentService {
   async assign(callId: number): Promise<ButtonCall | null> {
     const call = await this.buttonCallModel.findById(callId).lean();
     if (
-      !call ||
-      call.type !== ButtonCallTypeEnum.GAMEMASTERCALL ||
+      call?.type !== ButtonCallTypeEnum.GAMEMASTERCALL ||
       call.finishHour ||
       call.assignedTo
     ) {
@@ -192,8 +191,11 @@ export class ButtonCallAssignmentService {
         finishHour: { $exists: false },
         assignedTo: { $exists: false },
       })
+      .sort({ createdAt: 1 })
       .select('_id')
       .lean();
+    // Oldest first and one at a time: each assignment changes who is free
+    // for the next call, so parallel runs could pick the same person.
     for (const { _id } of pending) {
       try {
         await this.assign(_id);
