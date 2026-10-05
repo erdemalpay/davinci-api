@@ -429,11 +429,17 @@ export class ButtonCallService {
     };
     if (location !== undefined) filter.location = location;
 
-    type Row = { tableName: string; createdAt: Date; type: string };
+    type Row = {
+      _id: number;
+      tableName: string;
+      createdAt: Date;
+      type: string;
+      explainerUnavailable?: boolean;
+    };
 
     const activeToday = await this.buttonCallModel
       .find(filter)
-      .select({ tableName: 1, createdAt: 1, type: 1 })
+      .select({ tableName: 1, createdAt: 1, type: 1, explainerUnavailable: 1 })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
       .exec();
@@ -445,6 +451,8 @@ export class ButtonCallService {
         position: number | null;
         waitingCount: number;
         totalActive: number;
+        callId?: number;
+        explainerUnavailable?: boolean;
       }
     > = {};
 
@@ -465,6 +473,11 @@ export class ButtonCallService {
               position: index + 1,
               waitingCount: index,
               totalActive,
+              callId: list[index]!._id,
+              // Lets the table pick another game when nobody can explain it.
+              ...(list[index]!.explainerUnavailable && {
+                explainerUnavailable: true,
+              }),
             };
     }
 

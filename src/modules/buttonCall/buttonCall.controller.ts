@@ -18,6 +18,7 @@ import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
+  ChangeGmCallRequestDto,
   CheckGameAvailabilityDto,
   CreateButtonCallDto,
   UnmetExplanationRequestQueryDto,
@@ -106,6 +107,24 @@ export class ButtonCallController {
   @Post('/game-availability')
   checkGameAvailability(@Body() dto: CheckGameAvailabilityDto) {
     return this.unmetExplanationRequestService.checkGameAvailability(dto);
+  }
+
+  // The table picked another game (or something else) after everyone who
+  // knows the requested game declined.
+  @Public()
+  @Post('/:id/change-request')
+  async changeGmCallRequest(
+    @Param('id') id: number,
+    @Body() dto: ChangeGmCallRequestDto,
+  ) {
+    const call = await this.buttonCallAssignmentService.changeRequest(
+      Number(id),
+      dto,
+    );
+    if (call.game) {
+      await this.unmetExplanationRequestService.linkWaitingCall(call);
+    }
+    return call;
   }
 
   @Get('/unmet-explanation-requests')

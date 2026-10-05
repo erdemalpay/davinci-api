@@ -71,6 +71,11 @@ export class ButtonCall extends Document {
   @Prop({ type: [String], default: [] })
   declinedBy: string[];
 
+  // An explanation call that everyone who knows the game declined; the
+  // table is offered to pick another game.
+  @Prop({ required: false, type: Boolean })
+  explainerUnavailable: boolean;
+
   @Prop({ type: [AssignmentHistoryEntrySchema], default: [] })
   assignmentHistory: AssignmentHistoryEntry[];
 }

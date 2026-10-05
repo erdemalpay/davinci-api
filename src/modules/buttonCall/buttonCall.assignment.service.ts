@@ -33,6 +33,7 @@ import {
   AssignmentActionEnum,
   ButtonCallActionEnum,
   ButtonCallTypeEnum,
+  ChangeGmCallRequestDto,
   GameAvailabilityStatus,
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
@@ -114,6 +115,7 @@ export class ButtonCallAssignmentService {
       },
       {
         $set: { assignedTo: userId, assignedHour: hour },
+        $unset: { explainerUnavailable: '' },
         $push: {
           assignmentHistory: {
             user: userId,
@@ -160,11 +162,72 @@ export class ButtonCallAssignmentService {
     if (reassigned) {
       return reassigned;
     }
+    const result = (await this.flagIfNoExplainerLeft(declined)) ?? declined;
     this.websocketGateway.emitButtonCallChanged(
-      declined,
+      result,
       ButtonCallActionEnum.ASSIGN,
     );
-    return declined;
+    return result;
+  }
+
+  // An explanation call stays in line for someone who knows the game. When
+  // everyone who knows it (in the cafe or arriving later today) has declined,
+  // flag the call so the table can pick another game.
+  private async flagIfNoExplainerLeft(call: ButtonCall) {
+    if (call.gmCallReason !== GmCallReasonEnum.EXPLANATION || !call.game) {
+      return null;
+    }
+    const { status } = await this.getGameAvailability(
+      call.location,
+      call.game,
+      call.declinedBy ?? [],
+    );
+    if (status !== GameAvailabilityStatus.UNAVAILABLE) {
+      return null;
+    }
+    return this.buttonCallModel.findOneAndUpdate(
+      { _id: call._id, finishHour: { $exists: false } },
+      { $set: { explainerUnavailable: true } },
+      { new: true },
+    );
+  }
+
+  // The table picked another game or asked for something else instead of
+  // the game nobody can explain. Keeps its place in the queue.
+  async changeRequest(
+    callId: number,
+    dto: ChangeGmCallRequestDto,
+  ): Promise<ButtonCall> {
+    const changed = await this.buttonCallModel.findOneAndUpdate(
+      {
+        _id: callId,
+        location: dto.location,
+        tableName: dto.tableName,
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        finishHour: { $exists: false },
+      },
+      {
+        $set: {
+          gmCallReason: dto.gmCallReason,
+          // People who declined the previous game may know the new one.
+          declinedBy: [],
+          ...(dto.game !== undefined && { game: dto.game }),
+        },
+        $unset: {
+          explainerUnavailable: '',
+          ...(dto.game === undefined && { game: '' }),
+        },
+      },
+      { new: true },
+    );
+    if (!changed) {
+      throw new NotFoundException('Call not found');
+    }
+    this.websocketGateway.emitButtonCallChanged(
+      changed,
+      ButtonCallActionEnum.ASSIGN,
+    );
+    return (await this.assign(callId)) ?? changed;
   }
 
   async claim(user: User, callId: number): Promise<ButtonCall> {
@@ -186,6 +249,7 @@ export class ButtonCallAssignmentService {
       { _id: callId, finishHour: { $exists: false } },
       {
         $set: { assignedTo: user._id, assignedHour: hour },
+        $unset: { explainerUnavailable: '' },
         $pull: { declinedBy: user._id },
         $push: {
           assignmentHistory: {
@@ -304,14 +368,21 @@ export class ButtonCallAssignmentService {
 
   // Whether a table asking for an explanation of `game` gets someone now,
   // has to wait for a busy person in the cafe or for someone whose shift
-  // starts later today, or can't be helped today at all.
+  // starts later today, or can't be helped today at all. `excludedUsers`
+  // (people who declined the call) don't count.
   async getGameAvailability(
     location: number,
     game: number,
+    excludedUsers: string[] = [],
   ): Promise<{ status: GameAvailabilityStatus; availableFrom?: string }> {
     const date = today();
     const hour = nowHour();
-    const candidates = await this.findCandidates(location, date, hour, []);
+    const candidates = await this.findCandidates(
+      location,
+      date,
+      hour,
+      excludedUsers,
+    );
     if (candidates.some((c) => c.knownGames.has(game))) {
       return { status: GameAvailabilityStatus.AVAILABLE };
     }
@@ -332,7 +403,9 @@ export class ButtonCallAssignmentService {
       })
       .select('_id')
       .lean();
-    const knowerIds = knowers.map((user) => user._id as string);
+    const knowerIds = knowers
+      .map((user) => user._id as string)
+      .filter((id) => !excludedUsers.includes(id));
 
     // Service staff stay on service for their whole shift slot, so waiting
     // for them makes no sense.

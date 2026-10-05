@@ -73,6 +73,28 @@ export class CheckGameAvailabilityDto {
   readonly game: number;
 }
 
+export class ChangeGmCallRequestDto {
+  // Identify the table so a call id alone can't change someone else's call.
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsNumber()
+  readonly location: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  readonly tableName: string;
+
+  @ApiProperty({ enum: GmCallReasonEnum })
+  @IsEnum(GmCallReasonEnum)
+  readonly gmCallReason: GmCallReasonEnum;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  readonly game?: number;
+}
+
 export class UnmetExplanationRequestQueryDto {
   @IsOptional()
   @IsNumber()
