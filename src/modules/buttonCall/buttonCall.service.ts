@@ -262,9 +262,23 @@ export class ButtonCallService {
     if (location !== undefined) query.location = location;
     if (type) query.finishHour = { $exists: !(type === 'active') };
 
-    const calls = await this.buttonCallModel.find(query);
-    // The cafe TV screen is public and can't load users, so it gets the
-    // assignee's name with the call.
+    // Public endpoint: leave out the internal assignment trail.
+    return this.buttonCallModel
+      .find(query)
+      .select('-assignmentHistory -declinedBy');
+  }
+
+  // For the public cafe TV screen: only what customers may see, with the
+  // assigned game master's first name.
+  async findForScreen(location: number) {
+    const calls = await this.buttonCallModel
+      .find({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        location,
+        finishHour: { $exists: false },
+      })
+      .select('tableName type startHour assignedTo')
+      .lean();
     const assigneeIds = [
       ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
     ];
@@ -274,11 +288,16 @@ export class ButtonCallService {
           .select('name')
           .lean()
       : [];
-    const nameById = new Map(assignees.map((u) => [u._id, u.name]));
+    const firstNameById = new Map(
+      assignees.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    );
     return calls.map((call) => ({
-      ...call.toJSON(),
+      _id: call._id,
+      tableName: call.tableName,
+      type: call.type,
+      startHour: call.startHour,
       ...(call.assignedTo && {
-        assignedToName: nameById.get(call.assignedTo),
+        assignedToName: firstNameById.get(call.assignedTo),
       }),
     }));
   }

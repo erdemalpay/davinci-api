@@ -21,7 +21,7 @@ import {
   ChangeGmCallRequestDto,
   CheckGameAvailabilityDto,
   CreateButtonCallDto,
-  UnmetExplanationRequestQueryDto,
+  CallReportQueryDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
@@ -43,6 +43,22 @@ export class ButtonCallController {
     @Query('type') type: string,
   ) {
     return this.buttonCallService.find(date, location, type);
+  }
+
+  // Active calls for the cafe TV screen, without staff-only details.
+  @Public()
+  @Get('/screen')
+  getScreenButtonCalls(@Query('location') location: number) {
+    if (!location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.findForScreen(Number(location));
+  }
+
+  // Declines, take-overs and automatic assignments, for the panel log.
+  @Get('/assignment-events')
+  findAssignmentEvents(@Query() query: CallReportQueryDto) {
+    return this.buttonCallAssignmentService.findAssignmentEvents(query);
   }
 
   @Get('/query')
@@ -128,9 +144,7 @@ export class ButtonCallController {
   }
 
   @Get('/unmet-explanation-requests')
-  findUnmetExplanationRequests(
-    @Query() query: UnmetExplanationRequestQueryDto,
-  ) {
+  findUnmetExplanationRequests(@Query() query: CallReportQueryDto) {
     return this.unmetExplanationRequestService.findAll(query);
   }
 

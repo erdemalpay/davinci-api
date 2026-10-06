@@ -6,7 +6,7 @@ import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import {
   CheckGameAvailabilityDto,
   GameAvailabilityStatus,
-  UnmetExplanationRequestQueryDto,
+  CallReportQueryDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequest } from './schemas/unmetExplanationRequest.schema';
@@ -72,7 +72,7 @@ export class UnmetExplanationRequestService {
     );
   }
 
-  async findAll(query: UnmetExplanationRequestQueryDto) {
+  async findAll(query: CallReportQueryDto) {
     const filter: Record<string, unknown> = {};
     if (query.location) filter.location = Number(query.location);
     if (query.after || query.before) {

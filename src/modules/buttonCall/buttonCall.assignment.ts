@@ -1,4 +1,7 @@
-import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
+import {
+  AssignmentActionEnum,
+  GmCallReasonEnum,
+} from './dto/create-buttonCall.dto';
 
 // Accepts both "HH:mm" (shifts) and "HH:mm:ss" (visits, calls).
 export function hourToSeconds(hour: string): number {
@@ -130,4 +133,32 @@ export function findScheduledStaff(
     }
   }
   return fromByUser;
+}
+
+export interface AssignmentHistoryItem {
+  user: string;
+  action: string;
+  hour: string;
+}
+
+export interface AssignmentEvent extends AssignmentHistoryItem {
+  // For a take-over: who had the call before.
+  fromUser?: string;
+}
+
+// Walks a call's assignment history in order and adds, for every take-over,
+// the person the call was taken from.
+export function toAssignmentEvents(
+  history: AssignmentHistoryItem[],
+): AssignmentEvent[] {
+  let current: string | undefined;
+  return history.map((entry) => {
+    const event: AssignmentEvent = { ...entry };
+    if (entry.action === AssignmentActionEnum.CLAIMED && current) {
+      event.fromUser = current;
+    }
+    current =
+      entry.action === AssignmentActionEnum.DECLINED ? undefined : entry.user;
+    return event;
+  });
 }

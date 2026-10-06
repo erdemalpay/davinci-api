@@ -4,6 +4,7 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
+  toAssignmentEvents,
 } from './buttonCall.assignment';
 import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
 
@@ -209,5 +210,41 @@ describe('findScheduledStaff', () => {
     const night = [{ shift: '20:00', shiftEndHour: '02:00', user: ['gece'] }];
 
     expect(findScheduledStaff(night, '12:00:00').get('gece')).toBe('20:00');
+  });
+});
+
+describe('toAssignmentEvents', () => {
+  it('adds who a call was taken over from', () => {
+    const events = toAssignmentEvents([
+      { user: 'ali', action: 'assigned', hour: '12:00:00' },
+      { user: 'ayse', action: 'claimed', hour: '12:01:00' },
+    ]);
+
+    expect(events[1]).toEqual({
+      user: 'ayse',
+      action: 'claimed',
+      hour: '12:01:00',
+      fromUser: 'ali',
+    });
+  });
+
+  it('has nobody to take over from after a decline', () => {
+    const events = toAssignmentEvents([
+      { user: 'ali', action: 'assigned', hour: '12:00:00' },
+      { user: 'ali', action: 'declined', hour: '12:02:00' },
+      { user: 'ayse', action: 'claimed', hour: '12:05:00' },
+    ]);
+
+    expect(events[2]!.fromUser).toBeUndefined();
+  });
+
+  it('follows a chain of take-overs', () => {
+    const events = toAssignmentEvents([
+      { user: 'ali', action: 'assigned', hour: '12:00:00' },
+      { user: 'ayse', action: 'claimed', hour: '12:01:00' },
+      { user: 'mert', action: 'claimed', hour: '12:03:00' },
+    ]);
+
+    expect(events.map((e) => e.fromUser)).toEqual([undefined, 'ali', 'ayse']);
   });
 });

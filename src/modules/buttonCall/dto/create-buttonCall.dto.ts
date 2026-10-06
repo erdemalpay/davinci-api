@@ -95,7 +95,7 @@ export class ChangeGmCallRequestDto {
   readonly game?: number;
 }
 
-export class UnmetExplanationRequestQueryDto {
+export class CallReportQueryDto {
   @IsOptional()
   @IsNumber()
   location?: number;

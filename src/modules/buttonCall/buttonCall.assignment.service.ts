@@ -28,11 +28,13 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
+  toAssignmentEvents,
 } from './buttonCall.assignment';
 import {
   AssignmentActionEnum,
   ButtonCallActionEnum,
   ButtonCallTypeEnum,
+  CallReportQueryDto,
   ChangeGmCallRequestDto,
   GameAvailabilityStatus,
   GmCallReasonEnum,
@@ -310,6 +312,43 @@ export class ButtonCallAssignmentService {
         this.logger.error(`Failed to assign button call ${_id}`, error);
       }
     }
+  }
+
+  // Every assignment, decline and take-over of game master calls in the
+  // range, newest first.
+  async findAssignmentEvents(query: CallReportQueryDto) {
+    const filter: Record<string, unknown> = {
+      type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      'assignmentHistory.0': { $exists: true },
+    };
+    if (query.location) filter.location = Number(query.location);
+    if (query.after || query.before) {
+      filter.date = {
+        ...(query.after && { $gte: query.after }),
+        ...(query.before && { $lte: query.before }),
+      };
+    }
+    const calls = await this.buttonCallModel
+      .find(filter)
+      .select('date location tableName gmCallReason game assignmentHistory')
+      .lean();
+    return calls
+      .flatMap((call) =>
+        toAssignmentEvents(call.assignmentHistory ?? []).map((event) => ({
+          ...event,
+          buttonCall: call._id,
+          date: call.date,
+          location: call.location,
+          tableName: call.tableName,
+          gmCallReason: call.gmCallReason,
+          game: call.game,
+        })),
+      )
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(a.date) ||
+          hourToSeconds(b.hour) - hourToSeconds(a.hour),
+      );
   }
 
   private async findOpenCall(callId: number) {
