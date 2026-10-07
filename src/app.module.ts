@@ -28,6 +28,7 @@ import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { HepsiburadaModule } from './modules/hepsiburada/hepsiburada.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { InstagramModule } from './modules/instagram/instagram.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationModule } from './modules/location/location.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
@@ -119,6 +120,7 @@ const modules = [
   WebhookLogModule,
   ConcurrencyLogModule,
   IntegrationRequestLogModule,
+  InventoryModule,
 ];
 
 if (config.get('migrationEnabled')) {

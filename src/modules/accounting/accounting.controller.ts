@@ -575,7 +575,12 @@ export class AccountingController {
     @ReqUser() user: User,
     @Body() consumptStockDto: ConsumptStockDto,
   ) {
-    return this.accountingService.consumptStock(user, consumptStockDto);
+    return consumptStockDto.inventory
+      ? this.accountingService.consumptStockWithInventory(
+          user,
+          consumptStockDto,
+        )
+      : this.accountingService.consumptStock(user, consumptStockDto);
   }
 
   @Post('/stocks/notify-back-in-stock')

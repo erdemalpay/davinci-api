@@ -14,6 +14,8 @@ import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
 import { IkasService } from '../ikas/ikas.service';
+import { InventoryBoxSource } from '../inventory/inventory.schema';
+import { InventoryService } from '../inventory/inventory.service';
 import { LocationService } from '../location/location.service';
 import {
   CreateNotificationDto,
@@ -148,6 +150,7 @@ export class AccountingService {
     private readonly backInStockService: BackInStockService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
+    private readonly inventoryService: InventoryService,
   ) {}
   //   Products
   async findAllProducts(user?: User) {
@@ -2935,7 +2938,11 @@ export class AccountingService {
     this.websocketGateway.emitStockChanged();
   }
 
-  async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
+  async consumptStock(
+    user: User,
+    consumptStockDto: ConsumptStockDto,
+    onHistoryCreated?: (historyId: number) => void,
+  ) {
     const stock = await this.stockModel.findOne({
       product: consumptStockDto.product,
       location: consumptStockDto.location,
@@ -3050,7 +3057,7 @@ export class AccountingService {
         );
       }
       if (consumptStockDto.quantity !== 0) {
-        await this.createProductStockHistory(user, {
+        const history = await this.createProductStockHistory(user, {
           user: user._id,
           product: consumptStockDto.product,
           location: consumptStockDto.location,
@@ -3062,6 +3069,7 @@ export class AccountingService {
               ? Number(newStock.quantity) + Number(consumptStockDto.quantity)
               : stock.quantity,
         });
+        onHistoryCreated?.(history._id);
       }
       this.websocketGateway.emitStockChanged();
       // Activity logging - fire and forget (non-blocking)
@@ -3117,6 +3125,69 @@ export class AccountingService {
       });
       return newStock;
     }
+  }
+
+  // Doğrulama stok düşmeden yapılır; kutu üretimi başarısızsa tüketim geri alınır.
+  async consumptStockWithInventory(user: User, dto: ConsumptStockDto) {
+    const { inventory } = dto;
+    if (!Number.isInteger(dto.quantity) || dto.quantity < 1) {
+      throw new HttpException(
+        'Quantity must be a positive integer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const hasStock = await this.stockModel.exists({
+      product: dto.product,
+      location: dto.location,
+    });
+    if (!hasStock) {
+      throw new HttpException(
+        'Stock record not found for this product and location',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const game = await this.inventoryService.validateConsumption({
+      product: dto.product,
+      location: inventory.location,
+      shortCode: inventory.shortCode,
+    });
+    let historyId: number | undefined;
+    const stock = await this.consumptStock(
+      user,
+      { product: dto.product, location: dto.location, quantity: dto.quantity },
+      (id) => {
+        historyId = id;
+      },
+    );
+    if (historyId === undefined) {
+      throw new HttpException(
+        'Stock history could not be linked',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    try {
+      await this.inventoryService.createBoxes(user, {
+        game: game._id,
+        quantity: dto.quantity,
+        location: inventory.location,
+        source: InventoryBoxSource.CONSUMPTION,
+        shortCode: inventory.shortCode,
+        stockHistory: historyId,
+      });
+    } catch (error) {
+      try {
+        await this.updateProductStockHistory(user, String(historyId), {
+          status: StockHistoryStatusEnum.CONSUMPTIONCANCEL,
+        });
+      } catch (cancelError) {
+        this.logger.error(
+          `Failed to cancel consumption ${historyId} after inventory error:`,
+          cancelError,
+        );
+      }
+      throw error;
+    }
+    return stock;
   }
   // Product Stock History
   async findAllProductStockHistories(
@@ -3295,7 +3366,19 @@ export class AccountingService {
       };
     }
 
-    return results[0];
+    const { data, ...rest } = results[0];
+    const withBoxes = new Set(
+      await this.inventoryService.findStockHistoryIdsWithBoxes(
+        data.map((history) => history._id),
+      ),
+    );
+    return {
+      ...rest,
+      data: data.map((history) => ({
+        ...history,
+        hasInventory: withBoxes.has(history._id),
+      })),
+    };
   }
 
   async findAggregatedProductStockHistory(
@@ -3531,6 +3614,12 @@ export class AccountingService {
         StockHistoryStatusEnum.CONSUMPTION,
       ].includes(updates?.status)
     ) {
+      if (updates.status === StockHistoryStatusEnum.CONSUMPTIONCANCEL) {
+        await this.inventoryService.handleConsumptionCancel(
+          user,
+          productStockHistory._id,
+        );
+      }
       await this.createStock(user, {
         product: productStockHistory.product,
         location: productStockHistory.location,

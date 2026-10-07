@@ -7,6 +7,7 @@ import { AssetModule } from '../asset/asset.module';
 import { BackInStockModule } from '../back-in-stock/back-in-stock.module';
 import { HepsiburadaModule } from '../hepsiburada/hepsiburada.module';
 import { IkasModule } from '../ikas/ikas.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MailModule } from '../mail/mail.module';
 import { MenuModule } from '../menu/menu.module';
@@ -81,6 +82,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => TrendyolModule),
     forwardRef(() => HepsiburadaModule),
     forwardRef(() => MenuModule),
+    InventoryModule,
   ],
   providers: [AccountingService],
   exports: [AccountingService],
