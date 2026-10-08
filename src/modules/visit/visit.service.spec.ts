@@ -100,6 +100,7 @@ describe('VisitService.notifyUnfinishedVisits', () => {
       shiftService as never,
       {} as never,
       {} as never,
+      { emit: jest.fn() } as never,
     );
     givenOpenVisits([]);
   });
@@ -295,6 +296,7 @@ describe('VisitService.toggleVisit (mevcut giriş/çıkış davranışı)', () =
       {} as never,
       {} as never,
       {} as never,
+      { emit: jest.fn() } as never,
     );
     finishSpy = jest
       .spyOn(service, 'finish')

@@ -18,6 +18,7 @@ import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
   ButtonCallActionEnum,
@@ -26,6 +27,7 @@ import {
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 
 @Injectable()
 export class ButtonCallService {
@@ -39,6 +41,9 @@ export class ButtonCallService {
     private readonly activityService: ActivityService,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
+    private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
+    private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -79,6 +84,22 @@ export class ButtonCallService {
         createdButtonCall,
         ButtonCallActionEnum.CREATE,
       );
+      if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+        if (createdButtonCall.game) {
+          await this.unmetExplanationRequestService
+            .linkWaitingCall(createdButtonCall)
+            .catch((error) =>
+              this.logger.error('Error linking unmet request:', error),
+            );
+        }
+        const assigned = await this.buttonCallAssignmentService
+          .assign(createdButtonCall._id)
+          .catch((error) => {
+            this.logger.error('Error assigning button call:', error);
+            return null;
+          });
+        return assigned ?? createdButtonCall;
+      }
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -241,7 +262,44 @@ export class ButtonCallService {
     if (location !== undefined) query.location = location;
     if (type) query.finishHour = { $exists: !(type === 'active') };
 
-    return this.buttonCallModel.find(query);
+    // Public endpoint: leave out the internal assignment trail.
+    return this.buttonCallModel
+      .find(query)
+      .select('-assignmentHistory -declinedBy');
+  }
+
+  // For the public cafe TV screen: only what customers may see, with the
+  // assigned game master's first name.
+  async findForScreen(location: number) {
+    const calls = await this.buttonCallModel
+      .find({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        location,
+        finishHour: { $exists: false },
+      })
+      .select('tableName type startHour assignedTo')
+      .lean();
+    const assigneeIds = [
+      ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
+    ];
+    const assignees = assigneeIds.length
+      ? await this.userModel
+          .find({ _id: { $in: assigneeIds } })
+          .select('name')
+          .lean()
+      : [];
+    const firstNameById = new Map(
+      assignees.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    );
+    return calls.map((call) => ({
+      _id: call._id,
+      tableName: call.tableName,
+      type: call.type,
+      startHour: call.startHour,
+      ...(call.assignedTo && {
+        assignedToName: firstNameById.get(call.assignedTo),
+      }),
+    }));
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
@@ -390,11 +448,17 @@ export class ButtonCallService {
     };
     if (location !== undefined) filter.location = location;
 
-    type Row = { tableName: string; createdAt: Date; type: string };
+    type Row = {
+      _id: number;
+      tableName: string;
+      createdAt: Date;
+      type: string;
+      explainerUnavailable?: boolean;
+    };
 
     const activeToday = await this.buttonCallModel
       .find(filter)
-      .select({ tableName: 1, createdAt: 1, type: 1 })
+      .select({ tableName: 1, createdAt: 1, type: 1, explainerUnavailable: 1 })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
       .exec();
@@ -406,6 +470,8 @@ export class ButtonCallService {
         position: number | null;
         waitingCount: number;
         totalActive: number;
+        callId?: number;
+        explainerUnavailable?: boolean;
       }
     > = {};
 
@@ -426,6 +492,11 @@ export class ButtonCallService {
               position: index + 1,
               waitingCount: index,
               totalActive,
+              callId: list[index]!._id,
+              // Lets the table pick another game when nobody can explain it.
+              ...(list[index]!.explainerUnavailable && {
+                explainerUnavailable: true,
+              }),
             };
     }
 
