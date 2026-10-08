@@ -145,6 +145,33 @@ export class AssetService {
     }
   }
 
+  private async getScreenImageUrls(): Promise<{ url: string }[]> {
+    const urls: { url: string }[] = [];
+    let nextCursor: string | undefined;
+
+    try {
+      do {
+        const result = await cloudinary.v2.api.resources({
+          type: 'upload',
+          prefix: `${SCREEN_IMAGES_FOLDER}/`,
+          max_results: 500,
+          next_cursor: nextCursor,
+        });
+        urls.push(
+          ...result.resources.map(({ secure_url }) => ({ url: secure_url })),
+        );
+        nextCursor = result.next_cursor;
+      } while (nextCursor);
+      return urls.reverse();
+    } catch (error) {
+      console.error('Error fetching screen images:', error);
+      throw new HttpException(
+        error.message || 'Error fetching screen images',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
   async getScreenImages(): Promise<{ url: string }[]> {
     try {
       const cachedImages = await this.redisService.get(RedisKeys.ScreenImages);
@@ -155,8 +182,7 @@ export class AssetService {
       console.error('Failed to retrieve screen images from Redis:', error);
     }
 
-    const images = await this.getFolderImages(SCREEN_IMAGES_FOLDER);
-    const urls = images.map(({ url }) => ({ url }));
+    const urls = await this.getScreenImageUrls();
 
     try {
       await this.redisService.set(RedisKeys.ScreenImages, urls);
