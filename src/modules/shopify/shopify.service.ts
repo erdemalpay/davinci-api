@@ -1795,6 +1795,32 @@ export class ShopifyService {
     }
   }
 
+  // Menü kaleminde shopifyVariantId yoksa (eski kayıtlar, elle bağlananlar) ürünün ilk varyantını bulur ve DB'ye yazar.
+  async resolveVariantId(
+    productId: string,
+    knownVariantId?: string,
+  ): Promise<string | undefined> {
+    if (knownVariantId) {
+      return knownVariantId;
+    }
+
+    const product = await this.getProductById(productId);
+    const variantId = product?.variants?.edges?.[0]?.node?.id?.split('/').pop();
+    if (!variantId) {
+      this.logger.warn(`No variant found for product ${productId}`);
+      return undefined;
+    }
+
+    try {
+      await this.menuService.bulkUpdateShopifyVariantIds(
+        new Map([[productId, variantId]]),
+      );
+    } catch (error) {
+      this.logError('Error saving variant ID to database', error);
+    }
+    return variantId;
+  }
+
   async updateProductPrice(
     productId: string,
     variantId: string,
