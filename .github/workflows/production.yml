@@ -11,21 +11,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
           cache: yarn
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        # Lifecycle scripts are disabled; bcrypt is the only dependency that
+        # needs one (native binding), so it is rebuilt explicitly.
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npm rebuild bcrypt
+
+      - name: Lint
+        run: yarn lint:check
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
 
       - name: Build application
         run: yarn build

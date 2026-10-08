@@ -105,7 +105,7 @@ export class WebhookLogService {
    * Marks pending webhook logs as failed if they're older than the timeout
    * This handles cases where updateWebhookResponse was called but failed silently
    */
-  async markStalePendingLogsAsFailed(timeoutMs: number = 60000): Promise<void> {
+  async markStalePendingLogsAsFailed(timeoutMs = 60000): Promise<void> {
     const timeoutDate = new Date(Date.now() - timeoutMs);
     
     const result = await this.webhookLogModel.updateMany(
@@ -157,8 +157,8 @@ export class WebhookLogService {
    * Lists all logs (with pagination)
    */
   async findAll(
-    page: number = 1,
-    limit: number = 50,
+    page = 1,
+    limit = 50,
     filters?: {
       source?: WebhookSource;
       status?: WebhookStatus;

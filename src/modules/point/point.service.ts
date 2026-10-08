@@ -211,7 +211,7 @@ export class PointService {
   }
 
   async createPoint(user: User, createPointDto: CreatePointDto) {
-    let query: any = {};
+    const query: any = {};
     if (createPointDto.user) query.user = createPointDto.user;
     if (createPointDto.consumer) query.consumer = createPointDto.consumer;
     const existingPoint = await this.pointModel.findOne(query);
@@ -270,7 +270,7 @@ export class PointService {
   }
 
   async findUserPoints(userId: string, consumerId?: number) {
-    let query: any = {};
+    const query: any = {};
     if (userId) query.user = userId;
     if (consumerId) query.consumer = consumerId;
     const point = await this.pointModel.findOne(query);
@@ -361,7 +361,7 @@ export class PointService {
     createdBy?: string,
     consumerId?: number,
   ) {
-    let query: any = {};
+    const query: any = {};
     if (userId) query.user = userId;
     if (consumerId) query.consumer = consumerId;
 
@@ -411,7 +411,7 @@ export class PointService {
     createdBy?: string,
     consumerId?: number,
   ) {
-    let query: any = {};
+    const query: any = {};
     if (userId) query.user = userId;
     if (consumerId) query.consumer = consumerId;
 

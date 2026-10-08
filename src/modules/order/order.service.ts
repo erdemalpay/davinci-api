@@ -2817,6 +2817,40 @@ export class OrderService {
     }
   }
 
+  async refundShopifyShipping(
+    shopifyOrderId: string,
+    amount: number,
+    refundId: string,
+  ) {
+    const collection = await this.collectionModel
+      .findOne({
+        shopifyId: shopifyOrderId,
+        status: { $ne: OrderCollectionStatus.CANCELLED },
+      })
+      .sort({ shopifyShippingAmount: -1 });
+
+    if (!collection || collection.shopifyRefundIds?.includes(refundId)) {
+      return null;
+    }
+
+    const updatedCollection = await this.collectionModel.findByIdAndUpdate(
+      collection._id,
+      {
+        $set: {
+          shopifyShippingAmount: Math.max(
+            (collection.shopifyShippingAmount ?? 0) - amount,
+            0,
+          ),
+        },
+        $addToSet: { shopifyRefundIds: refundId },
+      },
+      { new: true },
+    );
+
+    this.websocketGateway.emitCollectionChanged(updatedCollection);
+    return updatedCollection;
+  }
+
   async cancelTrendyolOrder(
     user: User,
     trendyolLineItemId: string,
@@ -3478,7 +3512,7 @@ export class OrderService {
         },
       };
     }
-    let categoryPipeline: PipelineStage[] = [
+    const categoryPipeline: PipelineStage[] = [
       {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
@@ -3576,7 +3610,7 @@ export class OrderService {
         },
       },
     ];
-    let upperCategoryPipeline: PipelineStage[] = [
+    const upperCategoryPipeline: PipelineStage[] = [
       {
         $match: {
           createdAt: { $gte: twelveMonthsAgo },
@@ -4611,8 +4645,16 @@ export class OrderService {
   }
 
   async createDiscount(user: User, createDiscountDto: CreateDiscountDto) {
+    const discountValues = { ...createDiscountDto };
+    if (discountValues.isCustom) {
+      if (discountValues.status !== 'deleted') {
+        await this.assertNoOtherActiveCustomDiscount();
+      }
+      delete discountValues.percentage;
+      delete discountValues.amount;
+    }
     const discount = new this.discountModel({
-      ...createDiscountDto,
+      ...discountValues,
     });
     try {
       await discount.save();
@@ -4625,23 +4667,74 @@ export class OrderService {
     this.websocketGateway.emitDiscountChanged();
     return discount;
   }
-  async updateDiscount(user: User, id: number, updates: UpdateQuery<Discount>) {
+
+  private async assertNoOtherActiveCustomDiscount(excludeId?: number) {
+    const filter: Record<string, unknown> = {
+      isCustom: true,
+      status: { $ne: 'deleted' },
+    };
+    if (excludeId !== undefined) {
+      filter._id = { $ne: excludeId };
+    }
+    const existingCustomDiscount = await this.discountModel.findOne(filter);
+    if (existingCustomDiscount) {
+      throw new HttpException(
+        'Only one active custom discount is allowed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async updateDiscount(
+    user: User,
+    id: number,
+    updates: Partial<CreateDiscountDto>,
+  ) {
+    const allowedFields = new Set([
+      'name',
+      'percentage',
+      'amount',
+      'isNoteRequired',
+      'isOnlineOrder',
+      'isStoreOrder',
+      'isVisibleOnPaymentScreen',
+      'isMemberDiscount',
+      'isCustom',
+      'status',
+      'note',
+    ]);
+    if (Object.keys(updates).some((key) => !allowedFields.has(key))) {
+      throw new HttpException(
+        'Invalid discount update fields',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const foundDiscount = await this.discountModel.findById(id);
     if (!foundDiscount) {
       throw new HttpException('Discount not found', HttpStatus.NOT_FOUND);
     }
+    const valueUpdates: Partial<CreateDiscountDto> = { ...updates };
+    const nextIsCustom = valueUpdates.isCustom ?? foundDiscount.isCustom;
+    const nextStatus = valueUpdates.status ?? foundDiscount.status;
+    if (nextIsCustom && nextStatus !== 'deleted') {
+      await this.assertNoOtherActiveCustomDiscount(id);
+    }
     const unsetFields: Record<string, 1> = {};
-    if (foundDiscount?.percentage && updates.amount) {
+    if (nextIsCustom) {
       unsetFields.percentage = 1;
-      delete updates.percentage;
-    }
-    if (foundDiscount?.amount && updates.percentage) {
       unsetFields.amount = 1;
-      delete updates.amount;
+      delete valueUpdates.percentage;
+      delete valueUpdates.amount;
+    } else if (foundDiscount?.percentage && valueUpdates.amount) {
+      unsetFields.percentage = 1;
+      delete valueUpdates.percentage;
+    } else if (foundDiscount?.amount && valueUpdates.percentage) {
+      unsetFields.amount = 1;
+      delete valueUpdates.amount;
     }
-    const updateQuery: UpdateQuery<Discount> = { ...updates };
+    const updateQuery: UpdateQuery<Discount> = { ...valueUpdates };
     if (Object.keys(unsetFields).length > 0) {
-      updateQuery.$unset = unsetFields;
+      updateQuery.$unset = { ...updateQuery.$unset, ...unsetFields };
     }
     const discount = await this.discountModel.findByIdAndUpdate(
       id,
@@ -5502,39 +5595,161 @@ export class OrderService {
     discountPercentage?: number,
     discountAmount?: number,
     discountNote?: string,
+    customDiscountAmount?: number,
   ) {
+    const discountDefinition = await this.discountModel.findById(discount);
+    const isCustomApplication =
+      customDiscountAmount !== undefined || discountDefinition?.isCustom;
+    let validatedCustomOrder: Order | null = null;
+    let customPerUnitDiscount: number | undefined;
+
+    if (isCustomApplication) {
+      if (
+        !discountDefinition ||
+        !discountDefinition.isCustom ||
+        discountDefinition.status === 'deleted'
+      ) {
+        throw new HttpException(
+          'Custom discount not found or inactive',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (customDiscountAmount === undefined) {
+        throw new HttpException(
+          'Custom discount amount is required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (orders.length !== 1) {
+        throw new HttpException(
+          'Custom discount can only be applied to one order',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const selection = orders[0];
+      validatedCustomOrder = await this.orderModel.findById(selection.orderId);
+      if (!validatedCustomOrder) {
+        throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
+      }
+      const remainingQuantity =
+        validatedCustomOrder.quantity - validatedCustomOrder.paidQuantity;
+      if (
+        selection.totalQuantity !== validatedCustomOrder.quantity ||
+        !Number.isInteger(selection.selectedQuantity) ||
+        selection.selectedQuantity < 1 ||
+        selection.selectedQuantity > remainingQuantity
+      ) {
+        throw new HttpException(
+          'Invalid custom discount quantity',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (validatedCustomOrder.discount) {
+        throw new HttpException(
+          'Order already has a discount',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const orderTableReference = validatedCustomOrder.table;
+      const tableId =
+        typeof orderTableReference === 'object' && orderTableReference !== null
+          ? (orderTableReference as Table)._id
+          : orderTableReference;
+      if (tableId === undefined || tableId === null) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
+      const orderTable = await this.tableService.findById(tableId);
+      if (!orderTable) {
+        throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
+      }
+      const hasNoSalesChannel =
+        !discountDefinition.isOnlineOrder &&
+        !discountDefinition.isStoreOrder;
+      const isAvailableForChannel = orderTable.isOnlineSale
+        ? discountDefinition.isOnlineOrder
+        : discountDefinition.isStoreOrder || hasNoSalesChannel;
+      if (!isAvailableForChannel) {
+        throw new HttpException(
+          'Custom discount is not available for this sales channel',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        !Number.isFinite(customDiscountAmount) ||
+        customDiscountAmount <= 0 ||
+        customDiscountAmount >
+          validatedCustomOrder.unitPrice * selection.selectedQuantity
+      ) {
+        throw new HttpException(
+          'Invalid custom discount amount',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        discountDefinition.isNoteRequired &&
+        !discountNote?.trim()
+      ) {
+        throw new HttpException(
+          'Discount note is required for this discount',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      customPerUnitDiscount =
+        customDiscountAmount / selection.selectedQuantity;
+    }
+
+    const totalSelectedQuantity = orders.reduce(
+      (acc, order) => acc + order.selectedQuantity,
+      0,
+    );
+    const appliedDiscountPercentage = isCustomApplication
+      ? undefined
+      : discountPercentage;
+    const appliedDiscountAmount = isCustomApplication
+      ? customPerUnitDiscount
+      : discountAmount
+      ? discountAmount / totalSelectedQuantity
+      : undefined;
+    const appliedDiscountNote = isCustomApplication
+      ? discountNote?.trim() ?? ''
+      : discountNote ?? '';
+
     for (const orderItem of orders) {
-      const oldOrder = await this.orderModel.findById(orderItem.orderId);
+      const oldOrder =
+        validatedCustomOrder ??
+        (await this.orderModel.findById(orderItem.orderId));
       if (!oldOrder) {
         throw new HttpException('Order not found', HttpStatus.BAD_REQUEST);
       }
-      const totalSelectedQuantity = orders.reduce(
-        (acc, order) => acc + order.selectedQuantity,
-        0,
-      );
-      if (orderItem.selectedQuantity === orderItem.totalQuantity) {
+      const sourceQuantity = isCustomApplication
+        ? oldOrder.quantity
+        : orderItem.totalQuantity;
+      if (orderItem.selectedQuantity === sourceQuantity) {
         try {
           const updatedOrder = await this.orderModel.findByIdAndUpdate(
             orderItem.orderId,
             {
               discount: discount,
-              ...(discountPercentage && {
-                discountPercentage: discountPercentage,
+              ...(appliedDiscountPercentage && {
+                discountPercentage: appliedDiscountPercentage,
                 paidQuantity:
-                  discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
+                  appliedDiscountPercentage >= 100
+                    ? orderItem.selectedQuantity
+                    : 0,
               }),
-              ...(discountAmount && {
+              ...(appliedDiscountAmount !== undefined && {
                 discountAmount: Math.min(
-                  discountAmount / totalSelectedQuantity,
+                  appliedDiscountAmount,
                   oldOrder?.unitPrice,
                 ),
 
                 paidQuantity:
-                  discountAmount / totalSelectedQuantity >= oldOrder?.unitPrice
+                  appliedDiscountAmount >= oldOrder?.unitPrice
                     ? orderItem.selectedQuantity
                     : 0,
               }),
-              discountNote: discountNote ?? '',
+              discountNote: appliedDiscountNote,
             },
             { new: true },
           );
@@ -5565,22 +5780,24 @@ export class OrderService {
           quantity: orderItem.selectedQuantity,
           discount: discount,
           tableDate: oldOrder.tableDate ?? new Date(),
-          ...(discountPercentage && {
-            discountPercentage: discountPercentage,
+          ...(appliedDiscountPercentage && {
+            discountPercentage: appliedDiscountPercentage,
             paidQuantity:
-              discountPercentage >= 100 ? orderItem.selectedQuantity : 0,
-          }),
-          ...(discountAmount && {
-            discountAmount: Math.min(
-              discountAmount / totalSelectedQuantity,
-              oldOrder?.unitPrice,
-            ),
-            paidQuantity:
-              discountAmount / totalSelectedQuantity >= oldOrder?.unitPrice
+              appliedDiscountPercentage >= 100
                 ? orderItem.selectedQuantity
                 : 0,
           }),
-          discountNote: discountNote ?? '',
+          ...(appliedDiscountAmount !== undefined && {
+            discountAmount: Math.min(
+              appliedDiscountAmount,
+              oldOrder?.unitPrice,
+            ),
+            paidQuantity:
+              appliedDiscountAmount >= oldOrder?.unitPrice
+                ? orderItem.selectedQuantity
+                : 0,
+          }),
+          discountNote: appliedDiscountNote,
         });
         try {
           await newOrder.save();
@@ -5617,8 +5834,7 @@ export class OrderService {
           throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
         }
         // Update the old order
-        const newQuantity =
-          orderItem.totalQuantity - orderItem.selectedQuantity;
+        const newQuantity = sourceQuantity - orderItem.selectedQuantity;
 
         if (newQuantity < 0) {
           throw new HttpException(

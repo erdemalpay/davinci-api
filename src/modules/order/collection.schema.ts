@@ -87,6 +87,9 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   shopifyDiscountCode?: string;
 
+  @Prop({ required: false, type: [String] })
+  shopifyRefundIds?: string[];
+
   @Prop({ required: false, type: String })
   trendyolOrderNumber: string;
 

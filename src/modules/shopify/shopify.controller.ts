@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateAutomaticProductDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateAutomaticProductDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
+import { ShopifyWebhook } from './shopify-webhook.guard';
 import { ShopifyService } from './shopify.service';
 
 @Controller('shopify')
@@ -129,7 +130,7 @@ export class ShopifyController {
     return this.shopifyService.updateAllProductStocks();
   }
 
-  @Public()
+  @ShopifyWebhook()
   @Post('/order-create-webhook')
   createOrderWebhook(@Body() data?: any) {
     // Shopify 5 sn içinde 200 alamazsa retry yapıyor ve duplike sipariş oluşuyor.
@@ -141,19 +142,19 @@ export class ShopifyController {
     return { received: true };
   }
 
-  @Public()
+  @ShopifyWebhook()
   @Post('/order-cancel-webhook')
   orderCancelWebHook(@Body() data?: any) {
     return this.shopifyService.orderCancelWebHook(data);
   }
 
-  @Public()
+  @ShopifyWebhook()
   @Post('/order-fulfilled-webhook')
   orderFulfilledWebHook(@Body() data?: any) {
     return this.shopifyService.orderFulfilledWebHook(data);
   }
 
-  @Public()
+  @ShopifyWebhook()
   @Post('/order-edit-webhook')
   orderEditWebHook(@Body() data?: any) {
     // Shopify 5 sn içinde 200 alamazsa retry eder; hemen 200 dönüp arka planda işliyoruz.

@@ -23,6 +23,7 @@ export class AuthService {
   async login(user: User) {
     const payload = {
       username: user._id,
+      isVisitDisabled: user?.isVisitDisabled ?? false,
     };
     const isUserActive = await this.userService.checkUserActive(user._id);
     if (!isUserActive) {

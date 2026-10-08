@@ -430,7 +430,7 @@ export class ShopifyService {
    */
   private async executeGraphQLRequest<T>(
     requestFn: () => Promise<T>,
-    maxRetries: number = 3,
+    maxRetries = 3,
   ): Promise<T> {
     let retryCount = 0;
 
@@ -981,7 +981,7 @@ export class ShopifyService {
     const cursorCacheKey = `${RedisKeys.ShopifyCustomerCursors}:${searchKey}`;
     const countCacheKey = `${RedisKeys.ShopifyCustomerCount}:${searchKey}`;
 
-    let cursors: Record<number, string> =
+    const cursors: Record<number, string> =
       (await this.redisService.get(cursorCacheKey)) || {};
 
     let cursor: string | null = null;
@@ -2349,7 +2349,7 @@ export class ShopifyService {
   async createFulfillmentForPickupOrder(
     shopifyOrderId: string,
     pickedLineItemIds: string[],
-    notifyCustomer: boolean = false,
+    notifyCustomer = false,
   ): Promise<any[]> {
     try {
       const raw = await this.getFulfillmentOrdersForOrder(shopifyOrderId);
@@ -2523,7 +2523,7 @@ export class ShopifyService {
    */
   async createFulfillmentForPickup(
     fulfillmentOrderId: string,
-    notifyCustomer: boolean = false,
+    notifyCustomer = false,
   ): Promise<any> {
     const mutation = `
       mutation FulfillPickupOrder($fulfillmentOrderId: ID!, $notifyCustomer: Boolean!) {
@@ -3223,6 +3223,8 @@ export class ShopifyService {
       // Order + collection management is handled atomically inside cancelShopifyOrder.
       let cancellationsProcessed = 0;
       let refundsProcessed = 0;
+      let shippingRefundsProcessed = 0;
+      const shopifyOrderId = String(data?.order_id ?? data?.id);
 
       for (const action of actions) {
         try {
@@ -3237,6 +3239,16 @@ export class ShopifyService {
               action.restock,
             );
             cancellationsProcessed++;
+          } else if (action.type === 'shipping_refund') {
+            this.logger.log(
+              `Shipping refund for order ${shopifyOrderId}: ${action.amount}`,
+            );
+            await this.orderService.refundShopifyShipping(
+              shopifyOrderId,
+              action.amount,
+              action.refundId,
+            );
+            shippingRefundsProcessed++;
           } else {
             this.logger.log(
               `Partial refund for line item ${action.lineItemId}: ${action.refundAmount}`,
@@ -3259,6 +3271,7 @@ export class ShopifyService {
         success: true,
         cancellationsProcessed,
         refundsProcessed,
+        shippingRefundsProcessed,
       };
 
       if (webhookLog) {
@@ -3974,8 +3987,8 @@ export class ShopifyService {
   // we are cancelling it at our side first, then this function cancels it at shopify side(we need to call it at orderservice though)
   async cancelShopifyOrderAtShopify(
     orderId: string,
-    notifyCustomer: boolean = true,
-    restock: boolean = true,
+    notifyCustomer = true,
+    restock = true,
     reason: OrderCancelReason = OrderCancelReason.CUSTOMER,
     staffNote?: string,
   ) {
@@ -4053,7 +4066,7 @@ export class ShopifyService {
       restockType?: 'RETURN' | 'CANCEL' | 'LEGACY_RESTOCK' | 'NO_RESTOCK';
       locationId?: string; // Shopify location ID for restocking
     }>,
-    notifyCustomer: boolean = true,
+    notifyCustomer = true,
     note?: string,
   ) {
     const mutation = `

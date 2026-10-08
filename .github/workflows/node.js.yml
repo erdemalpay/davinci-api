@@ -13,19 +13,30 @@ jobs:
     env:
       DEPLOY_ENV: ${{ github.ref_name == 'franchise1' && 'franchise1' || 'staging' }}
 
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
       - uses: actions/checkout@v2
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
 
-      - run: yarn
+      - name: Install dependencies
+        # Lifecycle scripts are disabled; bcrypt is the only dependency that
+        # needs one (native binding), so it is rebuilt explicitly.
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npm rebuild bcrypt
+
+      - name: Lint
+        run: yarn lint:check
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
+
       - run: yarn build
 
       - name: Create .env file
@@ -49,6 +60,9 @@ jobs:
           SHOPIFY_STAGING_API_SECRET: ${{ secrets.SHOPIFY_STAGING_API_SECRET }}
           SHOPIFY_STAGING_STORE_URL: ${{ secrets.SHOPIFY_STAGING_STORE_URL }}
           SHOPIFY_STAGING_HOST_URL: ${{ secrets.SHOPIFY_STAGING_HOST_URL }}
+          SHOPIFY_WEBHOOK_SECRET: ${{ secrets.SHOPIFY_WEBHOOK_SECRET }}
+          SHOPIFY_STAGING_WEBHOOK_SECRET: ${{ secrets.SHOPIFY_STAGING_WEBHOOK_SECRET }}
+          SHOPIFY_WEBHOOK_HMAC_ENFORCE: ${{ vars.SHOPIFY_WEBHOOK_HMAC_ENFORCE }}
           TRENDYOL_BASE_URL: ${{ secrets.TRENDYOL_BASE_URL }}
           TRENDYOL_STAGING_BASE_URL: ${{ secrets.TRENDYOL_STAGING_BASE_URL }}
           TRENDYOL_SELLER_ID: ${{ secrets.TRENDYOL_SELLER_ID }}
@@ -93,6 +107,9 @@ jobs:
           echo SHOPIFY_STAGING_API_SECRET="$SHOPIFY_STAGING_API_SECRET" >> .env
           echo SHOPIFY_STAGING_STORE_URL="$SHOPIFY_STAGING_STORE_URL" >> .env
           echo SHOPIFY_STAGING_HOST_URL="$SHOPIFY_STAGING_HOST_URL" >> .env
+          echo SHOPIFY_WEBHOOK_SECRET="$SHOPIFY_WEBHOOK_SECRET" >> .env
+          echo SHOPIFY_STAGING_WEBHOOK_SECRET="$SHOPIFY_STAGING_WEBHOOK_SECRET" >> .env
+          echo SHOPIFY_WEBHOOK_HMAC_ENFORCE="$SHOPIFY_WEBHOOK_HMAC_ENFORCE" >> .env
           echo TRENDYOL_BASE_URL="$TRENDYOL_BASE_URL" >> .env
           echo TRENDYOL_STAGING_BASE_URL="$TRENDYOL_STAGING_BASE_URL" >> .env
           echo TRENDYOL_SELLER_ID="$TRENDYOL_SELLER_ID" >> .env
