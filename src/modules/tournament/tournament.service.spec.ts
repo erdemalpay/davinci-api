@@ -1,3 +1,7 @@
+jest.mock('@shopify/shopify-api/adapters/node', () => ({}), {
+  virtual: true,
+});
+
 import { BadRequestException } from '@nestjs/common';
 import * as moment from 'moment-timezone';
 import {
@@ -64,12 +68,16 @@ const createService = ({
     create: jest.fn().mockImplementation(async (docs) => docs),
   };
   const websocketGateway = { emitTournamentChanged: jest.fn() };
+  const tournamentMailService = {
+    sendRegistrationMail: jest.fn().mockResolvedValue(true),
+  };
   const service = new TournamentService(
     tournamentModel as any,
     registrationModel as any,
     participantModel as any,
     matchModel as any,
     websocketGateway as any,
+    tournamentMailService as any,
   );
   return {
     service,
@@ -77,6 +85,7 @@ const createService = ({
     registrationModel,
     participantModel,
     matchModel,
+    tournamentMailService,
   };
 };
 
@@ -95,6 +104,36 @@ describe('TournamentService.register', () => {
         tournamentId: 1,
       }),
     );
+  });
+
+  it('kayıt oluşunca turnuva ve kayıtla birlikte mail gönderir', async () => {
+    const { service, registrationModel, tournamentMailService } =
+      createService();
+    const registration = { _id: 5, email: 'ali@mail.com' };
+    registrationModel.create.mockResolvedValue(registration);
+    await service.register('catan', {
+      fullName: 'Ali',
+      phone: '0555 000 00 00',
+      email: 'Ali@Mail.com',
+    });
+    expect(tournamentMailService.sendRegistrationMail).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: 1 }),
+      registration,
+    );
+  });
+
+  it('kayıt reddedilirse mail göndermez', async () => {
+    const { service, registrationModel, tournamentMailService } =
+      createService();
+    registrationModel.create.mockRejectedValue({ code: 11000 });
+    await expect(
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '0555 000 00 00',
+        email: 'ali@mail.com',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(tournamentMailService.sendRegistrationMail).not.toHaveBeenCalled();
   });
 
   it('turnuva başladıysa kaydı reddeder', async () => {

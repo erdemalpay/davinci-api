@@ -9,6 +9,7 @@ import { Model, UpdateQuery } from 'mongoose';
 import { isMongoDuplicateKey } from 'src/utils/mongoErrors';
 import { generateUniqueSlug } from 'src/utils/uniqueSlug';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { TournamentMailService } from './tournament-mail.service';
 import { TournamentMatch } from './schemas/tournament-match.schema';
 import { TournamentParticipant } from './schemas/tournament-participant.schema';
 import {
@@ -87,6 +88,7 @@ export class TournamentService {
     @InjectModel(TournamentMatch.name)
     private readonly matchModel: Model<TournamentMatch>,
     private readonly websocketGateway: AppWebSocketGateway,
+    private readonly tournamentMailService: TournamentMailService,
   ) {}
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────────
@@ -157,6 +159,7 @@ export class TournamentService {
       _id: tournament._id,
       name: tournament.name,
       date: tournament.date,
+      startTime: tournament.startTime,
       isRegistrationOpen: this.isRegistrationOpen(tournament),
     };
   }
@@ -174,6 +177,11 @@ export class TournamentService {
         tournamentId: tournament._id,
       });
       this.websocketGateway.emitTournamentChanged();
+      // Beklenmez: mail gecikse ya da gitmese de başvuru yanıtı etkilenmez
+      void this.tournamentMailService.sendRegistrationMail(
+        tournament,
+        registration,
+      );
       return { _id: registration._id };
     } catch (err) {
       if (isMongoDuplicateKey(err))
