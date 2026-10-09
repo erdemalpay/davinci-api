@@ -9,6 +9,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +34,12 @@ export class CreateTournamentDto {
 
   @IsDateString()
   date: string;
+
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'startTime HH:mm biçiminde olmalı',
+  })
+  startTime?: string;
 
   @IsOptional()
   @IsDateString()

@@ -19,6 +19,9 @@
   "panel": {
     "host": "http://localhost:3000"
   },
+  "mail": {
+    "logoUrl": "https://www.davinciboardgame.com/images/davinci-logo.png"
+  },
   "corsWhitelist": [
     "https://panel.davinciboardgame.com",
     "https://rootcafe.davinciboardgame.com",

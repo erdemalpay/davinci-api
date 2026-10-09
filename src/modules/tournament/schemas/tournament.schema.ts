@@ -26,6 +26,10 @@ export class Tournament extends Document {
   @Prop({ required: true, type: Date })
   date: Date;
 
+  // "HH:mm" (İstanbul saati). date yalnızca gün bilgisini taşır
+  @Prop({ required: false, type: String })
+  startTime?: string;
+
   @Prop({ required: true, type: String, unique: true })
   slug: string;
 

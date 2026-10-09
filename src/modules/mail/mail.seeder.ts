@@ -8,6 +8,7 @@ import {
   customerMessageTemplate,
   getRequiredMailTemplateParameters,
   orderUpdateTemplate,
+  tournamentRegistrationTemplate,
 } from './templates/mail-templates';
 
 @Injectable()
@@ -73,6 +74,20 @@ export class MailSeeder {
         textContent: '{{campaignMessage}}',
         requiredVariables: getRequiredMailTemplateParameters(
           MailType.CAMPAIGN_ANNOUNCEMENT,
+        ),
+        locale: 'tr',
+        isActive: true,
+      },
+      {
+        _id: 5,
+        name: 'tournament-registration-tr',
+        mailType: MailType.TOURNAMENT_REGISTRATION,
+        subject: 'Kaydınız alınmıştır - {{tournamentName}}',
+        htmlContent: tournamentRegistrationTemplate,
+        textContent:
+          'Merhaba {{fullName}}, {{tournamentName}} için başvurunuz bize ulaştı. Masada görüşmek üzere.',
+        requiredVariables: getRequiredMailTemplateParameters(
+          MailType.TOURNAMENT_REGISTRATION,
         ),
         locale: 'tr',
         isActive: true,
