@@ -79,6 +79,9 @@ export class Location extends Document {
   @Prop({ type: String, required: false })
   googleMapsUrl?: string;
 
+  @Prop({ type: String, required: false })
+  address?: string;
+
   @Prop([DailyHours])
   dailyHours?: DailyHours[];
 
