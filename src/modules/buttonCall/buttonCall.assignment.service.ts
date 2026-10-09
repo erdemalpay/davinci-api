@@ -444,12 +444,10 @@ export class ButtonCallAssignmentService {
       this.findCheckInByUser(location, date),
       this.findShiftSlots(location, date),
     ]);
+    // Outside operation for the day: never takes the call, so not counted
+    // (findScheduledStaff leaves them out too).
     const scheduled = findScheduledStaff(slots, hour, locationShifts);
-    // In the cafe but outside operation now: can't take the call until a
-    // later slot (if any) where they're on operation.
-    const outsideOperation = new Set(
-      findOutsideOperationStaff(slots, hour, locationShifts),
-    );
+    const outsideOperation = new Set(findOutsideOperationStaff(slots));
     const isWorking = (id: string) =>
       checkInByUser.has(id) && !outsideOperation.has(id);
     const knowers = await this.userModel
@@ -545,14 +543,14 @@ export class ButtonCallAssignmentService {
     const handlingCall = calls
       .filter((c) => !c.finishHour)
       .map((c) => c.assignedTo);
-    const { slots, locationShifts } = shiftPlan;
-    const serviceStaff = new Set(findServiceStaff(slots, hour, locationShifts));
+    // Service staff and outside operation are set for the whole day.
+    const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
     const excluded = new Set([
       ...busyUserIds,
       ...excludedUsers,
       ...handlingCall,
       // "Operasyon Dışı" never take GM calls, not even as a last resort.
-      ...findOutsideOperationStaff(slots, hour, locationShifts),
+      ...findOutsideOperationStaff(shiftPlan.slots),
     ]);
 
     return users

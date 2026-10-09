@@ -142,10 +142,9 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(candidates).toEqual([]);
   });
 
-  it('reads overlapping slots and their end hour from the location', async () => {
-    // As the panel saves them: no shiftEndHour on the slots, overlapping
-    // 10:00-18:00 and 14:00-22:00. At 15:00 Ceren (service staff) and Kemal
-    // (outside operation) are still in the 10:00 slot.
+  it('treats service staff and outside operation as set for the whole day', async () => {
+    // Ceren (service staff) and Kemal (outside operation) are marked on the
+    // 10:00 slot; both roles hold for the whole day, whatever the hour.
     const { service } = build({
       visits: [visit('ceren'), visit('kemal'), visit('mert')],
       users: [gm('ceren'), gm('kemal'), gm('mert')],

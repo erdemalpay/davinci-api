@@ -130,45 +130,21 @@ function withBounds(slots: ShiftSlot[], locationShifts: LocationShiftHours[]) {
   });
 }
 
-// Every slot running at the given hour (overlapping slots all count).
-function findCurrentSlots(
-  slots: ShiftSlot[],
-  hour: string,
-  locationShifts: LocationShiftHours[],
-) {
-  const now = hourToSeconds(hour);
-  return withBounds(slots, locationShifts)
-    .filter(({ start, end }) =>
-      end < start ? now >= start || now < end : now >= start && now < end,
-    )
-    .map(({ slot }) => slot);
-}
-
-// Service staff ("Servis Elemanı", stored as chefUser) of the slots running
-// at the given hour.
-export function findServiceStaff(
-  slots: ShiftSlot[],
-  hour: string,
-  locationShifts: LocationShiftHours[] = [],
-): string[] {
-  return findCurrentSlots(slots, hour, locationShifts)
+// Service staff ("Servis Elemanı", stored as chefUser) of the day. The role
+// is given for the whole day, whichever slot it's saved on.
+export function findServiceStaff(slots: ShiftSlot[]): string[] {
+  return slots
     .map((slot) => slot.chefUser)
     .filter((userId): userId is string => !!userId);
 }
 
-// People marked "Operasyon Dışı" in any slot running at the given hour.
-export function findOutsideOperationStaff(
-  slots: ShiftSlot[],
-  hour: string,
-  locationShifts: LocationShiftHours[] = [],
-): string[] {
-  return findCurrentSlots(slots, hour, locationShifts).flatMap(
-    (slot) => slot.outsideOperationUsers ?? [],
-  );
+// People marked "Operasyon Dışı" on the day; also for the whole day.
+export function findOutsideOperationStaff(slots: ShiftSlot[]): string[] {
+  return slots.flatMap((slot) => slot.outsideOperationUsers ?? []);
 }
 
 // People scheduled in a slot that hasn't ended yet, with the hour their slot
-// starts; people outside operation in that slot are left out. Someone in
+// starts; people outside operation for the day are left out. Someone in
 // several slots gets the earliest one.
 export function findScheduledStaff(
   slots: ShiftSlot[],
@@ -176,14 +152,14 @@ export function findScheduledStaff(
   locationShifts: LocationShiftHours[] = [],
 ): Map<string, string> {
   const now = hourToSeconds(hour);
+  const outside = new Set(findOutsideOperationStaff(slots));
   const fromByUser = new Map<string, string>();
   for (const { slot, start, end } of withBounds(slots, locationShifts)) {
     // A slot that passes midnight is still ahead or running all day.
     const ended = end >= start && now >= end;
     if (ended) continue;
-    const outside = slot.outsideOperationUsers ?? [];
     for (const userId of slot.user ?? []) {
-      if (!outside.includes(userId) && !fromByUser.has(userId)) {
+      if (!outside.has(userId) && !fromByUser.has(userId)) {
         fromByUser.set(userId, slot.shift);
       }
     }

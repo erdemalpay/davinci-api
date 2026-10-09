@@ -146,86 +146,6 @@ describe('pickAssignee', () => {
   });
 });
 
-describe('findServiceStaff', () => {
-  const slots = [
-    { shift: '10:00', chefUser: 'morning-service' },
-    { shift: '16:00', shiftEndHour: '23:00', chefUser: 'evening-service' },
-  ];
-
-  it('returns the service staff of the slot covering the hour', () => {
-    expect(findServiceStaff(slots, '12:30:00')).toEqual(['morning-service']);
-    expect(findServiceStaff(slots, '18:00:00')).toEqual(['evening-service']);
-  });
-
-  it('ends a slot without an end hour when the next one starts', () => {
-    expect(findServiceStaff(slots, '16:00:00')).toEqual(['evening-service']);
-  });
-
-  it('returns nobody outside every slot', () => {
-    expect(findServiceStaff(slots, '09:00:00')).toEqual([]);
-    expect(findServiceStaff(slots, '23:30:00')).toEqual([]);
-  });
-
-  it('handles slots that pass midnight', () => {
-    const night = [
-      { shift: '18:00', shiftEndHour: '02:00', chefUser: 'night-service' },
-    ];
-    expect(findServiceStaff(night, '01:00:00')).toEqual(['night-service']);
-    expect(findServiceStaff(night, '03:00:00')).toEqual([]);
-  });
-
-  describe('with the end hours from the location', () => {
-    // The panel saves slots without an end hour; the location holds them.
-    const savedSlots = [
-      { shift: '10:00', chefUser: 'ceren' },
-      { shift: '14:00', chefUser: 'mert' },
-    ];
-    const locationShifts = [
-      { shift: '10:00', shiftEndHour: '18:00' },
-      { shift: '14:00', shiftEndHour: '22:00' },
-    ];
-
-    it('keeps a slot running past the start of the next one', () => {
-      expect(findServiceStaff(savedSlots, '12:00:00', locationShifts)).toEqual([
-        'ceren',
-      ]);
-      expect(
-        findServiceStaff(savedSlots, '15:00:00', locationShifts).sort(),
-      ).toEqual(['ceren', 'mert']);
-      expect(findServiceStaff(savedSlots, '19:00:00', locationShifts)).toEqual([
-        'mert',
-      ]);
-    });
-
-    it('prefers the end hour saved on the slot', () => {
-      expect(
-        findServiceStaff(
-          [{ shift: '10:00', shiftEndHour: '12:00', chefUser: 'ceren' }],
-          '15:00:00',
-          locationShifts,
-        ),
-      ).toEqual([]);
-    });
-  });
-});
-
-describe('findOutsideOperationStaff with overlapping slots', () => {
-  it('counts everyone outside operation in any running slot', () => {
-    const slots = [
-      { shift: '10:00', outsideOperationUsers: ['kemal'] },
-      { shift: '14:00', outsideOperationUsers: ['ali'] },
-    ];
-    const locationShifts = [
-      { shift: '10:00', shiftEndHour: '18:00' },
-      { shift: '14:00', shiftEndHour: '22:00' },
-    ];
-
-    expect(
-      findOutsideOperationStaff(slots, '15:00:00', locationShifts).sort(),
-    ).toEqual(['ali', 'kemal']);
-  });
-});
-
 describe('findScheduledStaff', () => {
   const slots = [
     {
@@ -362,35 +282,37 @@ describe('pickAssigneeServiceStaffLast', () => {
   });
 });
 
-describe('findOutsideOperationStaff', () => {
+describe('service staff and outside operation are for the whole day', () => {
+  // As the panel saves them: per slot, without end hours, overlapping.
   const slots = [
-    { shift: '10:00', shiftEndHour: '16:00', outsideOperationUsers: ['ali'] },
-    { shift: '16:00', shiftEndHour: '23:00', outsideOperationUsers: ['mert'] },
+    {
+      shift: '10:00',
+      user: ['ceren', 'kemal'],
+      chefUser: 'ceren',
+      outsideOperationUsers: ['kemal'],
+    },
+    { shift: '16:00', user: ['mert', 'ali'], chefUser: 'mert' },
   ];
 
-  it('returns the people outside operation in the current slot', () => {
-    expect(findOutsideOperationStaff(slots, '12:00:00')).toEqual(['ali']);
-    expect(findOutsideOperationStaff(slots, '18:00:00')).toEqual(['mert']);
+  it('finds the service staff of every slot of the day', () => {
+    expect(findServiceStaff(slots).sort()).toEqual(['ceren', 'mert']);
+    expect(findServiceStaff([])).toEqual([]);
   });
 
-  it('is empty outside every slot', () => {
-    expect(findOutsideOperationStaff(slots, '09:00:00')).toEqual([]);
+  it('finds everyone outside operation on the day', () => {
+    expect(findOutsideOperationStaff(slots)).toEqual(['kemal']);
   });
 
-  it('leaves them out of the scheduled staff of that slot only', () => {
+  it('leaves people outside operation out of the scheduled staff', () => {
     const scheduled = findScheduledStaff(
       [
-        {
-          shift: '10:00',
-          shiftEndHour: '16:00',
-          user: ['ali'],
-          outsideOperationUsers: ['ali'],
-        },
-        { shift: '16:00', shiftEndHour: '23:00', user: ['ali'] },
+        ...slots,
+        { shift: '18:00', user: ['kemal'] }, // also in a later slot
       ],
-      '12:00:00',
+      '09:00:00',
     );
 
-    expect(scheduled.get('ali')).toBe('16:00');
+    expect(scheduled.has('kemal')).toBe(false);
+    expect(scheduled.get('ceren')).toBe('10:00');
   });
 });
