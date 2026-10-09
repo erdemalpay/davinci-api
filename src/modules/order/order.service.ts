@@ -1227,6 +1227,7 @@ export class OrderService {
     }
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
+    let updatedTable: Table | null = null;
 
     for (const order of orders) {
       if (order.quantity <= 0) {
@@ -1321,7 +1322,7 @@ export class OrderService {
           );
         }
 
-        await this.tableService.updateTableOrders(
+        updatedTable = await this.tableService.updateTableOrders(
           user,
           table._id,
           createdOrders,
@@ -1350,8 +1351,10 @@ export class OrderService {
       table.location,
       orderKitchenIds,
     );
-    if (createdOrders.length > 0) {
-      await this.buttonCallService.closeOrderCall(table, user);
+    if (createdOrders.length > 0 && updatedTable) {
+      await this.buttonCallService
+        .closeOrderCall(updatedTable, user)
+        .catch((err) => this.logger.error('Close order call error', err));
     }
     return createdOrders;
   }
@@ -1554,20 +1557,20 @@ export class OrderService {
     const postOrderTasks: Promise<unknown>[] = [];
     if (order.status === OrderStatus.CONFIRMATIONREQ) {
       postOrderTasks.push(
-        Promise.resolve().then(() =>
-          this.confirmationQueue.add(
+        this.confirmationQueue
+          .add(
             'check-confirmation',
             { orderId: order._id.toString() },
             { delay: 5 * 60 * 1000, attempts: 1 },
-          ),
-        ),
+          )
+          .catch((err) => this.logger.error('Confirmation queue error', err)),
       );
     }
     if (updatedTable) {
       postOrderTasks.push(
-        Promise.resolve().then(() =>
-          this.buttonCallService.closeOrderCall(updatedTable, user),
-        ),
+        this.buttonCallService
+          .closeOrderCall(updatedTable, user)
+          .catch((err) => this.logger.error('Close order call error', err)),
       );
     }
     await Promise.all(postOrderTasks);
