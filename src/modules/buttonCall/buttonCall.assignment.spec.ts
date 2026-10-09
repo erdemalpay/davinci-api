@@ -153,25 +153,76 @@ describe('findServiceStaff', () => {
   ];
 
   it('returns the service staff of the slot covering the hour', () => {
-    expect(findServiceStaff(slots, '12:30:00')).toBe('morning-service');
-    expect(findServiceStaff(slots, '18:00:00')).toBe('evening-service');
+    expect(findServiceStaff(slots, '12:30:00')).toEqual(['morning-service']);
+    expect(findServiceStaff(slots, '18:00:00')).toEqual(['evening-service']);
   });
 
   it('ends a slot without an end hour when the next one starts', () => {
-    expect(findServiceStaff(slots, '16:00:00')).toBe('evening-service');
+    expect(findServiceStaff(slots, '16:00:00')).toEqual(['evening-service']);
   });
 
-  it('returns undefined outside every slot', () => {
-    expect(findServiceStaff(slots, '09:00:00')).toBeUndefined();
-    expect(findServiceStaff(slots, '23:30:00')).toBeUndefined();
+  it('returns nobody outside every slot', () => {
+    expect(findServiceStaff(slots, '09:00:00')).toEqual([]);
+    expect(findServiceStaff(slots, '23:30:00')).toEqual([]);
   });
 
   it('handles slots that pass midnight', () => {
     const night = [
       { shift: '18:00', shiftEndHour: '02:00', chefUser: 'night-service' },
     ];
-    expect(findServiceStaff(night, '01:00:00')).toBe('night-service');
-    expect(findServiceStaff(night, '03:00:00')).toBeUndefined();
+    expect(findServiceStaff(night, '01:00:00')).toEqual(['night-service']);
+    expect(findServiceStaff(night, '03:00:00')).toEqual([]);
+  });
+
+  describe('with the end hours from the location', () => {
+    // The panel saves slots without an end hour; the location holds them.
+    const savedSlots = [
+      { shift: '10:00', chefUser: 'ceren' },
+      { shift: '14:00', chefUser: 'mert' },
+    ];
+    const locationShifts = [
+      { shift: '10:00', shiftEndHour: '18:00' },
+      { shift: '14:00', shiftEndHour: '22:00' },
+    ];
+
+    it('keeps a slot running past the start of the next one', () => {
+      expect(findServiceStaff(savedSlots, '12:00:00', locationShifts)).toEqual([
+        'ceren',
+      ]);
+      expect(
+        findServiceStaff(savedSlots, '15:00:00', locationShifts).sort(),
+      ).toEqual(['ceren', 'mert']);
+      expect(findServiceStaff(savedSlots, '19:00:00', locationShifts)).toEqual([
+        'mert',
+      ]);
+    });
+
+    it('prefers the end hour saved on the slot', () => {
+      expect(
+        findServiceStaff(
+          [{ shift: '10:00', shiftEndHour: '12:00', chefUser: 'ceren' }],
+          '15:00:00',
+          locationShifts,
+        ),
+      ).toEqual([]);
+    });
+  });
+});
+
+describe('findOutsideOperationStaff with overlapping slots', () => {
+  it('counts everyone outside operation in any running slot', () => {
+    const slots = [
+      { shift: '10:00', outsideOperationUsers: ['kemal'] },
+      { shift: '14:00', outsideOperationUsers: ['ali'] },
+    ];
+    const locationShifts = [
+      { shift: '10:00', shiftEndHour: '18:00' },
+      { shift: '14:00', shiftEndHour: '22:00' },
+    ];
+
+    expect(
+      findOutsideOperationStaff(slots, '15:00:00', locationShifts).sort(),
+    ).toEqual(['ali', 'kemal']);
   });
 });
 

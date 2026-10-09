@@ -99,15 +99,29 @@ export function pickAssigneeServiceStaffLast(
   return pickAssignee(regular, request) ?? pickAssignee(serviceStaff, request);
 }
 
-// Shift slots in start order with their time range in seconds. A slot
-// without an end hour runs until the next slot starts, or until the end of
-// the day for the last slot. An end before the start means past midnight.
-function withBounds(slots: ShiftSlot[]) {
+// The location's shift definitions ("10:00"–"18:00"). Shift docs often
+// store only the start hour; the panel reads the end from here too.
+export interface LocationShiftHours {
+  shift: string;
+  shiftEndHour?: string;
+}
+
+// Shift slots in start order with their time range in seconds. Slots can
+// overlap (e.g. 10:00–18:00 and 14:00–22:00). The end comes from the slot,
+// else from the location's shift with the same start, else the next slot's
+// start, else the end of the day. An end before the start means past
+// midnight.
+function withBounds(slots: ShiftSlot[], locationShifts: LocationShiftHours[]) {
   const sorted = [...slots]
     .filter((s) => s.shift)
     .sort((a, b) => hourToSeconds(a.shift) - hourToSeconds(b.shift));
   return sorted.map((slot, i) => {
-    const endHour = slot.shiftEndHour || sorted[i + 1]?.shift;
+    const endHour =
+      slot.shiftEndHour?.trim() ||
+      locationShifts
+        .find((ls) => ls.shift?.trim() === slot.shift.trim())
+        ?.shiftEndHour?.trim() ||
+      sorted.slice(i + 1).find((next) => next.shift !== slot.shift)?.shift;
     return {
       slot,
       start: hourToSeconds(slot.shift),
@@ -116,28 +130,41 @@ function withBounds(slots: ShiftSlot[]) {
   });
 }
 
-function findCurrentSlot(slots: ShiftSlot[], hour: string) {
+// Every slot running at the given hour (overlapping slots all count).
+function findCurrentSlots(
+  slots: ShiftSlot[],
+  hour: string,
+  locationShifts: LocationShiftHours[],
+) {
   const now = hourToSeconds(hour);
-  return withBounds(slots).find(({ start, end }) =>
-    end < start ? now >= start || now < end : now >= start && now < end,
-  )?.slot;
+  return withBounds(slots, locationShifts)
+    .filter(({ start, end }) =>
+      end < start ? now >= start || now < end : now >= start && now < end,
+    )
+    .map(({ slot }) => slot);
 }
 
-// Service staff ("Servis Elemanı", stored as chefUser) of the shift slot
-// that covers the given hour.
+// Service staff ("Servis Elemanı", stored as chefUser) of the slots running
+// at the given hour.
 export function findServiceStaff(
   slots: ShiftSlot[],
   hour: string,
-): string | undefined {
-  return findCurrentSlot(slots, hour)?.chefUser || undefined;
+  locationShifts: LocationShiftHours[] = [],
+): string[] {
+  return findCurrentSlots(slots, hour, locationShifts)
+    .map((slot) => slot.chefUser)
+    .filter((userId): userId is string => !!userId);
 }
 
-// People marked "Operasyon Dışı" in the shift slot that covers the hour.
+// People marked "Operasyon Dışı" in any slot running at the given hour.
 export function findOutsideOperationStaff(
   slots: ShiftSlot[],
   hour: string,
+  locationShifts: LocationShiftHours[] = [],
 ): string[] {
-  return findCurrentSlot(slots, hour)?.outsideOperationUsers ?? [];
+  return findCurrentSlots(slots, hour, locationShifts).flatMap(
+    (slot) => slot.outsideOperationUsers ?? [],
+  );
 }
 
 // People scheduled in a slot that hasn't ended yet, with the hour their slot
@@ -146,10 +173,11 @@ export function findOutsideOperationStaff(
 export function findScheduledStaff(
   slots: ShiftSlot[],
   hour: string,
+  locationShifts: LocationShiftHours[] = [],
 ): Map<string, string> {
   const now = hourToSeconds(hour);
   const fromByUser = new Map<string, string>();
-  for (const { slot, start, end } of withBounds(slots)) {
+  for (const { slot, start, end } of withBounds(slots, locationShifts)) {
     // A slot that passes midnight is still ahead or running all day.
     const ended = end >= start && now >= end;
     if (ended) continue;

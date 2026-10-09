@@ -11,6 +11,7 @@ import {
   GameplayTime,
   GameplayTimeSchema,
 } from '../gameplaytime/gameplaytime.schema';
+import { Location, LocationSchema } from '../location/location.schema';
 import { Middleman, MiddlemanSchema } from '../middleman/middleman.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
 import { Table, TableSchema } from '../table/table.schema';
@@ -41,6 +42,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Gameplay.name, GameplaySchema),
   createAutoIncrementConfig(Shift.name, ShiftSchema),
   createAutoIncrementConfig(Table.name, TableSchema),
+  createAutoIncrementConfig(Location.name, LocationSchema),
   { name: User.name, useFactory: () => UserSchema },
 ]);
 
