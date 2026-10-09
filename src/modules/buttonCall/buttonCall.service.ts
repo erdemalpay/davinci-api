@@ -143,6 +143,7 @@ export class ButtonCallService {
       closedButtonCall,
       ButtonCallActionEnum.CLOSE,
     );
+    this.freeAssignee(closedButtonCall);
     if (user) {
       this.activityService
         .addActivity(user, ActivityType.CLOSE_BUTTONCALL, closedButtonCall)
@@ -509,5 +510,17 @@ export class ButtonCallService {
       throw new HttpException('Button Call not found', HttpStatus.NOT_FOUND);
     }
     await this.buttonCallModel.findByIdAndDelete(id);
+    if (!button_call.finishHour) {
+      this.freeAssignee(button_call);
+    }
+  }
+
+  // The game master handling this call is free again: give them a waiting
+  // call right away instead of on the next cron run. The usual rules apply,
+  // so someone who started explaining a game or a break gets nothing.
+  private freeAssignee(call: ButtonCall) {
+    if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL && call.assignedTo) {
+      this.buttonCallAssignmentService.handleStaffAvailabilityChanged();
+    }
   }
 }
