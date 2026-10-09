@@ -17,6 +17,23 @@ export interface MailTemplateParameterDefinition {
   example?: string;
 }
 
+// Tek satırlık tanım yazmak için; alan sırası MailTemplateParameterDefinition ile aynıdır
+const definition = (
+  key: string,
+  label: string,
+  type: MailTemplateParameterType,
+  required: boolean,
+  description: string,
+  example?: string,
+): MailTemplateParameterDefinition => ({
+  key,
+  label,
+  type,
+  required,
+  description,
+  example,
+});
+
 export const mailTemplateParameterDefinitions: Record<
   MailType,
   MailTemplateParameterDefinition[]
@@ -217,6 +234,79 @@ export const mailTemplateParameterDefinitions: Record<
       description: 'Optional campaign expiration date.',
       example: '2026-05-31',
     },
+  ],
+  [MailType.TOURNAMENT_REGISTRATION]: [
+    definition(
+      'fullName',
+      'Full name',
+      'string',
+      true,
+      'Name of the person who registered.',
+      'Ayse Yilmaz',
+    ),
+    definition(
+      'tournamentName',
+      'Tournament name',
+      'string',
+      true,
+      'Name of the tournament the person registered for.',
+      'AZUL TURNUVASI',
+    ),
+    definition(
+      'tournamentDate',
+      'Tournament date',
+      'date',
+      true,
+      'Tournament date, already formatted for the customer.',
+      '11 Ekim 2026, Pazar',
+    ),
+    definition(
+      'startTime',
+      'Start time',
+      'string',
+      false,
+      'Optional start time in HH:mm format.',
+      '13:00',
+    ),
+    definition(
+      'gameName',
+      'Game name',
+      'string',
+      false,
+      'Optional name of the game played in the tournament.',
+      'Azul',
+    ),
+    definition(
+      'locationName',
+      'Location name',
+      'string',
+      false,
+      'Optional name of the venue.',
+      'Neorama',
+    ),
+    definition(
+      'locationAddress',
+      'Location address',
+      'multiline',
+      false,
+      'Optional venue address shown below the venue name.',
+      'Beştepe Mah., Yaşam Cd., Adalet Sok. No:4/B, Ankara',
+    ),
+    definition(
+      'mapsUrl',
+      'Directions URL',
+      'url',
+      false,
+      'Optional Google Maps link for the directions button.',
+      'https://maps.app.goo.gl/4xoub996g5PpadzL7',
+    ),
+    definition(
+      'logoUrl',
+      'Logo URL',
+      'url',
+      false,
+      'Optional publicly reachable logo image URL.',
+    ),
   ],
 };
 
@@ -430,6 +520,94 @@ export const backInStockTemplate = `
                                 © 2026 DaVinci. Tüm hakları saklıdır.
                             </p>
                         </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`;
+
+export const tournamentRegistrationTemplate = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaydınız alınmıştır</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 40px 16px; text-align: center;">
+                <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e7e3dc;">
+                    <tr>
+                        <td style="height: 4px; line-height: 4px; font-size: 0; background-color: #a80000;">&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 34px 40px 0; text-align: left;">
+                            <table role="presentation" style="border-collapse: collapse;">
+                                <tr>
+                                    {{#if logoUrl}}
+                                    <td style="vertical-align: middle; padding-right: 16px;">
+                                        <img src="{{logoUrl}}" alt="Da Vinci" width="64" style="display: block; height: auto; border: 0;">
+                                    </td>
+                                    {{/if}}
+                                    <td style="vertical-align: middle; text-align: left;">
+                                        <span style="color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">DA VINCI </span>
+                                        <span style="color: #a80000; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">BOARD GAME</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">Kaydınız alınmıştır</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 0; text-align: left;">
+                            <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;"><strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 28px 40px 0;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; border-top: 1px solid #ece8e1; border-bottom: 1px solid #ece8e1;">
+                                {{#if gameName}}
+                                <tr>
+                                    <td style="padding: 14px 0; border-bottom: 1px solid #ece8e1; color: #8b8579; font-size: 13px; width: 110px; text-align: left;">Oyun</td>
+                                    <td style="padding: 14px 0; border-bottom: 1px solid #ece8e1; color: #1c1917; font-size: 16px; text-align: left;">{{gameName}}</td>
+                                </tr>
+                                {{/if}}
+                                <tr>
+                                    <td style="padding: 14px 0;{{#if locationName}} border-bottom: 1px solid #ece8e1;{{/if}} color: #8b8579; font-size: 13px; text-align: left;">Tarih</td>
+                                    <td style="padding: 14px 0;{{#if locationName}} border-bottom: 1px solid #ece8e1;{{/if}} color: #1c1917; font-size: 16px; text-align: left;">{{tournamentDate}}{{#if startTime}} &middot; {{startTime}}{{/if}}</td>
+                                </tr>
+                                {{#if locationName}}
+                                <tr>
+                                    <td style="padding: 14px 0; color: #8b8579; font-size: 13px; text-align: left; vertical-align: top;">Mekan</td>
+                                    <td style="padding: 14px 0; color: #1c1917; font-size: 16px; text-align: left;">{{locationName}}
+                                        {{#if locationAddress}}
+                                        <div style="margin-top: 4px; color: #6b6560; font-size: 13px; line-height: 1.5;">{{locationAddress}}</div>
+                                        {{/if}}
+                                    </td>
+                                </tr>
+                                {{/if}}
+                            </table>
+                        </td>
+                    </tr>
+                    {{#if mapsUrl}}
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <a href="{{mapsUrl}}" style="display: inline-block; padding: 13px 26px; background-color: #a80000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: bold;">Yol tarifi al</a>
+                        </td>
+                    </tr>
+                    {{/if}}
+                    <tr>
+                        <td style="padding: 24px 40px 36px; text-align: left; color: #8b8579; font-size: 13px; line-height: 1.6;">Bu başvuruyu siz yapmadıysanız bu maili dikkate almayabilirsiniz.</td>
                     </tr>
                 </table>
             </td>
