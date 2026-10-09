@@ -103,4 +103,7 @@ async function sendTournamentRegistrationMails() {
   process.exit(failed ? 1 : 0);
 }
 
-sendTournamentRegistrationMails();
+sendTournamentRegistrationMails().catch((error) => {
+  console.error('Betik başarısız:', error);
+  process.exit(1);
+});
