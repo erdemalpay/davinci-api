@@ -1227,6 +1227,7 @@ export class OrderService {
     }
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
+    let updatedTable: Table | null = null;
 
     for (const order of orders) {
       if (order.quantity <= 0) {
@@ -1321,7 +1322,7 @@ export class OrderService {
           );
         }
 
-        await this.tableService.updateTableOrders(
+        updatedTable = await this.tableService.updateTableOrders(
           user,
           table._id,
           createdOrders,
@@ -1350,6 +1351,11 @@ export class OrderService {
       table.location,
       orderKitchenIds,
     );
+    if (createdOrders.length > 0 && updatedTable) {
+      await this.buttonCallService
+        .closeOrderCall(updatedTable, user)
+        .catch((err) => this.logger.error('Close order call error', err));
+    }
     return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
@@ -1527,8 +1533,8 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    let updatedTable: Table | null = null;
     if (createOrderDto?.table) {
-      let updatedTable;
       try {
         updatedTable = await this.tableService.updateTableOrders(
           user,
@@ -1548,13 +1554,26 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
     }
+    const postOrderTasks: Promise<unknown>[] = [];
     if (order.status === OrderStatus.CONFIRMATIONREQ) {
-      await this.confirmationQueue.add(
-        'check-confirmation',
-        { orderId: order._id.toString() },
-        { delay: 5 * 60 * 1000, attempts: 1 },
+      postOrderTasks.push(
+        this.confirmationQueue
+          .add(
+            'check-confirmation',
+            { orderId: order._id.toString() },
+            { delay: 5 * 60 * 1000, attempts: 1 },
+          )
+          .catch((err) => this.logger.error('Confirmation queue error', err)),
       );
     }
+    if (updatedTable) {
+      postOrderTasks.push(
+        this.buttonCallService
+          .closeOrderCall(updatedTable, user)
+          .catch((err) => this.logger.error('Close order call error', err)),
+      );
+    }
+    await Promise.all(postOrderTasks);
 
     return order;
   }
@@ -1573,24 +1592,6 @@ export class OrderService {
         format(order.createdAt, 'yyyy-MM-dd'),
         2,
       );
-      const uniqueVisitUsers =
-        visits
-          ?.reduce(
-            (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
-              acc.seenUsers = acc.seenUsers || {};
-              const userId =
-                typeof visit?.user === 'string'
-                  ? visit.user
-                  : (visit?.user as User)?._id;
-              if (visit?.user && !acc.seenUsers[userId]) {
-                acc.seenUsers[userId] = true;
-                acc.unique.push(visit);
-              }
-              return acc;
-            },
-            { unique: [], seenUsers: {} },
-          )
-          ?.unique?.map((visit) => visit.user) ?? [];
       const message = {
         key: 'OrderNotConfirmedForMinutes',
         params: {
@@ -2163,6 +2164,13 @@ export class OrderService {
       if (!order) {
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
+      // Gel-al ürünü depodan çıkınca sayımdaki ayrılmış adet değişir.
+      if (
+        'isShopifyPickUpOrderBrought' in updates ||
+        'isShopifyCustomerPicked' in updates
+      ) {
+        this.accountingService.invalidateReservedStocks();
+      }
       let shopifyWarning: string | undefined;
 
       // If this is a Shopify pickup order being marked as picked up, create fulfillment
@@ -2243,6 +2251,7 @@ export class OrderService {
     );
 
     const found = updated.filter(Boolean);
+    this.accountingService.invalidateReservedStocks();
     const shopifyOrderIds = [
       ...new Set(
         found
@@ -5656,8 +5665,7 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
       const hasNoSalesChannel =
-        !discountDefinition.isOnlineOrder &&
-        !discountDefinition.isStoreOrder;
+        !discountDefinition.isOnlineOrder && !discountDefinition.isStoreOrder;
       const isAvailableForChannel = orderTable.isOnlineSale
         ? discountDefinition.isOnlineOrder
         : discountDefinition.isStoreOrder || hasNoSalesChannel;
@@ -5678,17 +5686,13 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (
-        discountDefinition.isNoteRequired &&
-        !discountNote?.trim()
-      ) {
+      if (discountDefinition.isNoteRequired && !discountNote?.trim()) {
         throw new HttpException(
           'Discount note is required for this discount',
           HttpStatus.BAD_REQUEST,
         );
       }
-      customPerUnitDiscount =
-        customDiscountAmount / selection.selectedQuantity;
+      customPerUnitDiscount = customDiscountAmount / selection.selectedQuantity;
     }
 
     const totalSelectedQuantity = orders.reduce(
@@ -5775,9 +5779,7 @@ export class OrderService {
           ...(appliedDiscountPercentage && {
             discountPercentage: appliedDiscountPercentage,
             paidQuantity:
-              appliedDiscountPercentage >= 100
-                ? orderItem.selectedQuantity
-                : 0,
+              appliedDiscountPercentage >= 100 ? orderItem.selectedQuantity : 0,
           }),
           ...(appliedDiscountAmount !== undefined && {
             discountAmount: Math.min(
@@ -6387,6 +6389,15 @@ export class OrderService {
     return this.orderModel.findOne({ shopifyOrderLineItemId }).exec();
   }
 
+  // Ayrılmış adet hesabında Shopify'daki yüzlerce gönderilmemiş kalem tek
+  // sorguda panel siparişleriyle eşleştirilir; kalem başına sorgu atılmaz.
+  findByShopifyOrderLineItemIds(shopifyOrderLineItemIds: string[]) {
+    return this.orderModel
+      .find({ shopifyOrderLineItemId: { $in: shopifyOrderLineItemIds } })
+      .populate('item')
+      .exec();
+  }
+
   // orders/edited payload'ında müşteri bilgisi gelmediği için, sonradan eklenen
   // satıra kopyalamak üzere aynı siparişin müşterisi dolu satırını döner.
   findShopifyOrderWithCustomer(shopifyOrderId: string) {
@@ -6423,6 +6434,15 @@ export class OrderService {
   findByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
     return this.orderModel
       .find({ trendyolShipmentPackageId })
+      .populate('item')
+      .exec();
+  }
+
+  // Ayrılmış adet hesabında açık paketler tek sorguda eşleştirilir; paket
+  // başına sorgu atılmaz.
+  findByTrendyolShipmentPackageIds(trendyolShipmentPackageIds: string[]) {
+    return this.orderModel
+      .find({ trendyolShipmentPackageId: { $in: trendyolShipmentPackageIds } })
       .populate('item')
       .exec();
   }

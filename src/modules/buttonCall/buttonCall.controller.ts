@@ -14,14 +14,26 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { ButtonCallService } from './buttonCall.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
-import { CreateButtonCallDto } from './dto/create-buttonCall.dto';
+import {
+  ChangeGmCallRequestDto,
+  CheckGameAvailabilityDto,
+  CreateButtonCallDto,
+  DeclineButtonCallDto,
+  CallReportQueryDto,
+} from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 @ApiTags('ButtonCall')
 @Controller('button-calls')
 export class ButtonCallController {
-  constructor(private readonly buttonCallService: ButtonCallService) {}
+  constructor(
+    private readonly buttonCallService: ButtonCallService,
+    private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+    private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
+  ) {}
 
   @ApiResponse({ type: [ButtonCall] })
   @Public()
@@ -32,6 +44,22 @@ export class ButtonCallController {
     @Query('type') type: string,
   ) {
     return this.buttonCallService.find(date, location, type);
+  }
+
+  // Active calls for the cafe TV screen, without staff-only details.
+  @Public()
+  @Get('/screen')
+  getScreenButtonCalls(@Query('location') location: number) {
+    if (!location) {
+      throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
+    }
+    return this.buttonCallService.findForScreen(Number(location));
+  }
+
+  // Declines, take-overs and automatic assignments, for the panel log.
+  @Get('/assignment-events')
+  findAssignmentEvents(@Query() query: CallReportQueryDto) {
+    return this.buttonCallAssignmentService.findAssignmentEvents(query);
   }
 
   @Get('/query')
@@ -90,6 +118,37 @@ export class ButtonCallController {
     });
   }
 
+  // Asked by the table before requesting an explanation of a game. Records
+  // an unmet request when nobody who knows the game is free.
+  @Public()
+  @Post('/game-availability')
+  checkGameAvailability(@Body() dto: CheckGameAvailabilityDto) {
+    return this.unmetExplanationRequestService.checkGameAvailability(dto);
+  }
+
+  // The table picked another game (or something else) after everyone who
+  // knows the requested game declined.
+  @Public()
+  @Post('/:id/change-request')
+  async changeGmCallRequest(
+    @Param('id') id: number,
+    @Body() dto: ChangeGmCallRequestDto,
+  ) {
+    const call = await this.buttonCallAssignmentService.changeRequest(
+      Number(id),
+      dto,
+    );
+    if (call.game) {
+      await this.unmetExplanationRequestService.linkWaitingCall(call);
+    }
+    return call;
+  }
+
+  @Get('/unmet-explanation-requests')
+  findUnmetExplanationRequests(@Query() query: CallReportQueryDto) {
+    return this.unmetExplanationRequestService.findAll(query);
+  }
+
   @ApiResponse({ type: ButtonCall })
   @Patch()
   closeButtonCall(
@@ -97,6 +156,23 @@ export class ButtonCallController {
     @Body() closeButtonCallDto: CloseButtonCallDto,
   ) {
     return this.buttonCallService.close(user, closeButtonCallDto);
+  }
+
+  // The assigned game master can't go; the call moves to the next person.
+  @ApiResponse({ type: ButtonCall })
+  @Post('/:id/decline')
+  declineButtonCall(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() dto: DeclineButtonCallDto,
+  ) {
+    return this.buttonCallAssignmentService.decline(user, Number(id), dto);
+  }
+
+  @ApiResponse({ type: ButtonCall })
+  @Post('/:id/claim')
+  claimButtonCall(@ReqUser() user: User, @Param('id') id: number) {
+    return this.buttonCallAssignmentService.claim(user, Number(id));
   }
 
   @Delete('/:id')

@@ -96,6 +96,8 @@ export class AppWebSocketGateway {
       location: buttonCall?.location,
       type: buttonCall?.type,
       action,
+      tableName: buttonCall?.tableName,
+      assignedTo: buttonCall?.assignedTo,
     });
   }
 

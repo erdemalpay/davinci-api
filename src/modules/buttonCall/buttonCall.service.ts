@@ -7,17 +7,25 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
+import * as moment from 'moment-timezone';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
+import {
+  TABLE_GAMEPLAY_ADDED,
+  TableGameplayAddedEvent,
+} from '../../lib/events';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
+import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
   ButtonCallActionEnum,
@@ -26,6 +34,7 @@ import {
   CreateButtonCallDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 
 @Injectable()
 export class ButtonCallService {
@@ -39,6 +48,9 @@ export class ButtonCallService {
     private readonly activityService: ActivityService,
     @Inject(forwardRef(() => LocationService))
     private readonly locationService: LocationService,
+    private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
+    private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -79,6 +91,22 @@ export class ButtonCallService {
         createdButtonCall,
         ButtonCallActionEnum.CREATE,
       );
+      if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+        if (createdButtonCall.game) {
+          await this.unmetExplanationRequestService
+            .linkWaitingCall(createdButtonCall)
+            .catch((error) =>
+              this.logger.error('Error linking unmet request:', error),
+            );
+        }
+        const assigned = await this.buttonCallAssignmentService
+          .assign(createdButtonCall._id)
+          .catch((error) => {
+            this.logger.error('Error assigning button call:', error);
+            return null;
+          });
+        return assigned ?? createdButtonCall;
+      }
       return createdButtonCall;
     } catch (error) {
       throw new HttpException(
@@ -103,38 +131,73 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    const obj: { duration: string; finishHour: string; cancelledBy?: string } =
-      {
-        duration: convertToHMS(
-          convertToSeconds(closeButtonCallDto.hour) -
-            convertToSeconds(closedButtonCall.startHour),
-        ),
-        finishHour: closeButtonCallDto.hour,
-      };
-
-    if (user) {
-      obj.cancelledBy = user._id;
-    }
-
-    closedButtonCall.set(obj);
-    await closedButtonCall.save();
-    this.websocketGateway.emitButtonCallChanged(
+    await this.finishButtonCall(
       closedButtonCall,
-      ButtonCallActionEnum.CLOSE,
+      user,
+      closeButtonCallDto.hour,
     );
-    if (user) {
-      this.activityService
-        .addActivity(user, ActivityType.CLOSE_BUTTONCALL, closedButtonCall)
-        .catch((error) => {
-          this.logger.error('Error adding close button call activity:', error);
-        });
-    }
+    this.freeAssignee(closedButtonCall);
 
     if (notifyCafe) {
       await this.notifyCafe(closeButtonCallDto);
     }
 
     return closedButtonCall;
+  }
+
+  async closeOrderCall(table: Table, user: User) {
+    const activeOrderCall = await this.buttonCallModel
+      .findOne({
+        tableName: table.name,
+        location: table.location,
+        type: ButtonCallTypeEnum.ORDERCALL,
+        finishHour: { $exists: false },
+      })
+      .sort({ createdAt: -1 });
+
+    if (!activeOrderCall) {
+      return null;
+    }
+
+    await this.finishButtonCall(
+      activeOrderCall,
+      user,
+      moment.tz('Europe/Istanbul').format('HH:mm:ss'),
+    );
+
+    return activeOrderCall;
+  }
+
+  private async finishButtonCall(
+    buttonCall: ButtonCall,
+    user: User | null,
+    finishHour: string,
+  ) {
+    const obj: { duration: string; finishHour: string; cancelledBy?: string } =
+      {
+        duration: convertToHMS(
+          convertToSeconds(finishHour) - convertToSeconds(buttonCall.startHour),
+        ),
+        finishHour,
+      };
+
+    if (user) {
+      obj.cancelledBy = user._id;
+    }
+
+    buttonCall.set(obj);
+    await buttonCall.save();
+    this.websocketGateway.emitButtonCallChanged(
+      buttonCall,
+      ButtonCallActionEnum.CLOSE,
+    );
+    if (user) {
+      this.activityService
+        .addActivity(user, ActivityType.CLOSE_BUTTONCALL, buttonCall)
+        .catch((error) => {
+          this.logger.error('Error adding close button call activity:', error);
+        });
+    }
   }
 
   async notifyCafe(closeButtonCallDto: CloseButtonCallDto) {
@@ -241,7 +304,44 @@ export class ButtonCallService {
     if (location !== undefined) query.location = location;
     if (type) query.finishHour = { $exists: !(type === 'active') };
 
-    return this.buttonCallModel.find(query);
+    // Public endpoint: leave out the internal assignment trail.
+    return this.buttonCallModel
+      .find(query)
+      .select('-assignmentHistory -declinedBy');
+  }
+
+  // For the public cafe TV screen: only what customers may see, with the
+  // assigned game master's first name.
+  async findForScreen(location: number) {
+    const calls = await this.buttonCallModel
+      .find({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        location,
+        finishHour: { $exists: false },
+      })
+      .select('tableName type startHour assignedTo')
+      .lean();
+    const assigneeIds = [
+      ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
+    ];
+    const assignees = assigneeIds.length
+      ? await this.userModel
+          .find({ _id: { $in: assigneeIds } })
+          .select('name')
+          .lean()
+      : [];
+    const firstNameById = new Map(
+      assignees.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    );
+    return calls.map((call) => ({
+      _id: call._id,
+      tableName: call.tableName,
+      type: call.type,
+      startHour: call.startHour,
+      ...(call.assignedTo && {
+        assignedToName: firstNameById.get(call.assignedTo),
+      }),
+    }));
   }
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
@@ -390,11 +490,17 @@ export class ButtonCallService {
     };
     if (location !== undefined) filter.location = location;
 
-    type Row = { tableName: string; createdAt: Date; type: string };
+    type Row = {
+      _id: number;
+      tableName: string;
+      createdAt: Date;
+      type: string;
+      explainerUnavailable?: boolean;
+    };
 
     const activeToday = await this.buttonCallModel
       .find(filter)
-      .select({ tableName: 1, createdAt: 1, type: 1 })
+      .select({ tableName: 1, createdAt: 1, type: 1, explainerUnavailable: 1 })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
       .exec();
@@ -406,6 +512,8 @@ export class ButtonCallService {
         position: number | null;
         waitingCount: number;
         totalActive: number;
+        callId?: number;
+        explainerUnavailable?: boolean;
       }
     > = {};
 
@@ -426,6 +534,11 @@ export class ButtonCallService {
               position: index + 1,
               waitingCount: index,
               totalActive,
+              callId: list[index]!._id,
+              // Lets the table pick another game when nobody can explain it.
+              ...(list[index]!.explainerUnavailable && {
+                explainerUnavailable: true,
+              }),
             };
     }
 
@@ -438,5 +551,49 @@ export class ButtonCallService {
       throw new HttpException('Button Call not found', HttpStatus.NOT_FOUND);
     }
     await this.buttonCallModel.findByIdAndDelete(id);
+    if (!button_call.finishHour) {
+      this.freeAssignee(button_call);
+    }
+  }
+
+  // A game is being explained at the table: its open GM call (whatever the
+  // reason) is answered, closed in the name of whoever explains the game.
+  @OnEvent(TABLE_GAMEPLAY_ADDED)
+  async closeCallOnGameplayAdded(event: TableGameplayAddedEvent) {
+    try {
+      const openCall = await this.buttonCallModel.exists({
+        tableName: event.tableName,
+        location: event.location,
+        date: event.date,
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        finishHour: { $exists: false },
+      });
+      if (!openCall) {
+        return;
+      }
+      const mentor = event.mentor
+        ? await this.userModel.findById(event.mentor)
+        : null;
+      await this.close(mentor, {
+        tableName: event.tableName,
+        location: event.location,
+        hour: format(new Date(), 'HH:mm:ss'),
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      });
+    } catch (error) {
+      this.logger.error(
+        'Error closing GM call after gameplay was added',
+        error,
+      );
+    }
+  }
+
+  // The game master handling this call is free again: give them a waiting
+  // call right away instead of on the next cron run. The usual rules apply,
+  // so someone who started explaining a game or a break gets nothing.
+  private freeAssignee(call: ButtonCall) {
+    if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL && call.assignedTo) {
+      this.buttonCallAssignmentService.handleStaffAvailabilityChanged();
+    }
   }
 }

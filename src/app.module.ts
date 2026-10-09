@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as config from 'config';
@@ -69,6 +70,7 @@ const DbModule = MongooseModule.forRoot(mongoUrl, {
 const modules = [
   ConfigModule.forRoot({ isGlobal: true }),
   ScheduleModule.forRoot(),
+  EventEmitterModule.forRoot(),
   WebSocketModule, // Centralized WebSocket gateway
   ActivityModule,
   AuthModule,
