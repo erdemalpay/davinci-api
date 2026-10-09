@@ -1350,6 +1350,9 @@ export class OrderService {
       table.location,
       orderKitchenIds,
     );
+    if (createdOrders.length > 0) {
+      await this.buttonCallService.closeOrderCall(table, user);
+    }
     return createdOrders;
   }
   async createOrder(user: User, createOrderDto: CreateOrderDto) {
@@ -1527,8 +1530,8 @@ export class OrderService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+    let updatedTable: Table | null = null;
     if (createOrderDto?.table) {
-      let updatedTable;
       try {
         updatedTable = await this.tableService.updateTableOrders(
           user,
@@ -1548,13 +1551,26 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
     }
+    const postOrderTasks: Promise<unknown>[] = [];
     if (order.status === OrderStatus.CONFIRMATIONREQ) {
-      await this.confirmationQueue.add(
-        'check-confirmation',
-        { orderId: order._id.toString() },
-        { delay: 5 * 60 * 1000, attempts: 1 },
+      postOrderTasks.push(
+        Promise.resolve().then(() =>
+          this.confirmationQueue.add(
+            'check-confirmation',
+            { orderId: order._id.toString() },
+            { delay: 5 * 60 * 1000, attempts: 1 },
+          ),
+        ),
       );
     }
+    if (updatedTable) {
+      postOrderTasks.push(
+        Promise.resolve().then(() =>
+          this.buttonCallService.closeOrderCall(updatedTable, user),
+        ),
+      );
+    }
+    await Promise.all(postOrderTasks);
 
     return order;
   }
@@ -1573,24 +1589,6 @@ export class OrderService {
         format(order.createdAt, 'yyyy-MM-dd'),
         2,
       );
-      const uniqueVisitUsers =
-        visits
-          ?.reduce(
-            (acc: { unique: typeof visits; seenUsers: SeenUsers }, visit) => {
-              acc.seenUsers = acc.seenUsers || {};
-              const userId =
-                typeof visit?.user === 'string'
-                  ? visit.user
-                  : (visit?.user as User)?._id;
-              if (visit?.user && !acc.seenUsers[userId]) {
-                acc.seenUsers[userId] = true;
-                acc.unique.push(visit);
-              }
-              return acc;
-            },
-            { unique: [], seenUsers: {} },
-          )
-          ?.unique?.map((visit) => visit.user) ?? [];
       const message = {
         key: 'OrderNotConfirmedForMinutes',
         params: {
@@ -5664,8 +5662,7 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
       const hasNoSalesChannel =
-        !discountDefinition.isOnlineOrder &&
-        !discountDefinition.isStoreOrder;
+        !discountDefinition.isOnlineOrder && !discountDefinition.isStoreOrder;
       const isAvailableForChannel = orderTable.isOnlineSale
         ? discountDefinition.isOnlineOrder
         : discountDefinition.isStoreOrder || hasNoSalesChannel;
@@ -5686,17 +5683,13 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (
-        discountDefinition.isNoteRequired &&
-        !discountNote?.trim()
-      ) {
+      if (discountDefinition.isNoteRequired && !discountNote?.trim()) {
         throw new HttpException(
           'Discount note is required for this discount',
           HttpStatus.BAD_REQUEST,
         );
       }
-      customPerUnitDiscount =
-        customDiscountAmount / selection.selectedQuantity;
+      customPerUnitDiscount = customDiscountAmount / selection.selectedQuantity;
     }
 
     const totalSelectedQuantity = orders.reduce(
@@ -5783,9 +5776,7 @@ export class OrderService {
           ...(appliedDiscountPercentage && {
             discountPercentage: appliedDiscountPercentage,
             paidQuantity:
-              appliedDiscountPercentage >= 100
-                ? orderItem.selectedQuantity
-                : 0,
+              appliedDiscountPercentage >= 100 ? orderItem.selectedQuantity : 0,
           }),
           ...(appliedDiscountAmount !== undefined && {
             discountAmount: Math.min(
