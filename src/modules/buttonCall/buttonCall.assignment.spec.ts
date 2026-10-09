@@ -4,6 +4,7 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
+  pickAssigneeServiceStaffLast,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
@@ -191,8 +192,8 @@ describe('findScheduledStaff', () => {
     expect(scheduled.get('ali')).toBe('16:00');
   });
 
-  it('leaves out service staff of the slot', () => {
-    expect(findScheduledStaff(slots, '12:00:00').has('ayse')).toBe(false);
+  it('includes service staff of the slot (last resort for GM calls)', () => {
+    expect(findScheduledStaff(slots, '12:00:00').get('ayse')).toBe('10:00');
   });
 
   it('drops slots that have already ended', () => {
@@ -246,5 +247,65 @@ describe('toAssignmentEvents', () => {
     ]);
 
     expect(events.map((e) => e.fromUser)).toEqual([undefined, 'ali', 'ayse']);
+  });
+});
+
+describe('pickAssigneeServiceStaffLast', () => {
+  const service = (
+    userId: string,
+    overrides: Partial<AssignmentCandidate> = {},
+  ) => candidate(userId, { isServiceStaff: true, ...overrides });
+
+  it('prefers anyone else over the service staff, even if they waited longer', () => {
+    const candidates = [
+      service('service', { lastActivity: hourToSeconds('08:00:00') }),
+      candidate('gm', { lastActivity: hourToSeconds('15:00:00') }),
+    ];
+
+    expect(pickAssigneeServiceStaffLast(candidates, {})).toBe('gm');
+  });
+
+  it('assigns the service staff when nobody else is available', () => {
+    expect(pickAssigneeServiceStaffLast([service('service')], {})).toBe(
+      'service',
+    );
+  });
+
+  it('does not let a service staff mentor jump the line for a question', () => {
+    const candidates = [
+      service('mentor'),
+      candidate('gm', { knownGames: new Set([7]) }),
+    ];
+
+    expect(
+      pickAssigneeServiceStaffLast(candidates, {
+        reason: GmCallReasonEnum.QUESTION,
+        mentorId: 'mentor',
+        game: 7,
+      }),
+    ).toBe('gm');
+  });
+
+  it('gives an explanation to a service staff who knows the game when no one else does', () => {
+    const candidates = [
+      candidate('gm'),
+      service('service', { knownGames: new Set([3]) }),
+    ];
+
+    expect(
+      pickAssigneeServiceStaffLast(candidates, {
+        reason: GmCallReasonEnum.EXPLANATION,
+        game: 3,
+      }),
+    ).toBe('service');
+  });
+
+  it('never gives an explanation to a service staff who does not know the game', () => {
+    expect(
+      pickAssigneeServiceStaffLast([service('service')], {
+        reason: GmCallReasonEnum.EXPLANATION,
+        game: 3,
+      }),
+    ).toBeUndefined();
   });
 });

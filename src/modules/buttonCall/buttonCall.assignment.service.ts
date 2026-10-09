@@ -27,7 +27,7 @@ import {
   findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
-  pickAssignee,
+  pickAssigneeServiceStaffLast,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import {
@@ -104,7 +104,7 @@ export class ButtonCallAssignmentService {
       call.declinedBy ?? [],
     );
     const request = await this.buildRequest(call);
-    const userId = pickAssignee(candidates, request);
+    const userId = pickAssigneeServiceStaffLast(candidates, request);
     if (!userId) {
       return null;
     }
@@ -431,7 +431,6 @@ export class ButtonCallAssignmentService {
       this.shiftModel.findOne({ day: date, location }).select('shifts').lean(),
     ]);
     const slots = shift?.shifts ?? [];
-    const serviceStaff = findServiceStaff(slots, hour);
     const scheduled = findScheduledStaff(slots, hour);
     const knowers = await this.userModel
       .find({
@@ -446,9 +445,9 @@ export class ButtonCallAssignmentService {
       .map((user) => user._id as string)
       .filter((id) => !excludedUsers.includes(id));
 
-    // Service staff stay on service for their whole shift slot, so waiting
-    // for them makes no sense.
-    if (knowerIds.some((id) => checkInByUser.has(id) && id !== serviceStaff)) {
+    // Someone in the cafe who knows the game is busy (service staff included:
+    // they take GM calls as a last resort once free).
+    if (knowerIds.some((id) => checkInByUser.has(id))) {
       return { status: GameAvailabilityStatus.BUSY };
     }
     const arrivals = knowerIds
@@ -530,9 +529,6 @@ export class ButtonCallAssignmentService {
       ...excludedUsers,
       ...handlingCall,
     ]);
-    if (serviceStaff) {
-      excluded.add(serviceStaff);
-    }
 
     return users
       .filter((user) => !excluded.has(user._id))
@@ -554,6 +550,7 @@ export class ButtonCallAssignmentService {
           ),
           lastActivity: Math.max(...activityHours.map(hourToSeconds)),
           gameplayCountToday: ownGameplays.length,
+          isServiceStaff: userId === serviceStaff,
         };
       });
   }
