@@ -10,6 +10,7 @@ import {
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
+import * as moment from 'moment-timezone';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -21,6 +22,7 @@ import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
+import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
@@ -129,39 +131,73 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    const obj: { duration: string; finishHour: string; cancelledBy?: string } =
-      {
-        duration: convertToHMS(
-          convertToSeconds(closeButtonCallDto.hour) -
-            convertToSeconds(closedButtonCall.startHour),
-        ),
-        finishHour: closeButtonCallDto.hour,
-      };
-
-    if (user) {
-      obj.cancelledBy = user._id;
-    }
-
-    closedButtonCall.set(obj);
-    await closedButtonCall.save();
-    this.websocketGateway.emitButtonCallChanged(
+    await this.finishButtonCall(
       closedButtonCall,
-      ButtonCallActionEnum.CLOSE,
+      user,
+      closeButtonCallDto.hour,
     );
     this.freeAssignee(closedButtonCall);
-    if (user) {
-      this.activityService
-        .addActivity(user, ActivityType.CLOSE_BUTTONCALL, closedButtonCall)
-        .catch((error) => {
-          this.logger.error('Error adding close button call activity:', error);
-        });
-    }
 
     if (notifyCafe) {
       await this.notifyCafe(closeButtonCallDto);
     }
 
     return closedButtonCall;
+  }
+
+  async closeOrderCall(table: Table, user: User) {
+    const activeOrderCall = await this.buttonCallModel
+      .findOne({
+        tableName: table.name,
+        location: table.location,
+        type: ButtonCallTypeEnum.ORDERCALL,
+        finishHour: { $exists: false },
+      })
+      .sort({ createdAt: -1 });
+
+    if (!activeOrderCall) {
+      return null;
+    }
+
+    await this.finishButtonCall(
+      activeOrderCall,
+      user,
+      moment.tz('Europe/Istanbul').format('HH:mm:ss'),
+    );
+
+    return activeOrderCall;
+  }
+
+  private async finishButtonCall(
+    buttonCall: ButtonCall,
+    user: User | null,
+    finishHour: string,
+  ) {
+    const obj: { duration: string; finishHour: string; cancelledBy?: string } =
+      {
+        duration: convertToHMS(
+          convertToSeconds(finishHour) - convertToSeconds(buttonCall.startHour),
+        ),
+        finishHour,
+      };
+
+    if (user) {
+      obj.cancelledBy = user._id;
+    }
+
+    buttonCall.set(obj);
+    await buttonCall.save();
+    this.websocketGateway.emitButtonCallChanged(
+      buttonCall,
+      ButtonCallActionEnum.CLOSE,
+    );
+    if (user) {
+      this.activityService
+        .addActivity(user, ActivityType.CLOSE_BUTTONCALL, buttonCall)
+        .catch((error) => {
+          this.logger.error('Error adding close button call activity:', error);
+        });
+    }
   }
 
   async notifyCafe(closeButtonCallDto: CloseButtonCallDto) {
