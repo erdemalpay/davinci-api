@@ -1,6 +1,7 @@
 import { RoleEnum } from '../user/user.dto';
 import { hourToSeconds } from './buttonCall.assignment';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
+import { DeclineReasonEnum } from './dto/create-buttonCall.dto';
 
 // Minimal stand-in for a mongoose query: every builder method returns the
 // query and `lean()` resolves to the given rows.
@@ -72,18 +73,15 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     });
   });
 
-  it('excludes people explaining, on a break, middleman or service staff', async () => {
+  it('excludes people explaining, on a break or middleman', async () => {
     const { service } = build({
-      visits: ['free', 'explaining', 'break', 'middleman', 'service'].map(
-        (id) => visit(id),
+      visits: ['free', 'explaining', 'break', 'middleman'].map((id) =>
+        visit(id),
       ),
-      users: ['free', 'explaining', 'break', 'middleman', 'service'].map((id) =>
-        gm(id),
-      ),
+      users: ['free', 'explaining', 'break', 'middleman'].map((id) => gm(id)),
       explaining: [{ user: 'explaining' }],
       breaks: [{ user: 'break' }],
       middlemen: [{ user: 'middleman' }],
-      shift: { shifts: [{ shift: '10:00', chefUser: 'service' }] },
     });
 
     const candidates = await service.findCandidates(
@@ -94,6 +92,50 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     );
 
     expect(candidates.map((c) => c.userId)).toEqual(['free']);
+  });
+
+  it('keeps service staff of the current slot, flagged as last resort', async () => {
+    const { service } = build({
+      visits: [visit('free'), visit('service')],
+      users: [gm('free'), gm('service')],
+      shift: { shifts: [{ shift: '10:00', chefUser: 'service' }] },
+    });
+
+    const candidates = await service.findCandidates(
+      location,
+      date,
+      '12:00:00',
+      [],
+    );
+    const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
+
+    expect(byId.free.isServiceStaff).toBe(false);
+    expect(byId.service.isServiceStaff).toBe(true);
+  });
+
+  it('never considers people outside operation, not even as a last resort', async () => {
+    const { service } = build({
+      visits: [visit('outside'), visit('outside-service')],
+      users: [gm('outside'), gm('outside-service')],
+      shift: {
+        shifts: [
+          {
+            shift: '10:00',
+            chefUser: 'outside-service',
+            outsideOperationUsers: ['outside', 'outside-service'],
+          },
+        ],
+      },
+    });
+
+    const candidates = await service.findCandidates(
+      location,
+      date,
+      '12:00:00',
+      [],
+    );
+
+    expect(candidates).toEqual([]);
   });
 
   it('excludes people who declined the call', async () => {
@@ -295,5 +337,68 @@ describe('ButtonCallAssignmentService scheduling', () => {
 
     await expect(service.assign(1)).rejects.toThrow('db down');
     await expect(service.assign(2)).resolves.toBeNull();
+  });
+});
+
+describe('ButtonCallAssignmentService.decline', () => {
+  function build() {
+    const buttonCallModel = {
+      findById: jest.fn(() =>
+        query({
+          _id: 7,
+          type: 'GAMEMASTERCALL',
+          assignedTo: 'ali',
+          gmCallReason: 'RECOMMENDATION',
+        }),
+      ),
+      findOneAndUpdate: jest.fn(async () => ({ _id: 7, declinedBy: ['ali'] })),
+    };
+    const m = () => model([]) as never;
+    const service = new ButtonCallAssignmentService(
+      buttonCallModel as never,
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      { emitButtonCallChanged: jest.fn() } as never,
+    );
+    jest.spyOn(service, 'assign').mockResolvedValue(null);
+    return { service, buttonCallModel };
+  }
+
+  const pushed = (model: { findOneAndUpdate: jest.Mock }) =>
+    model.findOneAndUpdate.mock.calls[0][1].$push.assignmentHistory;
+
+  it('records the reason of a decline', async () => {
+    const { service, buttonCallModel } = build();
+
+    await service.decline({ _id: 'ali' } as never, 7, {
+      reason: DeclineReasonEnum.TAKING_PAYMENT,
+    });
+
+    expect(pushed(buttonCallModel)).toMatchObject({
+      user: 'ali',
+      action: 'declined',
+      reason: DeclineReasonEnum.TAKING_PAYMENT,
+    });
+    expect(pushed(buttonCallModel).note).toBeUndefined();
+  });
+
+  it('records the note for "other"', async () => {
+    const { service, buttonCallModel } = build();
+
+    await service.decline({ _id: 'ali' } as never, 7, {
+      reason: DeclineReasonEnum.OTHER,
+      note: '  Depoya gidiyorum ',
+    });
+
+    expect(pushed(buttonCallModel)).toMatchObject({
+      reason: DeclineReasonEnum.OTHER,
+      note: 'Depoya gidiyorum',
+    });
   });
 });

@@ -24,10 +24,11 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   AssignmentCandidate,
   AssignmentRequest,
+  findOutsideOperationStaff,
   findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
-  pickAssignee,
+  pickAssigneeServiceStaffLast,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import {
@@ -36,6 +37,8 @@ import {
   ButtonCallTypeEnum,
   CallReportQueryDto,
   ChangeGmCallRequestDto,
+  DeclineButtonCallDto,
+  DeclineReasonEnum,
   GameAvailabilityStatus,
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
@@ -104,7 +107,7 @@ export class ButtonCallAssignmentService {
       call.declinedBy ?? [],
     );
     const request = await this.buildRequest(call);
-    const userId = pickAssignee(candidates, request);
+    const userId = pickAssigneeServiceStaffLast(candidates, request);
     if (!userId) {
       return null;
     }
@@ -137,7 +140,11 @@ export class ButtonCallAssignmentService {
     return assigned;
   }
 
-  async decline(user: User, callId: number): Promise<ButtonCall> {
+  async decline(
+    user: User,
+    callId: number,
+    dto: DeclineButtonCallDto,
+  ): Promise<ButtonCall> {
     const call = await this.findOpenCall(callId);
     if (call.assignedTo !== user._id) {
       throw new BadRequestException('This call is not assigned to you');
@@ -152,6 +159,10 @@ export class ButtonCallAssignmentService {
             user: user._id,
             action: AssignmentActionEnum.DECLINED,
             hour: nowHour(),
+            reason: dto.reason,
+            ...(dto.reason === DeclineReasonEnum.OTHER && {
+              note: dto.note?.trim(),
+            }),
           },
         },
       },
@@ -291,7 +302,7 @@ export class ButtonCallAssignmentService {
   }
 
   // Fallback for anything the availability event misses.
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async assignPendingCalls() {
     const pending = await this.buttonCallModel
       .find({
@@ -426,13 +437,16 @@ export class ButtonCallAssignmentService {
       return { status: GameAvailabilityStatus.AVAILABLE };
     }
 
-    const [checkInByUser, shift] = await Promise.all([
+    const [checkInByUser, slots] = await Promise.all([
       this.findCheckInByUser(location, date),
-      this.shiftModel.findOne({ day: date, location }).select('shifts').lean(),
+      this.findShiftSlots(location, date),
     ]);
-    const slots = shift?.shifts ?? [];
-    const serviceStaff = findServiceStaff(slots, hour);
     const scheduled = findScheduledStaff(slots, hour);
+    // In the cafe but outside operation now: can't take the call until a
+    // later slot (if any) where they're on operation.
+    const outsideOperation = new Set(findOutsideOperationStaff(slots, hour));
+    const isWorking = (id: string) =>
+      checkInByUser.has(id) && !outsideOperation.has(id);
     const knowers = await this.userModel
       .find({
         _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
@@ -446,13 +460,13 @@ export class ButtonCallAssignmentService {
       .map((user) => user._id as string)
       .filter((id) => !excludedUsers.includes(id));
 
-    // Service staff stay on service for their whole shift slot, so waiting
-    // for them makes no sense.
-    if (knowerIds.some((id) => checkInByUser.has(id) && id !== serviceStaff)) {
+    // Someone in the cafe who knows the game is busy (service staff included:
+    // they take GM calls as a last resort once free).
+    if (knowerIds.some(isWorking)) {
       return { status: GameAvailabilityStatus.BUSY };
     }
     const arrivals = knowerIds
-      .filter((id) => !checkInByUser.has(id) && scheduled.has(id))
+      .filter((id) => !isWorking(id) && scheduled.has(id))
       .map((id) => scheduled.get(id)!)
       .sort((a, b) => hourToSeconds(a) - hourToSeconds(b));
     if (arrivals.length > 0) {
@@ -494,45 +508,44 @@ export class ButtonCallAssignmentService {
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
 
-    const [users, busyUserIds, serviceStaff, gameplays, calls] =
-      await Promise.all([
-        this.userModel
-          .find({
-            _id: { $in: [...checkInByUser.keys()] },
-            active: true,
-            role: { $in: GM_ROLES },
-          })
-          .select('_id userGames')
-          .lean(),
-        this.findBusyUserIds(location, date),
-        this.findServiceStaffAt(location, date, hour),
-        this.gameplayModel
-          .find({ date, location })
-          .select('mentor startHour')
-          .lean(),
-        this.buttonCallModel
-          .find({
-            date,
-            location,
-            type: ButtonCallTypeEnum.GAMEMASTERCALL,
-            assignedTo: { $exists: true },
-          })
-          .select('assignedTo assignedHour finishHour')
-          .lean(),
-      ]);
+    const [users, busyUserIds, slots, gameplays, calls] = await Promise.all([
+      this.userModel
+        .find({
+          _id: { $in: [...checkInByUser.keys()] },
+          active: true,
+          role: { $in: GM_ROLES },
+        })
+        .select('_id userGames')
+        .lean(),
+      this.findBusyUserIds(location, date),
+      this.findShiftSlots(location, date),
+      this.gameplayModel
+        .find({ date, location })
+        .select('mentor startHour')
+        .lean(),
+      this.buttonCallModel
+        .find({
+          date,
+          location,
+          type: ButtonCallTypeEnum.GAMEMASTERCALL,
+          assignedTo: { $exists: true },
+        })
+        .select('assignedTo assignedHour finishHour')
+        .lean(),
+    ]);
 
     // Someone already handling a call gets no other call until it's closed.
     const handlingCall = calls
       .filter((c) => !c.finishHour)
       .map((c) => c.assignedTo);
+    const serviceStaff = findServiceStaff(slots, hour);
     const excluded = new Set([
       ...busyUserIds,
       ...excludedUsers,
       ...handlingCall,
+      // "Operasyon Dışı" never take GM calls, not even as a last resort.
+      ...findOutsideOperationStaff(slots, hour),
     ]);
-    if (serviceStaff) {
-      excluded.add(serviceStaff);
-    }
 
     return users
       .filter((user) => !excluded.has(user._id))
@@ -554,6 +567,7 @@ export class ButtonCallAssignmentService {
           ),
           lastActivity: Math.max(...activityHours.map(hourToSeconds)),
           gameplayCountToday: ownGameplays.length,
+          isServiceStaff: userId === serviceStaff,
         };
       });
   }
@@ -574,15 +588,11 @@ export class ButtonCallAssignmentService {
     );
   }
 
-  private async findServiceStaffAt(
-    location: number,
-    date: string,
-    hour: string,
-  ) {
+  private async findShiftSlots(location: number, date: string) {
     const shift = await this.shiftModel
       .findOne({ day: date, location })
       .select('shifts')
       .lean();
-    return findServiceStaff(shift?.shifts ?? [], hour);
+    return shift?.shifts ?? [];
   }
 }

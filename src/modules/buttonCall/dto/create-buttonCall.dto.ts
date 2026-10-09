@@ -5,6 +5,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export enum GmCallReasonEnum {
@@ -93,6 +95,27 @@ export class ChangeGmCallRequestDto {
   @IsOptional()
   @IsNumber()
   readonly game?: number;
+}
+
+export enum DeclineReasonEnum {
+  TAKING_PAYMENT = 'TAKING_PAYMENT',
+  RECOMMENDING_GAME = 'RECOMMENDING_GAME',
+  PREPARING_ORDER = 'PREPARING_ORDER',
+  OTHER = 'OTHER',
+}
+
+export class DeclineButtonCallDto {
+  @ApiProperty({ enum: DeclineReasonEnum })
+  @IsEnum(DeclineReasonEnum)
+  readonly reason: DeclineReasonEnum;
+
+  // Required when the reason is OTHER.
+  @ApiProperty({ required: false })
+  @ValidateIf((dto) => dto.reason === DeclineReasonEnum.OTHER)
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(300)
+  readonly note?: string;
 }
 
 export class CallReportQueryDto {

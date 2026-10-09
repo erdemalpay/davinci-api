@@ -6,8 +6,13 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { addDays, format } from 'date-fns';
+import {
+  TABLE_GAMEPLAY_ADDED,
+  TableGameplayAddedEvent,
+} from '../../lib/events';
 import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
@@ -67,6 +72,7 @@ export class TableService {
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async searchTableIds(search: string) {
@@ -514,6 +520,13 @@ export class TableService {
       tableId: id,
       gameplay,
     });
+    // The table's open GM call is answered once a game is being explained.
+    this.eventEmitter.emit(TABLE_GAMEPLAY_ADDED, {
+      location: table.location,
+      date: table.date,
+      tableName: table.name,
+      mentor: gameplayDto.mentor,
+    } as TableGameplayAddedEvent);
 
     if (gameplayDto?.isGameplayTime) {
       this.gameplayTimeService.create({

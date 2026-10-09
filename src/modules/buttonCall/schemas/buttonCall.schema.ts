@@ -15,6 +15,13 @@ export class AssignmentHistoryEntry {
 
   @Prop({ required: true, type: String })
   hour: string;
+
+  // Why a game master declined (DeclineReasonEnum), with a note for OTHER.
+  @Prop({ required: false, type: String })
+  reason: string;
+
+  @Prop({ required: false, type: String })
+  note: string;
 }
 
 const AssignmentHistoryEntrySchema = SchemaFactory.createForClass(

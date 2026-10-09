@@ -16,6 +16,9 @@ export interface AssignmentCandidate {
   // or call assignment); the cafe check-in time when there is none yet.
   lastActivity: number;
   gameplayCountToday: number;
+  // Service staff ("Servis Elemanı") of the current shift slot: only gets a
+  // GM call when nobody else can take it.
+  isServiceStaff?: boolean;
 }
 
 export interface AssignmentRequest {
@@ -32,6 +35,8 @@ export interface ShiftSlot {
   shiftEndHour?: string;
   chefUser?: string;
   user?: string[];
+  // "Operasyon Dışı": never take GM calls in this slot.
+  outsideOperationUsers?: string[];
 }
 
 // Whoever has gone the longest without an action, then whoever explained
@@ -83,6 +88,17 @@ export function pickAssignee(
   return best(candidates).userId;
 }
 
+// Picks among everyone but the service staff first; service staff are the
+// last resort, with the same rules (e.g. they must know a requested game).
+export function pickAssigneeServiceStaffLast(
+  candidates: AssignmentCandidate[],
+  request: AssignmentRequest,
+): string | undefined {
+  const regular = candidates.filter((c) => !c.isServiceStaff);
+  const serviceStaff = candidates.filter((c) => c.isServiceStaff);
+  return pickAssignee(regular, request) ?? pickAssignee(serviceStaff, request);
+}
+
 // Shift slots in start order with their time range in seconds. A slot
 // without an end hour runs until the next slot starts, or until the end of
 // the day for the last slot. An end before the start means past midnight.
@@ -100,22 +116,33 @@ function withBounds(slots: ShiftSlot[]) {
   });
 }
 
+function findCurrentSlot(slots: ShiftSlot[], hour: string) {
+  const now = hourToSeconds(hour);
+  return withBounds(slots).find(({ start, end }) =>
+    end < start ? now >= start || now < end : now >= start && now < end,
+  )?.slot;
+}
+
 // Service staff ("Servis Elemanı", stored as chefUser) of the shift slot
 // that covers the given hour.
 export function findServiceStaff(
   slots: ShiftSlot[],
   hour: string,
 ): string | undefined {
-  const now = hourToSeconds(hour);
-  const current = withBounds(slots).find(({ start, end }) =>
-    end < start ? now >= start || now < end : now >= start && now < end,
-  );
-  return current?.slot.chefUser || undefined;
+  return findCurrentSlot(slots, hour)?.chefUser || undefined;
+}
+
+// People marked "Operasyon Dışı" in the shift slot that covers the hour.
+export function findOutsideOperationStaff(
+  slots: ShiftSlot[],
+  hour: string,
+): string[] {
+  return findCurrentSlot(slots, hour)?.outsideOperationUsers ?? [];
 }
 
 // People scheduled in a slot that hasn't ended yet, with the hour their slot
-// starts; service staff of that slot are left out. Someone in several slots
-// gets the earliest one.
+// starts; people outside operation in that slot are left out. Someone in
+// several slots gets the earliest one.
 export function findScheduledStaff(
   slots: ShiftSlot[],
   hour: string,
@@ -126,8 +153,9 @@ export function findScheduledStaff(
     // A slot that passes midnight is still ahead or running all day.
     const ended = end >= start && now >= end;
     if (ended) continue;
+    const outside = slot.outsideOperationUsers ?? [];
     for (const userId of slot.user ?? []) {
-      if (userId !== slot.chefUser && !fromByUser.has(userId)) {
+      if (!outside.includes(userId) && !fromByUser.has(userId)) {
         fromByUser.set(userId, slot.shift);
       }
     }
@@ -139,6 +167,8 @@ export interface AssignmentHistoryItem {
   user: string;
   action: string;
   hour: string;
+  reason?: string;
+  note?: string;
 }
 
 export interface AssignmentEvent extends AssignmentHistoryItem {
