@@ -21,6 +21,7 @@ import {
   ChangeGmCallRequestDto,
   CheckGameAvailabilityDto,
   CreateButtonCallDto,
+  DeclineButtonCallDto,
   CallReportQueryDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
@@ -160,8 +161,12 @@ export class ButtonCallController {
   // The assigned game master can't go; the call moves to the next person.
   @ApiResponse({ type: ButtonCall })
   @Post('/:id/decline')
-  declineButtonCall(@ReqUser() user: User, @Param('id') id: number) {
-    return this.buttonCallAssignmentService.decline(user, Number(id));
+  declineButtonCall(
+    @ReqUser() user: User,
+    @Param('id') id: number,
+    @Body() dto: DeclineButtonCallDto,
+  ) {
+    return this.buttonCallAssignmentService.decline(user, Number(id), dto);
   }
 
   @ApiResponse({ type: ButtonCall })

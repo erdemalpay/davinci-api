@@ -7,11 +7,16 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
+import {
+  TABLE_GAMEPLAY_ADDED,
+  TableGameplayAddedEvent,
+} from '../../lib/events';
 import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -512,6 +517,38 @@ export class ButtonCallService {
     await this.buttonCallModel.findByIdAndDelete(id);
     if (!button_call.finishHour) {
       this.freeAssignee(button_call);
+    }
+  }
+
+  // A game is being explained at the table: its open GM call (whatever the
+  // reason) is answered, closed in the name of whoever explains the game.
+  @OnEvent(TABLE_GAMEPLAY_ADDED)
+  async closeCallOnGameplayAdded(event: TableGameplayAddedEvent) {
+    try {
+      const openCall = await this.buttonCallModel.exists({
+        tableName: event.tableName,
+        location: event.location,
+        date: event.date,
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        finishHour: { $exists: false },
+      });
+      if (!openCall) {
+        return;
+      }
+      const mentor = event.mentor
+        ? await this.userModel.findById(event.mentor)
+        : null;
+      await this.close(mentor, {
+        tableName: event.tableName,
+        location: event.location,
+        hour: format(new Date(), 'HH:mm:ss'),
+        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      });
+    } catch (error) {
+      this.logger.error(
+        'Error closing GM call after gameplay was added',
+        error,
+      );
     }
   }
 

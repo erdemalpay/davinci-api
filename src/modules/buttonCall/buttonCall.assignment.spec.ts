@@ -1,5 +1,6 @@
 import {
   AssignmentCandidate,
+  findOutsideOperationStaff,
   findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
@@ -307,5 +308,38 @@ describe('pickAssigneeServiceStaffLast', () => {
         game: 3,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('findOutsideOperationStaff', () => {
+  const slots = [
+    { shift: '10:00', shiftEndHour: '16:00', outsideOperationUsers: ['ali'] },
+    { shift: '16:00', shiftEndHour: '23:00', outsideOperationUsers: ['mert'] },
+  ];
+
+  it('returns the people outside operation in the current slot', () => {
+    expect(findOutsideOperationStaff(slots, '12:00:00')).toEqual(['ali']);
+    expect(findOutsideOperationStaff(slots, '18:00:00')).toEqual(['mert']);
+  });
+
+  it('is empty outside every slot', () => {
+    expect(findOutsideOperationStaff(slots, '09:00:00')).toEqual([]);
+  });
+
+  it('leaves them out of the scheduled staff of that slot only', () => {
+    const scheduled = findScheduledStaff(
+      [
+        {
+          shift: '10:00',
+          shiftEndHour: '16:00',
+          user: ['ali'],
+          outsideOperationUsers: ['ali'],
+        },
+        { shift: '16:00', shiftEndHour: '23:00', user: ['ali'] },
+      ],
+      '12:00:00',
+    );
+
+    expect(scheduled.get('ali')).toBe('16:00');
   });
 });

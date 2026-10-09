@@ -91,3 +91,69 @@ describe('ButtonCallService frees the assignee', () => {
     expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ButtonCallService closes the call when a game is added', () => {
+  const event = {
+    location: 1,
+    date: '2026-10-09',
+    tableName: '5',
+    mentor: 'mert',
+  };
+
+  function build(openCall: boolean) {
+    const doc = openCall
+      ? {
+          _id: 3,
+          type: ButtonCallTypeEnum.GAMEMASTERCALL,
+          assignedTo: 'ali',
+          startHour: '12:20:00',
+          set: jest.fn(),
+          save: jest.fn(async () => undefined),
+        }
+      : null;
+    const buttonCallModel = {
+      exists: jest.fn(async () => (doc ? { _id: 3 } : null)),
+      findOne: jest.fn(async () => doc),
+    };
+    const mentor = { _id: 'mert' };
+    const service = new ButtonCallService(
+      buttonCallModel as never,
+      {} as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      { addActivity: jest.fn(async () => undefined) } as never,
+      {} as never,
+      { handleStaffAvailabilityChanged: jest.fn() } as never,
+      { findById: jest.fn(async () => mentor) } as never,
+      {} as never,
+    );
+    return { service, buttonCallModel, doc };
+  }
+
+  it("closes the table's open GM call in the mentor's name", async () => {
+    const { service, buttonCallModel, doc } = build(true);
+
+    await service.closeCallOnGameplayAdded(event);
+
+    expect(buttonCallModel.exists).toHaveBeenCalledWith({
+      tableName: '5',
+      location: 1,
+      date: '2026-10-09',
+      type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      finishHour: { $exists: false },
+    });
+    expect(buttonCallModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ type: ButtonCallTypeEnum.GAMEMASTERCALL }),
+    );
+    expect(doc!.set).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelledBy: 'mert' }),
+    );
+  });
+
+  it('does nothing when the table has no open GM call', async () => {
+    const { service, buttonCallModel } = build(false);
+
+    await service.closeCallOnGameplayAdded(event);
+
+    expect(buttonCallModel.findOne).not.toHaveBeenCalled();
+  });
+});

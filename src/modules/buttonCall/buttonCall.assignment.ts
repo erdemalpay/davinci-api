@@ -35,6 +35,8 @@ export interface ShiftSlot {
   shiftEndHour?: string;
   chefUser?: string;
   user?: string[];
+  // "Operasyon Dışı": never take GM calls in this slot.
+  outsideOperationUsers?: string[];
 }
 
 // Whoever has gone the longest without an action, then whoever explained
@@ -114,21 +116,33 @@ function withBounds(slots: ShiftSlot[]) {
   });
 }
 
+function findCurrentSlot(slots: ShiftSlot[], hour: string) {
+  const now = hourToSeconds(hour);
+  return withBounds(slots).find(({ start, end }) =>
+    end < start ? now >= start || now < end : now >= start && now < end,
+  )?.slot;
+}
+
 // Service staff ("Servis Elemanı", stored as chefUser) of the shift slot
 // that covers the given hour.
 export function findServiceStaff(
   slots: ShiftSlot[],
   hour: string,
 ): string | undefined {
-  const now = hourToSeconds(hour);
-  const current = withBounds(slots).find(({ start, end }) =>
-    end < start ? now >= start || now < end : now >= start && now < end,
-  );
-  return current?.slot.chefUser || undefined;
+  return findCurrentSlot(slots, hour)?.chefUser || undefined;
+}
+
+// People marked "Operasyon Dışı" in the shift slot that covers the hour.
+export function findOutsideOperationStaff(
+  slots: ShiftSlot[],
+  hour: string,
+): string[] {
+  return findCurrentSlot(slots, hour)?.outsideOperationUsers ?? [];
 }
 
 // People scheduled in a slot that hasn't ended yet, with the hour their slot
-// starts. Someone in several slots gets the earliest one.
+// starts; people outside operation in that slot are left out. Someone in
+// several slots gets the earliest one.
 export function findScheduledStaff(
   slots: ShiftSlot[],
   hour: string,
@@ -139,8 +153,9 @@ export function findScheduledStaff(
     // A slot that passes midnight is still ahead or running all day.
     const ended = end >= start && now >= end;
     if (ended) continue;
+    const outside = slot.outsideOperationUsers ?? [];
     for (const userId of slot.user ?? []) {
-      if (!fromByUser.has(userId)) {
+      if (!outside.includes(userId) && !fromByUser.has(userId)) {
         fromByUser.set(userId, slot.shift);
       }
     }
@@ -152,6 +167,8 @@ export interface AssignmentHistoryItem {
   user: string;
   action: string;
   hour: string;
+  reason?: string;
+  note?: string;
 }
 
 export interface AssignmentEvent extends AssignmentHistoryItem {
