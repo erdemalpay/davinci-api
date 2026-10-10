@@ -227,6 +227,32 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(byId.new.lastActivity).toBe(hourToSeconds('16:00:00'));
   });
 
+  it('also considers the service role for service calls, as service staff', async () => {
+    const { service, userModel } = build({
+      visits: [visit('gm'), visit('waiter')],
+      users: [gm('gm'), { ...gm('waiter'), role: RoleEnum.SERVICE }],
+    });
+
+    const candidates = await service.findCandidates(
+      location,
+      date,
+      '12:00:00',
+      [],
+      'ORDERCALL' as never,
+    );
+    const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
+
+    expect(userModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: {
+          $in: [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER, RoleEnum.SERVICE],
+        },
+      }),
+    );
+    expect(byId.waiter.isServiceStaff).toBe(true);
+    expect(byId.gm.isServiceStaff).toBe(false);
+  });
+
   it('excludes people already handling an open call', async () => {
     const { service } = build({
       visits: [visit('ali'), visit('ayse')],
@@ -295,7 +321,7 @@ describe('ButtonCallAssignmentService.claim', () => {
     expect(buttonCallModel.exists).toHaveBeenCalledWith({
       _id: { $ne: 7 },
       date: '2026-10-05',
-      type: 'GAMEMASTERCALL',
+      type: { $in: ['GAMEMASTERCALL', 'ORDERCALL'] },
       assignedTo: 'ali',
       finishHour: { $exists: false },
     });
@@ -305,7 +331,7 @@ describe('ButtonCallAssignmentService.claim', () => {
     const { service, buttonCallModel } = build(true);
 
     await expect(service.claim({ _id: 'ali' } as never, 7)).rejects.toThrow(
-      'You already have an assigned game master call',
+      'You already have an assigned call',
     );
     expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
@@ -385,7 +411,10 @@ describe('ButtonCallAssignmentService scheduling', () => {
 });
 
 describe('ButtonCallAssignmentService.decline', () => {
-  function build(callOverrides: Record<string, unknown> = {}) {
+  function build(
+    callOverrides: Record<string, unknown> = {},
+    isAlreadyBusy = false,
+  ) {
     const buttonCallModel = {
       findById: jest.fn(() =>
         query({
@@ -396,24 +425,36 @@ describe('ButtonCallAssignmentService.decline', () => {
           ...callOverrides,
         }),
       ),
-      findOneAndUpdate: jest.fn(async () => ({ _id: 7, declinedBy: ['ali'] })),
+      findOneAndUpdate: jest.fn(async () => ({
+        _id: 7,
+        location: 1,
+        declinedBy: ['ali'],
+      })),
+    };
+    const breakModel = {
+      exists: jest.fn(async () => (isAlreadyBusy ? { _id: 2 } : null)),
+      create: jest.fn(async () => ({})),
+    };
+    const websocketGateway = {
+      emitButtonCallChanged: jest.fn(),
+      emitBreakChanged: jest.fn(),
     };
     const m = () => model([]) as never;
     const service = new ButtonCallAssignmentService(
       buttonCallModel as never,
       m(),
       m(),
+      breakModel as never,
       m(),
       m(),
       m(),
       m(),
       m(),
-      m(),
-      { emitButtonCallChanged: jest.fn() } as never,
+      websocketGateway as never,
       model([], null) as never,
     );
     jest.spyOn(service, 'assign').mockResolvedValue(null);
-    return { service, buttonCallModel };
+    return { service, buttonCallModel, breakModel, websocketGateway };
   }
 
   const pushed = (model: { findOneAndUpdate: jest.Mock }) =>
@@ -445,6 +486,62 @@ describe('ButtonCallAssignmentService.decline', () => {
     expect(pushed(buttonCallModel)).toMatchObject({
       reason: DeclineReasonEnum.OTHER,
       note: 'Depoya gidiyorum',
+    });
+  });
+
+  describe('busy state', () => {
+    it('puts the person in the matching busy state', async () => {
+      const { service, breakModel, websocketGateway } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.TAKING_PAYMENT,
+      });
+
+      expect(breakModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user: 'ali',
+          location: 1,
+          type: 'TAKING_PAYMENT',
+        }),
+      );
+      expect(websocketGateway.emitBreakChanged).toHaveBeenCalled();
+    });
+
+    it('keeps the note of "other"', async () => {
+      const { service, breakModel } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.OTHER,
+        note: ' Depo ',
+      });
+
+      expect(breakModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'OTHER', note: 'Depo' }),
+      );
+    });
+
+    it('does not start another one when already busy', async () => {
+      const { service, breakModel } = build({}, true);
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.PREPARING_ORDER,
+      });
+
+      expect(breakModel.create).not.toHaveBeenCalled();
+    });
+
+    it('is not entered for "I don\'t know the game"', async () => {
+      const { service, breakModel } = build({
+        gmCallReason: 'EXPLANATION',
+        game: 10,
+      });
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+      });
+
+      expect(breakModel.exists).not.toHaveBeenCalled();
+      expect(breakModel.create).not.toHaveBeenCalled();
     });
   });
 

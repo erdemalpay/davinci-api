@@ -64,12 +64,18 @@ export class BreakService {
   async getStateSummary(date: string, location?: number) {
     const filter = { date, ...(location && { location: Number(location) }) };
     const [breaks, gameplayTimes, middlemen] = await Promise.all([
-      this.breakModel.find(filter).select('user type startHour finishHour').lean(),
+      this.breakModel
+        .find(filter)
+        .select('user type startHour finishHour')
+        .lean(),
       this.gameplayTimeModel
         .find(filter)
         .select('user startHour finishHour')
         .lean(),
-      this.middlemanModel.find(filter).select('user startHour finishHour').lean(),
+      this.middlemanModel
+        .find(filter)
+        .select('user startHour finishHour')
+        .lean(),
     ]);
     const isToday = date === format(new Date(), 'yyyy-MM-dd');
     const openUntil = isToday ? format(new Date(), 'HH:mm') : '23:59';

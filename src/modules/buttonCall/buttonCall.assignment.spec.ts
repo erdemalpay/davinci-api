@@ -6,6 +6,7 @@ import {
   hourToSeconds,
   pickAssignee,
   pickAssigneeServiceStaffLast,
+  pickServiceCallAssignee,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
@@ -314,5 +315,36 @@ describe('service staff and outside operation are for the whole day', () => {
 
     expect(scheduled.has('kemal')).toBe(false);
     expect(scheduled.get('ceren')).toBe('10:00');
+  });
+});
+
+describe('pickServiceCallAssignee', () => {
+  it('prefers service staff, longest idle first', async () => {
+    expect(
+      pickServiceCallAssignee([
+        candidate('gm', { lastActivity: hourToSeconds('09:00:00') }),
+        candidate('busy-service', {
+          isServiceStaff: true,
+          lastActivity: hourToSeconds('11:00:00'),
+        }),
+        candidate('idle-service', {
+          isServiceStaff: true,
+          lastActivity: hourToSeconds('10:00:00'),
+        }),
+      ]),
+    ).toBe('idle-service');
+  });
+
+  it('falls back to any free game master', () => {
+    expect(
+      pickServiceCallAssignee([
+        candidate('ali', { lastActivity: hourToSeconds('11:00:00') }),
+        candidate('ayse', { lastActivity: hourToSeconds('10:00:00') }),
+      ]),
+    ).toBe('ayse');
+  });
+
+  it('returns undefined when nobody is free', () => {
+    expect(pickServiceCallAssignee([])).toBeUndefined();
   });
 });

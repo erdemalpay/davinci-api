@@ -55,13 +55,14 @@ const isAssignedCallType = (type?: string) =>
 
 // A decline because of something else to do puts the person in that busy
 // state (a break-like record) so they get no other call meanwhile.
-const BUSY_STATE_FOR_DECLINE: Partial<Record<DeclineReasonEnum, BreakTypeEnum>> =
-  {
-    [DeclineReasonEnum.TAKING_PAYMENT]: BreakTypeEnum.TAKING_PAYMENT,
-    [DeclineReasonEnum.RECOMMENDING_GAME]: BreakTypeEnum.RECOMMENDING_GAME,
-    [DeclineReasonEnum.PREPARING_ORDER]: BreakTypeEnum.PREPARING_ORDER,
-    [DeclineReasonEnum.OTHER]: BreakTypeEnum.OTHER,
-  };
+const BUSY_STATE_FOR_DECLINE: Partial<
+  Record<DeclineReasonEnum, BreakTypeEnum>
+> = {
+  [DeclineReasonEnum.TAKING_PAYMENT]: BreakTypeEnum.TAKING_PAYMENT,
+  [DeclineReasonEnum.RECOMMENDING_GAME]: BreakTypeEnum.RECOMMENDING_GAME,
+  [DeclineReasonEnum.PREPARING_ORDER]: BreakTypeEnum.PREPARING_ORDER,
+  [DeclineReasonEnum.OTHER]: BreakTypeEnum.OTHER,
+};
 
 type CallInfo = Pick<
   ButtonCall,
@@ -110,7 +111,12 @@ export class ButtonCallAssignmentService {
 
   private async assignNow(callId: number): Promise<ButtonCall | null> {
     const call = await this.buttonCallModel.findById(callId).lean();
-    if (!call || !isAssignedCallType(call.type) || call.finishHour || call.assignedTo) {
+    if (
+      !call ||
+      !isAssignedCallType(call.type) ||
+      call.finishHour ||
+      call.assignedTo
+    ) {
       return null;
     }
 
@@ -406,7 +412,9 @@ export class ButtonCallAssignmentService {
     }
     const calls = await this.buttonCallModel
       .find(filter)
-      .select('date location tableName type gmCallReason game assignmentHistory')
+      .select(
+        'date location tableName type gmCallReason game assignmentHistory',
+      )
       .lean();
     return calls
       .flatMap((call) =>
@@ -648,8 +656,7 @@ export class ButtonCallAssignmentService {
           // GM marked service staff for the day, or someone in the service
           // role (only candidates for service calls).
           isServiceStaff:
-            serviceStaff.has(userId) ||
-            Number(user.role) === RoleEnum.SERVICE,
+            serviceStaff.has(userId) || Number(user.role) === RoleEnum.SERVICE,
         };
       });
   }
