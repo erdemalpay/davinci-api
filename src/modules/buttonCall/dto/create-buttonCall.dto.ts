@@ -98,9 +98,11 @@ export class ChangeGmCallRequestDto {
 }
 
 export enum DeclineReasonEnum {
+  BREAK = 'BREAK',
   TAKING_PAYMENT = 'TAKING_PAYMENT',
   RECOMMENDING_GAME = 'RECOMMENDING_GAME',
   PREPARING_ORDER = 'PREPARING_ORDER',
+  WC = 'WC',
   DOESNT_KNOW_GAME = 'DOESNT_KNOW_GAME',
   OTHER = 'OTHER',
 }

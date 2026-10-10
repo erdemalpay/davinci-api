@@ -118,7 +118,9 @@ const isAssignedCallType = (type?: string) =>
 const BUSY_STATE_FOR_DECLINE: Partial<
   Record<DeclineReasonEnum, BreakTypeEnum>
 > = {
+  [DeclineReasonEnum.BREAK]: BreakTypeEnum.BREAK,
   [DeclineReasonEnum.TAKING_PAYMENT]: BreakTypeEnum.TAKING_PAYMENT,
+  [DeclineReasonEnum.WC]: BreakTypeEnum.WC,
   [DeclineReasonEnum.RECOMMENDING_GAME]: BreakTypeEnum.RECOMMENDING_GAME,
   [DeclineReasonEnum.PREPARING_ORDER]: BreakTypeEnum.PREPARING_ORDER,
   [DeclineReasonEnum.OTHER]: BreakTypeEnum.OTHER,
