@@ -1,11 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsDateString,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
+  ValidateIf,
 } from 'class-validator';
+
+// Why someone is unavailable. A break is one of them; all of them keep the
+// person out of call assignment.
+export enum BreakTypeEnum {
+  BREAK = 'BREAK',
+  RECOMMENDING_GAME = 'RECOMMENDING_GAME',
+  PREPARING_ORDER = 'PREPARING_ORDER',
+  TAKING_PAYMENT = 'TAKING_PAYMENT',
+  OTHER = 'OTHER',
+}
 
 export class CreateBreakDto {
   @ApiProperty()
@@ -32,6 +45,20 @@ export class CreateBreakDto {
   @IsOptional()
   @IsString()
   finishHour?: string;
+
+  // Defaults to BREAK.
+  @ApiProperty({ required: false, enum: BreakTypeEnum })
+  @IsOptional()
+  @IsEnum(BreakTypeEnum)
+  type?: BreakTypeEnum;
+
+  // Required for OTHER.
+  @ApiProperty({ required: false })
+  @ValidateIf((dto) => dto.type === BreakTypeEnum.OTHER)
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
 }
 
 export class UpdateBreakDto {

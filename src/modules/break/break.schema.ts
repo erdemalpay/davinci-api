@@ -23,6 +23,13 @@ export class Break extends Document {
 
   @Prop()
   finishHour: string;
+
+  // BreakTypeEnum; records from before busy states are breaks.
+  @Prop({ type: String, default: 'BREAK' })
+  type: string;
+
+  @Prop({ required: false, type: String })
+  note: string;
 }
 
 export const BreakSchema = SchemaFactory.createForClass(Break);

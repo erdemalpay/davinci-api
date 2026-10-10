@@ -10,6 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
+import { BreakTypeEnum } from '../break/break.dto';
 import { Break } from '../break/break.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
@@ -30,9 +31,11 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssigneeServiceStaffLast,
+  pickServiceCallAssignee,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import {
+  ASSIGNED_CALL_TYPES,
   AssignmentActionEnum,
   ButtonCallActionEnum,
   ButtonCallTypeEnum,
@@ -46,6 +49,20 @@ import {
 import { ButtonCall } from './schemas/buttonCall.schema';
 
 const GM_ROLES = [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER];
+
+const isAssignedCallType = (type?: string) =>
+  ASSIGNED_CALL_TYPES.includes(type as ButtonCallTypeEnum);
+
+// A decline because of something else to do puts the person in that busy
+// state (a break-like record) so they get no other call meanwhile.
+const BUSY_STATE_FOR_DECLINE: Partial<
+  Record<DeclineReasonEnum, BreakTypeEnum>
+> = {
+  [DeclineReasonEnum.TAKING_PAYMENT]: BreakTypeEnum.TAKING_PAYMENT,
+  [DeclineReasonEnum.RECOMMENDING_GAME]: BreakTypeEnum.RECOMMENDING_GAME,
+  [DeclineReasonEnum.PREPARING_ORDER]: BreakTypeEnum.PREPARING_ORDER,
+  [DeclineReasonEnum.OTHER]: BreakTypeEnum.OTHER,
+};
 
 type CallInfo = Pick<
   ButtonCall,
@@ -95,7 +112,8 @@ export class ButtonCallAssignmentService {
   private async assignNow(callId: number): Promise<ButtonCall | null> {
     const call = await this.buttonCallModel.findById(callId).lean();
     if (
-      call?.type !== ButtonCallTypeEnum.GAMEMASTERCALL ||
+      !call ||
+      !isAssignedCallType(call.type) ||
       call.finishHour ||
       call.assignedTo
     ) {
@@ -108,9 +126,15 @@ export class ButtonCallAssignmentService {
       call.date,
       hour,
       call.declinedBy ?? [],
+      call.type as ButtonCallTypeEnum,
     );
-    const request = await this.buildRequest(call);
-    const userId = pickAssigneeServiceStaffLast(candidates, request);
+    const userId =
+      call.type === ButtonCallTypeEnum.ORDERCALL
+        ? pickServiceCallAssignee(candidates)
+        : pickAssigneeServiceStaffLast(
+            candidates,
+            await this.buildRequest(call),
+          );
     if (!userId) {
       return null;
     }
@@ -152,11 +176,22 @@ export class ButtonCallAssignmentService {
     if (call.assignedTo !== user._id) {
       throw new BadRequestException('This call is not assigned to you');
     }
+    // "I don't know the game": the call's game, or the one the game master
+    // names when the call doesn't have one yet (recommendation, question).
+    const unknownGame =
+      dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME
+        ? call.game ?? dto.game
+        : undefined;
+    if (dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME && !unknownGame) {
+      throw new BadRequestException('Select the game you do not know');
+    }
     const declined = await this.buttonCallModel.findOneAndUpdate(
       { _id: callId, assignedTo: user._id, finishHour: { $exists: false } },
       {
         $unset: { assignedTo: '', assignedHour: '' },
         $addToSet: { declinedBy: user._id },
+        // The call now names the game, so it goes to someone who knows it.
+        ...(!call.game && unknownGame && { $set: { game: unknownGame } }),
         $push: {
           assignmentHistory: {
             user: user._id,
@@ -166,6 +201,7 @@ export class ButtonCallAssignmentService {
             ...(dto.reason === DeclineReasonEnum.OTHER && {
               note: dto.note?.trim(),
             }),
+            ...(unknownGame && { game: unknownGame }),
           },
         },
       },
@@ -174,6 +210,7 @@ export class ButtonCallAssignmentService {
     if (!declined) {
       throw new NotFoundException('Call not found');
     }
+    await this.enterBusyState(user, declined, dto);
     const reassigned = await this.assign(callId);
     if (reassigned) {
       return reassigned;
@@ -184,6 +221,37 @@ export class ButtonCallAssignmentService {
       ButtonCallActionEnum.ASSIGN,
     );
     return result;
+  }
+
+  // "I'm taking a payment" etc.: the person is busy with that until they end
+  // it, like a break. Nothing happens if they're already busy or on a break.
+  private async enterBusyState(
+    user: User,
+    call: ButtonCall,
+    dto: DeclineButtonCallDto,
+  ) {
+    const type = BUSY_STATE_FOR_DECLINE[dto.reason];
+    if (!type) {
+      return;
+    }
+    const date = today();
+    const alreadyBusy = await this.breakModel.exists({
+      user: user._id,
+      date,
+      finishHour: { $exists: false },
+    });
+    if (alreadyBusy) {
+      return;
+    }
+    await this.breakModel.create({
+      user: user._id,
+      location: call.location,
+      date,
+      startHour: format(new Date(), 'HH:mm'),
+      type,
+      ...(type === BreakTypeEnum.OTHER && { note: dto.note?.trim() }),
+    });
+    this.websocketGateway.emitBreakChanged();
   }
 
   // An explanation call stays in line for someone who knows the game. When
@@ -251,13 +319,13 @@ export class ButtonCallAssignmentService {
     const otherOpenCall = await this.buttonCallModel.exists({
       _id: { $ne: callId },
       date: call.date,
-      type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      type: { $in: ASSIGNED_CALL_TYPES },
       assignedTo: user._id,
       finishHour: { $exists: false },
     });
     if (otherOpenCall) {
       throw new BadRequestException(
-        'You already have an assigned game master call. Close it before taking another one.',
+        'You already have an assigned call. Close it before taking another one.',
       );
     }
     const hour = nowHour();
@@ -310,7 +378,7 @@ export class ButtonCallAssignmentService {
     const pending = await this.buttonCallModel
       .find({
         date: today(),
-        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        type: { $in: ASSIGNED_CALL_TYPES },
         finishHour: { $exists: false },
         assignedTo: { $exists: false },
       })
@@ -328,11 +396,11 @@ export class ButtonCallAssignmentService {
     }
   }
 
-  // Every assignment, decline and take-over of game master calls in the
-  // range, newest first.
+  // Every assignment, decline and take-over of game master and service
+  // calls in the range, newest first.
   async findAssignmentEvents(query: CallReportQueryDto) {
     const filter: Record<string, unknown> = {
-      type: ButtonCallTypeEnum.GAMEMASTERCALL,
+      type: { $in: ASSIGNED_CALL_TYPES },
       'assignmentHistory.0': { $exists: true },
     };
     if (query.location) filter.location = Number(query.location);
@@ -344,7 +412,9 @@ export class ButtonCallAssignmentService {
     }
     const calls = await this.buttonCallModel
       .find(filter)
-      .select('date location tableName gmCallReason game assignmentHistory')
+      .select(
+        'date location tableName type gmCallReason game assignmentHistory',
+      )
       .lean();
     return calls
       .flatMap((call) =>
@@ -354,8 +424,10 @@ export class ButtonCallAssignmentService {
           date: call.date,
           location: call.location,
           tableName: call.tableName,
+          callType: call.type,
           gmCallReason: call.gmCallReason,
-          game: call.game,
+          // The game a decline was about, else the call's game.
+          game: event.game ?? call.game,
         })),
       )
       .sort(
@@ -370,8 +442,10 @@ export class ButtonCallAssignmentService {
     if (!call || call.finishHour) {
       throw new NotFoundException('Call not found');
     }
-    if (call.type !== ButtonCallTypeEnum.GAMEMASTERCALL) {
-      throw new BadRequestException('Only game master calls are assigned');
+    if (!isAssignedCallType(call.type)) {
+      throw new BadRequestException(
+        'Only game master and service calls are assigned',
+      );
     }
     return call;
   }
@@ -508,8 +582,14 @@ export class ButtonCallAssignmentService {
     date: string,
     hour: string,
     excludedUsers: string[],
+    callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
+    // Service calls also go to service staff (service role).
+    const roles =
+      callType === ButtonCallTypeEnum.ORDERCALL
+        ? [...GM_ROLES, RoleEnum.SERVICE]
+        : GM_ROLES;
 
     const [users, busyUserIds, shiftPlan, gameplays, calls] = await Promise.all(
       [
@@ -517,9 +597,9 @@ export class ButtonCallAssignmentService {
           .find({
             _id: { $in: [...checkInByUser.keys()] },
             active: true,
-            role: { $in: GM_ROLES },
+            role: { $in: roles },
           })
-          .select('_id userGames')
+          .select('_id role userGames')
           .lean(),
         this.findBusyUserIds(location, date),
         this.findShiftSlots(location, date),
@@ -531,7 +611,7 @@ export class ButtonCallAssignmentService {
           .find({
             date,
             location,
-            type: ButtonCallTypeEnum.GAMEMASTERCALL,
+            type: { $in: ASSIGNED_CALL_TYPES },
             assignedTo: { $exists: true },
           })
           .select('assignedTo assignedHour finishHour')
@@ -549,7 +629,7 @@ export class ButtonCallAssignmentService {
       ...busyUserIds,
       ...excludedUsers,
       ...handlingCall,
-      // "Operasyon Dışı" never take GM calls, not even as a last resort.
+      // "Operasyon Dışı" never take calls, not even as a last resort.
       ...findOutsideOperationStaff(shiftPlan.slots),
     ]);
 
@@ -573,7 +653,10 @@ export class ButtonCallAssignmentService {
           ),
           lastActivity: Math.max(...activityHours.map(hourToSeconds)),
           gameplayCountToday: ownGameplays.length,
-          isServiceStaff: serviceStaff.has(userId),
+          // GM marked service staff for the day, or someone in the service
+          // role (only candidates for service calls).
+          isServiceStaff:
+            serviceStaff.has(userId) || Number(user.role) === RoleEnum.SERVICE,
         };
       });
   }

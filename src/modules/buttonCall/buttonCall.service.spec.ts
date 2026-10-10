@@ -37,7 +37,7 @@ describe('ButtonCallService frees the assignee', () => {
       {} as never,
       {} as never,
     );
-    return { service, assignment };
+    return { service, assignment, buttonCallModel };
   }
 
   const closeDto = { tableName: '5', location: 1, hour: '12:30:00' };
@@ -67,7 +67,7 @@ describe('ButtonCallService frees the assignee', () => {
     expect(assignment.handleStaffAvailabilityChanged).not.toHaveBeenCalled();
   });
 
-  it('does nothing extra for a service call', async () => {
+  it('does nothing extra for an unassigned service call', async () => {
     const { service, assignment } = build({
       _id: 1,
       type: ButtonCallTypeEnum.ORDERCALL,
@@ -77,6 +77,36 @@ describe('ButtonCallService frees the assignee', () => {
     await service.close(null, closeDto);
 
     expect(assignment.handleStaffAvailabilityChanged).not.toHaveBeenCalled();
+  });
+
+  it('frees the assignee of a service call too', async () => {
+    const { service, assignment } = build({
+      _id: 1,
+      type: ButtonCallTypeEnum.ORDERCALL,
+      startHour: '12:20:00',
+      assignedTo: 'ceren',
+    });
+
+    await service.close(null, closeDto);
+
+    expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('frees the assignee when an order closes their service call', async () => {
+    const { service, assignment, buttonCallModel } = build({
+      _id: 1,
+      type: ButtonCallTypeEnum.ORDERCALL,
+      assignedTo: 'ceren',
+      startHour: '12:20:00',
+    });
+    const doc = await buttonCallModel.findOne();
+    buttonCallModel.findOne.mockReturnValueOnce({
+      sort: async () => doc,
+    } as never);
+
+    await service.closeOrderCall({ name: '5', location: 1 } as never, null);
+
+    expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalledTimes(1);
   });
 
   it('frees the assignee when an open GM call is deleted', async () => {
