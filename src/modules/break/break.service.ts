@@ -1,7 +1,11 @@
 import { format } from 'date-fns';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import {
+  BUSY_STATE_STARTED_ON_DECLINE,
+  BusyStateStartedEvent,
+  STAFF_AVAILABILITY_CHANGED,
+} from '../../lib/events';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -33,6 +37,10 @@ import {
   UpdateBreakDto,
 } from './break.dto';
 import { Break } from './break.schema';
+import { isConcurrentBreak } from './break.warning';
+import { Shift } from '../shift/shift.schema';
+import { VisitStatus } from '../visit/visit.dto';
+import { Visit } from '../visit/visit.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Middleman } from '../middleman/middleman.schema';
 
@@ -42,6 +50,8 @@ export const STATE_MIDDLEMAN = 'MIDDLEMAN';
 
 @Injectable()
 export class BreakService {
+  private readonly logger = new Logger(BreakService.name);
+
   constructor(
     @InjectModel(Break.name) private breakModel: Model<Break>,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -56,7 +66,46 @@ export class BreakService {
     private readonly gameplayTimeModel: Model<GameplayTime>,
     @InjectModel(Middleman.name)
     private readonly middlemanModel: Model<Middleman>,
+    @InjectModel(Visit.name) private readonly visitModel: Model<Visit>,
+    @InjectModel(Shift.name) private readonly shiftModel: Model<Shift>,
   ) {}
+
+  // Whether a new break of `user` leaves the cafe short of staff; see
+  // isConcurrentBreak.
+  private async leavesCafeShort(user: string, location: number, date: string) {
+    const [shift, breaks, visits] = await Promise.all([
+      this.shiftModel.findOne({ day: date, location }).select('shifts').lean(),
+      this.breakModel
+        .find({
+          location,
+          date,
+          user: { $ne: user },
+          finishHour: { $exists: false },
+          type: { $in: [BreakTypeEnum.BREAK, null] },
+        })
+        .select('user')
+        .lean(),
+      this.visitModel
+        .find({
+          location,
+          date,
+          finishHour: { $exists: false },
+          status: { $ne: VisitStatus.WRONG_ENTRY },
+        })
+        .select('user')
+        .lean(),
+    ]);
+    const outsideOperation = new Set(
+      (shift?.shifts ?? []).flatMap((s) => s.outsideOperationUsers ?? []),
+    );
+    const counted = (records: { user: unknown }[]) =>
+      new Set(
+        records
+          .map((record) => String(record.user))
+          .filter((id) => !outsideOperation.has(id)),
+      ).size;
+    return isConcurrentBreak(counted(breaks), counted(visits));
+  }
 
   // Minutes each person spent in each state on a day: every busy state
   // (break, recommending a game, ...), explaining games and middleman.
@@ -137,15 +186,13 @@ export class BreakService {
       }
 
       // Only real breaks count for the concurrent break warning.
-      const activeOthersCount = isBreak
-        ? await this.breakModel.countDocuments({
-            location: createBreakDto.location,
-            date: createBreakDto.date,
-            user: { $ne: createBreakDto.user },
-            finishHour: { $exists: false },
-            type: { $in: [BreakTypeEnum.BREAK, null] },
-          })
-        : 0;
+      const isCafeShort =
+        isBreak &&
+        (await this.leavesCafeShort(
+          createBreakDto.user,
+          createBreakDto.location,
+          createBreakDto.date,
+        ));
 
       const breakRecord = await this.breakModel.create({
         ...createBreakDto,
@@ -165,38 +212,82 @@ export class BreakService {
       this.websocketGateway.emitBreakChanged();
       this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
 
-      if (activeOthersCount >= 2) {
-        const notificationEvents =
-          await this.notificationService.findAllEventNotifications();
-        const concurrentBreakEvent = notificationEvents.find(
-          (n) => n.event === NotificationEventType.CONCURRENTBREAK,
+      if (isCafeShort) {
+        await this.notifyConcurrentBreak(
+          createBreakDto.user,
+          createBreakDto.location,
         );
-        if (concurrentBreakEvent) {
-          const [breakUser, breakLocation] = await Promise.all([
-            this.userService.findById(createBreakDto.user),
-            this.locationService.findLocationById(createBreakDto.location),
-          ]);
-          await this.notificationService.createNotification({
-            type: concurrentBreakEvent.type,
-            createdBy: concurrentBreakEvent.createdBy,
-            selectedUsers: concurrentBreakEvent.selectedUsers,
-            selectedRoles: concurrentBreakEvent.selectedRoles,
-            selectedLocations: concurrentBreakEvent.selectedLocations,
-            seenBy: [],
-            event: NotificationEventType.CONCURRENTBREAK,
-            message: {
-              key: 'ConcurrentBreakWarning',
-              params: {
-                userName: breakUser?.name ?? createBreakDto.user,
-                locationName: breakLocation?.name ?? String(createBreakDto.location),
-              },
-            },
-          });
-        }
       }
 
       return breakRecord;
     }, 'Failed to create break record');
+  }
+
+  // Someone declined a call because they're going on a break / are busy:
+  // the record is already created; log it and warn like any other break.
+  @OnEvent(BUSY_STATE_STARTED_ON_DECLINE)
+  async handleBusyStateStartedOnDecline({
+    breakRecord,
+  }: BusyStateStartedEvent) {
+    try {
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        breakRecord.user,
+        ActivityType.START_BREAK,
+        breakRecord,
+        'start break',
+      );
+      if (
+        breakRecord.type === BreakTypeEnum.BREAK &&
+        (await this.leavesCafeShort(
+          breakRecord.user,
+          breakRecord.location,
+          breakRecord.date,
+        ))
+      ) {
+        await this.notifyConcurrentBreak(
+          breakRecord.user,
+          breakRecord.location,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        'Failed to handle busy state started on decline',
+        error,
+      );
+    }
+  }
+
+  private async notifyConcurrentBreak(user: string, location: number) {
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const concurrentBreakEvent = notificationEvents.find(
+      (n) => n.event === NotificationEventType.CONCURRENTBREAK,
+    );
+    if (!concurrentBreakEvent) {
+      return;
+    }
+    const [breakUser, breakLocation] = await Promise.all([
+      this.userService.findById(user),
+      this.locationService.findLocationById(location),
+    ]);
+    await this.notificationService.createNotification({
+      type: concurrentBreakEvent.type,
+      createdBy: concurrentBreakEvent.createdBy,
+      selectedUsers: concurrentBreakEvent.selectedUsers,
+      selectedRoles: concurrentBreakEvent.selectedRoles,
+      selectedLocations: concurrentBreakEvent.selectedLocations,
+      seenBy: [],
+      event: NotificationEventType.CONCURRENTBREAK,
+      message: {
+        key: 'ConcurrentBreakWarning',
+        params: {
+          userName: breakUser?.name ?? user,
+          locationName: breakLocation?.name ?? String(location),
+        },
+      },
+    });
   }
 
   async findAll(query: BreakQueryDto) {

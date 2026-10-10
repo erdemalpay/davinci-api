@@ -16,6 +16,11 @@ class UserGame {
 export class UserSettings {
   @Prop({ type: Boolean, required: false, default: false })
   orderCategoryOn: boolean;
+
+  // A manager who wants game master calls today sets this to today's date
+  // ("yyyy-MM-dd"); it lapses at the end of the day.
+  @Prop({ type: String, required: false })
+  includeInGameAssignmentsDate?: string;
 }
 
 @Schema({ _id: false })

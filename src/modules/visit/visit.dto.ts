@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export enum VisitSource {
   PANEL = 'panel',
@@ -55,4 +55,9 @@ export class ManagerCheckInDto {
   @IsNumber()
   @IsNotEmpty()
   location: number;
+
+  // Managers only: check someone else in or out. Defaults to the requester.
+  @IsOptional()
+  @IsString()
+  user?: string;
 }

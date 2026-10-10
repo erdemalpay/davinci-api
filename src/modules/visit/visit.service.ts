@@ -629,7 +629,11 @@ export class VisitService {
     return this.toggleVisit(user, location, VisitSource.QR);
   }
 
-  async checkInOutAsManager(user: User, location: number) {
+  async checkInOutAsManager(
+    user: User,
+    location: number,
+    targetUserId?: string,
+  ) {
     if (
       user?.role?._id !== RoleEnum.MANAGER &&
       user?.role?._id !== RoleEnum.COUNTER
@@ -638,7 +642,20 @@ export class VisitService {
         'Only managers or kasa can check in/out without scanning the QR code',
       );
     }
-    return this.toggleVisit(user, location, VisitSource.PANEL);
+    if (!targetUserId || targetUserId === user._id) {
+      return this.toggleVisit(user, location, VisitSource.PANEL);
+    }
+    // A manager can check anyone in or out (e.g. someone who forgot to).
+    if (user.role._id !== RoleEnum.MANAGER) {
+      throw new ForbiddenException(
+        'Only managers can check someone else in or out',
+      );
+    }
+    const targetUser = await this.userService.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+    return this.toggleVisit(targetUser, location, VisitSource.PANEL);
   }
 
   private async toggleVisit(user: User, location: number, source: VisitSource) {

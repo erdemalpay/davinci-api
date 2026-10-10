@@ -118,6 +118,20 @@ export class ButtonCallController {
     });
   }
 
+  // The game the table is playing, so a question can be about it. Only the
+  // game is returned, not who explained it.
+  @Public()
+  @Get('/table-game')
+  getTableGame(
+    @Query('location') location: number,
+    @Query('tableName') tableName: string,
+  ) {
+    return this.buttonCallAssignmentService.getTableGame(
+      Number(location),
+      tableName,
+    );
+  }
+
   // Asked by the table before requesting an explanation of a game. Records
   // an unmet request when nobody who knows the game is free.
   @Public()

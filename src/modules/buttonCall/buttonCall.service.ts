@@ -33,6 +33,7 @@ import {
   ButtonCallQueryDto,
   ButtonCallTypeEnum,
   CreateButtonCallDto,
+  GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
@@ -97,7 +98,10 @@ export class ButtonCallService {
           createdButtonCall.type as ButtonCallTypeEnum,
         )
       ) {
-        if (createdButtonCall.game) {
+        if (
+          createdButtonCall.game &&
+          createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION
+        ) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)
             .catch((error) =>
