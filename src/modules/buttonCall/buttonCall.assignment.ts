@@ -16,9 +16,11 @@ export interface AssignmentCandidate {
   // or call assignment); the cafe check-in time when there is none yet.
   lastActivity: number;
   gameplayCountToday: number;
-  // Service staff ("Servis Elemanı") of the current shift slot: only gets a
-  // GM call when nobody else can take it.
+  // Service staff ("Servis Elemanı") of the day, or the service role.
   isServiceStaff?: boolean;
+  // Lower tiers are asked first; a higher tier only gets the call when
+  // nobody in the lower ones can take it. 0 by default.
+  tier?: number;
 }
 
 export interface AssignmentRequest {
@@ -28,6 +30,10 @@ export interface AssignmentRequest {
   game?: number;
   // Who explained the table's active game (questions only).
   mentorId?: string;
+  // Questions only: someone working in the cafe today knows the game (free
+  // or busy). Then the question waits for them instead of going to someone
+  // who doesn't know the game.
+  knowerInCafe?: boolean;
 }
 
 export interface ShiftSlot {
@@ -60,7 +66,7 @@ export function pickAssignee(
   if (candidates.length === 0) {
     return undefined;
   }
-  const { reason, game, mentorId } = request;
+  const { reason, game, mentorId, knowerInCafe } = request;
 
   if (reason === GmCallReasonEnum.QUESTION && mentorId) {
     const mentor = candidates.find((c) => c.userId === mentorId);
@@ -79,8 +85,9 @@ export function pickAssignee(
       return best(knowers).userId;
     }
     // A requested explanation only goes to someone who knows the game; the
-    // call waits in line until one of them is free.
-    if (reason === GmCallReasonEnum.EXPLANATION) {
+    // call waits in line until one of them is free. So does a question while
+    // someone in the cafe knows the game.
+    if (reason === GmCallReasonEnum.EXPLANATION || knowerInCafe) {
       return undefined;
     }
   }
@@ -88,25 +95,25 @@ export function pickAssignee(
   return best(candidates).userId;
 }
 
-// Service calls go to service staff first (service role, or the GM marked
-// service staff for the day); any other free game master otherwise.
-export function pickServiceCallAssignee(
-  candidates: AssignmentCandidate[],
-): string | undefined {
-  const serviceStaff = candidates.filter((c) => c.isServiceStaff);
-  const others = candidates.filter((c) => !c.isServiceStaff);
-  return (best(serviceStaff) ?? best(others))?.userId;
-}
-
-// Picks among everyone but the service staff first; service staff are the
-// last resort, with the same rules (e.g. they must know a requested game).
-export function pickAssigneeServiceStaffLast(
+// Picks tier by tier with the same rules in each (e.g. a requested
+// explanation only goes to someone who knows the game).
+export function pickAssigneeByTier(
   candidates: AssignmentCandidate[],
   request: AssignmentRequest,
 ): string | undefined {
-  const regular = candidates.filter((c) => !c.isServiceStaff);
-  const serviceStaff = candidates.filter((c) => c.isServiceStaff);
-  return pickAssignee(regular, request) ?? pickAssignee(serviceStaff, request);
+  const tiers = [...new Set(candidates.map((c) => c.tier ?? 0))].sort(
+    (a, b) => a - b,
+  );
+  for (const tier of tiers) {
+    const userId = pickAssignee(
+      candidates.filter((c) => (c.tier ?? 0) === tier),
+      request,
+    );
+    if (userId) {
+      return userId;
+    }
+  }
+  return undefined;
 }
 
 // The location's shift definitions ("10:00"–"18:00"). Shift docs often

@@ -16,6 +16,8 @@ import { Gameplay } from '../gameplay/gameplay.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Location } from '../location/location.schema';
 import { Middleman } from '../middleman/middleman.schema';
+import { OrderStatus } from '../order/order.dto';
+import { Order } from '../order/order.schema';
 import { Shift } from '../shift/shift.schema';
 import { Table } from '../table/table.schema';
 import { RoleEnum } from '../user/user.dto';
@@ -30,8 +32,7 @@ import {
   findScheduledStaff,
   findServiceStaff,
   hourToSeconds,
-  pickAssigneeServiceStaffLast,
-  pickServiceCallAssignee,
+  pickAssigneeByTier,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import {
@@ -48,7 +49,55 @@ import {
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 
-const GM_ROLES = [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER];
+// Who can get which call, in tiers (lower tiers are asked first).
+//
+// Game master calls: game masters and managers who opted in for the day,
+// then the day's service staff, then the game manager.
+//
+// Service calls: service staff (service role or the GM marked service staff
+// for the day), then game masters, then the game manager, then the bar
+// manager, then baristas, and baristas only while no order is waiting.
+//
+// Nobody marked outside operation for the day gets any call.
+const SERVICE_CALL_ROLES = [
+  RoleEnum.SERVICE,
+  RoleEnum.GAMEMASTER,
+  RoleEnum.GAMEMANAGER,
+  RoleEnum.BARCHEF,
+  RoleEnum.BARISTA,
+];
+
+// Game masters and game managers; managers only on a day they opted in.
+function gameMasterCallRoleFilter(date: string) {
+  return {
+    $or: [
+      { role: { $in: [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER] } },
+      {
+        role: RoleEnum.MANAGER,
+        'settings.includeInGameAssignmentsDate': date,
+      },
+    ],
+  };
+}
+
+function gmCallTier(role: number, isServiceStaff: boolean) {
+  if (role === RoleEnum.GAMEMANAGER) return 2;
+  return isServiceStaff ? 1 : 0;
+}
+
+function serviceCallTier(role: number, isServiceStaff: boolean) {
+  if (isServiceStaff || role === RoleEnum.SERVICE) return 0;
+  switch (role) {
+    case RoleEnum.GAMEMASTER:
+      return 1;
+    case RoleEnum.GAMEMANAGER:
+      return 2;
+    case RoleEnum.BARCHEF:
+      return 3;
+    default:
+      return 4;
+  }
+}
 
 const isAssignedCallType = (type?: string) =>
   ASSIGNED_CALL_TYPES.includes(type as ButtonCallTypeEnum);
@@ -66,7 +115,7 @@ const BUSY_STATE_FOR_DECLINE: Partial<
 
 type CallInfo = Pick<
   ButtonCall,
-  'tableName' | 'location' | 'date' | 'gmCallReason' | 'game'
+  'tableName' | 'location' | 'date' | 'gmCallReason' | 'game' | 'declinedBy'
 >;
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
@@ -98,6 +147,7 @@ export class ButtonCallAssignmentService {
     private readonly websocketGateway: AppWebSocketGateway,
     @InjectModel(Location.name)
     private readonly locationModel: Model<Location>,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
   ) {}
 
   // Tries to assign an open, unassigned game master call. Leaves the call
@@ -128,13 +178,12 @@ export class ButtonCallAssignmentService {
       call.declinedBy ?? [],
       call.type as ButtonCallTypeEnum,
     );
-    const userId =
+    const userId = pickAssigneeByTier(
+      candidates,
       call.type === ButtonCallTypeEnum.ORDERCALL
-        ? pickServiceCallAssignee(candidates)
-        : pickAssigneeServiceStaffLast(
-            candidates,
-            await this.buildRequest(call),
-          );
+        ? {}
+        : await this.buildRequest(call),
+    );
     if (!userId) {
       return null;
     }
@@ -176,22 +225,27 @@ export class ButtonCallAssignmentService {
     if (call.assignedTo !== user._id) {
       throw new BadRequestException('This call is not assigned to you');
     }
-    // "I don't know the game": the call's game, or the one the game master
-    // names when the call doesn't have one yet (recommendation, question).
+    // "Which game does the table need help with?": the game the game master
+    // names (the call's game shown first, but they may correct it), else the
+    // call's game.
     const unknownGame =
       dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME
-        ? call.game ?? dto.game
+        ? dto.game ?? call.game
         : undefined;
     if (dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME && !unknownGame) {
-      throw new BadRequestException('Select the game you do not know');
+      throw new BadRequestException(
+        'Select the game the table needs help with',
+      );
     }
     const declined = await this.buttonCallModel.findOneAndUpdate(
       { _id: callId, assignedTo: user._id, finishHour: { $exists: false } },
       {
         $unset: { assignedTo: '', assignedHour: '' },
         $addToSet: { declinedBy: user._id },
-        // The call now names the game, so it goes to someone who knows it.
-        ...(!call.game && unknownGame && { $set: { game: unknownGame } }),
+        // The call now names the (corrected) game, so it goes to someone
+        // who knows it.
+        ...(unknownGame &&
+          unknownGame !== call.game && { $set: { game: unknownGame } }),
         $push: {
           assignmentHistory: {
             user: user._id,
@@ -460,9 +514,25 @@ export class ButtonCallAssignmentService {
       const gameplay = await this.findActiveGameplay(call);
       const activeGame = gameplay ? Number(gameplay.game) : undefined;
       const game = call.game ?? activeGame;
+      // Anyone may answer only when nobody in the cafe knows the game.
+      const knowerInCafe =
+        game !== undefined &&
+        [
+          GameAvailabilityStatus.AVAILABLE,
+          GameAvailabilityStatus.BUSY,
+        ].includes(
+          (
+            await this.getGameAvailability(
+              call.location,
+              game,
+              call.declinedBy ?? [],
+            )
+          ).status,
+        );
       return {
         reason: call.gmCallReason,
         game,
+        knowerInCafe,
         // Whoever explained the game is asked first, if it's that game.
         mentorId:
           gameplay && game === activeGame
@@ -547,7 +617,7 @@ export class ButtonCallAssignmentService {
       .find({
         _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
         active: true,
-        role: { $in: GM_ROLES },
+        ...gameMasterCallRoleFilter(date),
         'userGames.game': game,
       })
       .select('_id')
@@ -604,11 +674,7 @@ export class ButtonCallAssignmentService {
     callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
-    // Service calls also go to service staff (service role).
-    const roles =
-      callType === ButtonCallTypeEnum.ORDERCALL
-        ? [...GM_ROLES, RoleEnum.SERVICE]
-        : GM_ROLES;
+    const isServiceCall = callType === ButtonCallTypeEnum.ORDERCALL;
 
     const [users, busyUserIds, shiftPlan, gameplays, calls] = await Promise.all(
       [
@@ -616,7 +682,9 @@ export class ButtonCallAssignmentService {
           .find({
             _id: { $in: [...checkInByUser.keys()] },
             active: true,
-            role: { $in: roles },
+            ...(isServiceCall
+              ? { role: { $in: SERVICE_CALL_ROLES } }
+              : gameMasterCallRoleFilter(date)),
           })
           .select('_id role userGames')
           .lean(),
@@ -652,10 +720,25 @@ export class ButtonCallAssignmentService {
       ...findOutsideOperationStaff(shiftPlan.slots),
     ]);
 
+    // Baristas are a service call's last resort, and only while the bar
+    // has no order waiting.
+    const baristasCanHelp =
+      isServiceCall &&
+      users.some((user) => Number(user.role) === RoleEnum.BARISTA) &&
+      !(await this.hasWaitingOrders(location));
+
     return users
       .filter((user) => !excluded.has(user._id))
+      .filter(
+        (user) =>
+          Number(user.role) !== RoleEnum.BARISTA ||
+          serviceStaff.has(user._id) ||
+          baristasCanHelp,
+      )
       .map((user) => {
         const userId = user._id as string;
+        const role = Number(user.role);
+        const isServiceStaff = serviceStaff.has(userId);
         const ownGameplays = gameplays.filter(
           (g) => (g.mentor as unknown as string) === userId,
         );
@@ -674,10 +757,25 @@ export class ButtonCallAssignmentService {
           gameplayCountToday: ownGameplays.length,
           // GM marked service staff for the day, or someone in the service
           // role (only candidates for service calls).
-          isServiceStaff:
-            serviceStaff.has(userId) || Number(user.role) === RoleEnum.SERVICE,
+          isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,
+          tier: isServiceCall
+            ? serviceCallTier(role, isServiceStaff)
+            : gmCallTier(role, isServiceStaff),
         };
       });
+  }
+
+  // An order of today at the location still waiting for confirmation or
+  // being prepared.
+  private async hasWaitingOrders(location: number) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const waiting = await this.orderModel.exists({
+      location,
+      status: { $in: [OrderStatus.CONFIRMATIONREQ, OrderStatus.PENDING] },
+      createdAt: { $gte: startOfToday },
+    });
+    return !!waiting;
   }
 
   // People explaining a game, on a break or working as middleman right now.
