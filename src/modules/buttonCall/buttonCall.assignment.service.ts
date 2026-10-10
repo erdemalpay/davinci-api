@@ -52,12 +52,12 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 // Who can get which call, in tiers (lower tiers are asked first).
 //
 // Game master calls: game masters, then the game manager, then the day's
-// service staff, then managers who opted in for the day and a game manager
-// marked outside operation.
+// service staff, then managers who opted in for the day, the middleman and
+// a game manager marked outside operation.
 //
 // Service calls: service staff (service role or the GM marked service staff
 // for the day), then game masters, then the game manager, then baristas
-// (only while no order is waiting), then the bar chef.
+// (only while no order is waiting), then the bar chef. Never the middleman.
 //
 // Nobody else marked outside operation for the day gets any call.
 const SERVICE_CALL_ROLES = [
@@ -89,9 +89,9 @@ const takesCallsOutsideOperation = (role: number, isServiceCall: boolean) =>
 function gmCallTier(
   role: number,
   isServiceStaff: boolean,
-  isOutsideOperation: boolean,
+  isLastResort: boolean,
 ) {
-  if (role === RoleEnum.MANAGER || isOutsideOperation) return 3;
+  if (role === RoleEnum.MANAGER || isLastResort) return 3;
   if (role === RoleEnum.GAMEMANAGER) return 1;
   return isServiceStaff ? 2 : 0;
 }
@@ -698,35 +698,33 @@ export class ButtonCallAssignmentService {
     const checkInByUser = await this.findCheckInByUser(location, date);
     const isServiceCall = callType === ButtonCallTypeEnum.ORDERCALL;
 
-    const [users, busyUserIds, shiftPlan, gameplays, calls] = await Promise.all(
-      [
-        this.userModel
-          .find({
-            _id: { $in: [...checkInByUser.keys()] },
-            active: true,
-            ...(isServiceCall
-              ? { role: { $in: SERVICE_CALL_ROLES } }
-              : gameMasterCallRoleFilter(date)),
-          })
-          .select('_id role userGames')
-          .lean(),
-        this.findBusyUserIds(location, date),
-        this.findShiftSlots(location, date),
-        this.gameplayModel
-          .find({ date, location })
-          .select('mentor startHour')
-          .lean(),
-        this.buttonCallModel
-          .find({
-            date,
-            location,
-            type: { $in: ASSIGNED_CALL_TYPES },
-            assignedTo: { $exists: true },
-          })
-          .select('assignedTo assignedHour finishHour')
-          .lean(),
-      ],
-    );
+    const [users, busyNow, shiftPlan, gameplays, calls] = await Promise.all([
+      this.userModel
+        .find({
+          _id: { $in: [...checkInByUser.keys()] },
+          active: true,
+          ...(isServiceCall
+            ? { role: { $in: SERVICE_CALL_ROLES } }
+            : gameMasterCallRoleFilter(date)),
+        })
+        .select('_id role userGames')
+        .lean(),
+      this.findBusyUserIds(location, date),
+      this.findShiftSlots(location, date),
+      this.gameplayModel
+        .find({ date, location })
+        .select('mentor startHour')
+        .lean(),
+      this.buttonCallModel
+        .find({
+          date,
+          location,
+          type: { $in: ASSIGNED_CALL_TYPES },
+          assignedTo: { $exists: true },
+        })
+        .select('assignedTo assignedHour finishHour')
+        .lean(),
+    ]);
 
     // Someone already handling a call gets no other call until it's closed.
     const handlingCall = calls
@@ -737,8 +735,11 @@ export class ButtonCallAssignmentService {
     const outsideOperation = new Set(
       findOutsideOperationStaff(shiftPlan.slots),
     );
+    const middlemen = new Set(busyNow.middlemen);
     const excluded = new Set([
-      ...busyUserIds,
+      ...busyNow.busy,
+      // The middleman takes no service calls.
+      ...(isServiceCall ? busyNow.middlemen : []),
       ...excludedUsers,
       ...handlingCall,
     ]);
@@ -790,7 +791,11 @@ export class ButtonCallAssignmentService {
             isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,
             tier: isServiceCall
               ? serviceCallTier(role, isServiceStaff)
-              : gmCallTier(role, isServiceStaff, outsideOperation.has(userId)),
+              : gmCallTier(
+                  role,
+                  isServiceStaff,
+                  outsideOperation.has(userId) || middlemen.has(userId),
+                ),
           };
         })
     );
@@ -809,7 +814,8 @@ export class ButtonCallAssignmentService {
     return !!waiting;
   }
 
-  // People explaining a game, on a break or working as middleman right now.
+  // People explaining a game or on a break / busy right now, and the ones
+  // working as middleman (last resort for game master calls).
   private async findBusyUserIds(location: number, date: string) {
     const open = { date, finishHour: { $exists: false } };
     const [explaining, onBreak, middlemen] = await Promise.all([
@@ -820,9 +826,12 @@ export class ButtonCallAssignmentService {
       this.breakModel.find(open).select('user').lean(),
       this.middlemanModel.find(open).select('user').lean(),
     ]);
-    return [...explaining, ...onBreak, ...middlemen].map(
-      (record) => record.user as unknown as string,
-    );
+    const ids = (records: { user: unknown }[]) =>
+      records.map((record) => record.user as string);
+    return {
+      busy: [...ids(explaining), ...ids(onBreak)],
+      middlemen: ids(middlemen),
+    };
   }
 
   // The day's shift slots, with the location's shift definitions that hold

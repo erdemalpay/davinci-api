@@ -15,6 +15,8 @@ import {
   GameplayTimeSchema,
 } from '../gameplaytime/gameplaytime.schema';
 import { Middleman, MiddlemanSchema } from '../middleman/middleman.schema';
+import { Shift, ShiftSchema } from '../shift/shift.schema';
+import { Visit, VisitSchema } from '../visit/visit.schema';
 import { BreakController } from './break.controller';
 import { Break, BreakSchema } from './break.schema';
 import { BreakService } from './break.service';
@@ -28,6 +30,10 @@ import { BreakService } from './break.service';
       // Read-only: explanation and middleman times for the daily summary.
       createAutoIncrementConfig(GameplayTime.name, GameplayTimeSchema),
       createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
+      // Read-only: who is in the cafe and outside operation, for the
+      // concurrent break warning.
+      createAutoIncrementConfig(Visit.name, VisitSchema),
+      createAutoIncrementConfig(Shift.name, ShiftSchema),
     ]),
     WebSocketModule,
     LocationModule,
