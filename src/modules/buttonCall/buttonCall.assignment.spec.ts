@@ -5,8 +5,7 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
-  pickAssigneeServiceStaffLast,
-  pickServiceCallAssignee,
+  pickAssigneeByTier,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
@@ -93,7 +92,17 @@ describe('pickAssignee', () => {
       ).toBe('knows');
     });
 
-    it('falls back to the most suitable game master', () => {
+    it('waits for someone who knows the game while one is in the cafe', () => {
+      expect(
+        pickAssignee([candidate('ali')], {
+          reason: GmCallReasonEnum.QUESTION,
+          game: 7,
+          knowerInCafe: true,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('falls back to the most suitable game master when nobody in the cafe knows the game', () => {
       const candidates = [
         candidate('a', { lastActivity: hourToSeconds('15:00:00') }),
         candidate('b', { lastActivity: hourToSeconds('09:00:00') }),
@@ -223,35 +232,35 @@ describe('toAssignmentEvents', () => {
   });
 });
 
-describe('pickAssigneeServiceStaffLast', () => {
+describe('pickAssigneeByTier', () => {
+  // A lower tier is always asked first (e.g. game masters before the day's
+  // service staff for a GM call).
   const service = (
     userId: string,
     overrides: Partial<AssignmentCandidate> = {},
-  ) => candidate(userId, { isServiceStaff: true, ...overrides });
+  ) => candidate(userId, { tier: 1, ...overrides });
 
-  it('prefers anyone else over the service staff, even if they waited longer', () => {
+  it('prefers a lower tier, even if the higher tier waited longer', () => {
     const candidates = [
       service('service', { lastActivity: hourToSeconds('08:00:00') }),
       candidate('gm', { lastActivity: hourToSeconds('15:00:00') }),
     ];
 
-    expect(pickAssigneeServiceStaffLast(candidates, {})).toBe('gm');
+    expect(pickAssigneeByTier(candidates, {})).toBe('gm');
   });
 
-  it('assigns the service staff when nobody else is available', () => {
-    expect(pickAssigneeServiceStaffLast([service('service')], {})).toBe(
-      'service',
-    );
+  it('goes to the next tier when nobody in the lower one is available', () => {
+    expect(pickAssigneeByTier([service('service')], {})).toBe('service');
   });
 
-  it('does not let a service staff mentor jump the line for a question', () => {
+  it('does not let a higher-tier mentor jump the line for a question', () => {
     const candidates = [
       service('mentor'),
       candidate('gm', { knownGames: new Set([7]) }),
     ];
 
     expect(
-      pickAssigneeServiceStaffLast(candidates, {
+      pickAssigneeByTier(candidates, {
         reason: GmCallReasonEnum.QUESTION,
         mentorId: 'mentor',
         game: 7,
@@ -259,27 +268,42 @@ describe('pickAssigneeServiceStaffLast', () => {
     ).toBe('gm');
   });
 
-  it('gives an explanation to a service staff who knows the game when no one else does', () => {
+  it('gives an explanation to a higher tier who knows the game when no one lower does', () => {
     const candidates = [
       candidate('gm'),
       service('service', { knownGames: new Set([3]) }),
     ];
 
     expect(
-      pickAssigneeServiceStaffLast(candidates, {
+      pickAssigneeByTier(candidates, {
         reason: GmCallReasonEnum.EXPLANATION,
         game: 3,
       }),
     ).toBe('service');
   });
 
-  it('never gives an explanation to a service staff who does not know the game', () => {
+  it('never gives an explanation to someone who does not know the game', () => {
     expect(
-      pickAssigneeServiceStaffLast([service('service')], {
+      pickAssigneeByTier([service('service')], {
         reason: GmCallReasonEnum.EXPLANATION,
         game: 3,
       }),
     ).toBeUndefined();
+  });
+
+  it('walks several tiers in order', () => {
+    const candidates = [
+      candidate('bar-chef', { tier: 4 }),
+      candidate('barista', { tier: 3 }),
+      candidate('game-manager', { tier: 2 }),
+    ];
+
+    expect(pickAssigneeByTier(candidates, {})).toBe('game-manager');
+    expect(pickAssigneeByTier(candidates.slice(0, 2), {})).toBe('barista');
+  });
+
+  it('returns undefined when nobody is available', () => {
+    expect(pickAssigneeByTier([], {})).toBeUndefined();
   });
 });
 
@@ -315,36 +339,5 @@ describe('service staff and outside operation are for the whole day', () => {
 
     expect(scheduled.has('kemal')).toBe(false);
     expect(scheduled.get('ceren')).toBe('10:00');
-  });
-});
-
-describe('pickServiceCallAssignee', () => {
-  it('prefers service staff, longest idle first', async () => {
-    expect(
-      pickServiceCallAssignee([
-        candidate('gm', { lastActivity: hourToSeconds('09:00:00') }),
-        candidate('busy-service', {
-          isServiceStaff: true,
-          lastActivity: hourToSeconds('11:00:00'),
-        }),
-        candidate('idle-service', {
-          isServiceStaff: true,
-          lastActivity: hourToSeconds('10:00:00'),
-        }),
-      ]),
-    ).toBe('idle-service');
-  });
-
-  it('falls back to any free game master', () => {
-    expect(
-      pickServiceCallAssignee([
-        candidate('ali', { lastActivity: hourToSeconds('11:00:00') }),
-        candidate('ayse', { lastActivity: hourToSeconds('10:00:00') }),
-      ]),
-    ).toBe('ayse');
-  });
-
-  it('returns undefined when nobody is free', () => {
-    expect(pickServiceCallAssignee([])).toBeUndefined();
   });
 });

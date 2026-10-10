@@ -321,19 +321,19 @@ export class ButtonCallAssignmentService {
     if (alreadyBusy) {
       return;
     }
-    const breakRecord = await this.breakModel.create({
+    const breakRecord = {
       user: user._id,
       location: call.location,
       date,
       startHour: format(new Date(), 'HH:mm'),
       type,
       ...(type === BreakTypeEnum.OTHER && { note: dto.note?.trim() }),
-    });
+    };
+    await this.breakModel.create(breakRecord);
     this.websocketGateway.emitBreakChanged();
     // Activity log and the concurrent break warning, as for any break.
-    this.eventEmitter.emit(BUSY_STATE_STARTED_ON_DECLINE, {
-      breakRecord: breakRecord.toObject(),
-    } as BusyStateStartedEvent);
+    const event: BusyStateStartedEvent = { breakRecord };
+    this.eventEmitter.emit(BUSY_STATE_STARTED_ON_DECLINE, event);
   }
 
   // An explanation call stays in line for someone who knows the game. When
@@ -654,7 +654,7 @@ export class ButtonCallAssignmentService {
     const isWorking = (id: string) =>
       checkInByUser.has(id) &&
       (!outsideOperation.has(id) ||
-        takesCallsOutsideOperation(roleById.get(id)!, false));
+        takesCallsOutsideOperation(roleById.get(id) ?? 0, false));
     const knowerIds = knowers
       .map((user) => user._id as string)
       .filter((id) => !excludedUsers.includes(id));

@@ -34,6 +34,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     locationDoc = null as unknown,
     gameplays = [] as unknown[],
     calls = [] as unknown[],
+    hasWaitingOrder = false,
   }) {
     const userModel = model(users);
     const locationModel = model([], locationDoc);
@@ -49,6 +50,10 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       model([]) as never,
       { emitButtonCallChanged: jest.fn() } as never,
       locationModel as never,
+      {
+        exists: jest.fn(async () => (hasWaitingOrder ? { _id: 1 } : null)),
+      } as never,
+      { emit: jest.fn() } as never,
     );
     return { service, userModel };
   }
@@ -73,19 +78,23 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(userModel.find).toHaveBeenCalledWith({
       _id: { $in: ['ali', 'ayse'] },
       active: true,
-      role: { $in: [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER] },
+      // Managers only on a day they asked for game master calls.
+      $or: [
+        { role: { $in: [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER] } },
+        {
+          role: RoleEnum.MANAGER,
+          'settings.includeInGameAssignmentsDate': date,
+        },
+      ],
     });
   });
 
-  it('excludes people explaining, on a break or middleman', async () => {
+  it('excludes people explaining or on a break', async () => {
     const { service } = build({
-      visits: ['free', 'explaining', 'break', 'middleman'].map((id) =>
-        visit(id),
-      ),
-      users: ['free', 'explaining', 'break', 'middleman'].map((id) => gm(id)),
+      visits: ['free', 'explaining', 'break'].map((id) => visit(id)),
+      users: ['free', 'explaining', 'break'].map((id) => gm(id)),
       explaining: [{ user: 'explaining' }],
       breaks: [{ user: 'break' }],
-      middlemen: [{ user: 'middleman' }],
     });
 
     const candidates = await service.findCandidates(
@@ -228,7 +237,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
   });
 
   it('also considers the service role for service calls, as service staff', async () => {
-    const { service, userModel } = build({
+    const { service } = build({
       visits: [visit('gm'), visit('waiter')],
       users: [gm('gm'), { ...gm('waiter'), role: RoleEnum.SERVICE }],
     });
@@ -242,15 +251,160 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     );
     const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
 
-    expect(userModel.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        role: {
-          $in: [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER, RoleEnum.SERVICE],
-        },
-      }),
-    );
     expect(byId.waiter.isServiceStaff).toBe(true);
     expect(byId.gm.isServiceStaff).toBe(false);
+  });
+
+  describe('tiers', () => {
+    const withRole = (id: string, role: RoleEnum) => ({ ...gm(id), role });
+    const tiersOf = (candidates: { userId: string; tier?: number }[]) =>
+      Object.fromEntries(candidates.map((c) => [c.userId, c.tier]));
+
+    it('game master calls: GMs, game manager, service staff, then managers and last resorts', async () => {
+      const { service } = build({
+        visits: [
+          'gm',
+          'gmanager',
+          'service',
+          'manager',
+          'middleman',
+          'outside',
+        ].map((id) => visit(id)),
+        users: [
+          withRole('gm', RoleEnum.GAMEMASTER),
+          withRole('gmanager', RoleEnum.GAMEMANAGER),
+          withRole('service', RoleEnum.GAMEMASTER),
+          withRole('manager', RoleEnum.MANAGER),
+          withRole('middleman', RoleEnum.GAMEMASTER),
+          withRole('outside', RoleEnum.GAMEMANAGER),
+        ],
+        middlemen: [{ user: 'middleman' }],
+        shift: {
+          shifts: [
+            {
+              shift: '10:00',
+              chefUser: 'service',
+              outsideOperationUsers: ['outside'],
+            },
+          ],
+        },
+      });
+
+      const candidates = await service.findCandidates(
+        location,
+        date,
+        '12:00:00',
+        [],
+      );
+
+      expect(tiersOf(candidates)).toEqual({
+        gm: 0,
+        gmanager: 1,
+        service: 2,
+        manager: 3,
+        middleman: 3,
+        outside: 3,
+      });
+    });
+
+    it('service calls: service staff, GMs, game manager, baristas, then the bar chef', async () => {
+      const { service, userModel } = build({
+        visits: [
+          'waiter',
+          'chef-gm',
+          'gm',
+          'gmanager',
+          'barista',
+          'barchef',
+        ].map((id) => visit(id)),
+        users: [
+          withRole('waiter', RoleEnum.SERVICE),
+          withRole('chef-gm', RoleEnum.GAMEMASTER),
+          withRole('gm', RoleEnum.GAMEMASTER),
+          withRole('gmanager', RoleEnum.GAMEMANAGER),
+          withRole('barista', RoleEnum.BARISTA),
+          withRole('barchef', RoleEnum.BARCHEF),
+        ],
+        shift: { shifts: [{ shift: '10:00', chefUser: 'chef-gm' }] },
+      });
+
+      const candidates = await service.findCandidates(
+        location,
+        date,
+        '12:00:00',
+        [],
+        'ORDERCALL' as never,
+      );
+
+      expect(userModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: {
+            $in: [
+              RoleEnum.SERVICE,
+              RoleEnum.GAMEMASTER,
+              RoleEnum.GAMEMANAGER,
+              RoleEnum.BARISTA,
+              RoleEnum.BARCHEF,
+            ],
+          },
+        }),
+      );
+      expect(tiersOf(candidates)).toEqual({
+        waiter: 0,
+        'chef-gm': 0,
+        gm: 1,
+        gmanager: 2,
+        barista: 3,
+        barchef: 4,
+      });
+    });
+
+    it('leaves baristas out of service calls while an order is waiting', async () => {
+      const { service } = build({
+        visits: [visit('barista'), visit('barista-service')],
+        users: [
+          withRole('barista', RoleEnum.BARISTA),
+          withRole('barista-service', RoleEnum.BARISTA),
+        ],
+        shift: { shifts: [{ shift: '10:00', chefUser: 'barista-service' }] },
+        hasWaitingOrder: true,
+      });
+
+      const candidates = await service.findCandidates(
+        location,
+        date,
+        '12:00:00',
+        [],
+        'ORDERCALL' as never,
+      );
+
+      // The day's service staff still gets them.
+      expect(candidates.map((c) => c.userId)).toEqual(['barista-service']);
+    });
+
+    it('gives no service call to the middleman or anyone outside operation', async () => {
+      const { service } = build({
+        visits: [visit('middleman'), visit('outside')],
+        users: [
+          withRole('middleman', RoleEnum.GAMEMASTER),
+          withRole('outside', RoleEnum.GAMEMANAGER),
+        ],
+        middlemen: [{ user: 'middleman' }],
+        shift: {
+          shifts: [{ shift: '10:00', outsideOperationUsers: ['outside'] }],
+        },
+      });
+
+      const candidates = await service.findCandidates(
+        location,
+        date,
+        '12:00:00',
+        [],
+        'ORDERCALL' as never,
+      );
+
+      expect(candidates).toEqual([]);
+    });
   });
 
   it('excludes people already handling an open call', async () => {
@@ -308,6 +462,8 @@ describe('ButtonCallAssignmentService.claim', () => {
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
       model([], null) as never,
+      model([]) as never,
+      { emit: jest.fn() } as never,
     );
     return { service, buttonCallModel };
   }
@@ -352,6 +508,8 @@ describe('ButtonCallAssignmentService scheduling', () => {
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
       model([], null) as never,
+      model([]) as never,
+      { emit: jest.fn() } as never,
     );
   };
 
@@ -439,6 +597,7 @@ describe('ButtonCallAssignmentService.decline', () => {
       emitButtonCallChanged: jest.fn(),
       emitBreakChanged: jest.fn(),
     };
+    const eventEmitter = { emit: jest.fn() };
     const m = () => model([]) as never;
     const service = new ButtonCallAssignmentService(
       buttonCallModel as never,
@@ -452,9 +611,17 @@ describe('ButtonCallAssignmentService.decline', () => {
       m(),
       websocketGateway as never,
       model([], null) as never,
+      model([]) as never,
+      eventEmitter as never,
     );
     jest.spyOn(service, 'assign').mockResolvedValue(null);
-    return { service, buttonCallModel, breakModel, websocketGateway };
+    return {
+      service,
+      buttonCallModel,
+      breakModel,
+      websocketGateway,
+      eventEmitter,
+    };
   }
 
   const pushed = (model: { findOneAndUpdate: jest.Mock }) =>
@@ -490,6 +657,50 @@ describe('ButtonCallAssignmentService.decline', () => {
   });
 
   describe('busy state', () => {
+    const update = (model: { findOneAndUpdate: jest.Mock }) =>
+      model.findOneAndUpdate.mock.calls[0][1];
+
+    it.each([
+      DeclineReasonEnum.BREAK,
+      DeclineReasonEnum.TAKING_PAYMENT,
+      DeclineReasonEnum.WC,
+    ])('lets the call come back to them after %s', async (reason) => {
+      const { service, buttonCallModel } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, { reason });
+
+      expect(update(buttonCallModel).$addToSet).toBeUndefined();
+    });
+
+    it('never gives the call back after "I don\'t know the game"', async () => {
+      const { service, buttonCallModel } = build({ game: 10 });
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+      });
+
+      expect(update(buttonCallModel).$addToSet).toEqual({ declinedBy: 'ali' });
+    });
+
+    it('logs it and checks the break warning like any break', async () => {
+      const { service, eventEmitter } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.BREAK,
+      });
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'break.busyStateStartedOnDecline',
+        {
+          breakRecord: expect.objectContaining({
+            user: 'ali',
+            location: 1,
+            type: 'BREAK',
+          }),
+        },
+      );
+    });
+
     it('puts the person in the matching busy state', async () => {
       const { service, breakModel, websocketGateway } = build();
 
@@ -578,6 +789,21 @@ describe('ButtonCallAssignmentService.decline', () => {
       expect(update(buttonCallModel).$push.assignmentHistory.game).toBe(30);
     });
 
+    it('corrects the game of the call', async () => {
+      const { service, buttonCallModel } = build({
+        gmCallReason: 'EXPLANATION',
+        game: 10,
+      });
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+        game: 20,
+      });
+
+      expect(update(buttonCallModel).$set).toEqual({ game: 20 });
+      expect(update(buttonCallModel).$push.assignmentHistory.game).toBe(20);
+    });
+
     it('asks for the game when the call has none', async () => {
       const { service, buttonCallModel } = build();
 
@@ -585,8 +811,92 @@ describe('ButtonCallAssignmentService.decline', () => {
         service.decline({ _id: 'ali' } as never, 7, {
           reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
         }),
-      ).rejects.toThrow('Select the game you do not know');
+      ).rejects.toThrow('Select the game the table needs help with');
       expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('ButtonCallAssignmentService questions', () => {
+  function build(gameplay: unknown, availability: string) {
+    const tableModel = {
+      findOne: jest.fn(() => {
+        const q = query(gameplay ? { gameplays: [1] } : null);
+        return { ...q, sort: () => q };
+      }),
+    };
+    const m = () => model([]) as never;
+    const service = new ButtonCallAssignmentService(
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      m(),
+      model(gameplay ? [gameplay] : []) as never,
+      m(),
+      tableModel as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      model([], null) as never,
+      model([]) as never,
+      { emit: jest.fn() } as never,
+    );
+    jest
+      .spyOn(service, 'getGameAvailability')
+      .mockResolvedValue({ status: availability as never });
+    return service;
+  }
+
+  const call = (game?: number) => ({
+    tableName: '5',
+    location: 1,
+    date: '2026-10-11',
+    gmCallReason: 'QUESTION',
+    game,
+  });
+  const buildRequest = (service: ButtonCallAssignmentService, c: unknown) =>
+    (
+      service as unknown as { buildRequest: (c: unknown) => Promise<unknown> }
+    ).buildRequest(c);
+
+  const activeGameplay = { mentor: 'mert', game: 10, startHour: '12:00' };
+
+  it("asks about the table's game, its explainer first", async () => {
+    const service = build(activeGameplay, 'available');
+
+    expect(await buildRequest(service, call())).toEqual({
+      reason: 'QUESTION',
+      game: 10,
+      mentorId: 'mert',
+      knowerInCafe: true,
+    });
+  });
+
+  it('uses the game the table named instead, without the explainer', async () => {
+    const service = build(activeGameplay, 'busy');
+
+    expect(await buildRequest(service, call(30))).toEqual({
+      reason: 'QUESTION',
+      game: 30,
+      mentorId: undefined,
+      knowerInCafe: true,
+    });
+  });
+
+  it('lets anyone answer when nobody in the cafe knows the game', async () => {
+    const service = build(activeGameplay, 'later');
+
+    expect(await buildRequest(service, call(30))).toMatchObject({
+      knowerInCafe: false,
+    });
+  });
+
+  it("returns the table's game", async () => {
+    expect(
+      await build(activeGameplay, 'available').getTableGame(1, '5'),
+    ).toEqual({ game: 10 });
+    expect(await build(null, 'available').getTableGame(1, '5')).toEqual({
+      game: null,
     });
   });
 });
