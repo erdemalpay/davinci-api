@@ -169,6 +169,7 @@ export class ButtonCallService {
       user,
       moment.tz('Europe/Istanbul').format('HH:mm:ss'),
     );
+    this.freeAssignee(activeOrderCall);
 
     return activeOrderCall;
   }
