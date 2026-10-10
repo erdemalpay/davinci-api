@@ -173,6 +173,7 @@ export interface AssignmentHistoryItem {
   hour: string;
   reason?: string;
   note?: string;
+  game?: number;
 }
 
 export interface AssignmentEvent extends AssignmentHistoryItem {

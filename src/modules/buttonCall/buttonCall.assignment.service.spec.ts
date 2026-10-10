@@ -385,7 +385,7 @@ describe('ButtonCallAssignmentService scheduling', () => {
 });
 
 describe('ButtonCallAssignmentService.decline', () => {
-  function build() {
+  function build(callOverrides: Record<string, unknown> = {}) {
     const buttonCallModel = {
       findById: jest.fn(() =>
         query({
@@ -393,6 +393,7 @@ describe('ButtonCallAssignmentService.decline', () => {
           type: 'GAMEMASTERCALL',
           assignedTo: 'ali',
           gmCallReason: 'RECOMMENDATION',
+          ...callOverrides,
         }),
       ),
       findOneAndUpdate: jest.fn(async () => ({ _id: 7, declinedBy: ['ali'] })),
@@ -444,6 +445,51 @@ describe('ButtonCallAssignmentService.decline', () => {
     expect(pushed(buttonCallModel)).toMatchObject({
       reason: DeclineReasonEnum.OTHER,
       note: 'Depoya gidiyorum',
+    });
+  });
+
+  describe("doesn't know the game", () => {
+    const update = (model: { findOneAndUpdate: jest.Mock }) =>
+      model.findOneAndUpdate.mock.calls[0][1];
+
+    it('uses the game of an explanation call', async () => {
+      const { service, buttonCallModel } = build({
+        gmCallReason: 'EXPLANATION',
+        game: 10,
+      });
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+      });
+
+      expect(update(buttonCallModel).$push.assignmentHistory).toMatchObject({
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+        game: 10,
+      });
+      expect(update(buttonCallModel).$set).toBeUndefined();
+    });
+
+    it('stores the named game on a call without one', async () => {
+      const { service, buttonCallModel } = build({ gmCallReason: 'QUESTION' });
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+        game: 30,
+      });
+
+      expect(update(buttonCallModel).$set).toEqual({ game: 30 });
+      expect(update(buttonCallModel).$push.assignmentHistory.game).toBe(30);
+    });
+
+    it('asks for the game when the call has none', async () => {
+      const { service, buttonCallModel } = build();
+
+      await expect(
+        service.decline({ _id: 'ali' } as never, 7, {
+          reason: DeclineReasonEnum.DOESNT_KNOW_GAME,
+        }),
+      ).rejects.toThrow('Select the game you do not know');
+      expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
     });
   });
 });

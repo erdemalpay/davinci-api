@@ -152,11 +152,22 @@ export class ButtonCallAssignmentService {
     if (call.assignedTo !== user._id) {
       throw new BadRequestException('This call is not assigned to you');
     }
+    // "I don't know the game": the call's game, or the one the game master
+    // names when the call doesn't have one yet (recommendation, question).
+    const unknownGame =
+      dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME
+        ? call.game ?? dto.game
+        : undefined;
+    if (dto.reason === DeclineReasonEnum.DOESNT_KNOW_GAME && !unknownGame) {
+      throw new BadRequestException('Select the game you do not know');
+    }
     const declined = await this.buttonCallModel.findOneAndUpdate(
       { _id: callId, assignedTo: user._id, finishHour: { $exists: false } },
       {
         $unset: { assignedTo: '', assignedHour: '' },
         $addToSet: { declinedBy: user._id },
+        // The call now names the game, so it goes to someone who knows it.
+        ...(!call.game && unknownGame && { $set: { game: unknownGame } }),
         $push: {
           assignmentHistory: {
             user: user._id,
@@ -166,6 +177,7 @@ export class ButtonCallAssignmentService {
             ...(dto.reason === DeclineReasonEnum.OTHER && {
               note: dto.note?.trim(),
             }),
+            ...(unknownGame && { game: unknownGame }),
           },
         },
       },
@@ -355,7 +367,8 @@ export class ButtonCallAssignmentService {
           location: call.location,
           tableName: call.tableName,
           gmCallReason: call.gmCallReason,
-          game: call.game,
+          // The game a decline was about, else the call's game.
+          game: event.game ?? call.game,
         })),
       )
       .sort(
