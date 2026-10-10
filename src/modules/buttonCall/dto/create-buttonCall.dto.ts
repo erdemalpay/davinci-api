@@ -151,6 +151,12 @@ export enum ButtonCallTypeEnum {
   ORDERREADYCALL = 'ORDERREADYCALL',
 }
 
+// Calls that are assigned to a person: game master calls and service calls.
+export const ASSIGNED_CALL_TYPES = [
+  ButtonCallTypeEnum.GAMEMASTERCALL,
+  ButtonCallTypeEnum.ORDERCALL,
+];
+
 export enum ButtonCallActionEnum {
   CREATE = 'create',
   RECALL = 'recall',

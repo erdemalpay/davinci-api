@@ -43,6 +43,8 @@ describe('BreakService.create', () => {
       } as never,
       { emit: jest.fn() } as never,
       buttonCallModel as never,
+      {} as never,
+      {} as never,
     );
     return { service, breakModel, buttonCallModel };
   }

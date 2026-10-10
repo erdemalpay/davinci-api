@@ -28,6 +28,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
+  ASSIGNED_CALL_TYPES,
   ButtonCallActionEnum,
   ButtonCallQueryDto,
   ButtonCallTypeEnum,
@@ -91,7 +92,11 @@ export class ButtonCallService {
         createdButtonCall,
         ButtonCallActionEnum.CREATE,
       );
-      if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+      if (
+        ASSIGNED_CALL_TYPES.includes(
+          createdButtonCall.type as ButtonCallTypeEnum,
+        )
+      ) {
         if (createdButtonCall.game) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)
@@ -592,7 +597,10 @@ export class ButtonCallService {
   // call right away instead of on the next cron run. The usual rules apply,
   // so someone who started explaining a game or a break gets nothing.
   private freeAssignee(call: ButtonCall) {
-    if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL && call.assignedTo) {
+    if (
+      ASSIGNED_CALL_TYPES.includes(call.type as ButtonCallTypeEnum) &&
+      call.assignedTo
+    ) {
       this.buttonCallAssignmentService.handleStaffAvailabilityChanged();
     }
   }

@@ -88,6 +88,16 @@ export function pickAssignee(
   return best(candidates).userId;
 }
 
+// Service calls go to service staff first (service role, or the GM marked
+// service staff for the day); any other free game master otherwise.
+export function pickServiceCallAssignee(
+  candidates: AssignmentCandidate[],
+): string | undefined {
+  const serviceStaff = candidates.filter((c) => c.isServiceStaff);
+  const others = candidates.filter((c) => !c.isServiceStaff);
+  return (best(serviceStaff) ?? best(others))?.userId;
+}
+
 // Picks among everyone but the service staff first; service staff are the
 // last resort, with the same rules (e.g. they must know a requested game).
 export function pickAssigneeServiceStaffLast(

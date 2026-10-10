@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
@@ -6,7 +7,7 @@ import { Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
-import { ButtonCallTypeEnum } from '../buttonCall/dto/create-buttonCall.dto';
+import { ASSIGNED_CALL_TYPES } from '../buttonCall/dto/create-buttonCall.dto';
 import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { LocationService } from '../location/location.service';
 import { NotificationEventType } from '../notification/notification.dto';
@@ -25,8 +26,19 @@ import {
   tryAddActivity,
   wrapHttpException,
 } from 'src/utils/serviceUtils';
-import { BreakQueryDto, CreateBreakDto, UpdateBreakDto } from './break.dto';
+import {
+  BreakQueryDto,
+  BreakTypeEnum,
+  CreateBreakDto,
+  UpdateBreakDto,
+} from './break.dto';
 import { Break } from './break.schema';
+import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
+import { Middleman } from '../middleman/middleman.schema';
+
+// Summary keys for the non-break states.
+export const STATE_EXPLAINING = 'EXPLAINING';
+export const STATE_MIDDLEMAN = 'MIDDLEMAN';
 
 @Injectable()
 export class BreakService {
@@ -40,22 +52,69 @@ export class BreakService {
     private readonly eventEmitter: EventEmitter2,
     @InjectModel(ButtonCall.name)
     private readonly buttonCallModel: Model<ButtonCall>,
+    @InjectModel(GameplayTime.name)
+    private readonly gameplayTimeModel: Model<GameplayTime>,
+    @InjectModel(Middleman.name)
+    private readonly middlemanModel: Model<Middleman>,
   ) {}
+
+  // Minutes each person spent in each state on a day: every busy state
+  // (break, recommending a game, ...), explaining games and middleman.
+  // Records still open count until now (or the end of a past day).
+  async getStateSummary(date: string, location?: number) {
+    const filter = { date, ...(location && { location: Number(location) }) };
+    const [breaks, gameplayTimes, middlemen] = await Promise.all([
+      this.breakModel.find(filter).select('user type startHour finishHour').lean(),
+      this.gameplayTimeModel
+        .find(filter)
+        .select('user startHour finishHour')
+        .lean(),
+      this.middlemanModel.find(filter).select('user startHour finishHour').lean(),
+    ]);
+    const isToday = date === format(new Date(), 'yyyy-MM-dd');
+    const openUntil = isToday ? format(new Date(), 'HH:mm') : '23:59';
+    const minutesByUser = new Map<string, Record<string, number>>();
+    const add = (
+      user: unknown,
+      state: string,
+      record: { startHour?: string; finishHour?: string },
+    ) => {
+      if (!record.startHour) return;
+      const userId = String(user);
+      const minutes = computeDurationMinutes(
+        record.startHour.slice(0, 5),
+        (record.finishHour ?? openUntil).slice(0, 5),
+      );
+      const states = minutesByUser.get(userId) ?? {};
+      states[state] = (states[state] ?? 0) + minutes;
+      minutesByUser.set(userId, states);
+    };
+    breaks.forEach((b) => add(b.user, b.type ?? BreakTypeEnum.BREAK, b));
+    gameplayTimes.forEach((g) => add(g.user, STATE_EXPLAINING, g));
+    middlemen.forEach((m) => add(m.user, STATE_MIDDLEMAN, m));
+    return [...minutesByUser.entries()].map(([user, minutes]) => ({
+      user,
+      minutes,
+      totalMinutes: Object.values(minutes).reduce((a, b) => a + b, 0),
+    }));
+  }
 
   async create(createBreakDto: CreateBreakDto): Promise<Break> {
     return wrapHttpException(async () => {
       const assignedCall = await this.buttonCallModel.exists({
         assignedTo: createBreakDto.user,
-        type: ButtonCallTypeEnum.GAMEMASTERCALL,
+        type: { $in: ASSIGNED_CALL_TYPES },
         date: createBreakDto.date,
         finishHour: { $exists: false },
       });
       if (assignedCall) {
         throw new HttpException(
-          'You have an assigned game master call. Close or decline it before starting a break.',
+          'You have an assigned call. Close or decline it before becoming busy.',
           HttpStatus.CONFLICT,
         );
       }
+      const isBreak =
+        !createBreakDto.type || createBreakDto.type === BreakTypeEnum.BREAK;
 
       const existingActiveBreak = await this.breakModel.findOne({
         user: createBreakDto.user,
@@ -71,14 +130,24 @@ export class BreakService {
         );
       }
 
-      const activeOthersCount = await this.breakModel.countDocuments({ 
-        location: createBreakDto.location,
-        date: createBreakDto.date,
-        user: { $ne: createBreakDto.user },
-        finishHour: { $exists: false },
-      });
+      // Only real breaks count for the concurrent break warning.
+      const activeOthersCount = isBreak
+        ? await this.breakModel.countDocuments({
+            location: createBreakDto.location,
+            date: createBreakDto.date,
+            user: { $ne: createBreakDto.user },
+            finishHour: { $exists: false },
+            type: { $in: [BreakTypeEnum.BREAK, null] },
+          })
+        : 0;
 
-      const breakRecord = await this.breakModel.create(createBreakDto);
+      const breakRecord = await this.breakModel.create({
+        ...createBreakDto,
+        type: createBreakDto.type ?? BreakTypeEnum.BREAK,
+        ...(createBreakDto.type === BreakTypeEnum.OTHER && {
+          note: createBreakDto.note?.trim(),
+        }),
+      });
       await tryAddActivity(
         this.activityService,
         this.userService,

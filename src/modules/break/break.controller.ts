@@ -31,6 +31,15 @@ export class BreakController {
   }
 
   @ApiResponse({ type: Break })
+  // Minutes per person per state on a day, for the daily summary page.
+  @Get('state-summary')
+  getStateSummary(
+    @Query('date') date: string,
+    @Query('location') location?: number,
+  ) {
+    return this.breakService.getStateSummary(date, location);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.breakService.findById(id);
