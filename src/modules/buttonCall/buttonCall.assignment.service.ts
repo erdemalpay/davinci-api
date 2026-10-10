@@ -51,20 +51,21 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 
 // Who can get which call, in tiers (lower tiers are asked first).
 //
-// Game master calls: game masters and managers who opted in for the day,
-// then the day's service staff, then the game manager.
+// Game master calls: game masters, then the game manager, then the day's
+// service staff, then managers who opted in for the day and a game manager
+// marked outside operation.
 //
 // Service calls: service staff (service role or the GM marked service staff
-// for the day), then game masters, then the game manager, then the bar
-// manager, then baristas, and baristas only while no order is waiting.
+// for the day), then game masters, then the game manager, then baristas
+// (only while no order is waiting), then the bar chef.
 //
-// Nobody marked outside operation for the day gets any call.
+// Nobody else marked outside operation for the day gets any call.
 const SERVICE_CALL_ROLES = [
   RoleEnum.SERVICE,
   RoleEnum.GAMEMASTER,
   RoleEnum.GAMEMANAGER,
-  RoleEnum.BARCHEF,
   RoleEnum.BARISTA,
+  RoleEnum.BARCHEF,
 ];
 
 // Game masters and game managers; managers only on a day they opted in.
@@ -80,9 +81,19 @@ function gameMasterCallRoleFilter(date: string) {
   };
 }
 
-function gmCallTier(role: number, isServiceStaff: boolean) {
-  if (role === RoleEnum.GAMEMANAGER) return 2;
-  return isServiceStaff ? 1 : 0;
+// The one exception to "outside operation gets no call": a game manager may
+// still take game master calls, as the very last resort.
+const takesCallsOutsideOperation = (role: number, isServiceCall: boolean) =>
+  !isServiceCall && role === RoleEnum.GAMEMANAGER;
+
+function gmCallTier(
+  role: number,
+  isServiceStaff: boolean,
+  isOutsideOperation: boolean,
+) {
+  if (role === RoleEnum.MANAGER || isOutsideOperation) return 3;
+  if (role === RoleEnum.GAMEMANAGER) return 1;
+  return isServiceStaff ? 2 : 0;
 }
 
 function serviceCallTier(role: number, isServiceStaff: boolean) {
@@ -92,7 +103,7 @@ function serviceCallTier(role: number, isServiceStaff: boolean) {
       return 1;
     case RoleEnum.GAMEMANAGER:
       return 2;
-    case RoleEnum.BARCHEF:
+    case RoleEnum.BARISTA:
       return 3;
     default:
       return 4;
@@ -608,11 +619,9 @@ export class ButtonCallAssignmentService {
       this.findShiftSlots(location, date),
     ]);
     // Outside operation for the day: never takes the call, so not counted
-    // (findScheduledStaff leaves them out too).
+    // (findScheduledStaff leaves them out too), except a game manager.
     const scheduled = findScheduledStaff(slots, hour, locationShifts);
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
-    const isWorking = (id: string) =>
-      checkInByUser.has(id) && !outsideOperation.has(id);
     const knowers = await this.userModel
       .find({
         _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
@@ -620,8 +629,15 @@ export class ButtonCallAssignmentService {
         ...gameMasterCallRoleFilter(date),
         'userGames.game': game,
       })
-      .select('_id')
+      .select('_id role')
       .lean();
+    const roleById = new Map(
+      knowers.map((user) => [user._id as string, Number(user.role)]),
+    );
+    const isWorking = (id: string) =>
+      checkInByUser.has(id) &&
+      (!outsideOperation.has(id) ||
+        takesCallsOutsideOperation(roleById.get(id)!, false));
     const knowerIds = knowers
       .map((user) => user._id as string)
       .filter((id) => !excludedUsers.includes(id));
@@ -712,57 +728,66 @@ export class ButtonCallAssignmentService {
       .map((c) => c.assignedTo);
     // Service staff and outside operation are set for the whole day.
     const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
+    const outsideOperation = new Set(
+      findOutsideOperationStaff(shiftPlan.slots),
+    );
     const excluded = new Set([
       ...busyUserIds,
       ...excludedUsers,
       ...handlingCall,
-      // "Operasyon Dışı" never take calls, not even as a last resort.
-      ...findOutsideOperationStaff(shiftPlan.slots),
     ]);
 
-    // Baristas are a service call's last resort, and only while the bar
-    // has no order waiting.
+    // Baristas only help with service calls while the bar has no order
+    // waiting.
     const baristasCanHelp =
       isServiceCall &&
       users.some((user) => Number(user.role) === RoleEnum.BARISTA) &&
       !(await this.hasWaitingOrders(location));
 
-    return users
-      .filter((user) => !excluded.has(user._id))
-      .filter(
-        (user) =>
-          Number(user.role) !== RoleEnum.BARISTA ||
-          serviceStaff.has(user._id) ||
-          baristasCanHelp,
-      )
-      .map((user) => {
-        const userId = user._id as string;
-        const role = Number(user.role);
-        const isServiceStaff = serviceStaff.has(userId);
-        const ownGameplays = gameplays.filter(
-          (g) => (g.mentor as unknown as string) === userId,
-        );
-        const ownCalls = calls.filter((c) => c.assignedTo === userId);
-        const activityHours = [
-          checkInByUser.get(userId)!,
-          ...ownGameplays.map((g) => g.startHour),
-          ...ownCalls.map((c) => c.assignedHour).filter(Boolean),
-        ];
-        return {
-          userId,
-          knownGames: new Set(
-            (user.userGames ?? []).map((ug) => Number(ug.game)),
-          ),
-          lastActivity: Math.max(...activityHours.map(hourToSeconds)),
-          gameplayCountToday: ownGameplays.length,
-          // GM marked service staff for the day, or someone in the service
-          // role (only candidates for service calls).
-          isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,
-          tier: isServiceCall
-            ? serviceCallTier(role, isServiceStaff)
-            : gmCallTier(role, isServiceStaff),
-        };
-      });
+    return (
+      users
+        .filter((user) => !excluded.has(user._id))
+        // "Operasyon Dışı" take no calls, with the game manager exception.
+        .filter(
+          (user) =>
+            !outsideOperation.has(user._id) ||
+            takesCallsOutsideOperation(Number(user.role), isServiceCall),
+        )
+        .filter(
+          (user) =>
+            Number(user.role) !== RoleEnum.BARISTA ||
+            serviceStaff.has(user._id) ||
+            baristasCanHelp,
+        )
+        .map((user) => {
+          const userId = user._id as string;
+          const role = Number(user.role);
+          const isServiceStaff = serviceStaff.has(userId);
+          const ownGameplays = gameplays.filter(
+            (g) => (g.mentor as unknown as string) === userId,
+          );
+          const ownCalls = calls.filter((c) => c.assignedTo === userId);
+          const activityHours = [
+            checkInByUser.get(userId)!,
+            ...ownGameplays.map((g) => g.startHour),
+            ...ownCalls.map((c) => c.assignedHour).filter(Boolean),
+          ];
+          return {
+            userId,
+            knownGames: new Set(
+              (user.userGames ?? []).map((ug) => Number(ug.game)),
+            ),
+            lastActivity: Math.max(...activityHours.map(hourToSeconds)),
+            gameplayCountToday: ownGameplays.length,
+            // GM marked service staff for the day, or someone in the service
+            // role (only candidates for service calls).
+            isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,
+            tier: isServiceCall
+              ? serviceCallTier(role, isServiceStaff)
+              : gmCallTier(role, isServiceStaff, outsideOperation.has(userId)),
+          };
+        })
+    );
   }
 
   // An order of today at the location still waiting for confirmation or
