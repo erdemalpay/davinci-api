@@ -17,6 +17,7 @@ const query = (rows: unknown) => {
 const model = (rows: unknown, single?: unknown) => ({
   find: jest.fn(() => query(rows)),
   findOne: jest.fn(() => query(single ?? null)),
+  findById: jest.fn(() => query(single ?? null)),
 });
 
 describe('ButtonCallAssignmentService.findCandidates', () => {
@@ -30,10 +31,12 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     breaks = [] as unknown[],
     middlemen = [] as unknown[],
     shift = null as unknown,
+    locationDoc = null as unknown,
     gameplays = [] as unknown[],
     calls = [] as unknown[],
   }) {
     const userModel = model(users);
+    const locationModel = model([], locationDoc);
     const service = new ButtonCallAssignmentService(
       model(calls) as never,
       model(visits) as never,
@@ -45,6 +48,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       model([], shift) as never,
       model([]) as never,
       { emitButtonCallChanged: jest.fn() } as never,
+      locationModel as never,
     );
     return { service, userModel };
   }
@@ -136,6 +140,44 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     );
 
     expect(candidates).toEqual([]);
+  });
+
+  it('treats service staff and outside operation as set for the whole day', async () => {
+    // Ceren (service staff) and Kemal (outside operation) are marked on the
+    // 10:00 slot; both roles hold for the whole day, whatever the hour.
+    const { service } = build({
+      visits: [visit('ceren'), visit('kemal'), visit('mert')],
+      users: [gm('ceren'), gm('kemal'), gm('mert')],
+      shift: {
+        shifts: [
+          {
+            shift: '10:00',
+            user: ['ceren', 'kemal'],
+            chefUser: 'ceren',
+            outsideOperationUsers: ['kemal'],
+          },
+          { shift: '14:00', user: ['mert'] },
+        ],
+      },
+      locationDoc: {
+        shifts: [
+          { shift: '10:00', shiftEndHour: '18:00' },
+          { shift: '14:00', shiftEndHour: '22:00' },
+        ],
+      },
+    });
+
+    const candidates = await service.findCandidates(
+      location,
+      date,
+      '15:00:00',
+      [],
+    );
+    const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
+
+    expect(Object.keys(byId).sort()).toEqual(['ceren', 'mert']);
+    expect(byId.ceren.isServiceStaff).toBe(true);
+    expect(byId.mert.isServiceStaff).toBe(false);
   });
 
   it('excludes people who declined the call', async () => {
@@ -239,6 +281,7 @@ describe('ButtonCallAssignmentService.claim', () => {
       m(),
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
+      model([], null) as never,
     );
     return { service, buttonCallModel };
   }
@@ -282,6 +325,7 @@ describe('ButtonCallAssignmentService scheduling', () => {
       m(),
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
+      model([], null) as never,
     );
   };
 
@@ -365,6 +409,7 @@ describe('ButtonCallAssignmentService.decline', () => {
       m(),
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
+      model([], null) as never,
     );
     jest.spyOn(service, 'assign').mockResolvedValue(null);
     return { service, buttonCallModel };

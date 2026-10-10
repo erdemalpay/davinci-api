@@ -13,6 +13,7 @@ import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { Break } from '../break/break.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
+import { Location } from '../location/location.schema';
 import { Middleman } from '../middleman/middleman.schema';
 import { Shift } from '../shift/shift.schema';
 import { Table } from '../table/table.schema';
@@ -78,6 +79,8 @@ export class ButtonCallAssignmentService {
     @InjectModel(Shift.name) private readonly shiftModel: Model<Shift>,
     @InjectModel(Table.name) private readonly tableModel: Model<Table>,
     private readonly websocketGateway: AppWebSocketGateway,
+    @InjectModel(Location.name)
+    private readonly locationModel: Model<Location>,
   ) {}
 
   // Tries to assign an open, unassigned game master call. Leaves the call
@@ -437,14 +440,14 @@ export class ButtonCallAssignmentService {
       return { status: GameAvailabilityStatus.AVAILABLE };
     }
 
-    const [checkInByUser, slots] = await Promise.all([
+    const [checkInByUser, { slots, locationShifts }] = await Promise.all([
       this.findCheckInByUser(location, date),
       this.findShiftSlots(location, date),
     ]);
-    const scheduled = findScheduledStaff(slots, hour);
-    // In the cafe but outside operation now: can't take the call until a
-    // later slot (if any) where they're on operation.
-    const outsideOperation = new Set(findOutsideOperationStaff(slots, hour));
+    // Outside operation for the day: never takes the call, so not counted
+    // (findScheduledStaff leaves them out too).
+    const scheduled = findScheduledStaff(slots, hour, locationShifts);
+    const outsideOperation = new Set(findOutsideOperationStaff(slots));
     const isWorking = (id: string) =>
       checkInByUser.has(id) && !outsideOperation.has(id);
     const knowers = await this.userModel
@@ -508,43 +511,46 @@ export class ButtonCallAssignmentService {
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
 
-    const [users, busyUserIds, slots, gameplays, calls] = await Promise.all([
-      this.userModel
-        .find({
-          _id: { $in: [...checkInByUser.keys()] },
-          active: true,
-          role: { $in: GM_ROLES },
-        })
-        .select('_id userGames')
-        .lean(),
-      this.findBusyUserIds(location, date),
-      this.findShiftSlots(location, date),
-      this.gameplayModel
-        .find({ date, location })
-        .select('mentor startHour')
-        .lean(),
-      this.buttonCallModel
-        .find({
-          date,
-          location,
-          type: ButtonCallTypeEnum.GAMEMASTERCALL,
-          assignedTo: { $exists: true },
-        })
-        .select('assignedTo assignedHour finishHour')
-        .lean(),
-    ]);
+    const [users, busyUserIds, shiftPlan, gameplays, calls] = await Promise.all(
+      [
+        this.userModel
+          .find({
+            _id: { $in: [...checkInByUser.keys()] },
+            active: true,
+            role: { $in: GM_ROLES },
+          })
+          .select('_id userGames')
+          .lean(),
+        this.findBusyUserIds(location, date),
+        this.findShiftSlots(location, date),
+        this.gameplayModel
+          .find({ date, location })
+          .select('mentor startHour')
+          .lean(),
+        this.buttonCallModel
+          .find({
+            date,
+            location,
+            type: ButtonCallTypeEnum.GAMEMASTERCALL,
+            assignedTo: { $exists: true },
+          })
+          .select('assignedTo assignedHour finishHour')
+          .lean(),
+      ],
+    );
 
     // Someone already handling a call gets no other call until it's closed.
     const handlingCall = calls
       .filter((c) => !c.finishHour)
       .map((c) => c.assignedTo);
-    const serviceStaff = findServiceStaff(slots, hour);
+    // Service staff and outside operation are set for the whole day.
+    const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
     const excluded = new Set([
       ...busyUserIds,
       ...excludedUsers,
       ...handlingCall,
       // "Operasyon Dışı" never take GM calls, not even as a last resort.
-      ...findOutsideOperationStaff(slots, hour),
+      ...findOutsideOperationStaff(shiftPlan.slots),
     ]);
 
     return users
@@ -567,7 +573,7 @@ export class ButtonCallAssignmentService {
           ),
           lastActivity: Math.max(...activityHours.map(hourToSeconds)),
           gameplayCountToday: ownGameplays.length,
-          isServiceStaff: userId === serviceStaff,
+          isServiceStaff: serviceStaff.has(userId),
         };
       });
   }
@@ -588,11 +594,16 @@ export class ButtonCallAssignmentService {
     );
   }
 
+  // The day's shift slots, with the location's shift definitions that hold
+  // the end hour when a slot doesn't.
   private async findShiftSlots(location: number, date: string) {
-    const shift = await this.shiftModel
-      .findOne({ day: date, location })
-      .select('shifts')
-      .lean();
-    return shift?.shifts ?? [];
+    const [shift, locationDoc] = await Promise.all([
+      this.shiftModel.findOne({ day: date, location }).select('shifts').lean(),
+      this.locationModel.findById(location).select('shifts').lean(),
+    ]);
+    return {
+      slots: shift?.shifts ?? [],
+      locationShifts: locationDoc?.shifts ?? [],
+    };
   }
 }

@@ -99,15 +99,29 @@ export function pickAssigneeServiceStaffLast(
   return pickAssignee(regular, request) ?? pickAssignee(serviceStaff, request);
 }
 
-// Shift slots in start order with their time range in seconds. A slot
-// without an end hour runs until the next slot starts, or until the end of
-// the day for the last slot. An end before the start means past midnight.
-function withBounds(slots: ShiftSlot[]) {
+// The location's shift definitions ("10:00"–"18:00"). Shift docs often
+// store only the start hour; the panel reads the end from here too.
+export interface LocationShiftHours {
+  shift: string;
+  shiftEndHour?: string;
+}
+
+// Shift slots in start order with their time range in seconds. Slots can
+// overlap (e.g. 10:00–18:00 and 14:00–22:00). The end comes from the slot,
+// else from the location's shift with the same start, else the next slot's
+// start, else the end of the day. An end before the start means past
+// midnight.
+function withBounds(slots: ShiftSlot[], locationShifts: LocationShiftHours[]) {
   const sorted = [...slots]
     .filter((s) => s.shift)
     .sort((a, b) => hourToSeconds(a.shift) - hourToSeconds(b.shift));
   return sorted.map((slot, i) => {
-    const endHour = slot.shiftEndHour || sorted[i + 1]?.shift;
+    const endHour =
+      slot.shiftEndHour?.trim() ||
+      locationShifts
+        .find((ls) => ls.shift?.trim() === slot.shift.trim())
+        ?.shiftEndHour?.trim() ||
+      sorted.slice(i + 1).find((next) => next.shift !== slot.shift)?.shift;
     return {
       slot,
       start: hourToSeconds(slot.shift),
@@ -116,46 +130,36 @@ function withBounds(slots: ShiftSlot[]) {
   });
 }
 
-function findCurrentSlot(slots: ShiftSlot[], hour: string) {
-  const now = hourToSeconds(hour);
-  return withBounds(slots).find(({ start, end }) =>
-    end < start ? now >= start || now < end : now >= start && now < end,
-  )?.slot;
+// Service staff ("Servis Elemanı", stored as chefUser) of the day. The role
+// is given for the whole day, whichever slot it's saved on.
+export function findServiceStaff(slots: ShiftSlot[]): string[] {
+  return slots
+    .map((slot) => slot.chefUser)
+    .filter((userId): userId is string => !!userId);
 }
 
-// Service staff ("Servis Elemanı", stored as chefUser) of the shift slot
-// that covers the given hour.
-export function findServiceStaff(
-  slots: ShiftSlot[],
-  hour: string,
-): string | undefined {
-  return findCurrentSlot(slots, hour)?.chefUser || undefined;
-}
-
-// People marked "Operasyon Dışı" in the shift slot that covers the hour.
-export function findOutsideOperationStaff(
-  slots: ShiftSlot[],
-  hour: string,
-): string[] {
-  return findCurrentSlot(slots, hour)?.outsideOperationUsers ?? [];
+// People marked "Operasyon Dışı" on the day; also for the whole day.
+export function findOutsideOperationStaff(slots: ShiftSlot[]): string[] {
+  return slots.flatMap((slot) => slot.outsideOperationUsers ?? []);
 }
 
 // People scheduled in a slot that hasn't ended yet, with the hour their slot
-// starts; people outside operation in that slot are left out. Someone in
+// starts; people outside operation for the day are left out. Someone in
 // several slots gets the earliest one.
 export function findScheduledStaff(
   slots: ShiftSlot[],
   hour: string,
+  locationShifts: LocationShiftHours[] = [],
 ): Map<string, string> {
   const now = hourToSeconds(hour);
+  const outside = new Set(findOutsideOperationStaff(slots));
   const fromByUser = new Map<string, string>();
-  for (const { slot, start, end } of withBounds(slots)) {
+  for (const { slot, start, end } of withBounds(slots, locationShifts)) {
     // A slot that passes midnight is still ahead or running all day.
     const ended = end >= start && now >= end;
     if (ended) continue;
-    const outside = slot.outsideOperationUsers ?? [];
     for (const userId of slot.user ?? []) {
-      if (!outside.includes(userId) && !fromByUser.has(userId)) {
+      if (!outside.has(userId) && !fromByUser.has(userId)) {
         fromByUser.set(userId, slot.shift);
       }
     }
