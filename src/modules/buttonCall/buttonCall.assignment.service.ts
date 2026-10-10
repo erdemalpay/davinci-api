@@ -252,7 +252,13 @@ export class ButtonCallAssignmentService {
       { _id: callId, assignedTo: user._id, finishHour: { $exists: false } },
       {
         $unset: { assignedTo: '', assignedHour: '' },
-        $addToSet: { declinedBy: user._id },
+        // Busy with something else (taking a payment, ...): they're out of
+        // assignment while busy, and the call may come back to them when
+        // they're done if nobody took it meanwhile. Otherwise (they don't
+        // know the game) it never comes back to them.
+        ...(!BUSY_STATE_FOR_DECLINE[dto.reason] && {
+          $addToSet: { declinedBy: user._id },
+        }),
         // The call now names the (corrected) game, so it goes to someone
         // who knows it.
         ...(unknownGame &&
