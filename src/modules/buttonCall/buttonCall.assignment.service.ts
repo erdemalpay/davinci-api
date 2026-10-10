@@ -455,11 +455,19 @@ export class ButtonCallAssignmentService {
       return { reason: call.gmCallReason, game: call.game };
     }
     if (call.gmCallReason === GmCallReasonEnum.QUESTION) {
+      // The table may name the game the question is about; it's their
+      // current game unless they said they play another one.
       const gameplay = await this.findActiveGameplay(call);
+      const activeGame = gameplay ? Number(gameplay.game) : undefined;
+      const game = call.game ?? activeGame;
       return {
         reason: call.gmCallReason,
-        game: gameplay?.game as unknown as number | undefined,
-        mentorId: gameplay?.mentor as unknown as string | undefined,
+        game,
+        // Whoever explained the game is asked first, if it's that game.
+        mentorId:
+          gameplay && game === activeGame
+            ? (gameplay.mentor as unknown as string)
+            : undefined,
       };
     }
     return { reason: call.gmCallReason };
@@ -467,7 +475,18 @@ export class ButtonCallAssignmentService {
 
   // The game the table is currently playing: an unfinished gameplay if any,
   // otherwise the most recently started one.
-  private async findActiveGameplay(call: CallInfo) {
+  async getTableGame(location: number, tableName: string) {
+    const gameplay = await this.findActiveGameplay({
+      location,
+      tableName,
+      date: today(),
+    });
+    return { game: gameplay ? Number(gameplay.game) : null };
+  }
+
+  private async findActiveGameplay(
+    call: Pick<CallInfo, 'tableName' | 'location' | 'date'>,
+  ) {
     const table = await this.tableModel
       .findOne({
         name: call.tableName,
