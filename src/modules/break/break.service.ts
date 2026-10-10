@@ -1,7 +1,11 @@
 import { format } from 'date-fns';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import {
+  BUSY_STATE_STARTED_ON_DECLINE,
+  BusyStateStartedEvent,
+  STAFF_AVAILABILITY_CHANGED,
+} from '../../lib/events';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -46,6 +50,8 @@ export const STATE_MIDDLEMAN = 'MIDDLEMAN';
 
 @Injectable()
 export class BreakService {
+  private readonly logger = new Logger(BreakService.name);
+
   constructor(
     @InjectModel(Break.name) private breakModel: Model<Break>,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -207,37 +213,81 @@ export class BreakService {
       this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
 
       if (isCafeShort) {
-        const notificationEvents =
-          await this.notificationService.findAllEventNotifications();
-        const concurrentBreakEvent = notificationEvents.find(
-          (n) => n.event === NotificationEventType.CONCURRENTBREAK,
+        await this.notifyConcurrentBreak(
+          createBreakDto.user,
+          createBreakDto.location,
         );
-        if (concurrentBreakEvent) {
-          const [breakUser, breakLocation] = await Promise.all([
-            this.userService.findById(createBreakDto.user),
-            this.locationService.findLocationById(createBreakDto.location),
-          ]);
-          await this.notificationService.createNotification({
-            type: concurrentBreakEvent.type,
-            createdBy: concurrentBreakEvent.createdBy,
-            selectedUsers: concurrentBreakEvent.selectedUsers,
-            selectedRoles: concurrentBreakEvent.selectedRoles,
-            selectedLocations: concurrentBreakEvent.selectedLocations,
-            seenBy: [],
-            event: NotificationEventType.CONCURRENTBREAK,
-            message: {
-              key: 'ConcurrentBreakWarning',
-              params: {
-                userName: breakUser?.name ?? createBreakDto.user,
-                locationName: breakLocation?.name ?? String(createBreakDto.location),
-              },
-            },
-          });
-        }
       }
 
       return breakRecord;
     }, 'Failed to create break record');
+  }
+
+  // Someone declined a call because they're going on a break / are busy:
+  // the record is already created; log it and warn like any other break.
+  @OnEvent(BUSY_STATE_STARTED_ON_DECLINE)
+  async handleBusyStateStartedOnDecline({
+    breakRecord,
+  }: BusyStateStartedEvent) {
+    try {
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        breakRecord.user,
+        ActivityType.START_BREAK,
+        breakRecord,
+        'start break',
+      );
+      if (
+        breakRecord.type === BreakTypeEnum.BREAK &&
+        (await this.leavesCafeShort(
+          breakRecord.user,
+          breakRecord.location,
+          breakRecord.date,
+        ))
+      ) {
+        await this.notifyConcurrentBreak(
+          breakRecord.user,
+          breakRecord.location,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        'Failed to handle busy state started on decline',
+        error,
+      );
+    }
+  }
+
+  private async notifyConcurrentBreak(user: string, location: number) {
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const concurrentBreakEvent = notificationEvents.find(
+      (n) => n.event === NotificationEventType.CONCURRENTBREAK,
+    );
+    if (!concurrentBreakEvent) {
+      return;
+    }
+    const [breakUser, breakLocation] = await Promise.all([
+      this.userService.findById(user),
+      this.locationService.findLocationById(location),
+    ]);
+    await this.notificationService.createNotification({
+      type: concurrentBreakEvent.type,
+      createdBy: concurrentBreakEvent.createdBy,
+      selectedUsers: concurrentBreakEvent.selectedUsers,
+      selectedRoles: concurrentBreakEvent.selectedRoles,
+      selectedLocations: concurrentBreakEvent.selectedLocations,
+      seenBy: [],
+      event: NotificationEventType.CONCURRENTBREAK,
+      message: {
+        key: 'ConcurrentBreakWarning',
+        params: {
+          userName: breakUser?.name ?? user,
+          locationName: breakLocation?.name ?? String(location),
+        },
+      },
+    });
   }
 
   async findAll(query: BreakQueryDto) {

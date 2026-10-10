@@ -4,12 +4,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { format } from 'date-fns';
 import { Model } from 'mongoose';
-import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
+import {
+  BUSY_STATE_STARTED_ON_DECLINE,
+  BusyStateStartedEvent,
+  STAFF_AVAILABILITY_CHANGED,
+} from '../../lib/events';
 import { BreakTypeEnum } from '../break/break.dto';
 import { Break } from '../break/break.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
@@ -161,6 +165,7 @@ export class ButtonCallAssignmentService {
     @InjectModel(Location.name)
     private readonly locationModel: Model<Location>,
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // Tries to assign an open, unassigned game master call. Leaves the call
@@ -316,7 +321,7 @@ export class ButtonCallAssignmentService {
     if (alreadyBusy) {
       return;
     }
-    await this.breakModel.create({
+    const breakRecord = await this.breakModel.create({
       user: user._id,
       location: call.location,
       date,
@@ -325,6 +330,10 @@ export class ButtonCallAssignmentService {
       ...(type === BreakTypeEnum.OTHER && { note: dto.note?.trim() }),
     });
     this.websocketGateway.emitBreakChanged();
+    // Activity log and the concurrent break warning, as for any break.
+    this.eventEmitter.emit(BUSY_STATE_STARTED_ON_DECLINE, {
+      breakRecord: breakRecord.toObject(),
+    } as BusyStateStartedEvent);
   }
 
   // An explanation call stays in line for someone who knows the game. When
