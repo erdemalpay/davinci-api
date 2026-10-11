@@ -552,25 +552,23 @@ export class ButtonCallService {
 
     for (const [type, list] of Object.entries(groups)) {
       const index = list.findIndex((d) => d.tableName === tableName);
+      const own = list[index];
       const totalActive = list.length;
 
-      byType[type] =
-        index === -1
-          ? { isQueued: false, position: null, waitingCount: 0, totalActive }
-          : {
-              isQueued: true,
-              position: index + 1,
-              waitingCount: index,
-              totalActive,
-              callId: list[index]!._id,
-              // Lets the table pick another game when nobody can explain it.
-              ...(list[index]!.explainerUnavailable && {
-                explainerUnavailable: true,
-              }),
-              ...(list[index]!.assignedTo && {
-                assignedToName: firstNameById.get(list[index]!.assignedTo),
-              }),
-            };
+      byType[type] = !own
+        ? { isQueued: false, position: null, waitingCount: 0, totalActive }
+        : {
+            isQueued: true,
+            position: index + 1,
+            waitingCount: index,
+            totalActive,
+            callId: own._id,
+            // Lets the table pick another game when nobody can explain it.
+            ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.assignedTo && {
+              assignedToName: firstNameById.get(own.assignedTo),
+            }),
+          };
     }
 
     return byType;
