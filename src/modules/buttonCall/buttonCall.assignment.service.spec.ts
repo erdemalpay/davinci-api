@@ -718,6 +718,20 @@ describe('ButtonCallAssignmentService.decline', () => {
       expect(websocketGateway.emitBreakChanged).toHaveBeenCalled();
     });
 
+    it('starts it at the cafe time, not the server time', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-10-11T10:05:00Z'));
+      const { service, breakModel } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.RECOMMENDING_GAME,
+      });
+      jest.useRealTimers();
+
+      expect(breakModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ date: '2026-10-11', startHour: '13:05' }),
+      );
+    });
+
     it('keeps the note of "other"', async () => {
       const { service, breakModel } = build();
 

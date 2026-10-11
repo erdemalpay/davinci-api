@@ -7,7 +7,6 @@ import {
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import {
   BUSY_STATE_STARTED_ON_DECLINE,
@@ -52,6 +51,7 @@ import {
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
+import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
 // Who can get which call, in tiers (lower tiers are asked first).
 //
@@ -135,8 +135,8 @@ type CallInfo = Pick<
   'tableName' | 'location' | 'date' | 'gmCallReason' | 'game' | 'declinedBy'
 >;
 
-const today = () => format(new Date(), 'yyyy-MM-dd');
-const nowHour = () => format(new Date(), 'HH:mm:ss');
+const today = cafeToday;
+const nowHour = () => cafeHour();
 
 // Assigns game master calls to the most suitable available game master.
 @Injectable()
@@ -325,7 +325,7 @@ export class ButtonCallAssignmentService {
       user: user._id,
       location: call.location,
       date,
-      startHour: format(new Date(), 'HH:mm'),
+      startHour: cafeHour(false),
       type,
       ...(type === BreakTypeEnum.OTHER && { note: dto.note?.trim() }),
     };
@@ -815,8 +815,7 @@ export class ButtonCallAssignmentService {
   // An order of today at the location still waiting for confirmation or
   // being prepared.
   private async hasWaitingOrders(location: number) {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = cafeStartOfToday();
     const waiting = await this.orderModel.exists({
       location,
       status: { $in: [OrderStatus.CONFIRMATIONREQ, OrderStatus.PENDING] },
