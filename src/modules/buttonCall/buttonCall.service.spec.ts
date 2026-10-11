@@ -187,3 +187,61 @@ describe('ButtonCallService closes the call when a game is added', () => {
     expect(buttonCallModel.findOne).not.toHaveBeenCalled();
   });
 });
+
+describe('ButtonCallService queue', () => {
+  const lean = (rows: unknown) => ({
+    select: () => ({
+      sort: () => ({ lean: () => ({ exec: async () => rows }) }),
+      lean: async () => rows,
+    }),
+  });
+
+  function build(calls: unknown[]) {
+    const service = new ButtonCallService(
+      { find: jest.fn(() => lean(calls)) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        find: jest.fn(() =>
+          lean([
+            { _id: 'ayse', name: 'Ayşe Yılmaz' },
+            { _id: 'mert', name: 'Mert' },
+          ]),
+        ),
+      } as never,
+      {} as never,
+    );
+    return service;
+  }
+
+  const call = (
+    _id: number,
+    tableName: string,
+    type: ButtonCallTypeEnum,
+    assignedTo?: string,
+  ) => ({ _id, tableName, type, createdAt: new Date(), assignedTo });
+
+  it('tells the table the first name of whoever is coming', async () => {
+    const service = build([
+      call(1, '3', ButtonCallTypeEnum.GAMEMASTERCALL, 'mert'),
+      call(2, '5', ButtonCallTypeEnum.GAMEMASTERCALL, 'ayse'),
+      call(3, '5', ButtonCallTypeEnum.ORDERCALL),
+    ]);
+
+    const queue = await service.getTodayQueuePositionsByType({
+      tableName: '5',
+      location: 1,
+    });
+
+    expect(queue[ButtonCallTypeEnum.GAMEMASTERCALL]).toMatchObject({
+      isQueued: true,
+      position: 2,
+      assignedToName: 'Ayşe',
+    });
+    // Not assigned yet: no name.
+    expect(queue[ButtonCallTypeEnum.ORDERCALL].assignedToName).toBeUndefined();
+  });
+});
