@@ -331,17 +331,8 @@ export class ButtonCallService {
       })
       .select('tableName type startHour assignedTo')
       .lean();
-    const assigneeIds = [
-      ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
-    ];
-    const assignees = assigneeIds.length
-      ? await this.userModel
-          .find({ _id: { $in: assigneeIds } })
-          .select('name')
-          .lean()
-      : [];
-    const firstNameById = new Map(
-      assignees.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    const firstNameById = await this.findFirstNames(
+      calls.map((c) => c.assignedTo),
     );
     return calls.map((call) => ({
       _id: call._id,
@@ -353,6 +344,20 @@ export class ButtonCallService {
       }),
     }));
   }
+  // First names only: what customers may see of who is coming.
+  private async findFirstNames(userIds: (string | undefined)[]) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    const users = ids.length
+      ? await this.userModel
+          .find({ _id: { $in: ids } })
+          .select('name')
+          .lean()
+      : [];
+    return new Map(
+      users.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    );
+  }
+
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -506,11 +511,18 @@ export class ButtonCallService {
       createdAt: Date;
       type: string;
       explainerUnavailable?: boolean;
+      assignedTo?: string;
     };
 
     const activeToday = await this.buttonCallModel
       .find(filter)
-      .select({ tableName: 1, createdAt: 1, type: 1, explainerUnavailable: 1 })
+      .select({
+        tableName: 1,
+        createdAt: 1,
+        type: 1,
+        explainerUnavailable: 1,
+        assignedTo: 1,
+      })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
       .exec();
@@ -524,8 +536,14 @@ export class ButtonCallService {
         totalActive: number;
         callId?: number;
         explainerUnavailable?: boolean;
+        // First name of whoever is coming to the table.
+        assignedToName?: string;
       }
     > = {};
+    const ownCalls = activeToday.filter((d) => d.tableName === tableName);
+    const firstNameById = await this.findFirstNames(
+      ownCalls.map((d) => d.assignedTo),
+    );
 
     const groups: Record<string, Row[]> = {};
     for (const d of activeToday) {
@@ -534,22 +552,23 @@ export class ButtonCallService {
 
     for (const [type, list] of Object.entries(groups)) {
       const index = list.findIndex((d) => d.tableName === tableName);
+      const own = list[index];
       const totalActive = list.length;
 
-      byType[type] =
-        index === -1
-          ? { isQueued: false, position: null, waitingCount: 0, totalActive }
-          : {
-              isQueued: true,
-              position: index + 1,
-              waitingCount: index,
-              totalActive,
-              callId: list[index]!._id,
-              // Lets the table pick another game when nobody can explain it.
-              ...(list[index]!.explainerUnavailable && {
-                explainerUnavailable: true,
-              }),
-            };
+      byType[type] = !own
+        ? { isQueued: false, position: null, waitingCount: 0, totalActive }
+        : {
+            isQueued: true,
+            position: index + 1,
+            waitingCount: index,
+            totalActive,
+            callId: own._id,
+            // Lets the table pick another game when nobody can explain it.
+            ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.assignedTo && {
+              assignedToName: firstNameById.get(own.assignedTo),
+            }),
+          };
     }
 
     return byType;
