@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import {
   BUSY_STATE_STARTED_ON_DECLINE,
@@ -43,6 +42,7 @@ import { VisitStatus } from '../visit/visit.dto';
 import { Visit } from '../visit/visit.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Middleman } from '../middleman/middleman.schema';
+import { cafeHour, cafeToday } from 'src/utils/cafeTime';
 
 // Summary keys for the non-break states.
 export const STATE_EXPLAINING = 'EXPLAINING';
@@ -126,8 +126,8 @@ export class BreakService {
         .select('user startHour finishHour')
         .lean(),
     ]);
-    const isToday = date === format(new Date(), 'yyyy-MM-dd');
-    const openUntil = isToday ? format(new Date(), 'HH:mm') : '23:59';
+    const isToday = date === cafeToday();
+    const openUntil = isToday ? cafeHour(false) : '23:59';
     const minutesByUser = new Map<string, Record<string, number>>();
     const add = (
       user: unknown,

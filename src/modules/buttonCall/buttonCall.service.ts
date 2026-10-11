@@ -9,8 +9,6 @@ import {
 } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
-import * as moment from 'moment-timezone';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -37,6 +35,7 @@ import {
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
+import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
 @Injectable()
 export class ButtonCallService {
@@ -69,7 +68,7 @@ export class ButtonCallService {
       type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
       location: createButtonCallDto.location,
       finishHour: { $exists: false },
-      date: format(new Date(), 'yyyy-MM-dd'),
+      date: cafeToday(),
     });
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
@@ -84,7 +83,7 @@ export class ButtonCallService {
     try {
       const createdButtonCall = await this.buttonCallModel.create({
         ...createButtonCallDto,
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: cafeToday(),
         type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
         startHour: createButtonCallDto.hour,
         ...(user && { createdBy: user._id }),
@@ -168,11 +167,7 @@ export class ButtonCallService {
       return null;
     }
 
-    await this.finishButtonCall(
-      activeOrderCall,
-      user,
-      moment.tz('Europe/Istanbul').format('HH:mm:ss'),
-    );
+    await this.finishButtonCall(activeOrderCall, user, cafeHour());
     this.freeAssignee(activeOrderCall);
 
     return activeOrderCall;
@@ -325,7 +320,7 @@ export class ButtonCallService {
   async findForScreen(location: number) {
     const calls = await this.buttonCallModel
       .find({
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: cafeToday(),
         location,
         finishHour: { $exists: false },
       })
@@ -492,16 +487,10 @@ export class ButtonCallService {
   }) {
     const { tableName, location } = query;
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-
     const filter: Record<string, any> = {
       finishHour: { $exists: false },
-      createdAt: { $gte: start, $lte: end },
-      date: format(new Date(), 'yyyy-MM-dd'),
+      createdAt: { $gte: cafeStartOfToday() },
+      date: cafeToday(),
     };
     if (location !== undefined) filter.location = location;
 
@@ -606,7 +595,7 @@ export class ButtonCallService {
       await this.close(mentor, {
         tableName: event.tableName,
         location: event.location,
-        hour: format(new Date(), 'HH:mm:ss'),
+        hour: cafeHour(),
         type: ButtonCallTypeEnum.GAMEMASTERCALL,
       });
     } catch (error) {
