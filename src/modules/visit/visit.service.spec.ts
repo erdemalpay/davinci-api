@@ -369,3 +369,57 @@ describe('VisitService.toggleVisit (mevcut giriş/çıkış davranışı)', () =
     });
   });
 });
+
+describe('VisitService.checkInOutAsManager', () => {
+  const manager = { _id: 'erdem', role: { _id: 1 } };
+  const counter = { _id: 'kasa', role: { _id: 12 } };
+  const ceren = { _id: 'ceren', name: 'Ceren', role: { _id: 2 } };
+  let service: VisitService;
+  let toggleSpy: jest.SpyInstance;
+  let findById: jest.Mock;
+
+  beforeEach(() => {
+    findById = jest.fn(async (id: string) => (id === 'ceren' ? ceren : null));
+    service = new VisitService(
+      {} as never,
+      {} as never,
+      {} as never,
+      { findById } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    toggleSpy = jest
+      .spyOn(service as never, 'toggleVisit' as never)
+      .mockResolvedValue({ action: 'entry' } as never);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('checks the manager in or out by default', async () => {
+    await service.checkInOutAsManager(manager as never, 2);
+
+    expect(toggleSpy).toHaveBeenCalledWith(manager, 2, VisitSource.PANEL);
+  });
+
+  it('lets a manager check someone else in or out', async () => {
+    await service.checkInOutAsManager(manager as never, 2, 'ceren');
+
+    expect(toggleSpy).toHaveBeenCalledWith(ceren, 2, VisitSource.PANEL);
+  });
+
+  it('does not let the counter check someone else in', async () => {
+    await expect(
+      service.checkInOutAsManager(counter as never, 2, 'ceren'),
+    ).rejects.toThrow('Only managers can check someone else in or out');
+    expect(toggleSpy).not.toHaveBeenCalled();
+  });
+
+  it('fails for an unknown user', async () => {
+    await expect(
+      service.checkInOutAsManager(manager as never, 2, 'nobody'),
+    ).rejects.toThrow('User not found');
+  });
+});

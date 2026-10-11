@@ -22,6 +22,10 @@ export class AssignmentHistoryEntry {
 
   @Prop({ required: false, type: String })
   note: string;
+
+  // The game a "doesn't know the game" decline is about.
+  @Prop({ required: false, type: Number })
+  game: number;
 }
 
 const AssignmentHistoryEntrySchema = SchemaFactory.createForClass(

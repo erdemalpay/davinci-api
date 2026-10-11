@@ -11,7 +11,9 @@ import {
   GameplayTime,
   GameplayTimeSchema,
 } from '../gameplaytime/gameplaytime.schema';
+import { Location, LocationSchema } from '../location/location.schema';
 import { Middleman, MiddlemanSchema } from '../middleman/middleman.schema';
+import { Order, OrderSchema } from '../order/order.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
 import { Table, TableSchema } from '../table/table.schema';
 import { User, UserSchema } from '../user/user.schema';
@@ -41,6 +43,9 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Gameplay.name, GameplaySchema),
   createAutoIncrementConfig(Shift.name, ShiftSchema),
   createAutoIncrementConfig(Table.name, TableSchema),
+  createAutoIncrementConfig(Location.name, LocationSchema),
+  // Baristas only get service calls while no order is waiting.
+  createAutoIncrementConfig(Order.name, OrderSchema),
   { name: User.name, useFactory: () => UserSchema },
 ]);
 

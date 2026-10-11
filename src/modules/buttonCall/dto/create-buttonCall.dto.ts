@@ -98,9 +98,12 @@ export class ChangeGmCallRequestDto {
 }
 
 export enum DeclineReasonEnum {
+  BREAK = 'BREAK',
   TAKING_PAYMENT = 'TAKING_PAYMENT',
   RECOMMENDING_GAME = 'RECOMMENDING_GAME',
   PREPARING_ORDER = 'PREPARING_ORDER',
+  WC = 'WC',
+  DOESNT_KNOW_GAME = 'DOESNT_KNOW_GAME',
   OTHER = 'OTHER',
 }
 
@@ -116,6 +119,13 @@ export class DeclineButtonCallDto {
   @IsString()
   @MaxLength(300)
   readonly note?: string;
+
+  // The game the game master doesn't know (DOESNT_KNOW_GAME), needed when
+  // the call doesn't name a game yet.
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  readonly game?: number;
 }
 
 export class CallReportQueryDto {
@@ -142,6 +152,12 @@ export enum ButtonCallTypeEnum {
   ORDERCALL = 'ORDERCALL',
   ORDERREADYCALL = 'ORDERREADYCALL',
 }
+
+// Calls that are assigned to a person: game master calls and service calls.
+export const ASSIGNED_CALL_TYPES = [
+  ButtonCallTypeEnum.GAMEMASTERCALL,
+  ButtonCallTypeEnum.ORDERCALL,
+];
 
 export enum ButtonCallActionEnum {
   CREATE = 'create',

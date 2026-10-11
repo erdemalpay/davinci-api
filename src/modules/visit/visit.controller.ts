@@ -80,7 +80,7 @@ export class VisitController {
 
   @Post('/manager-toggle')
   checkInOutAsManager(@ReqUser() user: User, @Body() dto: ManagerCheckInDto) {
-    return this.visitService.checkInOutAsManager(user, dto.location);
+    return this.visitService.checkInOutAsManager(user, dto.location, dto.user);
   }
 
   @Patch('/finish/:id')

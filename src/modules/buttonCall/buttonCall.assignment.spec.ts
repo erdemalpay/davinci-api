@@ -5,7 +5,7 @@ import {
   findServiceStaff,
   hourToSeconds,
   pickAssignee,
-  pickAssigneeServiceStaffLast,
+  pickAssigneeByTier,
   toAssignmentEvents,
 } from './buttonCall.assignment';
 import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
@@ -92,7 +92,17 @@ describe('pickAssignee', () => {
       ).toBe('knows');
     });
 
-    it('falls back to the most suitable game master', () => {
+    it('waits for someone who knows the game while one is in the cafe', () => {
+      expect(
+        pickAssignee([candidate('ali')], {
+          reason: GmCallReasonEnum.QUESTION,
+          game: 7,
+          knowerInCafe: true,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('falls back to the most suitable game master when nobody in the cafe knows the game', () => {
       const candidates = [
         candidate('a', { lastActivity: hourToSeconds('15:00:00') }),
         candidate('b', { lastActivity: hourToSeconds('09:00:00') }),
@@ -143,35 +153,6 @@ describe('pickAssignee', () => {
         }),
       ).toBeUndefined();
     });
-  });
-});
-
-describe('findServiceStaff', () => {
-  const slots = [
-    { shift: '10:00', chefUser: 'morning-service' },
-    { shift: '16:00', shiftEndHour: '23:00', chefUser: 'evening-service' },
-  ];
-
-  it('returns the service staff of the slot covering the hour', () => {
-    expect(findServiceStaff(slots, '12:30:00')).toBe('morning-service');
-    expect(findServiceStaff(slots, '18:00:00')).toBe('evening-service');
-  });
-
-  it('ends a slot without an end hour when the next one starts', () => {
-    expect(findServiceStaff(slots, '16:00:00')).toBe('evening-service');
-  });
-
-  it('returns undefined outside every slot', () => {
-    expect(findServiceStaff(slots, '09:00:00')).toBeUndefined();
-    expect(findServiceStaff(slots, '23:30:00')).toBeUndefined();
-  });
-
-  it('handles slots that pass midnight', () => {
-    const night = [
-      { shift: '18:00', shiftEndHour: '02:00', chefUser: 'night-service' },
-    ];
-    expect(findServiceStaff(night, '01:00:00')).toBe('night-service');
-    expect(findServiceStaff(night, '03:00:00')).toBeUndefined();
   });
 });
 
@@ -251,35 +232,35 @@ describe('toAssignmentEvents', () => {
   });
 });
 
-describe('pickAssigneeServiceStaffLast', () => {
+describe('pickAssigneeByTier', () => {
+  // A lower tier is always asked first (e.g. game masters before the day's
+  // service staff for a GM call).
   const service = (
     userId: string,
     overrides: Partial<AssignmentCandidate> = {},
-  ) => candidate(userId, { isServiceStaff: true, ...overrides });
+  ) => candidate(userId, { tier: 1, ...overrides });
 
-  it('prefers anyone else over the service staff, even if they waited longer', () => {
+  it('prefers a lower tier, even if the higher tier waited longer', () => {
     const candidates = [
       service('service', { lastActivity: hourToSeconds('08:00:00') }),
       candidate('gm', { lastActivity: hourToSeconds('15:00:00') }),
     ];
 
-    expect(pickAssigneeServiceStaffLast(candidates, {})).toBe('gm');
+    expect(pickAssigneeByTier(candidates, {})).toBe('gm');
   });
 
-  it('assigns the service staff when nobody else is available', () => {
-    expect(pickAssigneeServiceStaffLast([service('service')], {})).toBe(
-      'service',
-    );
+  it('goes to the next tier when nobody in the lower one is available', () => {
+    expect(pickAssigneeByTier([service('service')], {})).toBe('service');
   });
 
-  it('does not let a service staff mentor jump the line for a question', () => {
+  it('does not let a higher-tier mentor jump the line for a question', () => {
     const candidates = [
       service('mentor'),
       candidate('gm', { knownGames: new Set([7]) }),
     ];
 
     expect(
-      pickAssigneeServiceStaffLast(candidates, {
+      pickAssigneeByTier(candidates, {
         reason: GmCallReasonEnum.QUESTION,
         mentorId: 'mentor',
         game: 7,
@@ -287,59 +268,76 @@ describe('pickAssigneeServiceStaffLast', () => {
     ).toBe('gm');
   });
 
-  it('gives an explanation to a service staff who knows the game when no one else does', () => {
+  it('gives an explanation to a higher tier who knows the game when no one lower does', () => {
     const candidates = [
       candidate('gm'),
       service('service', { knownGames: new Set([3]) }),
     ];
 
     expect(
-      pickAssigneeServiceStaffLast(candidates, {
+      pickAssigneeByTier(candidates, {
         reason: GmCallReasonEnum.EXPLANATION,
         game: 3,
       }),
     ).toBe('service');
   });
 
-  it('never gives an explanation to a service staff who does not know the game', () => {
+  it('never gives an explanation to someone who does not know the game', () => {
     expect(
-      pickAssigneeServiceStaffLast([service('service')], {
+      pickAssigneeByTier([service('service')], {
         reason: GmCallReasonEnum.EXPLANATION,
         game: 3,
       }),
     ).toBeUndefined();
   });
+
+  it('walks several tiers in order', () => {
+    const candidates = [
+      candidate('bar-chef', { tier: 4 }),
+      candidate('barista', { tier: 3 }),
+      candidate('game-manager', { tier: 2 }),
+    ];
+
+    expect(pickAssigneeByTier(candidates, {})).toBe('game-manager');
+    expect(pickAssigneeByTier(candidates.slice(0, 2), {})).toBe('barista');
+  });
+
+  it('returns undefined when nobody is available', () => {
+    expect(pickAssigneeByTier([], {})).toBeUndefined();
+  });
 });
 
-describe('findOutsideOperationStaff', () => {
+describe('service staff and outside operation are for the whole day', () => {
+  // As the panel saves them: per slot, without end hours, overlapping.
   const slots = [
-    { shift: '10:00', shiftEndHour: '16:00', outsideOperationUsers: ['ali'] },
-    { shift: '16:00', shiftEndHour: '23:00', outsideOperationUsers: ['mert'] },
+    {
+      shift: '10:00',
+      user: ['ceren', 'kemal'],
+      chefUser: 'ceren',
+      outsideOperationUsers: ['kemal'],
+    },
+    { shift: '16:00', user: ['mert', 'ali'], chefUser: 'mert' },
   ];
 
-  it('returns the people outside operation in the current slot', () => {
-    expect(findOutsideOperationStaff(slots, '12:00:00')).toEqual(['ali']);
-    expect(findOutsideOperationStaff(slots, '18:00:00')).toEqual(['mert']);
+  it('finds the service staff of every slot of the day', () => {
+    expect(findServiceStaff(slots).sort()).toEqual(['ceren', 'mert']);
+    expect(findServiceStaff([])).toEqual([]);
   });
 
-  it('is empty outside every slot', () => {
-    expect(findOutsideOperationStaff(slots, '09:00:00')).toEqual([]);
+  it('finds everyone outside operation on the day', () => {
+    expect(findOutsideOperationStaff(slots)).toEqual(['kemal']);
   });
 
-  it('leaves them out of the scheduled staff of that slot only', () => {
+  it('leaves people outside operation out of the scheduled staff', () => {
     const scheduled = findScheduledStaff(
       [
-        {
-          shift: '10:00',
-          shiftEndHour: '16:00',
-          user: ['ali'],
-          outsideOperationUsers: ['ali'],
-        },
-        { shift: '16:00', shiftEndHour: '23:00', user: ['ali'] },
+        ...slots,
+        { shift: '18:00', user: ['kemal'] }, // also in a later slot
       ],
-      '12:00:00',
+      '09:00:00',
     );
 
-    expect(scheduled.get('ali')).toBe('16:00');
+    expect(scheduled.has('kemal')).toBe(false);
+    expect(scheduled.get('ceren')).toBe('10:00');
   });
 });

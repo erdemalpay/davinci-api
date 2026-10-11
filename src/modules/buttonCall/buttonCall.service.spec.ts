@@ -37,7 +37,7 @@ describe('ButtonCallService frees the assignee', () => {
       {} as never,
       {} as never,
     );
-    return { service, assignment };
+    return { service, assignment, buttonCallModel };
   }
 
   const closeDto = { tableName: '5', location: 1, hour: '12:30:00' };
@@ -67,7 +67,7 @@ describe('ButtonCallService frees the assignee', () => {
     expect(assignment.handleStaffAvailabilityChanged).not.toHaveBeenCalled();
   });
 
-  it('does nothing extra for a service call', async () => {
+  it('does nothing extra for an unassigned service call', async () => {
     const { service, assignment } = build({
       _id: 1,
       type: ButtonCallTypeEnum.ORDERCALL,
@@ -77,6 +77,36 @@ describe('ButtonCallService frees the assignee', () => {
     await service.close(null, closeDto);
 
     expect(assignment.handleStaffAvailabilityChanged).not.toHaveBeenCalled();
+  });
+
+  it('frees the assignee of a service call too', async () => {
+    const { service, assignment } = build({
+      _id: 1,
+      type: ButtonCallTypeEnum.ORDERCALL,
+      startHour: '12:20:00',
+      assignedTo: 'ceren',
+    });
+
+    await service.close(null, closeDto);
+
+    expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('frees the assignee when an order closes their service call', async () => {
+    const { service, assignment, buttonCallModel } = build({
+      _id: 1,
+      type: ButtonCallTypeEnum.ORDERCALL,
+      assignedTo: 'ceren',
+      startHour: '12:20:00',
+    });
+    const doc = await buttonCallModel.findOne();
+    buttonCallModel.findOne.mockReturnValueOnce({
+      sort: async () => doc,
+    } as never);
+
+    await service.closeOrderCall({ name: '5', location: 1 } as never, null);
+
+    expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalledTimes(1);
   });
 
   it('frees the assignee when an open GM call is deleted', async () => {
@@ -155,5 +185,63 @@ describe('ButtonCallService closes the call when a game is added', () => {
     await service.closeCallOnGameplayAdded(event);
 
     expect(buttonCallModel.findOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('ButtonCallService queue', () => {
+  const lean = (rows: unknown) => ({
+    select: () => ({
+      sort: () => ({ lean: () => ({ exec: async () => rows }) }),
+      lean: async () => rows,
+    }),
+  });
+
+  function build(calls: unknown[]) {
+    const service = new ButtonCallService(
+      { find: jest.fn(() => lean(calls)) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        find: jest.fn(() =>
+          lean([
+            { _id: 'ayse', name: 'Ayşe Yılmaz' },
+            { _id: 'mert', name: 'Mert' },
+          ]),
+        ),
+      } as never,
+      {} as never,
+    );
+    return service;
+  }
+
+  const call = (
+    _id: number,
+    tableName: string,
+    type: ButtonCallTypeEnum,
+    assignedTo?: string,
+  ) => ({ _id, tableName, type, createdAt: new Date(), assignedTo });
+
+  it('tells the table the first name of whoever is coming', async () => {
+    const service = build([
+      call(1, '3', ButtonCallTypeEnum.GAMEMASTERCALL, 'mert'),
+      call(2, '5', ButtonCallTypeEnum.GAMEMASTERCALL, 'ayse'),
+      call(3, '5', ButtonCallTypeEnum.ORDERCALL),
+    ]);
+
+    const queue = await service.getTodayQueuePositionsByType({
+      tableName: '5',
+      location: 1,
+    });
+
+    expect(queue[ButtonCallTypeEnum.GAMEMASTERCALL]).toMatchObject({
+      isQueued: true,
+      position: 2,
+      assignedToName: 'Ayşe',
+    });
+    // Not assigned yet: no name.
+    expect(queue[ButtonCallTypeEnum.ORDERCALL].assignedToName).toBeUndefined();
   });
 });

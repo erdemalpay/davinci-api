@@ -9,8 +9,6 @@ import {
 } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
-import * as moment from 'moment-timezone';
 import { Model } from 'mongoose';
 import { lastValueFrom, timeout } from 'rxjs';
 import { dateRanges } from 'src/utils/dateRanges';
@@ -28,13 +26,16 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import { CloseButtonCallDto } from './dto/close-buttonCall.dto';
 import {
+  ASSIGNED_CALL_TYPES,
   ButtonCallActionEnum,
   ButtonCallQueryDto,
   ButtonCallTypeEnum,
   CreateButtonCallDto,
+  GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
+import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
 @Injectable()
 export class ButtonCallService {
@@ -67,7 +68,7 @@ export class ButtonCallService {
       type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
       location: createButtonCallDto.location,
       finishHour: { $exists: false },
-      date: format(new Date(), 'yyyy-MM-dd'),
+      date: cafeToday(),
     });
     if (existingButtonCall) {
       existingButtonCall.callCount += 1;
@@ -82,7 +83,7 @@ export class ButtonCallService {
     try {
       const createdButtonCall = await this.buttonCallModel.create({
         ...createButtonCallDto,
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: cafeToday(),
         type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
         startHour: createButtonCallDto.hour,
         ...(user && { createdBy: user._id }),
@@ -91,8 +92,15 @@ export class ButtonCallService {
         createdButtonCall,
         ButtonCallActionEnum.CREATE,
       );
-      if (createdButtonCall.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
-        if (createdButtonCall.game) {
+      if (
+        ASSIGNED_CALL_TYPES.includes(
+          createdButtonCall.type as ButtonCallTypeEnum,
+        )
+      ) {
+        if (
+          createdButtonCall.game &&
+          createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION
+        ) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)
             .catch((error) =>
@@ -159,11 +167,8 @@ export class ButtonCallService {
       return null;
     }
 
-    await this.finishButtonCall(
-      activeOrderCall,
-      user,
-      moment.tz('Europe/Istanbul').format('HH:mm:ss'),
-    );
+    await this.finishButtonCall(activeOrderCall, user, cafeHour());
+    this.freeAssignee(activeOrderCall);
 
     return activeOrderCall;
   }
@@ -315,23 +320,14 @@ export class ButtonCallService {
   async findForScreen(location: number) {
     const calls = await this.buttonCallModel
       .find({
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: cafeToday(),
         location,
         finishHour: { $exists: false },
       })
       .select('tableName type startHour assignedTo')
       .lean();
-    const assigneeIds = [
-      ...new Set(calls.map((c) => c.assignedTo).filter(Boolean)),
-    ];
-    const assignees = assigneeIds.length
-      ? await this.userModel
-          .find({ _id: { $in: assigneeIds } })
-          .select('name')
-          .lean()
-      : [];
-    const firstNameById = new Map(
-      assignees.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    const firstNameById = await this.findFirstNames(
+      calls.map((c) => c.assignedTo),
     );
     return calls.map((call) => ({
       _id: call._id,
@@ -343,6 +339,20 @@ export class ButtonCallService {
       }),
     }));
   }
+  // First names only: what customers may see of who is coming.
+  private async findFirstNames(userIds: (string | undefined)[]) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    const users = ids.length
+      ? await this.userModel
+          .find({ _id: { $in: ids } })
+          .select('name')
+          .lean()
+      : [];
+    return new Map(
+      users.map((u) => [u._id, (u.name ?? '').trim().split(/\s+/)[0]]),
+    );
+  }
+
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -477,16 +487,10 @@ export class ButtonCallService {
   }) {
     const { tableName, location } = query;
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-
     const filter: Record<string, any> = {
       finishHour: { $exists: false },
-      createdAt: { $gte: start, $lte: end },
-      date: format(new Date(), 'yyyy-MM-dd'),
+      createdAt: { $gte: cafeStartOfToday() },
+      date: cafeToday(),
     };
     if (location !== undefined) filter.location = location;
 
@@ -496,11 +500,18 @@ export class ButtonCallService {
       createdAt: Date;
       type: string;
       explainerUnavailable?: boolean;
+      assignedTo?: string;
     };
 
     const activeToday = await this.buttonCallModel
       .find(filter)
-      .select({ tableName: 1, createdAt: 1, type: 1, explainerUnavailable: 1 })
+      .select({
+        tableName: 1,
+        createdAt: 1,
+        type: 1,
+        explainerUnavailable: 1,
+        assignedTo: 1,
+      })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
       .exec();
@@ -514,8 +525,14 @@ export class ButtonCallService {
         totalActive: number;
         callId?: number;
         explainerUnavailable?: boolean;
+        // First name of whoever is coming to the table.
+        assignedToName?: string;
       }
     > = {};
+    const ownCalls = activeToday.filter((d) => d.tableName === tableName);
+    const firstNameById = await this.findFirstNames(
+      ownCalls.map((d) => d.assignedTo),
+    );
 
     const groups: Record<string, Row[]> = {};
     for (const d of activeToday) {
@@ -524,22 +541,23 @@ export class ButtonCallService {
 
     for (const [type, list] of Object.entries(groups)) {
       const index = list.findIndex((d) => d.tableName === tableName);
+      const own = list[index];
       const totalActive = list.length;
 
-      byType[type] =
-        index === -1
-          ? { isQueued: false, position: null, waitingCount: 0, totalActive }
-          : {
-              isQueued: true,
-              position: index + 1,
-              waitingCount: index,
-              totalActive,
-              callId: list[index]!._id,
-              // Lets the table pick another game when nobody can explain it.
-              ...(list[index]!.explainerUnavailable && {
-                explainerUnavailable: true,
-              }),
-            };
+      byType[type] = !own
+        ? { isQueued: false, position: null, waitingCount: 0, totalActive }
+        : {
+            isQueued: true,
+            position: index + 1,
+            waitingCount: index,
+            totalActive,
+            callId: own._id,
+            // Lets the table pick another game when nobody can explain it.
+            ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.assignedTo && {
+              assignedToName: firstNameById.get(own.assignedTo),
+            }),
+          };
     }
 
     return byType;
@@ -577,7 +595,7 @@ export class ButtonCallService {
       await this.close(mentor, {
         tableName: event.tableName,
         location: event.location,
-        hour: format(new Date(), 'HH:mm:ss'),
+        hour: cafeHour(),
         type: ButtonCallTypeEnum.GAMEMASTERCALL,
       });
     } catch (error) {
@@ -592,7 +610,10 @@ export class ButtonCallService {
   // call right away instead of on the next cron run. The usual rules apply,
   // so someone who started explaining a game or a break gets nothing.
   private freeAssignee(call: ButtonCall) {
-    if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL && call.assignedTo) {
+    if (
+      ASSIGNED_CALL_TYPES.includes(call.type as ButtonCallTypeEnum) &&
+      call.assignedTo
+    ) {
       this.buttonCallAssignmentService.handleStaffAvailabilityChanged();
     }
   }

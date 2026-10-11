@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { format } from 'date-fns';
 import { Model } from 'mongoose';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import {
@@ -10,6 +9,7 @@ import {
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequest } from './schemas/unmetExplanationRequest.schema';
+import { cafeHour, cafeToday } from 'src/utils/cafeTime';
 
 @Injectable()
 export class UnmetExplanationRequestService {
@@ -30,9 +30,8 @@ export class UnmetExplanationRequestService {
         dto.game,
       );
     if (availability.status !== GameAvailabilityStatus.AVAILABLE) {
-      const now = new Date();
       const key = {
-        date: format(now, 'yyyy-MM-dd'),
+        date: cafeToday(),
         location: dto.location,
         tableName: dto.tableName,
         game: dto.game,
@@ -50,7 +49,7 @@ export class UnmetExplanationRequestService {
         await this.unmetRequestModel.create({
           ...key,
           ...details,
-          hour: format(now, 'HH:mm:ss'),
+          hour: cafeHour(),
         });
       }
     }
