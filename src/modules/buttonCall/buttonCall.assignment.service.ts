@@ -788,7 +788,11 @@ export class ButtonCallAssignmentService {
           const activityHours = [
             checkInByUser.get(userId)!,
             ...ownGameplays.map((g) => g.startHour),
-            ...ownCalls.map((c) => c.assignedHour).filter(Boolean),
+            // A call counts from when it was closed: whoever just finished
+            // a long call goes to the back of the line.
+            ...ownCalls
+              .map((c) => c.finishHour ?? c.assignedHour)
+              .filter(Boolean),
           ];
           return {
             userId,
