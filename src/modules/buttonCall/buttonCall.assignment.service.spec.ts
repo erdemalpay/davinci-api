@@ -205,7 +205,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(candidates.map((c) => c.userId)).toEqual(['ayse']);
   });
 
-  it('uses the latest explanation or assignment as last activity, check-in otherwise', async () => {
+  it('uses the latest explanation or closed call as last activity, check-in otherwise', async () => {
     const { service } = build({
       visits: [visit('explained', '10:00:00'), visit('new', '16:00:00')],
       users: [gm('explained', [5]), gm('new')],
@@ -230,7 +230,8 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     );
     const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
 
-    expect(byId.explained.lastActivity).toBe(hourToSeconds('14:15:00'));
+    // The call was assigned at 14:15 and closed at 14:20.
+    expect(byId.explained.lastActivity).toBe(hourToSeconds('14:20:00'));
     expect(byId.explained.gameplayCountToday).toBe(2);
     expect(byId.explained.knownGames.has(5)).toBe(true);
     expect(byId.new.lastActivity).toBe(hourToSeconds('16:00:00'));

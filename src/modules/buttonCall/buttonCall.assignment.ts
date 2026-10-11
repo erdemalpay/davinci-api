@@ -13,7 +13,7 @@ export interface AssignmentCandidate {
   userId: string;
   knownGames: Set<number>;
   // Seconds since midnight of the candidate's last action (game explanation
-  // or call assignment); the cafe check-in time when there is none yet.
+  // started, or call closed); the cafe check-in time when there is none yet.
   lastActivity: number;
   gameplayCountToday: number;
   // Service staff ("Servis Elemanı") of the day, or the service role.
