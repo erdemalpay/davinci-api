@@ -1,5 +1,3 @@
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import {
   BadRequestException,
   ForbiddenException,
@@ -9,10 +7,12 @@ import {
   Inject,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { format, subDays } from 'date-fns';
 import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
+import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import {
@@ -763,13 +763,14 @@ export class VisitService {
     const user = visit.user as User;
     const notify = (
       selectedUsers: string[],
+      selectedRoles: number[],
       message: CreateNotificationDto['message'],
     ) =>
       this.notificationService.createNotification({
         type: unfinishedVisitEvent.type,
         createdBy: unfinishedVisitEvent.createdBy,
         selectedUsers,
-        selectedRoles: unfinishedVisitEvent.selectedRoles,
+        selectedRoles,
         selectedLocations: unfinishedVisitEvent.selectedLocations,
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
@@ -777,11 +778,15 @@ export class VisitService {
       });
 
     try {
-      await notify(unfinishedVisitEvent.selectedUsers, {
-        key: 'UnfinishedVisit',
-        params: { user: user.name, location: location.name, date, startHour },
-      });
-      await notify([user._id], {
+      await notify(
+        unfinishedVisitEvent.selectedUsers,
+        unfinishedVisitEvent.selectedRoles,
+        {
+          key: 'UnfinishedVisit',
+          params: { user: user.name, location: location.name, date, startHour },
+        },
+      );
+      await notify([user._id], [], {
         key: 'UnfinishedVisitEmployee',
         params: { location: location.name, date, startHour },
       });
