@@ -36,6 +36,7 @@ describe('ButtonCallService frees the assignee', () => {
       assignment as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { service, assignment, buttonCallModel };
   }
@@ -155,6 +156,7 @@ describe('ButtonCallService closes the call when a game is added', () => {
       { handleStaffAvailabilityChanged: jest.fn() } as never,
       { findById: jest.fn(async () => mentor) } as never,
       {} as never,
+      {} as never,
     );
     return { service, buttonCallModel, doc };
   }
@@ -213,6 +215,7 @@ describe('ButtonCallService queue', () => {
         ),
       } as never,
       {} as never,
+      {} as never,
     );
     return service;
   }
@@ -243,5 +246,48 @@ describe('ButtonCallService queue', () => {
     });
     // Not assigned yet: no name.
     expect(queue[ButtonCallTypeEnum.ORDERCALL].assignedToName).toBeUndefined();
+  });
+});
+
+describe('ButtonCallService TV screen', () => {
+  const lean = (rows: unknown) => ({
+    select: () => ({ lean: async () => rows }),
+  });
+
+  it("shows each call's assignee first name and game", async () => {
+    const service = new ButtonCallService(
+      {
+        find: jest.fn(() =>
+          lean([
+            {
+              _id: 1,
+              tableName: '5',
+              type: ButtonCallTypeEnum.GAMEMASTERCALL,
+              assignedTo: 'ayse',
+              game: 10,
+            },
+            { _id: 2, tableName: '6', type: ButtonCallTypeEnum.ORDERCALL },
+          ]),
+        ),
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        find: jest.fn(() => lean([{ _id: 'ayse', name: 'Ayşe Yılmaz' }])),
+      } as never,
+      {} as never,
+      { find: jest.fn(() => lean([{ _id: 10, name: 'Catan' }])) } as never,
+    );
+
+    const calls = await service.findForScreen(1);
+
+    expect(calls[0]).toMatchObject({
+      assignedToName: 'Ayşe',
+      gameName: 'Catan',
+    });
+    expect(calls[1].gameName).toBeUndefined();
   });
 });

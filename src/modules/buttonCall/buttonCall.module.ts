@@ -6,6 +6,7 @@ import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { Break, BreakSchema } from '../break/break.schema';
+import { Game, GameSchema } from '../game/game.schema';
 import { Gameplay, GameplaySchema } from '../gameplay/gameplay.schema';
 import {
   GameplayTime,
@@ -47,6 +48,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   // Baristas only get service calls while no order is waiting.
   createAutoIncrementConfig(Order.name, OrderSchema),
   { name: User.name, useFactory: () => UserSchema },
+  // Read-only: game names for the TV screen.
+  createAutoIncrementConfig(Game.name, GameSchema),
 ]);
 
 @Module({
