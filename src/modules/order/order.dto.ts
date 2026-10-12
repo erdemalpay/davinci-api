@@ -720,6 +720,10 @@ export class CreateOrderNotesDto {
   @IsArray()
   @IsNumber({}, { each: true })
   items?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  isServedWithFood?: boolean;
 }
 
 export class CancelIkasOrderDto {
