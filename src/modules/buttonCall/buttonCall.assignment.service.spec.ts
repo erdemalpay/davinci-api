@@ -883,7 +883,6 @@ describe('ButtonCallAssignmentService questions', () => {
       reason: 'QUESTION',
       game: 10,
       mentorId: 'mert',
-      knowerInCafe: true,
     });
   });
 
@@ -894,15 +893,6 @@ describe('ButtonCallAssignmentService questions', () => {
       reason: 'QUESTION',
       game: 30,
       mentorId: undefined,
-      knowerInCafe: true,
-    });
-  });
-
-  it('lets anyone answer when nobody in the cafe knows the game', async () => {
-    const service = build(activeGameplay, 'later');
-
-    expect(await buildRequest(service, call(30))).toMatchObject({
-      knowerInCafe: false,
     });
   });
 

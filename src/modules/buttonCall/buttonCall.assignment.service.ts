@@ -340,7 +340,10 @@ export class ButtonCallAssignmentService {
   // everyone who knows it (in the cafe or arriving later today) has declined,
   // flag the call so the table can pick another game.
   private async flagIfNoExplainerLeft(call: ButtonCall) {
-    if (call.gmCallReason !== GmCallReasonEnum.EXPLANATION || !call.game) {
+    const needsKnower =
+      call.gmCallReason === GmCallReasonEnum.EXPLANATION ||
+      call.gmCallReason === GmCallReasonEnum.QUESTION;
+    if (!needsKnower || !call.game) {
       return null;
     }
     const { status } = await this.getGameAvailability(
@@ -542,25 +545,9 @@ export class ButtonCallAssignmentService {
       const gameplay = await this.findActiveGameplay(call);
       const activeGame = gameplay ? Number(gameplay.game) : undefined;
       const game = call.game ?? activeGame;
-      // Anyone may answer only when nobody in the cafe knows the game.
-      const knowerInCafe =
-        game !== undefined &&
-        [
-          GameAvailabilityStatus.AVAILABLE,
-          GameAvailabilityStatus.BUSY,
-        ].includes(
-          (
-            await this.getGameAvailability(
-              call.location,
-              game,
-              call.declinedBy ?? [],
-            )
-          ).status,
-        );
       return {
         reason: call.gmCallReason,
         game,
-        knowerInCafe,
         // Whoever explained the game is asked first, if it's that game.
         mentorId:
           gameplay && game === activeGame

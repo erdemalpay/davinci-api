@@ -101,7 +101,8 @@ export class ButtonCallService {
       ) {
         if (
           createdButtonCall.game &&
-          createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION
+          (createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION ||
+            createdButtonCall.gmCallReason === GmCallReasonEnum.QUESTION)
         ) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)

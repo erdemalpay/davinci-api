@@ -92,28 +92,24 @@ describe('pickAssignee', () => {
       ).toBe('knows');
     });
 
-    it('waits for someone who knows the game while one is in the cafe', () => {
+    it('waits for someone who knows the game', () => {
       expect(
         pickAssignee([candidate('ali')], {
           reason: GmCallReasonEnum.QUESTION,
+          mentorId: 'mentor-on-break',
           game: 7,
-          knowerInCafe: true,
         }),
       ).toBeUndefined();
     });
 
-    it('falls back to the most suitable game master when nobody in the cafe knows the game', () => {
+    it('goes to anyone when the question names no game', () => {
       const candidates = [
         candidate('a', { lastActivity: hourToSeconds('15:00:00') }),
         candidate('b', { lastActivity: hourToSeconds('09:00:00') }),
       ];
 
       expect(
-        pickAssignee(candidates, {
-          reason: GmCallReasonEnum.QUESTION,
-          mentorId: 'mentor-on-break',
-          game: 7,
-        }),
+        pickAssignee(candidates, { reason: GmCallReasonEnum.QUESTION }),
       ).toBe('b');
     });
   });
