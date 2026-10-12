@@ -73,6 +73,12 @@ export class CheckGameAvailabilityDto {
   @IsNotEmpty()
   @IsNumber()
   readonly game: number;
+
+  // Explanation (default) or a question about the game.
+  @ApiProperty({ required: false, enum: GmCallReasonEnum })
+  @IsOptional()
+  @IsEnum(GmCallReasonEnum)
+  readonly gmCallReason?: GmCallReasonEnum;
 }
 
 export class ChangeGmCallRequestDto {

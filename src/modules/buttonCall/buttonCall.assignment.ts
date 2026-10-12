@@ -30,10 +30,6 @@ export interface AssignmentRequest {
   game?: number;
   // Who explained the table's active game (questions only).
   mentorId?: string;
-  // Questions only: someone working in the cafe today knows the game (free
-  // or busy). Then the question waits for them instead of going to someone
-  // who doesn't know the game.
-  knowerInCafe?: boolean;
 }
 
 export interface ShiftSlot {
@@ -66,7 +62,7 @@ export function pickAssignee(
   if (candidates.length === 0) {
     return undefined;
   }
-  const { reason, game, mentorId, knowerInCafe } = request;
+  const { reason, game, mentorId } = request;
 
   if (reason === GmCallReasonEnum.QUESTION && mentorId) {
     const mentor = candidates.find((c) => c.userId === mentorId);
@@ -84,12 +80,9 @@ export function pickAssignee(
     if (knowers.length > 0) {
       return best(knowers).userId;
     }
-    // A requested explanation only goes to someone who knows the game; the
-    // call waits in line until one of them is free. So does a question while
-    // someone in the cafe knows the game.
-    if (reason === GmCallReasonEnum.EXPLANATION || knowerInCafe) {
-      return undefined;
-    }
+    // An explanation or a question about a game only goes to someone who
+    // knows the game; the call waits in line until one of them is free.
+    return undefined;
   }
 
   return best(candidates).userId;

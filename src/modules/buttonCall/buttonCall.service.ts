@@ -21,6 +21,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { Table } from '../table/table.schema';
+import { Game } from '../game/game.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
@@ -52,6 +53,7 @@ export class ButtonCallService {
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
+    @InjectModel(Game.name) private readonly gameModel: Model<Game>,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -99,7 +101,8 @@ export class ButtonCallService {
       ) {
         if (
           createdButtonCall.game &&
-          createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION
+          (createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION ||
+            createdButtonCall.gmCallReason === GmCallReasonEnum.QUESTION)
         ) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)
@@ -324,10 +327,23 @@ export class ButtonCallService {
         location,
         finishHour: { $exists: false },
       })
-      .select('tableName type startHour assignedTo')
+      .select('tableName type startHour assignedTo game')
       .lean();
-    const firstNameById = await this.findFirstNames(
-      calls.map((c) => c.assignedTo),
+    const gameIds = [...new Set(calls.map((c) => c.game).filter(Boolean))];
+    const [firstNameById, games] = await Promise.all([
+      this.findFirstNames(calls.map((c) => c.assignedTo)),
+      gameIds.length
+        ? this.gameModel
+            .find({ _id: { $in: gameIds } })
+            .select('name')
+            .lean()
+        : [],
+    ]);
+    const gameNameById = new Map(
+      (games as { _id: number; name: string }[]).map((g) => [
+        Number(g._id),
+        g.name,
+      ]),
     );
     return calls.map((call) => ({
       _id: call._id,
@@ -337,6 +353,8 @@ export class ButtonCallService {
       ...(call.assignedTo && {
         assignedToName: firstNameById.get(call.assignedTo),
       }),
+      // The game the table asked about, if any.
+      ...(call.game && { gameName: gameNameById.get(Number(call.game)) }),
     }));
   }
   // First names only: what customers may see of who is coming.
@@ -501,6 +519,7 @@ export class ButtonCallService {
       type: string;
       explainerUnavailable?: boolean;
       assignedTo?: string;
+      gmCallReason?: string;
     };
 
     const activeToday = await this.buttonCallModel
@@ -511,6 +530,7 @@ export class ButtonCallService {
         type: 1,
         explainerUnavailable: 1,
         assignedTo: 1,
+        gmCallReason: 1,
       })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
@@ -527,6 +547,8 @@ export class ButtonCallService {
         explainerUnavailable?: boolean;
         // First name of whoever is coming to the table.
         assignedToName?: string;
+        // What the table's game master call is for.
+        gmCallReason?: string;
       }
     > = {};
     const ownCalls = activeToday.filter((d) => d.tableName === tableName);
@@ -554,6 +576,7 @@ export class ButtonCallService {
             callId: own._id,
             // Lets the table pick another game when nobody can explain it.
             ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.gmCallReason && { gmCallReason: own.gmCallReason }),
             ...(own.assignedTo && {
               assignedToName: firstNameById.get(own.assignedTo),
             }),
