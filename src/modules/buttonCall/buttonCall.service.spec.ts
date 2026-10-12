@@ -230,7 +230,10 @@ describe('ButtonCallService queue', () => {
   it('tells the table the first name of whoever is coming', async () => {
     const service = build([
       call(1, '3', ButtonCallTypeEnum.GAMEMASTERCALL, 'mert'),
-      call(2, '5', ButtonCallTypeEnum.GAMEMASTERCALL, 'ayse'),
+      {
+        ...call(2, '5', ButtonCallTypeEnum.GAMEMASTERCALL, 'ayse'),
+        gmCallReason: 'QUESTION',
+      },
       call(3, '5', ButtonCallTypeEnum.ORDERCALL),
     ]);
 
@@ -243,6 +246,7 @@ describe('ButtonCallService queue', () => {
       isQueued: true,
       position: 2,
       assignedToName: 'Ayşe',
+      gmCallReason: 'QUESTION',
     });
     // Not assigned yet: no name.
     expect(queue[ButtonCallTypeEnum.ORDERCALL].assignedToName).toBeUndefined();

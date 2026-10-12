@@ -519,6 +519,7 @@ export class ButtonCallService {
       type: string;
       explainerUnavailable?: boolean;
       assignedTo?: string;
+      gmCallReason?: string;
     };
 
     const activeToday = await this.buttonCallModel
@@ -529,6 +530,7 @@ export class ButtonCallService {
         type: 1,
         explainerUnavailable: 1,
         assignedTo: 1,
+        gmCallReason: 1,
       })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
@@ -545,6 +547,8 @@ export class ButtonCallService {
         explainerUnavailable?: boolean;
         // First name of whoever is coming to the table.
         assignedToName?: string;
+        // What the table's game master call is for.
+        gmCallReason?: string;
       }
     > = {};
     const ownCalls = activeToday.filter((d) => d.tableName === tableName);
@@ -572,6 +576,7 @@ export class ButtonCallService {
             callId: own._id,
             // Lets the table pick another game when nobody can explain it.
             ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.gmCallReason && { gmCallReason: own.gmCallReason }),
             ...(own.assignedTo && {
               assignedToName: firstNameById.get(own.assignedTo),
             }),
