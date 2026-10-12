@@ -3505,7 +3505,7 @@ export class OrderService {
           },
         },
       );
-      this.websocketGateway.emitOrderUpdated(
+      await this.websocketGateway.emitOrderUpdated(
         await this.orderModel.find({ _id: { $in: ids } }),
       );
     }
