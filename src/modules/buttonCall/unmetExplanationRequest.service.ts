@@ -6,6 +6,7 @@ import {
   CheckGameAvailabilityDto,
   GameAvailabilityStatus,
   CallReportQueryDto,
+  GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequest } from './schemas/unmetExplanationRequest.schema';
@@ -39,6 +40,7 @@ export class UnmetExplanationRequestService {
       const details = {
         status: availability.status,
         availableFrom: availability.availableFrom,
+        gmCallReason: dto.gmCallReason ?? GmCallReasonEnum.EXPLANATION,
       };
       // One record per table and game a day, even if the table checks again.
       // (No upsert: it would skip the auto-increment _id.)
