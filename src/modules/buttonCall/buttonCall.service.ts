@@ -21,6 +21,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
 import { Table } from '../table/table.schema';
+import { Game } from '../game/game.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
@@ -52,6 +53,7 @@ export class ButtonCallService {
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
+    @InjectModel(Game.name) private readonly gameModel: Model<Game>,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -324,10 +326,23 @@ export class ButtonCallService {
         location,
         finishHour: { $exists: false },
       })
-      .select('tableName type startHour assignedTo')
+      .select('tableName type startHour assignedTo game')
       .lean();
-    const firstNameById = await this.findFirstNames(
-      calls.map((c) => c.assignedTo),
+    const gameIds = [...new Set(calls.map((c) => c.game).filter(Boolean))];
+    const [firstNameById, games] = await Promise.all([
+      this.findFirstNames(calls.map((c) => c.assignedTo)),
+      gameIds.length
+        ? this.gameModel
+            .find({ _id: { $in: gameIds } })
+            .select('name')
+            .lean()
+        : [],
+    ]);
+    const gameNameById = new Map(
+      (games as { _id: number; name: string }[]).map((g) => [
+        Number(g._id),
+        g.name,
+      ]),
     );
     return calls.map((call) => ({
       _id: call._id,
@@ -337,6 +352,8 @@ export class ButtonCallService {
       ...(call.assignedTo && {
         assignedToName: firstNameById.get(call.assignedTo),
       }),
+      // The game the table asked about, if any.
+      ...(call.game && { gameName: gameNameById.get(Number(call.game)) }),
     }));
   }
   // First names only: what customers may see of who is coming.
