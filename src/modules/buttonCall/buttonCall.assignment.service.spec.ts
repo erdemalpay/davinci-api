@@ -406,6 +406,66 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
 
       expect(candidates).toEqual([]);
     });
+
+    it("assigns the bar's order ready call like a service call", async () => {
+      const { service, userModel } = build({
+        visits: ['waiter', 'gm', 'middleman'].map((id) => visit(id)),
+        users: [
+          withRole('waiter', RoleEnum.SERVICE),
+          withRole('gm', RoleEnum.GAMEMASTER),
+          withRole('middleman', RoleEnum.GAMEMASTER),
+        ],
+        middlemen: [{ user: 'middleman' }],
+      });
+
+      const candidates = await service.findCandidates(
+        location,
+        date,
+        '12:00:00',
+        [],
+        'ORDERREADYCALL' as never,
+      );
+
+      expect(userModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: expect.objectContaining({
+            $in: expect.arrayContaining([RoleEnum.SERVICE, RoleEnum.BARISTA]),
+          }),
+        }),
+      );
+      expect(tiersOf(candidates)).toEqual({ waiter: 0, gm: 1 });
+    });
+  });
+
+  it("doesn't count orders held for the food as waiting at the bar", async () => {
+    const orderExists = jest.fn(async () => null);
+    const service = new ButtonCallAssignmentService(
+      model([]) as never,
+      model([visit('barista')]) as never,
+      model([{ ...gm('barista'), role: RoleEnum.BARISTA }]) as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      model([]) as never,
+      { exists: orderExists } as never,
+      { emit: jest.fn() } as never,
+    );
+
+    await service.findCandidates(
+      location,
+      date,
+      '12:00:00',
+      [],
+      'ORDERCALL' as never,
+    );
+
+    expect(orderExists).toHaveBeenCalledWith(
+      expect.objectContaining({ waitsForFood: { $ne: true } }),
+    );
   });
 
   it('excludes people already handling an open call', async () => {
