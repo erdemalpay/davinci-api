@@ -192,6 +192,15 @@ describe('ButtonCallService closes the call when a game is added', () => {
 
     expect(buttonCallModel.findOne).not.toHaveBeenCalled();
   });
+
+  // Activity tables: the call is closed only at the table the game was for.
+  it('closes nothing when no table was picked at an activity table', async () => {
+    const { service, buttonCallModel } = build(true);
+
+    await service.closeCallOnGameplayAdded({ ...event, tableName: undefined });
+
+    expect(buttonCallModel.exists).not.toHaveBeenCalled();
+  });
 });
 
 describe('ButtonCallService queue', () => {
