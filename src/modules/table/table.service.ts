@@ -524,7 +524,10 @@ export class TableService {
     this.eventEmitter.emit(TABLE_GAMEPLAY_ADDED, {
       location: table.location,
       date: table.date,
-      tableName: table.name,
+      tableName:
+        table.type === TableTypes.ACTIVITY
+          ? gameplayDto.activityTableName
+          : table.name,
       mentor: gameplayDto.mentor,
     } as TableGameplayAddedEvent);
 
