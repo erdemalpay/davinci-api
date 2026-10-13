@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -14,6 +15,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Public } from '../auth/public.decorator';
 import { ReqUser } from '../user/user.decorator';
 import { User } from '../user/user.schema';
+import { UpdateScreenImagesDto } from './asset.dto';
 import { AssetService } from './asset.service';
 
 @Controller('asset')
@@ -29,6 +31,11 @@ export class AssetController {
   @Get('/screen-images')
   getScreenImages() {
     return this.assetService.getScreenImages();
+  }
+
+  @Patch('/screen-images')
+  updateScreenImages(@Body() { images }: UpdateScreenImagesDto) {
+    return this.assetService.updateScreenImages(images);
   }
 
   @Get('/upload-logs')
