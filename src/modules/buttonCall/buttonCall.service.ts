@@ -657,6 +657,9 @@ export class ButtonCallService {
   // reason) is answered, closed in the name of whoever explains the game.
   @OnEvent(TABLE_GAMEPLAY_ADDED)
   async closeCallOnGameplayAdded(event: TableGameplayAddedEvent) {
+    if (!event.tableName) {
+      return;
+    }
     try {
       const openCall = await this.buttonCallModel.exists({
         tableName: event.tableName,

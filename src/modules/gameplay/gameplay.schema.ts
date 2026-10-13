@@ -33,6 +33,10 @@ export class Gameplay extends Document {
 
   @Prop({ required: true, type: Number, ref: Game.name })
   game: Game;
+
+  // Activity tables: the table the game is explained at.
+  @Prop({ required: false, type: String })
+  activityTableName?: string;
 }
 
 export const GameplaySchema = SchemaFactory.createForClass(Gameplay);
