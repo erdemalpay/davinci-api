@@ -825,7 +825,7 @@ export class OrderService {
     if (ids.length === 0) {
       return [];
     }
-    return this.orderModel
+    return await this.orderModel
       .find({ _id: { $in: ids } })
       .populate('table', TODAY_TABLE_FIELDS)
       .select('-__v')
