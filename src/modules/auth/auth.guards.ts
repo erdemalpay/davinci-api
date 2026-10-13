@@ -3,6 +3,8 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
@@ -14,6 +16,8 @@ export class LocalAuthGuard extends AuthGuard('local') {}
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  private readonly logger = new Logger(JwtAuthGuard.name);
+
   constructor(private readonly reflector: Reflector) {
     super();
   }
@@ -37,6 +41,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       'isPublic',
       context.getHandler(),
     );
+
+    // The token couldn't be checked (e.g. the database timed out at a busy
+    // hour). Not a 401: the panel logs people out on a 401.
+    if (err && !(err instanceof HttpException)) {
+      this.logger.error('Could not check the token', err);
+      throw new ServiceUnavailableException('Could not check the session');
+    }
 
     if (user) {
       const req = context.switchToHttp().getRequest();

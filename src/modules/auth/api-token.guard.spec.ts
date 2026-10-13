@@ -26,7 +26,9 @@ describe('ApiTokenGuard', () => {
     );
   });
 
-  function contextWithHeaders(headers: Record<string, string>): ExecutionContext {
+  function contextWithHeaders(
+    headers: Record<string, string>,
+  ): ExecutionContext {
     return {
       getHandler: jest.fn(),
       getClass: jest.fn(),

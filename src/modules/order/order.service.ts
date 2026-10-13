@@ -135,6 +135,10 @@ function isPopulatedKitchen(kitchen: string | Kitchen): kitchen is Kitchen {
   return typeof kitchen === 'object' && kitchen !== null && 'name' in kitchen;
 }
 
+// The table fields the panel's lists of today's orders need.
+const TODAY_TABLE_FIELDS =
+  'date _id name isOnlineSale finishHour type startHour';
+
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
@@ -815,6 +819,23 @@ export class OrderService {
     return orders;
   }
 
+  // Orders the way the panel's "today" list has them (with their table),
+  // for the createMultipleOrder event.
+  private async findOrdersAsToday(ids: number[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+    return this.orderModel
+      .find({ _id: { $in: ids } })
+      .populate('table', TODAY_TABLE_FIELDS)
+      .select('-__v')
+      .lean()
+      .catch((error) => {
+        this.logger.error('Error loading created orders', error);
+        return [];
+      });
+  }
+
   async findTodayOrders(after: string) {
     const start = new Date(after);
     start.setUTCHours(0, 0, 0, 0);
@@ -822,14 +843,14 @@ export class OrderService {
     const end = new Date(after);
     end.setUTCHours(23, 59, 59, 999);
     try {
+      // Every panel loads this; lean keeps it cheap at busy hours.
       const orders = await this.orderModel
         .find({
           tableDate: { $gte: start, $lte: end }, // Only orders on 'after' date
         })
-        .populate(
-          'table',
-          'date _id name isOnlineSale finishHour type startHour',
-        )
+        .populate('table', TODAY_TABLE_FIELDS)
+        .select('-__v')
+        .lean()
         .exec();
       return orders;
     } catch (error) {
@@ -851,10 +872,9 @@ export class OrderService {
         .find({
           tableDate: { $gte: start, $lte: end },
         })
-        .populate(
-          'table',
-          'date _id name isOnlineSale finishHour type startHour',
-        )
+        .populate('table', TODAY_TABLE_FIELDS)
+        .select('-__v')
+        .lean()
         .exec();
       return collections;
     } catch (error) {
@@ -1352,6 +1372,7 @@ export class OrderService {
       table,
       table.location,
       orderKitchenIds,
+      await this.findOrdersAsToday(createdOrders),
     );
     if (createdOrders.length > 0 && updatedTable) {
       await this.buttonCallService
