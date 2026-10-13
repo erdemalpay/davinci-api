@@ -2305,7 +2305,7 @@ export class AccountingService {
     this.updateShopifyStock(productId, location, quantity);
     this.updateTrendyolStock(productId, location, quantity);
     this.updateHepsiburadaStock(productId, location, quantity);
-    this.updateN11Stock(productId, location, quantity);
+    void this.updateN11Stock(productId, location, quantity);
   }
 
   async updateHepsiburadaStock(
@@ -2671,7 +2671,7 @@ export class AccountingService {
         Number(oldQuantity) + Number(createStockDto.quantity),
       );
       // n11'e mutlak değer gönderiliyor; n11 kendi stoğunu düşürse de sonuç doğru
-      this.updateN11Stock(
+      void this.updateN11Stock(
         createStockDto.product,
         createStockDto.location,
         Number(oldQuantity) + Number(createStockDto.quantity),
@@ -2785,7 +2785,7 @@ export class AccountingService {
         createStockDto.location,
         createStockDto.quantity,
       );
-      this.updateN11Stock(
+      void this.updateN11Stock(
         createStockDto.product,
         createStockDto.location,
         createStockDto.quantity,
@@ -2832,7 +2832,11 @@ export class AccountingService {
       updates?.location,
       updates?.quantity,
     );
-    this.updateN11Stock(updates?.product, updates?.location, updates?.quantity);
+    void this.updateN11Stock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
     this.websocketGateway.emitStockChanged();
   }
 
@@ -2977,7 +2981,7 @@ export class AccountingService {
       }
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
-      this.updateN11Stock(stock.product?._id, stock.location, 0);
+      void this.updateN11Stock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -3186,7 +3190,7 @@ export class AccountingService {
         stock.location,
         stock.quantity - consumptStockDto.quantity,
       );
-      this.updateN11Stock(
+      void this.updateN11Stock(
         consumptStockDto.product,
         stock.location,
         stock.quantity - consumptStockDto.quantity,
