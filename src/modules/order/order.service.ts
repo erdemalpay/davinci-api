@@ -4216,6 +4216,20 @@ export class OrderService {
       createCollectionDto;
     const requestedOrders = filteredCollectionDto.orders ?? [];
     const hasOrders = requestedOrders.length > 0;
+
+    // Never a negative amount; 0 only to mark free (fully discounted)
+    // orders as paid.
+    const amount = Number(filteredCollectionDto.amount);
+    if (
+      !Number.isFinite(amount) ||
+      amount < 0 ||
+      (amount === 0 && !hasOrders)
+    ) {
+      throw new HttpException(
+        'Collection amount must be greater than 0',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const tableId = createCollectionDto.table;
 
     let acquiredNoOrderLock = false;
