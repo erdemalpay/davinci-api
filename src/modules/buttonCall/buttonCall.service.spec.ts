@@ -37,6 +37,8 @@ describe('ButtonCallService frees the assignee', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
     return { service, assignment, buttonCallModel };
   }
@@ -157,6 +159,8 @@ describe('ButtonCallService closes the call when a game is added', () => {
       { findById: jest.fn(async () => mentor) } as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
     return { service, buttonCallModel, doc };
   }
@@ -214,6 +218,8 @@ describe('ButtonCallService queue', () => {
           ]),
         ),
       } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
     );
@@ -284,6 +290,8 @@ describe('ButtonCallService TV screen', () => {
       } as never,
       {} as never,
       { find: jest.fn(() => lean([{ _id: 10, name: 'Catan' }])) } as never,
+      {} as never,
+      {} as never,
     );
 
     const calls = await service.findForScreen(1);
@@ -293,5 +301,170 @@ describe('ButtonCallService TV screen', () => {
       gameName: 'Catan',
     });
     expect(calls[1].gameName).toBeUndefined();
+  });
+});
+
+describe('ButtonCallService order calls', () => {
+  const callDoc = (call: Record<string, unknown>) => ({
+    startHour: '12:00:00',
+    ...call,
+    set: jest.fn(),
+    save: jest.fn(async () => undefined),
+  });
+  const leanQuery = (rows: unknown) => {
+    const q: Record<string, unknown> = {};
+    q.select = () => q;
+    q.lean = async () => rows;
+    return q;
+  };
+
+  function build({
+    calls = {} as Record<string, ReturnType<typeof callDoc>>,
+    readyOrderLeft = false,
+    barKitchens = [{ _id: 'bar' }] as unknown[],
+  }) {
+    const findOne = jest.fn((filter: { tableName?: string }) => {
+      const doc = filter.tableName
+        ? calls[filter.tableName] ?? null
+        : Object.values(calls)[0] ?? null;
+      // closeOrderCall sorts the query, closeOrderReadyCallIfDelivered
+      // awaits it directly.
+      const result = Promise.resolve(doc) as Promise<unknown> & {
+        sort?: () => Promise<unknown>;
+      };
+      result.sort = () => Promise.resolve(doc);
+      return result;
+    });
+    const orderModel = {
+      exists: jest.fn(async () => (readyOrderLeft ? { _id: 1 } : null)),
+    };
+    const kitchenModel = { find: jest.fn(() => leanQuery(barKitchens)) };
+    const assignment = { handleStaffAvailabilityChanged: jest.fn() };
+    const service = new ButtonCallService(
+      { findOne } as never,
+      {} as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      { addActivity: jest.fn(async () => undefined) } as never,
+      {} as never,
+      assignment as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      orderModel as never,
+      kitchenModel as never,
+    );
+    return { service, findOne, orderModel, assignment };
+  }
+
+  const user = { _id: 'ali' } as never;
+
+  describe("the bar's order ready call", () => {
+    it('closes once no bar order of today is left ready to serve', async () => {
+      const call = callDoc({
+        _id: 1,
+        tableName: '44',
+        type: ButtonCallTypeEnum.ORDERREADYCALL,
+        assignedTo: 'ayse',
+      });
+      const { service, orderModel, assignment } = build({
+        calls: { '44': call },
+      });
+
+      const closed = await service.closeOrderReadyCallIfDelivered(1, user);
+
+      expect(closed).toBe(call);
+      expect(call.set).toHaveBeenCalledWith(
+        expect.objectContaining({ cancelledBy: 'ali' }),
+      );
+      expect(orderModel.exists).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: 1,
+          status: 'ready_to_serve',
+          kitchen: { $in: ['bar'] },
+        }),
+      );
+      // Whoever had the call is free for the next one.
+      expect(assignment.handleStaffAvailabilityChanged).toHaveBeenCalled();
+    });
+
+    it('stays open while a bar order is still ready to serve', async () => {
+      const call = callDoc({
+        _id: 1,
+        tableName: '44',
+        type: ButtonCallTypeEnum.ORDERREADYCALL,
+      });
+      const { service } = build({
+        calls: { '44': call },
+        readyOrderLeft: true,
+      });
+
+      expect(await service.closeOrderReadyCallIfDelivered(1, user)).toBeNull();
+      expect(call.set).not.toHaveBeenCalled();
+    });
+
+    it('checks every kitchen when there is no bar kitchen', async () => {
+      const call = callDoc({
+        _id: 1,
+        tableName: '44',
+        type: ButtonCallTypeEnum.ORDERREADYCALL,
+      });
+      const { service, orderModel } = build({
+        calls: { '44': call },
+        barKitchens: [],
+      });
+
+      await service.closeOrderReadyCallIfDelivered(1, user);
+
+      expect(orderModel.exists).toHaveBeenCalledWith(
+        expect.not.objectContaining({ kitchen: expect.anything() }),
+      );
+    });
+
+    it('does nothing without an open order ready call', async () => {
+      const { service, orderModel } = build({});
+
+      expect(await service.closeOrderReadyCallIfDelivered(1, user)).toBeNull();
+      expect(orderModel.exists).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("a table's service call when an order is taken", () => {
+    const serviceCall = (tableName: string) =>
+      callDoc({
+        _id: tableName,
+        tableName,
+        type: ButtonCallTypeEnum.ORDERCALL,
+      });
+
+    it('closes the call of the table itself', async () => {
+      const call = serviceCall('5');
+      const { service } = build({ calls: { '5': call } });
+
+      const closed = await service.closeOrderCall(
+        { name: '5', location: 1, type: 'normal' } as never,
+        user,
+      );
+
+      expect(closed).toEqual([call]);
+    });
+
+    it('on an activity table, only closes the calls of the tables the orders are for', async () => {
+      const calls = {
+        '12': serviceCall('12'),
+        '13': serviceCall('13'),
+        Etkinlik: serviceCall('Etkinlik'),
+      };
+      const { service } = build({ calls });
+
+      const closed = await service.closeOrderCall(
+        { name: 'Etkinlik', location: 1, type: 'activity' } as never,
+        user,
+        ['12', '12', undefined],
+      );
+
+      expect(closed).toEqual([calls['12']]);
+      expect(calls['13'].set).not.toHaveBeenCalled();
+      expect(calls.Etkinlik.set).not.toHaveBeenCalled();
+    });
   });
 });
