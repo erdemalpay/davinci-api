@@ -4226,7 +4226,7 @@ export class OrderService {
       (amount === 0 && !hasOrders)
     ) {
       throw new HttpException(
-        'Collection amount must be greater than 0',
+        'Collection amount must be greater than 0 (0 only to mark free orders as paid)',
         HttpStatus.BAD_REQUEST,
       );
     }
