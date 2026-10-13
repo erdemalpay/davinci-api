@@ -6,6 +6,7 @@ export enum WebhookSource {
   SHOPIFY = 'shopify',
   TRENDYOL = 'trendyol',
   HEPSIBURADA = 'hepsiburada',
+  N11 = 'n11',
 }
 
 export enum WebhookStatus {

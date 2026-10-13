@@ -6,6 +6,7 @@ export enum IntegrationSource {
   TRENDYOL = 'trendyol',
   SHOPIFY = 'shopify',
   HEPSIBURADA = 'hepsiburada',
+  N11 = 'n11',
 }
 
 export enum IntegrationRequestStatus {

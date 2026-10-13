@@ -33,7 +33,7 @@ class CountProduct {
 }
 
 export type ReservedStockDetail = {
-  channel: 'shopify' | 'trendyol' | 'hepsiburada';
+  channel: 'shopify' | 'trendyol' | 'hepsiburada' | 'n11';
   orderNumber: string;
   quantity: number;
 };

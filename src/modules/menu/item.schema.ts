@@ -126,6 +126,9 @@ export class MenuItem extends Document {
   trendyolSku: string;
 
   @Prop({ required: false, type: String })
+  n11StockCode: string;
+
+  @Prop({ required: false, type: String })
   sku: string;
 
   @Prop({ required: false, type: String })
