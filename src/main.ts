@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import { setCors } from './lib/cors';
 import { JwtAuthGuard } from './modules/auth/auth.guards';
 import { RolesGuard } from './modules/authorization/authorization.guard';
+import { RecoveringIoAdapter } from './modules/websocket/recovering-io.adapter';
 import { SHOPIFY_HMAC_HEADER } from './modules/shopify/shopify-webhook.guard';
 
 EventEmitter.defaultMaxListeners = 50;
@@ -76,6 +77,7 @@ async function bootstrap() {
   );
 
   app.enableCors(setCors);
+  app.useWebSocketAdapter(new RecoveringIoAdapter(app));
 
   const reflector = app.get(Reflector);
   const rolesGuard = app.get(RolesGuard);

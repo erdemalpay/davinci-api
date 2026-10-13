@@ -144,17 +144,21 @@ export class AppWebSocketGateway {
     this.server.emit('countListChanged');
   }
 
+  // Carries the created orders so that panels add them to what they have
+  // instead of everyone reloading the day's orders.
   emitCreateMultipleOrder(
     user: User,
     table: Table,
     locationId: number,
     kitchenIds: string[],
+    orders: Order[] = [],
   ) {
     this.server.emit('createMultipleOrder', {
       user,
       table,
       locationId,
       kitchenIds,
+      orders,
     });
   }
 
