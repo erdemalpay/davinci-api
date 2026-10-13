@@ -37,6 +37,8 @@ describe('ButtonCallService frees the assignee', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
     return { service, assignment, buttonCallModel };
   }
@@ -157,6 +159,8 @@ describe('ButtonCallService closes the call when a game is added', () => {
       { findById: jest.fn(async () => mentor) } as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
     return { service, buttonCallModel, doc };
   }
@@ -214,6 +218,8 @@ describe('ButtonCallService queue', () => {
           ]),
         ),
       } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
     );
@@ -284,6 +290,8 @@ describe('ButtonCallService TV screen', () => {
       } as never,
       {} as never,
       { find: jest.fn(() => lean([{ _id: 10, name: 'Catan' }])) } as never,
+      {} as never,
+      {} as never,
     );
 
     const calls = await service.findForScreen(1);

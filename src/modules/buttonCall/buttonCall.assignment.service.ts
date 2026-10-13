@@ -49,6 +49,7 @@ import {
   DeclineReasonEnum,
   GameAvailabilityStatus,
   GmCallReasonEnum,
+  isServiceCallType,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
@@ -59,7 +60,8 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // service staff, then managers who opted in for the day, the middleman and
 // a game manager marked outside operation.
 //
-// Service calls: service staff (service role or the GM marked service staff
+// Service calls (a table calling to order, or the bar calling for ready
+// orders to be taken): service staff (service role or the GM marked service staff
 // for the day), then game masters, then the game manager, then baristas
 // (only while no order is waiting), then the bar chef. Never the middleman.
 //
@@ -198,9 +200,7 @@ export class ButtonCallAssignmentService {
     );
     const userId = pickAssigneeByTier(
       candidates,
-      call.type === ButtonCallTypeEnum.ORDERCALL
-        ? {}
-        : await this.buildRequest(call),
+      isServiceCallType(call.type) ? {} : await this.buildRequest(call),
     );
     if (!userId) {
       return null;
@@ -694,7 +694,7 @@ export class ButtonCallAssignmentService {
     callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
-    const isServiceCall = callType === ButtonCallTypeEnum.ORDERCALL;
+    const isServiceCall = isServiceCallType(callType);
 
     const [users, busyNow, shiftPlan, gameplays, calls] = await Promise.all([
       this.userModel
@@ -804,12 +804,13 @@ export class ButtonCallAssignmentService {
   }
 
   // An order of today at the location still waiting for confirmation or
-  // being prepared.
+  // being prepared. Orders held until the table's food is ready don't count.
   private async hasWaitingOrders(location: number) {
     const startOfToday = cafeStartOfToday();
     const waiting = await this.orderModel.exists({
       location,
       status: { $in: [OrderStatus.CONFIRMATIONREQ, OrderStatus.PENDING] },
+      waitsForFood: { $ne: true },
       createdAt: { $gte: startOfToday },
     });
     return !!waiting;

@@ -478,7 +478,7 @@ describe('ButtonCallAssignmentService.claim', () => {
     expect(buttonCallModel.exists).toHaveBeenCalledWith({
       _id: { $ne: 7 },
       date: '2026-10-05',
-      type: { $in: ['GAMEMASTERCALL', 'ORDERCALL'] },
+      type: { $in: ['GAMEMASTERCALL', 'ORDERCALL', 'ORDERREADYCALL'] },
       assignedTo: 'ali',
       finishHour: { $exists: false },
     });
