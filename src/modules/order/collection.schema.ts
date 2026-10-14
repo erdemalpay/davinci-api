@@ -99,6 +99,12 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   hepsiburadaOrderNumber: string;
 
+  @Prop({ required: false, type: String })
+  n11OrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  n11ShipmentPackageId: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 
@@ -128,6 +134,15 @@ CollectionSchema.index(
 CollectionSchema.index(
   { hepsiburadaOrderNumber: 1 },
   { partialFilterExpression: { hepsiburadaOrderNumber: { $type: 'string' } } },
+);
+// For n11 package / order number queries
+CollectionSchema.index(
+  { n11ShipmentPackageId: 1 },
+  { partialFilterExpression: { n11ShipmentPackageId: { $type: 'string' } } },
+);
+CollectionSchema.index(
+  { n11OrderNumber: 1 },
+  { partialFilterExpression: { n11OrderNumber: { $type: 'string' } } },
 );
 
 purifySchema(CollectionSchema);

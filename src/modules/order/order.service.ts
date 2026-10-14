@@ -15,6 +15,7 @@ import * as moment from 'moment-timezone';
 import {
   ClientSession,
   Connection,
+  FilterQuery,
   Model,
   PipelineStage,
   UpdateQuery,
@@ -134,6 +135,18 @@ function isPopulatedTable(
 function isPopulatedKitchen(kitchen: string | Kitchen): kitchen is Kitchen {
   return typeof kitchen === 'object' && kitchen !== null && 'name' in kitchen;
 }
+
+type MarketplaceCancelConfig = {
+  lineItemField:
+    | 'trendyolLineItemId'
+    | 'hepsiburadaLineItemId'
+    | 'n11LineItemId';
+  lineItemId: string;
+  collectionFilter: (order: Order) => FilterQuery<Collection>;
+  fullCancelUnset?: Record<string, ''>;
+  stockStatus: StockHistoryStatusEnum;
+  label: string;
+};
 
 // The table fields the panel's lists of today's orders need.
 const TODAY_TABLE_FIELDS =
@@ -2902,285 +2915,54 @@ export class OrderService {
     trendyolLineItemId: string,
     quantity: number,
   ) {
-    const session = await this.conn.startSession();
-
-    let postCommitData: {
-      cancelledOrder: Order;
-      populatedItem: Order['item'];
-      stockLocation: Order['stockLocation'];
-      ordersToEmit: Order[];
-      collectionsToEmit: any[];
-    } | null = null;
-
-    try {
-      await session.withTransaction(async () => {
-        const order = await this.orderModel
-          .findOne({ trendyolLineItemId }, null, { session })
-          .populate('item');
-
-        if (!order) {
-          throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
-        }
-
-        const collection = await this.collectionModel.findOne(
-          {
-            trendyolShipmentPackageId: order.trendyolShipmentPackageId,
-            status: { $ne: OrderCollectionStatus.CANCELLED },
-          },
-          null,
-          { session },
-        );
-
-        if (!collection) {
-          throw new HttpException('Collection not found', HttpStatus.NOT_FOUND);
-        }
-
-        if (order.status === OrderStatus.CANCELLED) {
-          throw new HttpException(
-            'Order is already cancelled',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        if (quantity > order.quantity) {
-          throw new HttpException(
-            'Cancel quantity cannot exceed order quantity',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-
-        const cancelledAt = new Date();
-        const cancelledAmount = order.unitPrice * quantity;
-        const shippingAmount = collection.shopifyShippingAmount ?? 0;
-        const { cancelledDiscount, remainingDiscount } =
-          this.splitCollectionDiscount(collection, cancelledAmount);
-        const isPartialCancel = order.quantity !== quantity;
-        const isLastOrderInCollection = collection.orders.length <= 1;
-
-        const ordersToEmit: Order[] = [];
-        const collectionsToEmit: any[] = [];
-        let cancelledOrder: Order;
-
-        if (isPartialCancel) {
-          const remainingQuantity = order.quantity - quantity;
-          const orderWithoutId = order.toObject();
-          delete orderWithoutId._id;
-          delete orderWithoutId.trendyolLineItemId;
-
-          [cancelledOrder] = await this.orderModel.create(
-            [
-              {
-                ...orderWithoutId,
-                quantity,
-                paidQuantity: quantity,
-                status: OrderStatus.CANCELLED,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-            ],
-            { session },
-          );
-
-          await this.orderModel.findByIdAndUpdate(
-            order._id,
-            {
-              $set: {
-                quantity: remainingQuantity,
-                paidQuantity: remainingQuantity,
-              },
-            },
-            { new: true, session },
-          );
-
-          if (isLastOrderInCollection) {
-            const [newCollection] = await this.collectionModel.create(
-              [
-                {
-                  ...collection.toObject(),
-                  _id: undefined,
-                  orders: [
-                    { order: order._id, paidQuantity: remainingQuantity },
-                  ],
-                  amount: collection.amount - cancelledAmount,
-                  ...(shippingAmount > 0 && {
-                    shopifyShippingAmount: shippingAmount,
-                  }),
-                  shopifyDiscountAmount: remainingDiscount,
-                },
-              ],
-              { session },
-            );
-            collectionsToEmit.push(newCollection);
-
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                status: OrderCollectionStatus.CANCELLED,
-                orders: [{ order: cancelledOrder._id, paidQuantity: quantity }],
-                amount: cancelledAmount,
-                shopifyShippingAmount: 0,
-                shopifyDiscountAmount: cancelledDiscount,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              { new: true, session },
-            );
-          } else {
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $pull: { orders: { order: order._id } },
-                $inc: { amount: -cancelledAmount },
-                $set: { shopifyDiscountAmount: remainingDiscount },
-              },
-              { new: true, session },
-            );
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $push: {
-                  orders: { order: order._id, paidQuantity: remainingQuantity },
-                },
-                $set: { shopifyDiscountAmount: remainingDiscount },
-              },
-              { new: true, session },
-            );
-
-            const [cancelledCollection] = await this.collectionModel.create(
-              [
-                {
-                  ...collection.toObject(),
-                  _id: undefined,
-                  orders: [
-                    { order: cancelledOrder._id, paidQuantity: quantity },
-                  ],
-                  amount: cancelledAmount,
-                  status: OrderCollectionStatus.CANCELLED,
-                  shopifyShippingAmount: 0,
-                  shopifyDiscountAmount: cancelledDiscount,
-                  cancelledAt,
-                  cancelledBy: user._id,
-                },
-              ],
-              { session },
-            );
-            collectionsToEmit.push(cancelledCollection);
-          }
-
-          ordersToEmit.push(order.toObject() as Order, cancelledOrder);
-        } else {
-          cancelledOrder = await this.orderModel.findByIdAndUpdate(
-            order._id,
-            {
-              $set: {
-                status: OrderStatus.CANCELLED,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              $unset: {
-                trendyolCustomer: '',
-                isTrendyolCustomerPicked: '',
-              },
-            },
-            { new: true, session },
-          );
-
-          if (isLastOrderInCollection) {
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                status: OrderCollectionStatus.CANCELLED,
-                cancelledAt,
-                cancelledBy: user._id,
-              },
-              { new: true, session },
-            );
-          } else {
-            await this.collectionModel.findByIdAndUpdate(
-              collection._id,
-              {
-                $pull: { orders: { order: order._id } },
-                $inc: { amount: -cancelledAmount },
-                $set: { shopifyDiscountAmount: remainingDiscount },
-              },
-              { new: true, session },
-            );
-
-            const [cancelledCollection] = await this.collectionModel.create(
-              [
-                {
-                  ...collection.toObject(),
-                  _id: undefined,
-                  orders: [{ order: order._id, paidQuantity: quantity }],
-                  amount: cancelledAmount,
-                  status: OrderCollectionStatus.CANCELLED,
-                  shopifyShippingAmount: 0,
-                  shopifyDiscountAmount: cancelledDiscount,
-                  cancelledAt,
-                  cancelledBy: user._id,
-                },
-              ],
-              { session },
-            );
-            collectionsToEmit.push(cancelledCollection);
-          }
-
-          ordersToEmit.push(cancelledOrder);
-        }
-
-        postCommitData = {
-          cancelledOrder,
-          populatedItem: order.item,
-          stockLocation: order.stockLocation,
-          ordersToEmit,
-          collectionsToEmit,
-        };
-      });
-
-      if (postCommitData) {
-        const { ordersToEmit, collectionsToEmit, cancelledOrder } =
-          postCommitData;
-
-        this.websocketGateway.emitOrderUpdated(ordersToEmit);
-        for (const col of collectionsToEmit) {
-          this.websocketGateway.emitCollectionChanged(col);
-        }
-
-        if (isPopulatedMenuItem(postCommitData.populatedItem)) {
-          for (const ingredient of postCommitData.populatedItem
-            .itemProduction) {
-            if (ingredient?.isDecrementStock) {
-              await this.accountingService.createStock(user, {
-                product: ingredient?.product,
-                location: postCommitData.stockLocation,
-                quantity: ingredient?.quantity * quantity,
-                status: StockHistoryStatusEnum.TRENDYOLORDERCANCEL,
-              });
-            }
-          }
-        }
-
-        return cancelledOrder;
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.error('Error cancelling trendyol order:', error);
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to cancel order',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    } finally {
-      await session.endSession();
-    }
+    return this.cancelMarketplaceOrder(user, quantity, {
+      lineItemField: 'trendyolLineItemId',
+      lineItemId: trendyolLineItemId,
+      collectionFilter: (order) => ({
+        trendyolShipmentPackageId: order.trendyolShipmentPackageId,
+      }),
+      fullCancelUnset: { trendyolCustomer: '', isTrendyolCustomerPicked: '' },
+      stockStatus: StockHistoryStatusEnum.TRENDYOLORDERCANCEL,
+      label: 'trendyol',
+    });
   }
 
   async cancelHepsiburadaOrder(
     user: User,
     hepsiburadaLineItemId: string,
     quantity: number,
+  ) {
+    return this.cancelMarketplaceOrder(user, quantity, {
+      lineItemField: 'hepsiburadaLineItemId',
+      lineItemId: hepsiburadaLineItemId,
+      collectionFilter: (order) => ({
+        hepsiburadaOrderNumber: order.hepsiburadaOrderNumber,
+      }),
+      stockStatus: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+      label: 'hepsiburada',
+    });
+  }
+
+  async cancelN11Order(user: User, n11LineItemId: string, quantity: number) {
+    return this.cancelMarketplaceOrder(user, quantity, {
+      lineItemField: 'n11LineItemId',
+      lineItemId: n11LineItemId,
+      // Konuma özel teslimatta paket no null gelir, sipariş numarasına düşülür.
+      collectionFilter: (order) => ({
+        'orders.order': order._id,
+        ...(order.n11ShipmentPackageId
+          ? { n11ShipmentPackageId: order.n11ShipmentPackageId }
+          : { n11OrderNumber: order.n11OrderNumber }),
+      }),
+      stockStatus: StockHistoryStatusEnum.N11ORDERCANCEL,
+      label: 'n11',
+    });
+  }
+
+  private async cancelMarketplaceOrder(
+    user: User,
+    quantity: number,
+    config: MarketplaceCancelConfig,
   ) {
     const session = await this.conn.startSession();
 
@@ -3195,7 +2977,9 @@ export class OrderService {
     try {
       await session.withTransaction(async () => {
         const order = await this.orderModel
-          .findOne({ hepsiburadaLineItemId }, null, { session })
+          .findOne({ [config.lineItemField]: config.lineItemId }, null, {
+            session,
+          })
           .populate('item');
 
         if (!order) {
@@ -3204,7 +2988,7 @@ export class OrderService {
 
         const collection = await this.collectionModel.findOne(
           {
-            hepsiburadaOrderNumber: order.hepsiburadaOrderNumber,
+            ...config.collectionFilter(order),
             status: { $ne: OrderCollectionStatus.CANCELLED },
           },
           null,
@@ -3244,7 +3028,7 @@ export class OrderService {
           const remainingQuantity = order.quantity - quantity;
           const orderWithoutId = order.toObject();
           delete orderWithoutId._id;
-          delete orderWithoutId.hepsiburadaLineItemId;
+          delete orderWithoutId[config.lineItemField];
 
           [cancelledOrder] = await this.orderModel.create(
             [
@@ -3356,6 +3140,7 @@ export class OrderService {
                 cancelledAt,
                 cancelledBy: user._id,
               },
+              ...(config.fullCancelUnset && { $unset: config.fullCancelUnset }),
             },
             { new: true, session },
           );
@@ -3416,7 +3201,7 @@ export class OrderService {
         const { ordersToEmit, collectionsToEmit, cancelledOrder } =
           postCommitData;
 
-        this.websocketGateway.emitOrderUpdated(ordersToEmit);
+        void this.websocketGateway.emitOrderUpdated(ordersToEmit);
         for (const col of collectionsToEmit) {
           this.websocketGateway.emitCollectionChanged(col);
         }
@@ -3429,7 +3214,7 @@ export class OrderService {
                 product: ingredient?.product,
                 location: postCommitData.stockLocation,
                 quantity: ingredient?.quantity * quantity,
-                status: StockHistoryStatusEnum.HEPSIBURADAORDERCANCEL,
+                status: config.stockStatus,
               });
             }
           }
@@ -3440,7 +3225,7 @@ export class OrderService {
 
       return null;
     } catch (error) {
-      this.logger.error('Error cancelling hepsiburada order:', error);
+      this.logger.error(`Error cancelling ${config.label} order:`, error);
       if (error instanceof HttpException) {
         throw error;
       }
@@ -6613,6 +6398,32 @@ export class OrderService {
 
   findCollectionByTrendyolShipmentPackageId(trendyolShipmentPackageId: string) {
     return this.collectionModel.findOne({ trendyolShipmentPackageId }).exec();
+  }
+
+  findByN11LineItemId(n11LineItemId: string) {
+    return this.orderModel.findOne({ n11LineItemId }).exec();
+  }
+
+  findByN11LineItemIds(n11LineItemIds: string[]) {
+    return this.orderModel
+      .find({ n11LineItemId: { $in: n11LineItemIds } })
+      .populate('item')
+      .exec();
+  }
+
+  findActiveN11OrdersByOrderNumberAndProduct(
+    n11OrderNumber: string,
+    n11ProductId: string,
+  ) {
+    return this.orderModel
+      .find({
+        n11OrderNumber,
+        n11ProductId,
+        n11LineItemId: { $type: 'string' },
+        status: { $ne: OrderStatus.CANCELLED },
+      })
+      .sort({ _id: 1 })
+      .exec();
   }
 
   findByShopifyIdAndItem(shopifyId: string, itemId: number) {

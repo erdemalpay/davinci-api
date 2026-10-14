@@ -27,6 +27,7 @@ import { AccountingService } from './../accounting/accounting.service';
 import { HepsiburadaService } from './../hepsiburada/hepsiburada.service';
 import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
+import { N11Service } from './../n11/n11.service';
 import { PanelControlService } from './../panelControl/panelControl.service';
 import { ShopifyService } from './../shopify/shopify.service';
 import { TrendyolService } from './../trendyol/trendyol.service';
@@ -71,6 +72,8 @@ export class MenuService {
     private readonly trendyolService: TrendyolService,
     @Inject(forwardRef(() => HepsiburadaService))
     private readonly hepsiburadaService: HepsiburadaService,
+    @Inject(forwardRef(() => N11Service))
+    private readonly n11Service: N11Service,
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
@@ -433,6 +436,14 @@ export class MenuService {
     });
   }
 
+  async findItemsWithN11StockCode() {
+    return this.itemModel.find({
+      n11StockCode: { $nin: [null, ''] },
+      matchedProduct: { $nin: [null, ''] },
+      deleted: { $ne: true },
+    });
+  }
+
   async updateItemField(id: number, fields: Partial<MenuItem>) {
     return this.itemModel.findByIdAndUpdate(
       id,
@@ -716,6 +727,14 @@ export class MenuService {
   async findByHepsiBuradaSku(hepsiBuradaSku: string) {
     const item = await this.itemModel.findOne({
       hepsiBuradaSku: hepsiBuradaSku,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
+  async findByN11StockCode(n11StockCode: string) {
+    const item = await this.itemModel.findOne({
+      n11StockCode,
       deleted: { $ne: true },
     });
     return item;
@@ -1026,6 +1045,7 @@ export class MenuService {
       delete objectItem.shopifyId;
       delete objectItem.trendyolBarcode;
       delete objectItem.hepsiBuradaSku;
+      delete objectItem.n11StockCode;
       // Check if a damaged MenuItem with this name already exists
       const existingDamagedItem = await this.itemModel.findOne({ name });
 
@@ -1295,6 +1315,14 @@ export class MenuService {
       }
     }
 
+    if (
+      onlinePriceChanged &&
+      item.n11StockCode &&
+      typeof updates.onlinePrice === 'number'
+    ) {
+      await this.n11Service.pushPrice(item.n11StockCode, updates.onlinePrice);
+    }
+
     return updatedItem;
   }
   // async syncAllIkasPrices(currency = 'TRY') {
@@ -1434,6 +1462,16 @@ export class MenuService {
                 err,
               );
             }
+          }
+          if (
+            onlinePriceChanged &&
+            foundItem.n11StockCode &&
+            typeof item.onlinePrice === 'number'
+          ) {
+            await this.n11Service.pushPrice(
+              foundItem.n11StockCode,
+              item.onlinePrice,
+            );
           }
         }),
       );

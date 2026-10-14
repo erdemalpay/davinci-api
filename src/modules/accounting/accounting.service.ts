@@ -17,6 +17,8 @@ import { IkasService } from '../ikas/ikas.service';
 import { InventoryBoxSource } from '../inventory/inventory.schema';
 import { InventoryService } from '../inventory/inventory.service';
 import { LocationService } from '../location/location.service';
+import { N11OrderService } from '../n11/n11-order.service';
+import { N11Service } from '../n11/n11.service';
 import {
   CreateNotificationDto,
   NotificationEventType,
@@ -155,6 +157,10 @@ export class AccountingService {
     private readonly trendyolService: TrendyolService,
     @Inject(forwardRef(() => HepsiburadaService))
     private readonly hepsiburadaService: HepsiburadaService,
+    @Inject(forwardRef(() => N11Service))
+    private readonly n11Service: N11Service,
+    @Inject(forwardRef(() => N11OrderService))
+    private readonly n11OrderService: N11OrderService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     @Inject(forwardRef(() => NotificationService))
@@ -2302,6 +2308,7 @@ export class AccountingService {
     this.updateShopifyStock(productId, location, quantity);
     this.updateTrendyolStock(productId, location, quantity);
     this.updateHepsiburadaStock(productId, location, quantity);
+    void this.updateN11Stock(productId, location, quantity);
   }
 
   async updateHepsiburadaStock(
@@ -2336,6 +2343,26 @@ export class AccountingService {
           )}`,
         );
       }
+    }
+  }
+
+  async updateN11Stock(productId: string, location: number, quantity: number) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.n11StockCode) {
+        return;
+      }
+
+      // n11 için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      await this.n11Service.pushStock(menuItem.n11StockCode, quantity);
+    } catch (error) {
+      this.logger.error(
+        `[N11] Error updating n11 stock for product ${productId}, location ${location}: ${error?.message}`,
+      );
     }
   }
 
@@ -2646,6 +2673,12 @@ export class AccountingService {
         createStockDto.location,
         Number(oldQuantity) + Number(createStockDto.quantity),
       );
+      // n11'e mutlak değer gönderiliyor; n11 kendi stoğunu düşürse de sonuç doğru
+      void this.updateN11Stock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2755,6 +2788,11 @@ export class AccountingService {
         createStockDto.location,
         createStockDto.quantity,
       );
+      void this.updateN11Stock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
     }
     if (isEmit) {
       this.websocketGateway.emitStockChanged();
@@ -2793,6 +2831,11 @@ export class AccountingService {
     // Hepsiburada'ya final stok değerini direkt gönder
     // TO-DO STAGING-HEPSIBURADA'DA SİPARİŞ OLUŞTURDUĞUMDA HB'nin stoğunun düşmediğini gördüm o yüzden bunu koydum, canlıya çıkınca, sipariş oluşturulduğunda HB'de gerçekleşen stok değişimini tekrar incelememiz gerekiyor.
     this.updateHepsiburadaStock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
+    void this.updateN11Stock(
       updates?.product,
       updates?.location,
       updates?.quantity,
@@ -2941,6 +2984,7 @@ export class AccountingService {
       }
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
+      void this.updateN11Stock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -3150,6 +3194,11 @@ export class AccountingService {
       }
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
+      void this.updateN11Stock(
         consumptStockDto.product,
         stock.location,
         stock.quantity - consumptStockDto.quantity,
@@ -4339,6 +4388,7 @@ export class AccountingService {
       this.shopifyService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.trendyolService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.hepsiburadaService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.n11OrderService.getReservedStocks(NEORAMA_DEPO_LOCATION),
     ])
       .then(async (channels) => {
         const byProduct: Record<string, ReservedStockDetail[]> = {};

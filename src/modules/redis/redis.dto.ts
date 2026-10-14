@@ -33,4 +33,5 @@ export enum RedisKeys {
   ScreenImages = 'screen-images',
   MarketplaceReservedStocks = 'marketplace-reserved-stocks',
   MarketplaceReservedStocksInvalidatedAt = 'marketplace-reserved-stocks-invalidated-at',
+  N11OrderSyncCursor = 'n11-order-sync-cursor',
 }

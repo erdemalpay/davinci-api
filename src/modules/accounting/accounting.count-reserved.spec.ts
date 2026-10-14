@@ -119,6 +119,7 @@ type Harness = {
     shopify: () => Promise<any[]>;
     trendyol: () => Promise<any[]>;
     hepsiburada: () => Promise<any[]>;
+    n11: () => Promise<any[]>;
   };
   flush: () => Promise<void>;
 };
@@ -133,6 +134,7 @@ const buildHarness = (counts: any[]): Harness => {
       shopify: async () => [],
       trendyol: async () => [],
       hepsiburada: async () => [],
+      n11: async () => [],
     },
   };
   const countModel = createCountModel(counts);
@@ -188,6 +190,7 @@ const buildHarness = (counts: any[]): Harness => {
   service.shopifyService = channel('shopify');
   service.trendyolService = channel('trendyol');
   service.hepsiburadaService = channel('hepsiburada');
+  service.n11OrderService = channel('n11');
 
   const originalSave = service.saveCountReservedSnapshot.bind(service);
   service.saveCountReservedSnapshot = (...args: any[]) => {
@@ -286,6 +289,33 @@ describe('sayı girişi – ayrılmış kaydı', () => {
       reservedDetails: [
         { channel: 'shopify', orderNumber: '#6170', quantity: 1 },
         { channel: 'trendyol', orderNumber: '4166', quantity: 1 },
+      ],
+    });
+  });
+
+  it('n11 ayrılmış adetleri de sayıma katılır', async () => {
+    const harness = buildHarness([depotCount()]);
+    harness.stocks.codenames = 5;
+    harness.reserved.n11 = async () => [
+      {
+        product: 'codenames',
+        channel: 'n11',
+        orderNumber: '203872347637',
+        quantity: 2,
+      },
+    ];
+
+    await harness.service.updateCountProduct('sayim', {
+      product: 'codenames',
+      countQuantity: 7,
+      stockQuantity: 99,
+    });
+    await harness.flush();
+
+    expect(countProductOf(harness, 'sayim', 'codenames')).toMatchObject({
+      reservedQuantity: 2,
+      reservedDetails: [
+        { channel: 'n11', orderNumber: '203872347637', quantity: 2 },
       ],
     });
   });
@@ -475,7 +505,7 @@ describe('sayı girişi – ayrılmış kaydı', () => {
     });
     await harness.flush();
 
-    expect(harness.channelCalls).toBe(3);
+    expect(harness.channelCalls).toBe(4);
     expect(countProductOf(harness, 'sayim', 'azul')).toMatchObject({
       reservedQuantity: 0,
     });
