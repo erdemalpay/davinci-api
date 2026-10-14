@@ -13,6 +13,8 @@ import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
+import { IdefixOrderService } from '../idefix/idefix-order.service';
+import { IdefixService } from '../idefix/idefix.service';
 import { IkasService } from '../ikas/ikas.service';
 import { InventoryBoxSource } from '../inventory/inventory.schema';
 import { InventoryService } from '../inventory/inventory.service';
@@ -161,6 +163,10 @@ export class AccountingService {
     private readonly n11Service: N11Service,
     @Inject(forwardRef(() => N11OrderService))
     private readonly n11OrderService: N11OrderService,
+    @Inject(forwardRef(() => IdefixService))
+    private readonly idefixService: IdefixService,
+    @Inject(forwardRef(() => IdefixOrderService))
+    private readonly idefixOrderService: IdefixOrderService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     @Inject(forwardRef(() => NotificationService))
@@ -2309,6 +2315,7 @@ export class AccountingService {
     this.updateTrendyolStock(productId, location, quantity);
     this.updateHepsiburadaStock(productId, location, quantity);
     void this.updateN11Stock(productId, location, quantity);
+    void this.updateIdefixStock(productId, location, quantity);
   }
 
   async updateHepsiburadaStock(
@@ -2362,6 +2369,35 @@ export class AccountingService {
     } catch (error) {
       this.logger.error(
         `[N11] Error updating n11 stock for product ${productId}, location ${location}: ${error?.message}`,
+      );
+    }
+  }
+
+  async updateIdefixStock(
+    productId: string,
+    location: number,
+    quantity: number,
+  ) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.idefixBarcode) {
+        return;
+      }
+
+      // idefix için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      // idefix stokla birlikte fiyat ister; fiyat menünün online fiyatıdır.
+      await this.idefixService.pushStock(
+        menuItem.idefixBarcode,
+        quantity,
+        menuItem.onlinePrice,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[IDEFIX] Error updating idefix stock for product ${productId}, location ${location}: ${error?.message}`,
       );
     }
   }
@@ -2679,6 +2715,11 @@ export class AccountingService {
         createStockDto.location,
         Number(oldQuantity) + Number(createStockDto.quantity),
       );
+      void this.updateIdefixStock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2793,6 +2834,11 @@ export class AccountingService {
         createStockDto.location,
         createStockDto.quantity,
       );
+      void this.updateIdefixStock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
     }
     if (isEmit) {
       this.websocketGateway.emitStockChanged();
@@ -2836,6 +2882,11 @@ export class AccountingService {
       updates?.quantity,
     );
     void this.updateN11Stock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
+    void this.updateIdefixStock(
       updates?.product,
       updates?.location,
       updates?.quantity,
@@ -2985,6 +3036,7 @@ export class AccountingService {
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
       void this.updateN11Stock(stock.product?._id, stock.location, 0);
+      void this.updateIdefixStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -3199,6 +3251,11 @@ export class AccountingService {
         stock.quantity - consumptStockDto.quantity,
       );
       void this.updateN11Stock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
+      void this.updateIdefixStock(
         consumptStockDto.product,
         stock.location,
         stock.quantity - consumptStockDto.quantity,
@@ -4389,6 +4446,7 @@ export class AccountingService {
       this.trendyolService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.hepsiburadaService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.n11OrderService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.idefixOrderService.getReservedStocks(NEORAMA_DEPO_LOCATION),
     ])
       .then(async (channels) => {
         const byProduct: Record<string, ReservedStockDetail[]> = {};

@@ -11,6 +11,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { MailModule } from '../mail/mail.module';
 import { MenuModule } from '../menu/menu.module';
+import { IdefixModule } from '../idefix/idefix.module';
 import { N11Module } from '../n11/n11.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ShopifyModule } from '../shopify/shopify.module';
@@ -83,6 +84,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => TrendyolModule),
     forwardRef(() => HepsiburadaModule),
     forwardRef(() => N11Module),
+    forwardRef(() => IdefixModule),
     forwardRef(() => MenuModule),
     InventoryModule,
   ],

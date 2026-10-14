@@ -1,3 +1,4 @@
+import { findByBarcode, roundPrice } from 'src/lib/marketplace';
 import {
   N11ClaimReturn,
   N11OrderLine,
@@ -90,22 +91,20 @@ export function packageCreatedAt(pkg: N11ShipmentPackage): Date {
   return created ? new Date(created.createdDate) : new Date();
 }
 
-// Barkod sayıya çevrilip baştaki sıfırlar düşmüş olabilir.
+// n11'de stok kodu da barkod olarak kullanılmış olabilir.
 export function findN11ProductByBarcode(
   products: N11Product[],
   barcode: string,
 ): N11Product | undefined {
-  const trimmed = barcode.replace(/^0+/, '');
-  return (
-    products.find((p) => p.barcode === barcode || p.stockCode === barcode) ??
-    products.find((p) => p.barcode?.replace(/^0+/, '') === trimmed)
+  return findByBarcode(
+    products,
+    barcode,
+    (p) => p.barcode === barcode || p.stockCode === barcode,
   );
 }
 
 // n11 fiyatları noktadan sonra 2 hane ister, aksi halde SKU FAIL olur.
-export function toN11Price(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+export const toN11Price = roundPrice;
 
 // SOAP iade servisi tarihleri dd/mm/yyyy (İstanbul) ister.
 export function formatN11Date(date: Date): string {

@@ -1,10 +1,4 @@
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsNumber,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsNumber, IsString, Min } from 'class-validator';
 
 export const N11_REST_BASE_URL = 'https://api.n11.com';
 export const N11_SOAP_BASE_URL = 'https://api.n11.com/ws';
@@ -118,11 +112,4 @@ export class UpdateN11PriceDto {
   @IsNumber()
   @Min(0)
   price: number;
-}
-
-export class MatchN11ItemsDto {
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsNumber({}, { each: true })
-  itemIds: number[];
 }

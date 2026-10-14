@@ -105,6 +105,12 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   n11ShipmentPackageId: string;
 
+  @Prop({ required: false, type: String })
+  idefixOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  idefixShipmentId: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 
@@ -143,6 +149,11 @@ CollectionSchema.index(
 CollectionSchema.index(
   { n11OrderNumber: 1 },
   { partialFilterExpression: { n11OrderNumber: { $type: 'string' } } },
+);
+// For idefix shipment queries
+CollectionSchema.index(
+  { idefixShipmentId: 1 },
+  { partialFilterExpression: { idefixShipmentId: { $type: 'string' } } },
 );
 
 purifySchema(CollectionSchema);

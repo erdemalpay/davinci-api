@@ -129,6 +129,9 @@ export class MenuItem extends Document {
   n11StockCode: string;
 
   @Prop({ required: false, type: String })
+  idefixBarcode: string;
+
+  @Prop({ required: false, type: String })
   sku: string;
 
   @Prop({ required: false, type: String })
