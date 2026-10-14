@@ -24,8 +24,9 @@ const cafeDate = (date: string) => ({
 });
 
 // Per person and cafe day, what each one did: orders taken, prepared and
-// delivered, collections, games set up and explained. The panel decides
-// which days count (shift plan, middleman and service staff days).
+// delivered, collections, games set up and explained (and their narration
+// points). The panel decides which days count (shift plan, middleman and
+// service staff days).
 @Injectable()
 export class StaffPerformanceService {
   constructor(
@@ -57,6 +58,7 @@ export class StaffPerformanceService {
         collections: 0,
         gameplaysCreated: 0,
         gameplaysMentored: 0,
+        gameplaysMentoredPoints: 0,
       };
       counts[_id.field] += count;
       byUserDay.set(key, counts);
@@ -156,10 +158,37 @@ export class StaffPerformanceService {
         },
       },
       {
+        $lookup: {
+          from: 'games',
+          localField: 'game',
+          foreignField: '_id',
+          as: 'game',
+          pipeline: [{ $project: { narrationDurationPoint: 1 } }],
+        },
+      },
+      {
         $project: {
           actions: [
-            { field: 'gameplaysCreated', user: '$createdBy', date: '$date' },
-            { field: 'gameplaysMentored', user: '$mentor', date: '$date' },
+            {
+              field: 'gameplaysCreated',
+              user: '$createdBy',
+              date: '$date',
+              value: 1,
+            },
+            {
+              field: 'gameplaysMentored',
+              user: '$mentor',
+              date: '$date',
+              value: 1,
+            },
+            {
+              field: 'gameplaysMentoredPoints',
+              user: '$mentor',
+              date: '$date',
+              value: {
+                $ifNull: [{ $first: '$game.narrationDurationPoint' }, 0],
+              },
+            },
           ],
         },
       },
@@ -172,7 +201,7 @@ export class StaffPerformanceService {
             date: '$actions.date',
             field: '$actions.field',
           },
-          count: { $sum: 1 },
+          count: { $sum: '$actions.value' },
         },
       },
     ];
