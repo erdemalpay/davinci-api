@@ -22,7 +22,9 @@ export type StaffDailyCountField =
   | 'ordersDelivered'
   | 'collections'
   | 'gameplaysCreated'
-  | 'gameplaysMentored';
+  | 'gameplaysMentored'
+  // The narration points of the games explained.
+  | 'gameplaysMentoredPoints';
 
 // What one person did on one cafe day.
 export type StaffDailyCounts = {
