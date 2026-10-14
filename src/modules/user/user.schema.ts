@@ -17,6 +17,9 @@ export class UserSettings {
   @Prop({ type: Boolean, required: false, default: false })
   orderCategoryOn: boolean;
 
+  @Prop({ type: [String], required: false, default: [] })
+  favoritePages: string[];
+
   // A manager who wants game master calls today sets this to today's date
   // ("yyyy-MM-dd"); it lapses at the end of the day.
   @Prop({ type: String, required: false })
