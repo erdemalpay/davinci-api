@@ -7,6 +7,7 @@ export enum WebhookSource {
   TRENDYOL = 'trendyol',
   HEPSIBURADA = 'hepsiburada',
   N11 = 'n11',
+  IDEFIX = 'idefix',
 }
 
 export enum WebhookStatus {

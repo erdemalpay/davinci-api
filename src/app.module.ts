@@ -37,6 +37,7 @@ import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
+import { IdefixModule } from './modules/idefix/idefix.module';
 import { N11Module } from './modules/n11/n11.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
@@ -86,6 +87,7 @@ const modules = [
   TrendyolModule,
   HepsiburadaModule,
   N11Module,
+  IdefixModule,
   DbModule,
   ChecklistModule,
   GameModule,

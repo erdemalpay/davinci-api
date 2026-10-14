@@ -25,6 +25,7 @@ import {
   BulkAddCollectionsToRetailerDto,
   BulkRemoveCollectionsFromRetailerDto,
   CancelHepsiburadaOrderDto,
+  CancelIdefixOrderDto,
   CancelIkasOrderDto,
   CancelN11OrderDto,
   CancelShopifyOrderDto,
@@ -319,6 +320,17 @@ export class OrderController {
     return this.orderService.cancelN11Order(
       user,
       payload.n11LineItemId,
+      payload.quantity,
+    );
+  }
+  @Post('/cancel-idefix-order')
+  cancelIdefixOrder(
+    @ReqUser() user: User,
+    @Body() payload: CancelIdefixOrderDto,
+  ) {
+    return this.orderService.cancelIdefixOrder(
+      user,
+      payload.idefixLineItemId,
       payload.quantity,
     );
   }

@@ -25,6 +25,7 @@ import { VisitService } from '../visit/visit.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { AccountingService } from './../accounting/accounting.service';
 import { HepsiburadaService } from './../hepsiburada/hepsiburada.service';
+import { IdefixService } from './../idefix/idefix.service';
 import { IkasService } from './../ikas/ikas.service';
 import { LocationService } from './../location/location.service';
 import { N11Service } from './../n11/n11.service';
@@ -74,6 +75,8 @@ export class MenuService {
     private readonly hepsiburadaService: HepsiburadaService,
     @Inject(forwardRef(() => N11Service))
     private readonly n11Service: N11Service,
+    @Inject(forwardRef(() => IdefixService))
+    private readonly idefixService: IdefixService,
     private readonly locationService: LocationService,
     private readonly redisService: RedisService,
     private readonly activityService: ActivityService,
@@ -444,6 +447,14 @@ export class MenuService {
     });
   }
 
+  async findItemsWithIdefixBarcode() {
+    return this.itemModel.find({
+      idefixBarcode: { $nin: [null, ''] },
+      matchedProduct: { $nin: [null, ''] },
+      deleted: { $ne: true },
+    });
+  }
+
   async updateItemField(id: number, fields: Partial<MenuItem>) {
     return this.itemModel.findByIdAndUpdate(
       id,
@@ -735,6 +746,14 @@ export class MenuService {
   async findByN11StockCode(n11StockCode: string) {
     const item = await this.itemModel.findOne({
       n11StockCode,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
+  async findByIdefixBarcode(idefixBarcode: string) {
+    const item = await this.itemModel.findOne({
+      idefixBarcode,
       deleted: { $ne: true },
     });
     return item;
@@ -1046,6 +1065,7 @@ export class MenuService {
       delete objectItem.trendyolBarcode;
       delete objectItem.hepsiBuradaSku;
       delete objectItem.n11StockCode;
+      delete objectItem.idefixBarcode;
       // Check if a damaged MenuItem with this name already exists
       const existingDamagedItem = await this.itemModel.findOne({ name });
 
@@ -1323,6 +1343,18 @@ export class MenuService {
       await this.n11Service.pushPrice(item.n11StockCode, updates.onlinePrice);
     }
 
+    if (
+      onlinePriceChanged &&
+      item.idefixBarcode &&
+      typeof updates.onlinePrice === 'number'
+    ) {
+      await this.idefixService.pushPrice(
+        item.idefixBarcode,
+        updates.onlinePrice,
+        item.matchedProduct,
+      );
+    }
+
     return updatedItem;
   }
   // async syncAllIkasPrices(currency = 'TRY') {
@@ -1471,6 +1503,17 @@ export class MenuService {
             await this.n11Service.pushPrice(
               foundItem.n11StockCode,
               item.onlinePrice,
+            );
+          }
+          if (
+            onlinePriceChanged &&
+            foundItem.idefixBarcode &&
+            typeof item.onlinePrice === 'number'
+          ) {
+            await this.idefixService.pushPrice(
+              foundItem.idefixBarcode,
+              item.onlinePrice,
+              foundItem.matchedProduct,
             );
           }
         }),

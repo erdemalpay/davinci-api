@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { hasOnlinePrice, sumStockQuantity } from 'src/lib/marketplace';
 import { AccountingService } from '../accounting/accounting.service';
 import { MenuService } from '../menu/menu.service';
 import { N11Client } from './n11.client';
@@ -151,7 +152,7 @@ export class N11Service {
         skipped++;
         continue;
       }
-      if (!this.hasOnlinePrice(item.onlinePrice)) {
+      if (!hasOnlinePrice(item.onlinePrice)) {
         noOnlinePrice.push(item.name);
         skipped++;
         continue;
@@ -225,7 +226,7 @@ export class N11Service {
       ownerByStockCode.set(product.stockCode, base.itemId);
 
       let price: MatchResult['price'] = 'no_online_price';
-      if (this.hasOnlinePrice(item.onlinePrice)) {
+      if (hasOnlinePrice(item.onlinePrice)) {
         if (canWrite) {
           priceSkus.push(this.priceSku(product.stockCode, item.onlinePrice));
           price = 'sent';
@@ -259,10 +260,6 @@ export class N11Service {
     };
   }
 
-  private hasOnlinePrice(value: unknown): value is number {
-    return typeof value === 'number' && value > 0;
-  }
-
   private stockSku(stockCode: string, quantity: number): N11SkuUpdate {
     return { stockCode, quantity: Math.max(0, Math.floor(quantity)) };
   }
@@ -277,7 +274,7 @@ export class N11Service {
       matchedProduct,
       this.OnlineStoreLocation,
     );
-    return stocks.reduce((total, stock) => total + (stock.quantity || 0), 0);
+    return sumStockQuantity(stocks);
   }
 
   private async sendSkuBatches(skus: N11SkuUpdate[]): Promise<number[]> {

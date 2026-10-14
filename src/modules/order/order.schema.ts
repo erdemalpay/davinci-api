@@ -308,6 +308,16 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   n11ProductId: string;
 
+  @Prop({ required: false, type: String })
+  idefixOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  idefixShipmentId: string;
+
+  // Sevkiyattaki kalem id'si; iade de bu id ile (orderLineId) gelir.
+  @Prop({ required: false, type: String })
+  idefixLineItemId: string;
+
   @Prop({ required: false, type: Number, ref: 'Retailer' })
   retailer?: number;
 
@@ -381,6 +391,17 @@ OrderSchema.index(
 OrderSchema.index(
   { n11ShipmentPackageId: 1 },
   { partialFilterExpression: { n11ShipmentPackageId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { idefixLineItemId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idefixLineItemId: { $type: 'string' } },
+  },
+);
+OrderSchema.index(
+  { idefixShipmentId: 1 },
+  { partialFilterExpression: { idefixShipmentId: { $type: 'string' } } },
 );
 OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });
 

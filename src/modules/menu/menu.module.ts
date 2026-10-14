@@ -12,6 +12,7 @@ import { AccountingModule } from './../accounting/accounting.module';
 import { ActivityModule } from './../activity/activity.module';
 import { HepsiburadaModule } from './../hepsiburada/hepsiburada.module';
 import { IkasModule } from './../ikas/ikas.module';
+import { IdefixModule } from './../idefix/idefix.module';
 import { N11Module } from './../n11/n11.module';
 import { PanelControlModule } from './../panelControl/panelControl.module';
 import { ShopifyModule } from './../shopify/shopify.module';
@@ -50,6 +51,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     forwardRef(() => TrendyolModule),
     forwardRef(() => HepsiburadaModule),
     forwardRef(() => N11Module),
+    forwardRef(() => IdefixModule),
   ],
   providers: [MenuService],
   exports: [MenuService],

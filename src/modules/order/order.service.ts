@@ -140,7 +140,8 @@ type MarketplaceCancelConfig = {
   lineItemField:
     | 'trendyolLineItemId'
     | 'hepsiburadaLineItemId'
-    | 'n11LineItemId';
+    | 'n11LineItemId'
+    | 'idefixLineItemId';
   lineItemId: string;
   collectionFilter: (order: Order) => FilterQuery<Collection>;
   fullCancelUnset?: Record<string, ''>;
@@ -2956,6 +2957,23 @@ export class OrderService {
       }),
       stockStatus: StockHistoryStatusEnum.N11ORDERCANCEL,
       label: 'n11',
+    });
+  }
+
+  async cancelIdefixOrder(
+    user: User,
+    idefixLineItemId: string,
+    quantity: number,
+  ) {
+    return this.cancelMarketplaceOrder(user, quantity, {
+      lineItemField: 'idefixLineItemId',
+      lineItemId: idefixLineItemId,
+      collectionFilter: (order) => ({
+        'orders.order': order._id,
+        idefixShipmentId: order.idefixShipmentId,
+      }),
+      stockStatus: StockHistoryStatusEnum.IDEFIXORDERCANCEL,
+      label: 'idefix',
     });
   }
 
@@ -6423,6 +6441,17 @@ export class OrderService {
         status: { $ne: OrderStatus.CANCELLED },
       })
       .sort({ _id: 1 })
+      .exec();
+  }
+
+  findByIdefixLineItemId(idefixLineItemId: string) {
+    return this.orderModel.findOne({ idefixLineItemId }).exec();
+  }
+
+  findByIdefixLineItemIds(idefixLineItemIds: string[]) {
+    return this.orderModel
+      .find({ idefixLineItemId: { $in: idefixLineItemIds } })
+      .populate('item')
       .exec();
   }
 

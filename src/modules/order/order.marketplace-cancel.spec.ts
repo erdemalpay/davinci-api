@@ -154,6 +154,28 @@ describe('Pazaryeri sipariş iptali', () => {
     ).toBe(StockHistoryStatusEnum.N11ORDERCANCEL);
   });
 
+  it('idefix: sevkiyat numarasıyla bulunur, $unset yapılmaz', async () => {
+    const { service, collectionModel, orderModel, accountingService } =
+      buildService(buildOrder({ quantity: 1, idefixShipmentId: 'S1' }));
+
+    await service.cancelIdefixOrder(user, 'L1', 1);
+
+    expect(orderModel.findOne.mock.calls[0][0]).toEqual({
+      idefixLineItemId: 'L1',
+    });
+    expect(collectionModel.findOne.mock.calls[0][0]).toEqual({
+      'orders.order': 1,
+      idefixShipmentId: 'S1',
+      status: { $ne: 'cancelled' },
+    });
+    expect(orderModel.findByIdAndUpdate.mock.calls[0][1]).not.toHaveProperty(
+      '$unset',
+    );
+    expect(accountingService.createStock.mock.calls[0][1].status).toBe(
+      StockHistoryStatusEnum.IDEFIXORDERCANCEL,
+    );
+  });
+
   it('kısmi iptalde iptal edilen kopya satır ID taşımaz', async () => {
     const { service, orderModel } = buildService(
       buildOrder({ n11LineItemId: 'L1', n11OrderNumber: 'N1' }),
