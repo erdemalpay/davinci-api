@@ -148,6 +148,10 @@ type MarketplaceCancelConfig = {
   label: string;
 };
 
+// The table fields the panel's lists of today's orders need.
+const TODAY_TABLE_FIELDS =
+  'date _id name isOnlineSale finishHour type startHour';
+
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
@@ -828,6 +832,23 @@ export class OrderService {
     return orders;
   }
 
+  // Orders the way the panel's "today" list has them (with their table),
+  // for the createMultipleOrder event.
+  private async findOrdersAsToday(ids: number[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+    return await this.orderModel
+      .find({ _id: { $in: ids } })
+      .populate('table', TODAY_TABLE_FIELDS)
+      .select('-__v')
+      .lean()
+      .catch((error) => {
+        this.logger.error('Error loading created orders', error);
+        return [];
+      });
+  }
+
   async findTodayOrders(after: string) {
     const start = new Date(after);
     start.setUTCHours(0, 0, 0, 0);
@@ -835,14 +856,14 @@ export class OrderService {
     const end = new Date(after);
     end.setUTCHours(23, 59, 59, 999);
     try {
+      // Every panel loads this; lean keeps it cheap at busy hours.
       const orders = await this.orderModel
         .find({
           tableDate: { $gte: start, $lte: end }, // Only orders on 'after' date
         })
-        .populate(
-          'table',
-          'date _id name isOnlineSale finishHour type startHour',
-        )
+        .populate('table', TODAY_TABLE_FIELDS)
+        .select('-__v')
+        .lean()
         .exec();
       return orders;
     } catch (error) {
@@ -864,10 +885,9 @@ export class OrderService {
         .find({
           tableDate: { $gte: start, $lte: end },
         })
-        .populate(
-          'table',
-          'date _id name isOnlineSale finishHour type startHour',
-        )
+        .populate('table', TODAY_TABLE_FIELDS)
+        .select('-__v')
+        .lean()
         .exec();
       return collections;
     } catch (error) {
@@ -1241,6 +1261,7 @@ export class OrderService {
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
     let updatedTable: Table | null = null;
+    const servedWithFoodNotes = await this.findServedWithFoodNotes();
 
     for (const order of orders) {
       if (order.quantity <= 0) {
@@ -1264,6 +1285,7 @@ export class OrderService {
         createdAt: new Date(),
         table: table._id,
       });
+      this.holdForFoodIfRequested(createdOrder, servedWithFoodNotes);
       orderKitchenIds.push(createdOrder.kitchen);
       const users = await this.userService.findAllUsers();
       if (createdOrder?.discount) {
@@ -1363,11 +1385,24 @@ export class OrderService {
       table,
       table.location,
       orderKitchenIds,
+      await this.findOrdersAsToday(createdOrders),
     );
     if (createdOrders.length > 0 && updatedTable) {
       await this.buttonCallService
-        .closeOrderCall(updatedTable, user)
+        .closeOrderCall(
+          updatedTable,
+          user,
+          orders.map((order) => order.activityTableName),
+        )
         .catch((err) => this.logger.error('Close order call error', err));
+    }
+    if (createdOrders.length > 0) {
+      await this.releaseOrdersWaitingForFood(
+        user,
+        await this.orderModel.find({ _id: { $in: createdOrders } }),
+      ).catch((err) =>
+        this.logger.error('Release orders waiting for food error', err),
+      );
     }
     return createdOrders;
   }
@@ -1438,6 +1473,7 @@ export class OrderService {
       createdAt: new Date(),
       tableDate: tableDate,
     });
+    this.holdForFoodIfRequested(order, await this.findServedWithFoodNotes());
     if (createOrderDto?.discount) {
       const discount = await this.discountModel.findById(
         createOrderDto.discount,
@@ -1582,10 +1618,19 @@ export class OrderService {
     if (updatedTable) {
       postOrderTasks.push(
         this.buttonCallService
-          .closeOrderCall(updatedTable, user)
+          .closeOrderCall(updatedTable, user, [order.activityTableName])
           .catch((err) => this.logger.error('Close order call error', err)),
       );
     }
+    // Fetched again: the item, kitchen and table were populated above.
+    postOrderTasks.push(
+      this.orderModel
+        .find({ _id: order._id })
+        .then((orders) => this.releaseOrdersWaitingForFood(user, orders))
+        .catch((err) =>
+          this.logger.error('Release orders waiting for food error', err),
+        ),
+    );
     await Promise.all(postOrderTasks);
 
     return order;
@@ -2012,14 +2057,14 @@ export class OrderService {
           return order;
         });
     } else {
-      return this.orderModel
-        .findByIdAndUpdate(id, updates, {
-          new: true,
-        })
-        .then((order) => {
-          this.websocketGateway.emitOrderUpdated([order]);
-          return order;
-        });
+      const order = await this.orderModel.findByIdAndUpdate(id, updates, {
+        new: true,
+      });
+      this.websocketGateway.emitOrderUpdated([order]);
+      if (order && updates?.status) {
+        await this.afterStatusChanged(user, [order]);
+      }
+      return order;
     }
   }
   /**
@@ -3193,6 +3238,108 @@ export class OrderService {
     }
   }
 
+  // Texts of the order notes that mean "bring it with the food".
+  private async findServedWithFoodNotes(): Promise<string[]> {
+    const notes = await this.orderNotesModel
+      .find({ isServedWithFood: true })
+      .select('note')
+      .lean();
+    return notes.map((n) => n.note?.trim()).filter(Boolean);
+  }
+
+  // An order that would be ready right away (a can of cola) but was asked
+  // to come with the food waits until the table's food is ready.
+  private holdForFoodIfRequested(order: Order, servedWithFoodNotes: string[]) {
+    if (
+      order.status !== OrderStatus.READYTOSERVE ||
+      !order.table ||
+      !order.note ||
+      !servedWithFoodNotes.some((note) => order.note.includes(note))
+    ) {
+      return;
+    }
+    order.status = OrderStatus.PENDING;
+    order.waitsForFood = true;
+  }
+
+  // Food got ready: the table's orders waiting for it are ready too, once
+  // none of the table's food is still being prepared. Food is anything from
+  // another kitchen than the waiting order's.
+  private async releaseOrdersWaitingForFood(user: User, readyOrders: Order[]) {
+    const tableIds = [
+      ...new Set(
+        readyOrders
+          .filter((o) => o.table && o.status === OrderStatus.READYTOSERVE)
+          .map((o) => Number(o.table)),
+      ),
+    ];
+    for (const tableId of tableIds) {
+      const waiting = await this.orderModel.find({
+        table: tableId,
+        waitsForFood: true,
+        status: OrderStatus.PENDING,
+      });
+      if (waiting.length === 0) {
+        continue;
+      }
+      const waitingKitchens = waiting.map((o) => o.kitchen);
+      const foodGotReady = readyOrders.some(
+        (o) =>
+          Number(o.table) === tableId &&
+          o.status === OrderStatus.READYTOSERVE &&
+          !waitingKitchens.includes(o.kitchen),
+      );
+      if (!foodGotReady) {
+        continue;
+      }
+      const foodInPreparation = await this.orderModel.exists({
+        table: tableId,
+        kitchen: { $nin: waitingKitchens },
+        status: { $in: [OrderStatus.CONFIRMATIONREQ, OrderStatus.PENDING] },
+      });
+      if (foodInPreparation) {
+        continue;
+      }
+      const ids = waiting.map((o) => o._id);
+      await this.orderModel.updateMany(
+        { _id: { $in: ids }, status: OrderStatus.PENDING },
+        {
+          $set: {
+            status: OrderStatus.READYTOSERVE,
+            preparedAt: new Date(),
+            preparedBy: user._id,
+          },
+        },
+      );
+      await this.websocketGateway.emitOrderUpdated(
+        await this.orderModel.find({ _id: { $in: ids } }),
+      );
+    }
+  }
+
+  // Orders got ready or were delivered: release orders waiting for the
+  // food, and answer the bar's "order ready" call once everything ready has
+  // been taken to the tables.
+  private async afterStatusChanged(user: User, orders: Order[]) {
+    await this.releaseOrdersWaitingForFood(user, orders).catch((error) =>
+      this.logger.error('Release orders waiting for food error', error),
+    );
+    const servedLocations = [
+      ...new Set(
+        orders
+          .filter((o) => o.status === OrderStatus.SERVED)
+          .map((o) => o.location),
+      ),
+    ];
+    for (const location of servedLocations) {
+      await this.buttonCallService
+        .closeOrderReadyCallIfDelivered(location, user)
+        .catch((error) =>
+          this.logger.error('Close order ready call error', error),
+        );
+    }
+  }
+
   async updateMultipleOrders(
     user: User,
     ids: number[],
@@ -3208,6 +3355,9 @@ export class OrderService {
       );
       const orders = await this.orderModel.find({ _id: { $in: ids } });
       this.websocketGateway.emitOrderUpdated(orders);
+      if (updates?.status) {
+        await this.afterStatusChanged(user, orders);
+      }
     } catch (error) {
       this.logger.error('Error updating orders:', error);
       throw new HttpException(
@@ -3851,6 +4001,20 @@ export class OrderService {
       createCollectionDto;
     const requestedOrders = filteredCollectionDto.orders ?? [];
     const hasOrders = requestedOrders.length > 0;
+
+    // Never a negative amount; 0 only to mark free (fully discounted)
+    // orders as paid.
+    const amount = Number(filteredCollectionDto.amount);
+    if (
+      !Number.isFinite(amount) ||
+      amount < 0 ||
+      (amount === 0 && !hasOrders)
+    ) {
+      throw new HttpException(
+        'Collection amount must be greater than 0 (0 only to mark free orders as paid)',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const tableId = createCollectionDto.table;
 
     let acquiredNoOrderLock = false;

@@ -5,8 +5,9 @@ import { Game } from 'src/modules/game/game.schema';
 import { Location } from 'src/modules/location/location.schema';
 import { ButtonCall } from './buttonCall.schema';
 
-// A table asked for a game to be explained and nobody who knows the game
-// was free at that moment. Lets managers see which games lack explainers.
+// A table asked for a game to be explained, or had a question about a game,
+// and nobody who knows the game was free at that moment. Lets managers see
+// which games lack people who know them.
 @Schema({ _id: false, timestamps: true })
 export class UnmetExplanationRequest extends Document {
   @Prop({ type: Number })
@@ -26,6 +27,10 @@ export class UnmetExplanationRequest extends Document {
 
   @Prop({ required: true, type: Number, ref: Game.name })
   game: number;
+
+  // EXPLANATION or QUESTION; older records are explanations.
+  @Prop({ required: false, type: String })
+  gmCallReason: string;
 
   // GameAvailabilityStatus at request time: busy, later or unavailable.
   @Prop({ required: true, type: String })

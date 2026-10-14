@@ -6,6 +6,7 @@ import { ActivityModule } from '../activity/activity.module';
 import { LocationModule } from '../location/location.module';
 import { UserModule } from '../user/user.module';
 import { Break, BreakSchema } from '../break/break.schema';
+import { Game, GameSchema } from '../game/game.schema';
 import { Gameplay, GameplaySchema } from '../gameplay/gameplay.schema';
 import {
   GameplayTime,
@@ -13,6 +14,7 @@ import {
 } from '../gameplaytime/gameplaytime.schema';
 import { Location, LocationSchema } from '../location/location.schema';
 import { Middleman, MiddlemanSchema } from '../middleman/middleman.schema';
+import { Kitchen, KitchenSchema } from '../menu/kitchen.schema';
 import { Order, OrderSchema } from '../order/order.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
 import { Table, TableSchema } from '../table/table.schema';
@@ -44,9 +46,13 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Shift.name, ShiftSchema),
   createAutoIncrementConfig(Table.name, TableSchema),
   createAutoIncrementConfig(Location.name, LocationSchema),
-  // Baristas only get service calls while no order is waiting.
+  // Baristas only get service calls while no order is waiting; the bar's
+  // "order ready" call closes once its ready orders are delivered.
   createAutoIncrementConfig(Order.name, OrderSchema),
+  { name: Kitchen.name, useFactory: () => KitchenSchema },
   { name: User.name, useFactory: () => UserSchema },
+  // Read-only: game names for the TV screen.
+  createAutoIncrementConfig(Game.name, GameSchema),
 ]);
 
 @Module({

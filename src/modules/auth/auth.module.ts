@@ -12,13 +12,12 @@ import { LocalStrategy } from './local.strategy';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-    }),
+    ConfigModule.forRoot({}),
     ActivityModule,
     UserModule,
     PassportModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule], 
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),

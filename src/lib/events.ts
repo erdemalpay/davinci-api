@@ -17,7 +17,9 @@ export const TABLE_GAMEPLAY_ADDED = 'table.gameplayAdded';
 export interface TableGameplayAddedEvent {
   location: number;
   date: string;
-  tableName: string;
+  // The table the game is explained at; for an activity table, the table
+  // picked for the gameplay, since the calls come from those tables.
+  tableName?: string;
   // Who explains the game.
   mentor: string;
 }

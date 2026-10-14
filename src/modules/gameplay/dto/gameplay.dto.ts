@@ -56,4 +56,9 @@ export class CreateGameplayDto {
   @IsOptional()
   @IsBoolean()
   isAutoEntry?: boolean;
+
+  // Activity tables: the table the game is explained at.
+  @IsOptional()
+  @IsString()
+  activityTableName?: string;
 }

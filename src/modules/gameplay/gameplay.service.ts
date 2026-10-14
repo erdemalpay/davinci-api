@@ -6,6 +6,7 @@ import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { Game } from '../game/game.schema';
 import { User } from '../user/user.schema';
+import { cafeToday } from 'src/utils/cafeTime';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import {
   GameplayQueryDto,
@@ -369,10 +370,8 @@ export class GameplayService {
     before?: string,
     location?: number,
   ) {
-    const endDate =
-      before !== '' && before !== undefined && before !== null
-        ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
-        : format(addDays(new Date(), 1), 'yyyy-MM-dd');
+    // Gameplay dates are "yyyy-MM-dd", so the last day is matched as is.
+    const endDate = before || cafeToday();
 
     const aggregationPipeline: PipelineStage[] = [
       {
@@ -411,10 +410,8 @@ export class GameplayService {
     before?: string,
     location?: number,
   ) {
-    const endDate =
-      before !== '' && before !== undefined && before !== null
-        ? format(addDays(new Date(before), 1), 'yyyy-MM-dd')
-        : format(addDays(new Date(), 1), 'yyyy-MM-dd');
+    // Gameplay dates are "yyyy-MM-dd", so the last day is matched as is.
+    const endDate = before || cafeToday();
 
     const aggregationPipeline: PipelineStage[] = [
       {

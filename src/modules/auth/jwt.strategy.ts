@@ -21,8 +21,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  // The user comes with its role. An unknown user is unauthorized; a
+  // database error is not (see JwtAuthGuard.handleRequest).
   async validate(payload: JwtPayload) {
-
-    return (await this.userService.findById(payload.username)).populate('role');
+    return (await this.userService.findById(payload.username)) ?? null;
   }
 }

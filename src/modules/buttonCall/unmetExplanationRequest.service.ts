@@ -3,13 +3,70 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
 import {
+  ButtonCallTypeEnum,
   CheckGameAvailabilityDto,
   GameAvailabilityStatus,
   CallReportQueryDto,
+  GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequest } from './schemas/unmetExplanationRequest.schema';
 import { cafeHour, cafeToday } from 'src/utils/cafeTime';
+
+// What a table did after it couldn't get its game explained and didn't wait
+// in line, judged by what it asked for in the next few minutes.
+export enum UnmetFollowUp {
+  OTHER_GAME = 'OTHER_GAME',
+  RECOMMENDATION = 'RECOMMENDATION',
+  LEFT = 'LEFT',
+}
+
+const FOLLOW_UP_WINDOW_MINUTES = 10;
+
+const minutesOf = (hour: string) => {
+  const [hours, minutes, seconds = 0] = hour.split(':').map(Number);
+  return hours * 60 + minutes + seconds / 60;
+};
+
+type TableAsk = {
+  date: string;
+  location: number;
+  tableName: string;
+  hour: string;
+  game?: number;
+  gmCallReason?: string;
+};
+
+// Another game (a call, or another request nobody could meet) or a
+// recommendation from the same table soon after; otherwise the table gave up.
+export function getUnmetFollowUp(
+  request: TableAsk,
+  laterAsks: TableAsk[],
+): UnmetFollowUp {
+  const start = minutesOf(request.hour);
+  const soonAfter = laterAsks.filter((ask) => {
+    if (
+      ask.date !== request.date ||
+      ask.location !== request.location ||
+      ask.tableName !== request.tableName
+    ) {
+      return false;
+    }
+    const minutes = minutesOf(ask.hour) - start;
+    return minutes >= 0 && minutes <= FOLLOW_UP_WINDOW_MINUTES;
+  });
+  if (soonAfter.some((ask) => ask.game && ask.game !== request.game)) {
+    return UnmetFollowUp.OTHER_GAME;
+  }
+  if (
+    soonAfter.some(
+      (ask) => ask.gmCallReason === GmCallReasonEnum.RECOMMENDATION,
+    )
+  ) {
+    return UnmetFollowUp.RECOMMENDATION;
+  }
+  return UnmetFollowUp.LEFT;
+}
 
 @Injectable()
 export class UnmetExplanationRequestService {
@@ -39,6 +96,7 @@ export class UnmetExplanationRequestService {
       const details = {
         status: availability.status,
         availableFrom: availability.availableFrom,
+        gmCallReason: dto.gmCallReason ?? GmCallReasonEnum.EXPLANATION,
       };
       // One record per table and game a day, even if the table checks again.
       // (No upsert: it would skip the auto-increment _id.)
@@ -93,6 +151,24 @@ export class UnmetExplanationRequestService {
           .lean()
       : [];
     const callById = new Map(calls.map((c) => [c._id, c]));
+
+    // The game master calls of the days with a table that didn't wait.
+    const notWaited = requests.filter((r) => !r.buttonCall);
+    const tableCalls = notWaited.length
+      ? await this.buttonCallModel
+          .find({
+            type: ButtonCallTypeEnum.GAMEMASTERCALL,
+            date: { $in: [...new Set(notWaited.map((r) => r.date))] },
+            location: { $in: [...new Set(notWaited.map((r) => r.location))] },
+          })
+          .select('date location tableName startHour game gmCallReason')
+          .lean()
+      : [];
+    const laterAsks: TableAsk[] = [
+      ...tableCalls.map((c) => ({ ...c, hour: c.startHour })),
+      ...requests,
+    ];
+
     return requests.map((request) => {
       const call = request.buttonCall
         ? callById.get(request.buttonCall)
@@ -102,6 +178,12 @@ export class UnmetExplanationRequestService {
         waited: Boolean(request.buttonCall),
         explainedBy: call?.assignedTo,
         callFinishHour: call?.finishHour,
+        ...(!request.buttonCall && {
+          followUp: getUnmetFollowUp(
+            request,
+            laterAsks.filter((ask) => ask !== request),
+          ),
+        }),
       };
     });
   }

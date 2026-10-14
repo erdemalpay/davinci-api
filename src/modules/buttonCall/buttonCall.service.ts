@@ -20,7 +20,12 @@ import { convertToHMS, convertToSeconds } from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import { LocationService } from '../location/location.service';
+import { Kitchen } from '../menu/kitchen.schema';
+import { OrderStatus } from '../order/order.dto';
+import { Order } from '../order/order.schema';
+import { TableTypes } from '../table/table.dto';
 import { Table } from '../table/table.schema';
+import { Game } from '../game/game.schema';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
@@ -37,6 +42,9 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
+// Kitchen ids are made from their names (usernamify).
+const BAR_KITCHEN_ID = 'bar';
+
 @Injectable()
 export class ButtonCallService {
   private readonly logger = new Logger(ButtonCallService.name);
@@ -52,6 +60,9 @@ export class ButtonCallService {
     private readonly buttonCallAssignmentService: ButtonCallAssignmentService,
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly unmetExplanationRequestService: UnmetExplanationRequestService,
+    @InjectModel(Game.name) private readonly gameModel: Model<Game>,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
+    @InjectModel(Kitchen.name) private readonly kitchenModel: Model<Kitchen>,
   ) {}
 
   private readonly buttonCallNeoIP: string = process.env.BUTTON_CALL_NEO_IP;
@@ -99,7 +110,8 @@ export class ButtonCallService {
       ) {
         if (
           createdButtonCall.game &&
-          createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION
+          (createdButtonCall.gmCallReason === GmCallReasonEnum.EXPLANATION ||
+            createdButtonCall.gmCallReason === GmCallReasonEnum.QUESTION)
         ) {
           await this.unmetExplanationRequestService
             .linkWaitingCall(createdButtonCall)
@@ -153,24 +165,71 @@ export class ButtonCallService {
     return closedButtonCall;
   }
 
-  async closeOrderCall(table: Table, user: User) {
-    const activeOrderCall = await this.buttonCallModel
-      .findOne({
-        tableName: table.name,
-        location: table.location,
-        type: ButtonCallTypeEnum.ORDERCALL,
-        finishHour: { $exists: false },
-      })
-      .sort({ createdAt: -1 });
+  // An order was taken: the table's service call is answered. An activity
+  // table gathers the orders of several tables, each order naming its own
+  // table; only the calls of the tables the orders were taken for close.
+  async closeOrderCall(
+    table: Table,
+    user: User,
+    activityTableNames: (string | undefined)[] = [],
+  ) {
+    const tableNames =
+      table.type === TableTypes.ACTIVITY
+        ? [...new Set(activityTableNames.filter(Boolean))]
+        : [table.name];
 
-    if (!activeOrderCall) {
+    const closedCalls: ButtonCall[] = [];
+    for (const tableName of tableNames) {
+      const activeOrderCall = await this.buttonCallModel
+        .findOne({
+          tableName,
+          location: table.location,
+          type: ButtonCallTypeEnum.ORDERCALL,
+          finishHour: { $exists: false },
+        })
+        .sort({ createdAt: -1 });
+      if (!activeOrderCall) {
+        continue;
+      }
+      await this.finishButtonCall(activeOrderCall, user, cafeHour());
+      this.freeAssignee(activeOrderCall);
+      closedCalls.push(activeOrderCall);
+    }
+    return closedCalls;
+  }
+
+  // An order was delivered: the bar's "order ready" call is answered once
+  // nothing the bar prepared today is left to take to the tables.
+  async closeOrderReadyCallIfDelivered(location: number, user: User) {
+    const openCall = await this.buttonCallModel.findOne({
+      location,
+      type: ButtonCallTypeEnum.ORDERREADYCALL,
+      finishHour: { $exists: false },
+    });
+    if (!openCall) {
       return null;
     }
-
-    await this.finishButtonCall(activeOrderCall, user, cafeHour());
-    this.freeAssignee(activeOrderCall);
-
-    return activeOrderCall;
+    const barKitchens = await this.kitchenModel
+      .find({ $or: [{ _id: BAR_KITCHEN_ID }, { name: /^\s*bar\s*$/i }] })
+      .select('_id')
+      .lean();
+    if (barKitchens.length === 0) {
+      this.logger.warn('No bar kitchen found; checking every kitchen');
+    }
+    const readyOrderLeft = await this.orderModel.exists({
+      location,
+      status: OrderStatus.READYTOSERVE,
+      createdAt: { $gte: cafeStartOfToday() },
+      ...(barKitchens.length > 0 && {
+        kitchen: { $in: barKitchens.map((k) => k._id) },
+      }),
+    });
+    if (readyOrderLeft) {
+      return null;
+    }
+    await this.finishButtonCall(openCall, user, cafeHour());
+    this.freeAssignee(openCall);
+    return openCall;
   }
 
   private async finishButtonCall(
@@ -324,10 +383,23 @@ export class ButtonCallService {
         location,
         finishHour: { $exists: false },
       })
-      .select('tableName type startHour assignedTo')
+      .select('tableName type startHour assignedTo game')
       .lean();
-    const firstNameById = await this.findFirstNames(
-      calls.map((c) => c.assignedTo),
+    const gameIds = [...new Set(calls.map((c) => c.game).filter(Boolean))];
+    const [firstNameById, games] = await Promise.all([
+      this.findFirstNames(calls.map((c) => c.assignedTo)),
+      gameIds.length
+        ? this.gameModel
+            .find({ _id: { $in: gameIds } })
+            .select('name')
+            .lean()
+        : [],
+    ]);
+    const gameNameById = new Map(
+      (games as { _id: number; name: string }[]).map((g) => [
+        Number(g._id),
+        g.name,
+      ]),
     );
     return calls.map((call) => ({
       _id: call._id,
@@ -337,6 +409,8 @@ export class ButtonCallService {
       ...(call.assignedTo && {
         assignedToName: firstNameById.get(call.assignedTo),
       }),
+      // The game the table asked about, if any.
+      ...(call.game && { gameName: gameNameById.get(Number(call.game)) }),
     }));
   }
   // First names only: what customers may see of who is coming.
@@ -501,6 +575,7 @@ export class ButtonCallService {
       type: string;
       explainerUnavailable?: boolean;
       assignedTo?: string;
+      gmCallReason?: string;
     };
 
     const activeToday = await this.buttonCallModel
@@ -511,6 +586,7 @@ export class ButtonCallService {
         type: 1,
         explainerUnavailable: 1,
         assignedTo: 1,
+        gmCallReason: 1,
       })
       .sort({ type: 1, createdAt: 1 })
       .lean<Row[]>()
@@ -527,6 +603,8 @@ export class ButtonCallService {
         explainerUnavailable?: boolean;
         // First name of whoever is coming to the table.
         assignedToName?: string;
+        // What the table's game master call is for.
+        gmCallReason?: string;
       }
     > = {};
     const ownCalls = activeToday.filter((d) => d.tableName === tableName);
@@ -554,6 +632,7 @@ export class ButtonCallService {
             callId: own._id,
             // Lets the table pick another game when nobody can explain it.
             ...(own.explainerUnavailable && { explainerUnavailable: true }),
+            ...(own.gmCallReason && { gmCallReason: own.gmCallReason }),
             ...(own.assignedTo && {
               assignedToName: firstNameById.get(own.assignedTo),
             }),
@@ -578,6 +657,9 @@ export class ButtonCallService {
   // reason) is answered, closed in the name of whoever explains the game.
   @OnEvent(TABLE_GAMEPLAY_ADDED)
   async closeCallOnGameplayAdded(event: TableGameplayAddedEvent) {
+    if (!event.tableName) {
+      return;
+    }
     try {
       const openCall = await this.buttonCallModel.exists({
         tableName: event.tableName,

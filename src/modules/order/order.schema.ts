@@ -129,6 +129,10 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   activityPlayer: string;
 
+  // Ordered "with the food": stays pending until the table's food is ready.
+  @Prop({ required: false, type: Boolean })
+  waitsForFood: boolean;
+
   @Prop({ required: true, type: Number })
   unitPrice: number;
 

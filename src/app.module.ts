@@ -29,11 +29,13 @@ import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { HepsiburadaModule } from './modules/hepsiburada/hepsiburada.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { InstagramModule } from './modules/instagram/instagram.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationModule } from './modules/location/location.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
+import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
 import { N11Module } from './modules/n11/n11.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -120,9 +122,11 @@ const modules = [
   ExpirationModule,
   GameplayTimeModule,
   MiddlemanModule,
+  StaffPerformanceModule,
   WebhookLogModule,
   ConcurrencyLogModule,
   IntegrationRequestLogModule,
+  InventoryModule,
 ];
 
 if (config.get('migrationEnabled')) {

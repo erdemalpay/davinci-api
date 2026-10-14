@@ -73,6 +73,12 @@ export class CheckGameAvailabilityDto {
   @IsNotEmpty()
   @IsNumber()
   readonly game: number;
+
+  // Explanation (default) or a question about the game.
+  @ApiProperty({ required: false, enum: GmCallReasonEnum })
+  @IsOptional()
+  @IsEnum(GmCallReasonEnum)
+  readonly gmCallReason?: GmCallReasonEnum;
 }
 
 export class ChangeGmCallRequestDto {
@@ -153,10 +159,20 @@ export enum ButtonCallTypeEnum {
   ORDERREADYCALL = 'ORDERREADYCALL',
 }
 
+// Calls handled by service staff: a table calling to order, and the bar
+// calling for ready orders to be taken to the tables.
+export const SERVICE_CALL_TYPES = [
+  ButtonCallTypeEnum.ORDERCALL,
+  ButtonCallTypeEnum.ORDERREADYCALL,
+];
+
+export const isServiceCallType = (type?: string) =>
+  SERVICE_CALL_TYPES.includes(type as ButtonCallTypeEnum);
+
 // Calls that are assigned to a person: game master calls and service calls.
 export const ASSIGNED_CALL_TYPES = [
   ButtonCallTypeEnum.GAMEMASTERCALL,
-  ButtonCallTypeEnum.ORDERCALL,
+  ...SERVICE_CALL_TYPES,
 ];
 
 export enum ButtonCallActionEnum {

@@ -85,7 +85,7 @@ describe('BreakService.create', () => {
     );
     expect(buttonCallModel.exists).toHaveBeenCalledWith({
       assignedTo: 'ali',
-      type: { $in: ['GAMEMASTERCALL', 'ORDERCALL'] },
+      type: { $in: ['GAMEMASTERCALL', 'ORDERCALL', 'ORDERREADYCALL'] },
       date: '2026-10-05',
       finishHour: { $exists: false },
     });
