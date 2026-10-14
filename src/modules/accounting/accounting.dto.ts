@@ -1,3 +1,10 @@
+import { Type } from 'class-transformer';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { CountListsProduct } from './countList.schema';
 import { BaseQuantityByLocation, ProductShelfInfo } from './product.schema';
 
@@ -120,11 +127,25 @@ export class CreateProductStockHistoryDto {
   user: string;
 }
 
+export class ConsumptStockInventoryDto {
+  @IsNumber()
+  location: number;
+
+  @IsOptional()
+  @IsString()
+  shortCode?: string;
+}
+
 export class ConsumptStockDto {
   product: string;
   location: number;
   quantity: number;
   status?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ConsumptStockInventoryDto)
+  inventory?: ConsumptStockInventoryDto;
 }
 
 export class CreateInvoiceDto {
