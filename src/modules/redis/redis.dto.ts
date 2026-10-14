@@ -30,7 +30,7 @@ export enum RedisKeys {
   QrLocation = 'qr-location',
   QrCode = 'qr-code',
   InstagramPosts = 'instagram-posts',
-  ScreenImages = 'screen-images',
+  ScreenImages = 'screen-images-ordered', // renamed so old cached { url } lists are not served
   MarketplaceReservedStocks = 'marketplace-reserved-stocks',
   MarketplaceReservedStocksInvalidatedAt = 'marketplace-reserved-stocks-invalidated-at',
   N11OrderSyncCursor = 'n11-order-sync-cursor',

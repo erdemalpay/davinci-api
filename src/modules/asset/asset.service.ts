@@ -15,11 +15,16 @@ import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { ScreenImageItemDto } from './asset.dto';
+import { ScreenImage } from './screen-image.schema';
 import { UploadLog } from './upload-log.schema';
 
 const api = cloudinary.v2;
 
+type ScreenImageResponse = { url: string; publicId: string; duration: number };
+
 const SCREEN_IMAGES_FOLDER = 'tv-screen';
+const DEFAULT_SCREEN_IMAGE_DURATION = 10; // seconds
 
 @Injectable()
 export class AssetService {
@@ -31,6 +36,8 @@ export class AssetService {
     private readonly menuService: MenuService,
     @InjectModel(UploadLog.name)
     private readonly uploadLogModel: Model<UploadLog>,
+    @InjectModel(ScreenImage.name)
+    private readonly screenImageModel: Model<ScreenImage>,
   ) {
     // Require the cloudinary library
 
@@ -145,8 +152,10 @@ export class AssetService {
     }
   }
 
-  private async getScreenImageUrls(): Promise<{ url: string }[]> {
-    const urls: { url: string }[] = [];
+  private async getScreenImageUrls(): Promise<
+    { url: string; publicId: string }[]
+  > {
+    const urls: { url: string; publicId: string }[] = [];
     let nextCursor: string | undefined;
 
     try {
@@ -158,7 +167,10 @@ export class AssetService {
           next_cursor: nextCursor,
         });
         urls.push(
-          ...result.resources.map(({ secure_url }) => ({ url: secure_url })),
+          ...result.resources.map(({ secure_url, public_id }) => ({
+            url: secure_url,
+            publicId: public_id,
+          })),
         );
         nextCursor = result.next_cursor;
       } while (nextCursor);
@@ -172,7 +184,29 @@ export class AssetService {
     }
   }
 
-  async getScreenImages(): Promise<{ url: string }[]> {
+  // Images without saved settings go to the end with the default duration.
+  private async getOrderedScreenImages(): Promise<ScreenImageResponse[]> {
+    const [images, settings] = await Promise.all([
+      this.getScreenImageUrls(),
+      this.screenImageModel.find().lean(),
+    ]);
+    const settingsByPublicId = new Map(
+      settings.map((setting) => [setting.publicId, setting]),
+    );
+    const orderOf = (publicId: string) =>
+      settingsByPublicId.get(publicId)?.order ?? Number.MAX_SAFE_INTEGER;
+
+    return [...images]
+      .sort((a, b) => orderOf(a.publicId) - orderOf(b.publicId))
+      .map((image) => ({
+        ...image,
+        duration:
+          settingsByPublicId.get(image.publicId)?.duration ??
+          DEFAULT_SCREEN_IMAGE_DURATION,
+      }));
+  }
+
+  async getScreenImages(): Promise<ScreenImageResponse[]> {
     try {
       const cachedImages = await this.redisService.get(RedisKeys.ScreenImages);
       if (cachedImages) {
@@ -182,15 +216,35 @@ export class AssetService {
       console.error('Failed to retrieve screen images from Redis:', error);
     }
 
-    const urls = await this.getScreenImageUrls();
+    const images = await this.getOrderedScreenImages();
 
     try {
-      await this.redisService.set(RedisKeys.ScreenImages, urls);
+      await this.redisService.set(RedisKeys.ScreenImages, images);
     } catch (error) {
       console.error('Failed to cache screen images in Redis:', error);
     }
 
-    return urls;
+    return images;
+  }
+
+  async updateScreenImages(images: ScreenImageItemDto[]) {
+    // publicIds are unique (validated in the DTO), so the writes are independent
+    await Promise.all(
+      images.map(async ({ publicId, duration }, order) => {
+        const updated = await this.screenImageModel.findOneAndUpdate(
+          { publicId },
+          { order, duration },
+        );
+        if (!updated) {
+          await this.screenImageModel.create({ publicId, order, duration });
+        }
+      }),
+    );
+    await this.screenImageModel.deleteMany({
+      publicId: { $nin: images.map(({ publicId }) => publicId) },
+    });
+    await this.websocketGateway.emitAssetChanged();
+    return this.getScreenImages();
   }
 
   uploadPopupImage = async (
@@ -243,6 +297,7 @@ export class AssetService {
 
       // Step 3: Delete the image using the public_id
       const result = await cloudinary.v2.uploader.destroy(publicId);
+      await this.screenImageModel.deleteOne({ publicId });
       this.websocketGateway.emitAssetChanged();
       return result;
     } catch (error) {
