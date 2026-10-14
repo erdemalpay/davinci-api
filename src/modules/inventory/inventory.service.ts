@@ -339,11 +339,21 @@ export class InventoryService {
     const linkable = games.filter(
       (game) => countByProduct.get(game.product) === 1,
     );
+    return this.withShortCodes(linkable);
+  }
+
+  // Ürün bağı aranmaz: tüketimsiz (elle) kutu eklemede tüm oyunlar seçilebilir.
+  async findGames() {
+    const games = await this.gameModel.find({}, { name: 1 }).lean();
+    return this.withShortCodes(games);
+  }
+
+  private async withShortCodes<T extends { _id: number }>(games: T[]) {
     const codes = await this.gameCodeModel
-      .find({ _id: { $in: linkable.map((game) => game._id) } })
+      .find({ _id: { $in: games.map((game) => game._id) } })
       .lean();
     const codeByGame = new Map(codes.map((code) => [code._id, code.shortCode]));
-    return linkable.map((game) => ({
+    return games.map((game) => ({
       ...game,
       shortCode: codeByGame.get(game._id),
     }));

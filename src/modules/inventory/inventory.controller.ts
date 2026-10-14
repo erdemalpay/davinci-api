@@ -61,6 +61,11 @@ export class InventoryController {
     return this.inventoryService.findMovements();
   }
 
+  @Get('/games')
+  findGames() {
+    return this.inventoryService.findGames();
+  }
+
   @Get('/linkable-games')
   findLinkableGames() {
     return this.inventoryService.findLinkableGames();

@@ -369,6 +369,28 @@ describe('findLinkableGames', () => {
   });
 });
 
+describe('findGames', () => {
+  it('ürün bağına bakmadan tüm oyunları, kısaltmasıyla döner', async () => {
+    const game = {
+      find: jest.fn().mockReturnValue(
+        leanOf([
+          { _id: 1, name: 'Catan' },
+          { _id: 2, name: 'Pixies' },
+        ]),
+      ),
+    };
+    const gameCode = {
+      find: jest.fn().mockReturnValue(leanOf([{ _id: 1, shortCode: 'CAT' }])),
+    };
+    const { service } = build({ game, gameCode });
+    expect(await service.findGames()).toEqual([
+      { _id: 1, name: 'Catan', shortCode: 'CAT' },
+      { _id: 2, name: 'Pixies', shortCode: undefined },
+    ]);
+    expect(game.find).toHaveBeenCalledWith({}, { name: 1 });
+  });
+});
+
 describe('validateConsumption', () => {
   const input = { product: 'catan', location: 4, shortCode: 'CAT' };
   const games = (value: any[]) => ({
