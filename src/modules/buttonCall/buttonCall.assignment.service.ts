@@ -99,8 +99,8 @@ function gameMasterCallRoleFilter(date: string) {
 const takesCallsOutsideOperation = (role: number, isServiceCall: boolean) =>
   isServiceCall ? role === RoleEnum.BARCHEF : role === RoleEnum.GAMEMANAGER;
 
-// Tables above 20 and event tables are upstairs.
-const UPSTAIRS_FROM_TABLE = 21;
+// Tables from 20 up and event tables are upstairs.
+const UPSTAIRS_FROM_TABLE = 20;
 const isUpstairsTableName = (tableName: string) =>
   (tableName.match(/\d+/g) ?? []).some((n) => Number(n) >= UPSTAIRS_FROM_TABLE);
 
@@ -832,7 +832,7 @@ export class ButtonCallAssignmentService {
     );
   }
 
-  // Tables above 20 and event tables are upstairs; a call without a table
+  // Tables from 20 up and event tables are upstairs; a call without a table
   // counts as upstairs, so no barista leaves the bar for it.
   private async isUpstairs(location: number, date: string, tableName?: string) {
     if (!tableName) return true;
