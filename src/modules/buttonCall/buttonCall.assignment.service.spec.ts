@@ -335,6 +335,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         '12:00:00',
         [],
         'ORDERCALL' as never,
+        '5',
       );
 
       expect(userModel.find).toHaveBeenCalledWith(
@@ -356,7 +357,8 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         gm: 1,
         gmanager: 2,
         barista: 3,
-        barchef: 4,
+        // Not running the bar today: works as a barista.
+        barchef: 3,
       });
     });
 
@@ -461,6 +463,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       '12:00:00',
       [],
       'ORDERCALL' as never,
+      '5',
     );
 
     expect(orderExists).toHaveBeenCalledWith(
