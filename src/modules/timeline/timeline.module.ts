@@ -33,7 +33,8 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Break.name, BreakSchema),
   createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
   createAutoIncrementConfig(Shift.name, ShiftSchema),
-  createAutoIncrementConfig(User.name, UserSchema),
+  // User ids are names, not numbers.
+  { name: User.name, useFactory: () => UserSchema },
 ]);
 
 @Module({
