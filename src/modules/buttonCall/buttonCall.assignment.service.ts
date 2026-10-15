@@ -22,6 +22,7 @@ import { Middleman } from '../middleman/middleman.schema';
 import { OrderStatus } from '../order/order.dto';
 import { Order } from '../order/order.schema';
 import { Shift } from '../shift/shift.schema';
+import { TableTypes } from '../table/table.dto';
 import { Table } from '../table/table.schema';
 import { RoleEnum } from '../user/user.dto';
 import { User } from '../user/user.schema';
@@ -56,14 +57,19 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
 // Who can get which call, in tiers (lower tiers are asked first).
 //
-// Game master calls: game masters, then the game manager, then the day's
-// service staff, then managers who opted in for the day, the middleman and
-// a game manager marked outside operation.
+// Game master calls: game masters, then the game manager, then managers
+// who opted in for the day, the middleman and a game manager marked outside
+// operation. A game master marked service staff for the day gets none.
 //
 // Service calls (a table calling to order, or the bar calling for ready
 // orders to be taken): service staff (service role or the GM marked service staff
-// for the day), then game masters, then the game manager, then baristas
-// (only while no order is waiting), then the bar chef. Never the middleman.
+// for the day), then game masters, then the game manager, then baristas,
+// then the bar chef running the bar. Never the middleman.
+//
+// A barista helps only when no order is being prepared, nobody is at a
+// table for a service call (they'll likely bring an order) and the table is
+// downstairs. The bar chef runs the bar only on days they are marked
+// outside operation; any other day they work as a barista.
 //
 // Nobody else marked outside operation for the day gets any call.
 const SERVICE_CALL_ROLES = [
@@ -87,30 +93,35 @@ function gameMasterCallRoleFilter(date: string) {
   };
 }
 
-// The one exception to "outside operation gets no call": a game manager may
-// still take game master calls, as the very last resort.
+// The exceptions to "outside operation gets no call": a game manager may
+// still take game master calls, and the bar chef (running the bar) service
+// calls, as the very last resort.
 const takesCallsOutsideOperation = (role: number, isServiceCall: boolean) =>
-  !isServiceCall && role === RoleEnum.GAMEMANAGER;
+  isServiceCall ? role === RoleEnum.BARCHEF : role === RoleEnum.GAMEMANAGER;
 
-function gmCallTier(
-  role: number,
-  isServiceStaff: boolean,
-  isLastResort: boolean,
-) {
-  if (role === RoleEnum.MANAGER || isLastResort) return 3;
+// Tables from 20 up and event tables are upstairs.
+const UPSTAIRS_FROM_TABLE = 20;
+const isUpstairsTableName = (tableName: string) =>
+  (tableName.match(/\d+/g) ?? []).some((n) => Number(n) >= UPSTAIRS_FROM_TABLE);
+
+function gmCallTier(role: number, isLastResort: boolean) {
+  if (role === RoleEnum.MANAGER || isLastResort) return 2;
   if (role === RoleEnum.GAMEMANAGER) return 1;
-  return isServiceStaff ? 2 : 0;
+  return 0;
 }
 
-function serviceCallTier(role: number, isServiceStaff: boolean) {
+function serviceCallTier(
+  role: number,
+  isServiceStaff: boolean,
+  actsAsBarista: boolean,
+) {
   if (isServiceStaff || role === RoleEnum.SERVICE) return 0;
+  if (actsAsBarista) return 3;
   switch (role) {
     case RoleEnum.GAMEMASTER:
       return 1;
     case RoleEnum.GAMEMANAGER:
       return 2;
-    case RoleEnum.BARISTA:
-      return 3;
     default:
       return 4;
   }
@@ -197,6 +208,7 @@ export class ButtonCallAssignmentService {
       hour,
       call.declinedBy ?? [],
       call.type as ButtonCallTypeEnum,
+      call.tableName,
     );
     const userId = pickAssigneeByTier(
       candidates,
@@ -626,6 +638,8 @@ export class ButtonCallAssignmentService {
     // (findScheduledStaff leaves them out too), except a game manager.
     const scheduled = findScheduledStaff(slots, hour, locationShifts);
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
+    // Service staff of the day take no game master calls.
+    const serviceStaff = new Set(findServiceStaff(slots));
     const knowers = await this.userModel
       .find({
         _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
@@ -644,10 +658,9 @@ export class ButtonCallAssignmentService {
         takesCallsOutsideOperation(roleById.get(id) ?? 0, false));
     const knowerIds = knowers
       .map((user) => user._id as string)
-      .filter((id) => !excludedUsers.includes(id));
+      .filter((id) => !excludedUsers.includes(id) && !serviceStaff.has(id));
 
-    // Someone in the cafe who knows the game is busy (service staff included:
-    // they take GM calls as a last resort once free).
+    // Someone in the cafe who knows the game is busy.
     if (knowerIds.some(isWorking)) {
       return { status: GameAvailabilityStatus.BUSY };
     }
@@ -692,6 +705,7 @@ export class ButtonCallAssignmentService {
     hour: string,
     excludedUsers: string[],
     callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
+    tableName?: string,
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
     const isServiceCall = isServiceCallType(callType);
@@ -720,14 +734,13 @@ export class ButtonCallAssignmentService {
           type: { $in: ASSIGNED_CALL_TYPES },
           assignedTo: { $exists: true },
         })
-        .select('assignedTo assignedHour finishHour')
+        .select('type assignedTo assignedHour finishHour')
         .lean(),
     ]);
 
     // Someone already handling a call gets no other call until it's closed.
-    const handlingCall = calls
-      .filter((c) => !c.finishHour)
-      .map((c) => c.assignedTo);
+    const openCalls = calls.filter((c) => !c.finishHour);
+    const handlingCall = openCalls.map((c) => c.assignedTo);
     // Service staff and outside operation are set for the whole day.
     const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
     const outsideOperation = new Set(
@@ -742,16 +755,28 @@ export class ButtonCallAssignmentService {
       ...handlingCall,
     ]);
 
-    // Baristas only help with service calls while the bar has no order
-    // waiting.
+    // Baristas, and the bar chef on a day they don't run the bar. Marked
+    // service staff for the day, they work as service staff instead.
+    const actsAsBarista = (userId: string, role: number) =>
+      !serviceStaff.has(userId) &&
+      (role === RoleEnum.BARISTA ||
+        (role === RoleEnum.BARCHEF && !outsideOperation.has(userId)));
     const baristasCanHelp =
       isServiceCall &&
-      users.some((user) => Number(user.role) === RoleEnum.BARISTA) &&
+      users.some((user) =>
+        actsAsBarista(user._id as string, Number(user.role)),
+      ) &&
+      !openCalls.some((c) => c.type === ButtonCallTypeEnum.ORDERCALL) &&
+      // The bar's own call for ready orders comes from downstairs.
+      (callType === ButtonCallTypeEnum.ORDERREADYCALL ||
+        !(await this.isUpstairs(location, date, tableName))) &&
       !(await this.hasWaitingOrders(location));
 
     return (
       users
         .filter((user) => !excluded.has(user._id))
+        // A game master working as service staff takes no game master calls.
+        .filter((user) => isServiceCall || !serviceStaff.has(user._id))
         // "Operasyon Dışı" take no calls, with the game manager exception.
         .filter(
           (user) =>
@@ -760,8 +785,7 @@ export class ButtonCallAssignmentService {
         )
         .filter(
           (user) =>
-            Number(user.role) !== RoleEnum.BARISTA ||
-            serviceStaff.has(user._id) ||
+            !actsAsBarista(user._id as string, Number(user.role)) ||
             baristasCanHelp,
         )
         .map((user) => {
@@ -792,15 +816,31 @@ export class ButtonCallAssignmentService {
             // role (only candidates for service calls).
             isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,
             tier: isServiceCall
-              ? serviceCallTier(role, isServiceStaff)
-              : gmCallTier(
+              ? serviceCallTier(
                   role,
                   isServiceStaff,
+                  actsAsBarista(userId, role),
+                )
+              : gmCallTier(
+                  role,
                   outsideOperation.has(userId) || middlemen.has(userId),
                 ),
           };
         })
     );
+  }
+
+  // Tables from 20 up and event tables are upstairs; a call without a table
+  // counts as upstairs, so no barista leaves the bar for it.
+  private async isUpstairs(location: number, date: string, tableName?: string) {
+    if (!tableName) return true;
+    if (isUpstairsTableName(tableName)) return true;
+    const table = await this.tableModel
+      .findOne({ name: tableName, location, date })
+      .sort({ _id: -1 })
+      .select('type')
+      .lean();
+    return table?.type === TableTypes.ACTIVITY;
   }
 
   // An order of today at the location still waiting for confirmation or

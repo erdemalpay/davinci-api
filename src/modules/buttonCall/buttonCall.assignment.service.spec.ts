@@ -107,7 +107,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     expect(candidates.map((c) => c.userId)).toEqual(['free']);
   });
 
-  it('keeps service staff of the current slot, flagged as last resort', async () => {
+  it("leaves the day's service staff out of game master calls", async () => {
     const { service } = build({
       visits: [visit('free'), visit('service')],
       users: [gm('free'), gm('service')],
@@ -120,10 +120,8 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       '12:00:00',
       [],
     );
-    const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
 
-    expect(byId.free.isServiceStaff).toBe(false);
-    expect(byId.service.isServiceStaff).toBe(true);
+    expect(candidates.map((c) => c.userId)).toEqual(['free']);
   });
 
   it('never considers people outside operation, not even as a last resort', async () => {
@@ -184,8 +182,8 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     );
     const byId = Object.fromEntries(candidates.map((c) => [c.userId, c]));
 
-    expect(Object.keys(byId).sort()).toEqual(['ceren', 'mert']);
-    expect(byId.ceren.isServiceStaff).toBe(true);
+    // Ceren is service staff today: no game master calls.
+    expect(Object.keys(byId)).toEqual(['mert']);
     expect(byId.mert.isServiceStaff).toBe(false);
   });
 
@@ -261,7 +259,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     const tiersOf = (candidates: { userId: string; tier?: number }[]) =>
       Object.fromEntries(candidates.map((c) => [c.userId, c.tier]));
 
-    it('game master calls: GMs, game manager, service staff, then managers and last resorts', async () => {
+    it('game master calls: GMs, game manager, then managers and last resorts; never service staff', async () => {
       const { service } = build({
         visits: [
           'gm',
@@ -298,13 +296,13 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         [],
       );
 
+      // The GM working as service staff today gets none.
       expect(tiersOf(candidates)).toEqual({
         gm: 0,
         gmanager: 1,
-        service: 2,
-        manager: 3,
-        middleman: 3,
-        outside: 3,
+        manager: 2,
+        middleman: 2,
+        outside: 2,
       });
     });
 
@@ -335,6 +333,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         '12:00:00',
         [],
         'ORDERCALL' as never,
+        '5',
       );
 
       expect(userModel.find).toHaveBeenCalledWith(
@@ -356,7 +355,8 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         gm: 1,
         gmanager: 2,
         barista: 3,
-        barchef: 4,
+        // Not running the bar today: works as a barista.
+        barchef: 3,
       });
     });
 
@@ -461,6 +461,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       '12:00:00',
       [],
       'ORDERCALL' as never,
+      '5',
     );
 
     expect(orderExists).toHaveBeenCalledWith(
