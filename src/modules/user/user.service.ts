@@ -489,7 +489,7 @@ export class UserService implements OnModuleInit {
     try {
       const minimalUsers = await this.userModel
         .find({ active: true })
-        .select('name _id role')
+        .select('name _id role isVisitDisabled')
         .populate('role')
         .exec();
 

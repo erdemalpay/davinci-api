@@ -75,6 +75,8 @@ export class VisitService {
   }
 
   async create(user: User, createVisitDto: CreateVisitDto) {
+    this.assertVisitEnabled(user);
+
     const visit = await this.visitModel.create({
       ...createVisitDto,
       user: user._id,
@@ -347,6 +349,8 @@ export class VisitService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    this.assertVisitEnabled(user);
+
     if (cafeVisitDto?.type === VisitTypes.ENTRY) {
       const lastVisit = await this.visitModel
         .findOne({
@@ -659,6 +663,8 @@ export class VisitService {
   }
 
   private async toggleVisit(user: User, location: number, source: VisitSource) {
+    this.assertVisitEnabled(user);
+
     const istanbulNow = moment.tz('Europe/Istanbul');
     const date = istanbulNow.format('YYYY-MM-DD');
     const hour = istanbulNow.format('HH:mm');
@@ -683,6 +689,12 @@ export class VisitService {
       visitStartSource: source,
     });
     return { action: 'entry' as const, visit };
+  }
+
+  private assertVisitEnabled(user: User) {
+    if (user.isVisitDisabled) {
+      throw new BadRequestException('Visit tracking is disabled for this user');
+    }
   }
 
   async notifyUnfinishedVisits() {
