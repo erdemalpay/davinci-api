@@ -57,9 +57,9 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
 // Who can get which call, in tiers (lower tiers are asked first).
 //
-// Game master calls: game masters, then the game manager, then the day's
-// service staff, then managers who opted in for the day, the middleman and
-// a game manager marked outside operation.
+// Game master calls: game masters, then the game manager, then managers
+// who opted in for the day, the middleman and a game manager marked outside
+// operation. A game master marked service staff for the day gets none.
 //
 // Service calls (a table calling to order, or the bar calling for ready
 // orders to be taken): service staff (service role or the GM marked service staff
@@ -104,14 +104,10 @@ const UPSTAIRS_FROM_TABLE = 20;
 const isUpstairsTableName = (tableName: string) =>
   (tableName.match(/\d+/g) ?? []).some((n) => Number(n) >= UPSTAIRS_FROM_TABLE);
 
-function gmCallTier(
-  role: number,
-  isServiceStaff: boolean,
-  isLastResort: boolean,
-) {
-  if (role === RoleEnum.MANAGER || isLastResort) return 3;
+function gmCallTier(role: number, isLastResort: boolean) {
+  if (role === RoleEnum.MANAGER || isLastResort) return 2;
   if (role === RoleEnum.GAMEMANAGER) return 1;
-  return isServiceStaff ? 2 : 0;
+  return 0;
 }
 
 function serviceCallTier(
@@ -642,6 +638,8 @@ export class ButtonCallAssignmentService {
     // (findScheduledStaff leaves them out too), except a game manager.
     const scheduled = findScheduledStaff(slots, hour, locationShifts);
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
+    // Service staff of the day take no game master calls.
+    const serviceStaff = new Set(findServiceStaff(slots));
     const knowers = await this.userModel
       .find({
         _id: { $in: [...checkInByUser.keys(), ...scheduled.keys()] },
@@ -660,10 +658,9 @@ export class ButtonCallAssignmentService {
         takesCallsOutsideOperation(roleById.get(id) ?? 0, false));
     const knowerIds = knowers
       .map((user) => user._id as string)
-      .filter((id) => !excludedUsers.includes(id));
+      .filter((id) => !excludedUsers.includes(id) && !serviceStaff.has(id));
 
-    // Someone in the cafe who knows the game is busy (service staff included:
-    // they take GM calls as a last resort once free).
+    // Someone in the cafe who knows the game is busy.
     if (knowerIds.some(isWorking)) {
       return { status: GameAvailabilityStatus.BUSY };
     }
@@ -778,6 +775,8 @@ export class ButtonCallAssignmentService {
     return (
       users
         .filter((user) => !excluded.has(user._id))
+        // A game master working as service staff takes no game master calls.
+        .filter((user) => isServiceCall || !serviceStaff.has(user._id))
         // "Operasyon Dışı" take no calls, with the game manager exception.
         .filter(
           (user) =>
@@ -824,7 +823,6 @@ export class ButtonCallAssignmentService {
                 )
               : gmCallTier(
                   role,
-                  isServiceStaff,
                   outsideOperation.has(userId) || middlemen.has(userId),
                 ),
           };
