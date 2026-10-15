@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
+import { CustomerPopupModule } from '../customer-popup/customer-popup.module';
 import { MenuModule } from './../menu/menu.module';
 import { AssetController } from './asset.controller';
 import { AssetService } from './asset.service';
@@ -20,6 +21,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     RedisModule,
     mongooseModule,
     forwardRef(() => MenuModule),
+    CustomerPopupModule,
   ],
   providers: [AssetService],
   exports: [AssetService],
