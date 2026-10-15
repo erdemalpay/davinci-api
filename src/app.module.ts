@@ -35,6 +35,7 @@ import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
+import { TimelineModule } from './modules/timeline/timeline.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
@@ -120,6 +121,7 @@ const modules = [
   GameplayTimeModule,
   MiddlemanModule,
   StaffPerformanceModule,
+  TimelineModule,
   WebhookLogModule,
   ConcurrencyLogModule,
   IntegrationRequestLogModule,
