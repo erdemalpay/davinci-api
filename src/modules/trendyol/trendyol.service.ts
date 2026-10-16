@@ -810,11 +810,16 @@ export class TrendyolService {
 
   /**
    * Trendyol ürün listesinde barcode / productMainId / stockCode ile eşleşen ürünü döner.
+   * Boş barkod hiçbir ürünle eşleşmez: menüde trendyolBarcode "" olarak kalan ürünler,
+   * Trendyol'da stockCode'u boş olan ilk ürünle (Hues and Cues) eşleşip onun stoğunu ezer.
    */
   private findTrendyolProductByBarcode(
     products: TrendyolInventoryProduct[],
     barcode: string,
   ): TrendyolInventoryProduct | undefined {
+    if (!barcode?.trim()) {
+      return undefined;
+    }
     return products.find(
       (p) =>
         p.productMainId === barcode ||
