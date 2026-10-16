@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import * as cloudinary from 'cloudinary';
 import { Model } from 'mongoose';
 import * as streamifier from 'streamifier';
+import { CustomerPopupService } from '../customer-popup/customer-popup.service';
 import { MenuService } from '../menu/menu.service';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
@@ -34,6 +35,7 @@ export class AssetService {
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => MenuService))
     private readonly menuService: MenuService,
+    private readonly customerPopupService: CustomerPopupService,
     @InjectModel(UploadLog.name)
     private readonly uploadLogModel: Model<UploadLog>,
     @InjectModel(ScreenImage.name)
@@ -206,7 +208,19 @@ export class AssetService {
       }));
   }
 
-  async getScreenImages(): Promise<ScreenImageResponse[]> {
+  // With a location (the TV), images of popups not shown there today are left out;
+  // without one (the panel), all images are returned so their settings stay editable.
+  async getScreenImages(locationId?: number): Promise<ScreenImageResponse[]> {
+    const images = await this.getAllScreenImages();
+    if (!locationId) {
+      return images;
+    }
+    const hiddenPublicIds =
+      await this.customerPopupService.findHiddenTvImagePublicIds(locationId);
+    return images.filter(({ publicId }) => !hiddenPublicIds.has(publicId));
+  }
+
+  private async getAllScreenImages(): Promise<ScreenImageResponse[]> {
     try {
       const cachedImages = await this.redisService.get(RedisKeys.ScreenImages);
       if (cachedImages) {

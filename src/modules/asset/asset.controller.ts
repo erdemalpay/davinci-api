@@ -29,8 +29,8 @@ export class AssetController {
 
   @Public()
   @Get('/screen-images')
-  getScreenImages() {
-    return this.assetService.getScreenImages();
+  getScreenImages(@Query('location') location?: string) {
+    return this.assetService.getScreenImages(Number(location) || undefined);
   }
 
   @Patch('/screen-images')
