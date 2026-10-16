@@ -29,6 +29,7 @@ import { GameplayTimeModule } from './modules/gameplaytime/gameplaytime.module';
 import { HepsiburadaModule } from './modules/hepsiburada/hepsiburada.module';
 import { IkasModule } from './modules/ikas/ikas.module';
 import { InstagramModule } from './modules/instagram/instagram.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationModule } from './modules/location/location.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MembershipModule } from './modules/membership/membership.module';
@@ -37,6 +38,8 @@ import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
+import { IdefixModule } from './modules/idefix/idefix.module';
+import { N11Module } from './modules/n11/n11.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { MigrationModule } from './modules/oldDbModules/migration/migration.module';
 import { OrderModule } from './modules/order/order.module';
@@ -84,6 +87,8 @@ const modules = [
   ShopifyModule,
   TrendyolModule,
   HepsiburadaModule,
+  N11Module,
+  IdefixModule,
   DbModule,
   ChecklistModule,
   GameModule,
@@ -125,6 +130,7 @@ const modules = [
   WebhookLogModule,
   ConcurrencyLogModule,
   IntegrationRequestLogModule,
+  InventoryModule,
 ];
 
 if (config.get('migrationEnabled')) {

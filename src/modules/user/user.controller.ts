@@ -15,6 +15,7 @@ import {
   CreateRoleDto,
   CreateUserDto,
   UpdateRoleDto,
+  UpdateFavoritePagesDto,
   UserResponse,
   VerifyGameLearningTaskDto,
 } from './user.dto';
@@ -32,6 +33,18 @@ export class UserController {
   @Get('/me')
   getProfile(@ReqUser() user: User) {
     return user;
+  }
+
+  @Patch('/me/favorite-pages')
+  @ApiResponse({ type: UserResponse })
+  updateFavoritePages(
+    @ReqUser() user: User,
+    @Body() updateFavoritePagesDto: UpdateFavoritePagesDto,
+  ) {
+    return this.userService.updateFavoritePages(
+      user,
+      updateFavoritePagesDto.favoritePages,
+    );
   }
 
   @Get('/setKnownGames')

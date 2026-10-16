@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -106,6 +107,14 @@ export class VerifyGameLearningTaskDto {
   @IsBoolean()
   @ApiProperty({ required: false, default: true })
   isVerified?: boolean;
+}
+
+export class UpdateFavoritePagesDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @ApiProperty({ type: [String], example: ['/menu', '/orders'] })
+  favoritePages: string[];
 }
 
 export class UserResponse {

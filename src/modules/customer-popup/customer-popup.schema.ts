@@ -28,6 +28,10 @@ export class CustomerPopup extends Document {
   @Prop({ required: false, type: String })
   buttonUrl: string;
 
+  // tv-screen image shown on the TV only while this popup is shown
+  @Prop({ required: false, type: String })
+  tvImagePublicId: string;
+
   @Prop({ required: true, type: Boolean, default: true })
   isActive: boolean;
 

@@ -255,6 +255,34 @@ export class CreateOrderDto {
   hepsiburadaLineItemSku?: string;
 
   @IsOptional()
+  @IsString()
+  n11OrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  n11ShipmentPackageId?: string;
+
+  @IsOptional()
+  @IsString()
+  n11LineItemId?: string;
+
+  @IsOptional()
+  @IsString()
+  n11ProductId?: string;
+
+  @IsOptional()
+  @IsString()
+  idefixOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  idefixShipmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  idefixLineItemId?: string;
+
+  @IsOptional()
   trendyolCustomer?: TrendyolCustomer;
 
   @IsOptional()
@@ -344,6 +372,22 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsString()
   hepsiburadaOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  n11OrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  n11ShipmentPackageId?: string;
+
+  @IsOptional()
+  @IsString()
+  idefixOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  idefixShipmentId?: string;
 
   @IsOptional()
   @IsString()
@@ -753,6 +797,22 @@ export class CancelTrendyolOrderDto {
 export class CancelHepsiburadaOrderDto {
   @IsString()
   hepsiburadaLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
+
+export class CancelN11OrderDto {
+  @IsString()
+  n11LineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
+
+export class CancelIdefixOrderDto {
+  @IsString()
+  idefixLineItemId: string;
 
   @IsNumber()
   quantity: number;

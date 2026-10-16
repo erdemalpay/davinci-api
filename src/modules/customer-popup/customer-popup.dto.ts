@@ -33,6 +33,10 @@ export class CreateCustomerPopupDto {
   })
   buttonUrl?: string;
 
+  @IsOptional()
+  @IsString()
+  tvImagePublicId?: string;
+
   @IsBoolean()
   isActive: boolean;
 

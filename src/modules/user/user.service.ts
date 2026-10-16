@@ -83,6 +83,16 @@ export class UserService implements OnModuleInit {
     return user;
   }
 
+  async updateFavoritePages(user: User, favoritePages: string[]) {
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      user._id,
+      { $set: { 'settings.favoritePages': favoritePages } },
+      { new: true },
+    );
+    this.websocketGateway.emitUserChanged();
+    return updatedUser;
+  }
+
   async updatePassword(user: User, oldPassword: string, newPassword: string) {
     const isValid = await this.validateCredentials(user._id, oldPassword);
     if (!isValid) {
@@ -479,7 +489,7 @@ export class UserService implements OnModuleInit {
     try {
       const minimalUsers = await this.userModel
         .find({ active: true })
-        .select('name _id role')
+        .select('name _id role isVisitDisabled')
         .populate('role')
         .exec();
 

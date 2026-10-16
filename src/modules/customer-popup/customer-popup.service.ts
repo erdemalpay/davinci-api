@@ -66,6 +66,25 @@ export class CustomerPopupService {
     });
   }
 
+  /**
+   * tv-screen images linked to a popup that is not shown today at this location.
+   * Deleted popups count as not shown, so their images do not start showing every day.
+   */
+  async findHiddenTvImagePublicIds(locationId: number): Promise<Set<string>> {
+    const [linkedPopups, activePopups] = await Promise.all([
+      this.customerPopupModel
+        .find({ tvImagePublicId: { $nin: [null, ''] } }, { tvImagePublicId: 1 })
+        .lean(),
+      this.findActive(locationId),
+    ]);
+    const shown = new Set(activePopups.map((popup) => popup.tvImagePublicId));
+    return new Set(
+      linkedPopups
+        .map((popup) => popup.tvImagePublicId)
+        .filter((publicId) => !shown.has(publicId)),
+    );
+  }
+
   async create(dto: CreateCustomerPopupDto) {
     const popup = await this.customerPopupModel.create(dto);
     this.websocketGateway.emitCustomerPopupChanged();

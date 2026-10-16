@@ -13,8 +13,14 @@ import { usernamify } from 'src/utils/usernamify';
 import { ActivityType } from '../activity/activity.dto';
 import { CheckoutService } from '../checkout/checkout.service';
 import { HepsiburadaService } from '../hepsiburada/hepsiburada.service';
+import { IdefixOrderService } from '../idefix/idefix-order.service';
+import { IdefixService } from '../idefix/idefix.service';
 import { IkasService } from '../ikas/ikas.service';
+import { InventoryBoxSource } from '../inventory/inventory.schema';
+import { InventoryService } from '../inventory/inventory.service';
 import { LocationService } from '../location/location.service';
+import { N11OrderService } from '../n11/n11-order.service';
+import { N11Service } from '../n11/n11.service';
 import {
   CreateNotificationDto,
   NotificationEventType,
@@ -153,6 +159,14 @@ export class AccountingService {
     private readonly trendyolService: TrendyolService,
     @Inject(forwardRef(() => HepsiburadaService))
     private readonly hepsiburadaService: HepsiburadaService,
+    @Inject(forwardRef(() => N11Service))
+    private readonly n11Service: N11Service,
+    @Inject(forwardRef(() => N11OrderService))
+    private readonly n11OrderService: N11OrderService,
+    @Inject(forwardRef(() => IdefixService))
+    private readonly idefixService: IdefixService,
+    @Inject(forwardRef(() => IdefixOrderService))
+    private readonly idefixOrderService: IdefixOrderService,
     private readonly redisService: RedisService,
     private readonly assetService: AssetService,
     @Inject(forwardRef(() => NotificationService))
@@ -165,6 +179,7 @@ export class AccountingService {
     private readonly backInStockService: BackInStockService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
+    private readonly inventoryService: InventoryService,
   ) {}
   //   Products
   async findAllProducts(user?: User) {
@@ -2299,6 +2314,8 @@ export class AccountingService {
     this.updateShopifyStock(productId, location, quantity);
     this.updateTrendyolStock(productId, location, quantity);
     this.updateHepsiburadaStock(productId, location, quantity);
+    void this.updateN11Stock(productId, location, quantity);
+    void this.updateIdefixStock(productId, location, quantity);
   }
 
   async updateHepsiburadaStock(
@@ -2333,6 +2350,55 @@ export class AccountingService {
           )}`,
         );
       }
+    }
+  }
+
+  async updateN11Stock(productId: string, location: number, quantity: number) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.n11StockCode) {
+        return;
+      }
+
+      // n11 için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      await this.n11Service.pushStock(menuItem.n11StockCode, quantity);
+    } catch (error) {
+      this.logger.error(
+        `[N11] Error updating n11 stock for product ${productId}, location ${location}: ${error?.message}`,
+      );
+    }
+  }
+
+  async updateIdefixStock(
+    productId: string,
+    location: number,
+    quantity: number,
+  ) {
+    try {
+      const menuItem = await this.menuService.findByMatchedProduct(productId);
+      if (!menuItem || !menuItem.idefixBarcode) {
+        return;
+      }
+
+      // idefix için sadece Online Store location'ı (6) geçerli
+      if (location !== 6) {
+        return;
+      }
+
+      // idefix stokla birlikte fiyat ister; fiyat menünün online fiyatıdır.
+      await this.idefixService.pushStock(
+        menuItem.idefixBarcode,
+        quantity,
+        menuItem.onlinePrice,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[IDEFIX] Error updating idefix stock for product ${productId}, location ${location}: ${error?.message}`,
+      );
     }
   }
 
@@ -2643,6 +2709,17 @@ export class AccountingService {
         createStockDto.location,
         Number(oldQuantity) + Number(createStockDto.quantity),
       );
+      // n11'e mutlak değer gönderiliyor; n11 kendi stoğunu düşürse de sonuç doğru
+      void this.updateN11Stock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
+      void this.updateIdefixStock(
+        createStockDto.product,
+        createStockDto.location,
+        Number(oldQuantity) + Number(createStockDto.quantity),
+      );
     } else {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
@@ -2752,6 +2829,16 @@ export class AccountingService {
         createStockDto.location,
         createStockDto.quantity,
       );
+      void this.updateN11Stock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
+      void this.updateIdefixStock(
+        createStockDto.product,
+        createStockDto.location,
+        createStockDto.quantity,
+      );
     }
     if (isEmit) {
       this.websocketGateway.emitStockChanged();
@@ -2790,6 +2877,16 @@ export class AccountingService {
     // Hepsiburada'ya final stok değerini direkt gönder
     // TO-DO STAGING-HEPSIBURADA'DA SİPARİŞ OLUŞTURDUĞUMDA HB'nin stoğunun düşmediğini gördüm o yüzden bunu koydum, canlıya çıkınca, sipariş oluşturulduğunda HB'de gerçekleşen stok değişimini tekrar incelememiz gerekiyor.
     this.updateHepsiburadaStock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
+    void this.updateN11Stock(
+      updates?.product,
+      updates?.location,
+      updates?.quantity,
+    );
+    void this.updateIdefixStock(
       updates?.product,
       updates?.location,
       updates?.quantity,
@@ -2938,6 +3035,8 @@ export class AccountingService {
       }
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(stock.product?._id, stock.location, 0);
+      void this.updateN11Stock(stock.product?._id, stock.location, 0);
+      void this.updateIdefixStock(stock.product?._id, stock.location, 0);
       this.activityService.addActivity(
         user,
         ActivityType.DELETE_STOCK,
@@ -2974,7 +3073,11 @@ export class AccountingService {
     this.websocketGateway.emitStockChanged();
   }
 
-  async consumptStock(user: User, consumptStockDto: ConsumptStockDto) {
+  async consumptStock(
+    user: User,
+    consumptStockDto: ConsumptStockDto,
+    onHistoryCreated?: (historyId: number) => void,
+  ) {
     const stock = await this.stockModel.findOne({
       product: consumptStockDto.product,
       location: consumptStockDto.location,
@@ -3089,7 +3192,7 @@ export class AccountingService {
         );
       }
       if (consumptStockDto.quantity !== 0) {
-        await this.createProductStockHistory(user, {
+        const history = await this.createProductStockHistory(user, {
           user: user._id,
           product: consumptStockDto.product,
           location: consumptStockDto.location,
@@ -3101,6 +3204,7 @@ export class AccountingService {
               ? Number(newStock.quantity) + Number(consumptStockDto.quantity)
               : stock.quantity,
         });
+        onHistoryCreated?.(history._id);
       }
       this.websocketGateway.emitStockChanged();
       // Activity logging - fire and forget (non-blocking)
@@ -3146,6 +3250,16 @@ export class AccountingService {
         stock.location,
         stock.quantity - consumptStockDto.quantity,
       );
+      void this.updateN11Stock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
+      void this.updateIdefixStock(
+        consumptStockDto.product,
+        stock.location,
+        stock.quantity - consumptStockDto.quantity,
+      );
       return stock;
     } else {
       const newStock = await this.createStock(user, {
@@ -3156,6 +3270,69 @@ export class AccountingService {
       });
       return newStock;
     }
+  }
+
+  // Doğrulama stok düşmeden yapılır; kutu üretimi başarısızsa tüketim geri alınır.
+  async consumptStockWithInventory(user: User, dto: ConsumptStockDto) {
+    const { inventory } = dto;
+    if (!Number.isInteger(dto.quantity) || dto.quantity < 1) {
+      throw new HttpException(
+        'Quantity must be a positive integer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const hasStock = await this.stockModel.exists({
+      product: dto.product,
+      location: dto.location,
+    });
+    if (!hasStock) {
+      throw new HttpException(
+        'Stock record not found for this product and location',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const game = await this.inventoryService.validateConsumption({
+      product: dto.product,
+      location: inventory.location,
+      shortCode: inventory.shortCode,
+    });
+    let historyId: number | undefined;
+    const stock = await this.consumptStock(
+      user,
+      { product: dto.product, location: dto.location, quantity: dto.quantity },
+      (id) => {
+        historyId = id;
+      },
+    );
+    if (historyId === undefined) {
+      throw new HttpException(
+        'Stock history could not be linked',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    try {
+      await this.inventoryService.createBoxes(user, {
+        game: game._id,
+        quantity: dto.quantity,
+        location: inventory.location,
+        source: InventoryBoxSource.CONSUMPTION,
+        shortCode: inventory.shortCode,
+        stockHistory: historyId,
+      });
+    } catch (error) {
+      try {
+        await this.updateProductStockHistory(user, String(historyId), {
+          status: StockHistoryStatusEnum.CONSUMPTIONCANCEL,
+        });
+      } catch (cancelError) {
+        this.logger.error(
+          `Failed to cancel consumption ${historyId} after inventory error:`,
+          cancelError,
+        );
+      }
+      throw error;
+    }
+    return stock;
   }
   // Product Stock History
   async findAllProductStockHistories(
@@ -3334,7 +3511,19 @@ export class AccountingService {
       };
     }
 
-    return results[0];
+    const { data, ...rest } = results[0];
+    const withBoxes = new Set(
+      await this.inventoryService.findStockHistoryIdsWithBoxes(
+        data.map((history) => history._id),
+      ),
+    );
+    return {
+      ...rest,
+      data: data.map((history) => ({
+        ...history,
+        hasInventory: withBoxes.has(history._id),
+      })),
+    };
   }
 
   async findAggregatedProductStockHistory(
@@ -3570,6 +3759,12 @@ export class AccountingService {
         StockHistoryStatusEnum.CONSUMPTION,
       ].includes(updates?.status)
     ) {
+      if (updates.status === StockHistoryStatusEnum.CONSUMPTIONCANCEL) {
+        await this.inventoryService.handleConsumptionCancel(
+          user,
+          productStockHistory._id,
+        );
+      }
       await this.createStock(user, {
         product: productStockHistory.product,
         location: productStockHistory.location,
@@ -4250,6 +4445,8 @@ export class AccountingService {
       this.shopifyService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.trendyolService.getReservedStocks(NEORAMA_DEPO_LOCATION),
       this.hepsiburadaService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.n11OrderService.getReservedStocks(NEORAMA_DEPO_LOCATION),
+      this.idefixOrderService.getReservedStocks(NEORAMA_DEPO_LOCATION),
     ])
       .then(async (channels) => {
         const byProduct: Record<string, ReservedStockDetail[]> = {};

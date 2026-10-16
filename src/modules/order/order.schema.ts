@@ -294,6 +294,30 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   hepsiburadaPackageNumber: string;
 
+  @Prop({ required: false, type: String })
+  n11OrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  n11ShipmentPackageId: string;
+
+  // Paket bölünürse n11 yeni orderLineId verir; tekrar oluşturmayı bu engeller.
+  @Prop({ required: false, type: String })
+  n11LineItemId: string;
+
+  // n11 iadesi satır numarası taşımaz; iade orderNumber + productId ile eşleşir.
+  @Prop({ required: false, type: String })
+  n11ProductId: string;
+
+  @Prop({ required: false, type: String })
+  idefixOrderNumber: string;
+
+  @Prop({ required: false, type: String })
+  idefixShipmentId: string;
+
+  // Sevkiyattaki kalem id'si; iade de bu id ile (orderLineId) gelir.
+  @Prop({ required: false, type: String })
+  idefixLineItemId: string;
+
   @Prop({ required: false, type: Number, ref: 'Retailer' })
   retailer?: number;
 
@@ -352,6 +376,32 @@ OrderSchema.index(
   {
     partialFilterExpression: { hepsiburadaPackageNumber: { $type: 'string' } },
   },
+);
+OrderSchema.index(
+  { n11LineItemId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { n11LineItemId: { $type: 'string' } },
+  },
+);
+OrderSchema.index(
+  { n11OrderNumber: 1 },
+  { partialFilterExpression: { n11OrderNumber: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { n11ShipmentPackageId: 1 },
+  { partialFilterExpression: { n11ShipmentPackageId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { idefixLineItemId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idefixLineItemId: { $type: 'string' } },
+  },
+);
+OrderSchema.index(
+  { idefixShipmentId: 1 },
+  { partialFilterExpression: { idefixShipmentId: { $type: 'string' } } },
 );
 OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });
 
