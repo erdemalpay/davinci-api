@@ -6,12 +6,18 @@ import { CAFE_TIME_ZONE, cafeHour, cafeToday } from 'src/utils/cafeTime';
 import {
   findServiceStaff,
   findOutsideOperationStaff,
+  isUpstairsTableName,
 } from '../buttonCall/buttonCall.assignment';
+import {
+  AssignmentActionEnum,
+  ButtonCallTypeEnum,
+  isServiceCallType,
+} from '../buttonCall/dto/create-buttonCall.dto';
 import { BreakTypeEnum } from '../break/break.dto';
 import { OrderStatus } from '../order/order.dto';
 import { TableTypes } from '../table/table.dto';
 import { RoleEnum } from '../user/user.dto';
-import { User } from '../user/user.schema';
+import { User, UserSettings } from '../user/user.schema';
 import { Break } from '../break/break.schema';
 import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
@@ -21,9 +27,15 @@ import { Collection } from '../order/collection.schema';
 import { Order } from '../order/order.schema';
 import { Shift } from '../shift/shift.schema';
 import { Table } from '../table/table.schema';
+import { UpstairsDuty } from '../upstairsDuty/upstairsDuty.schema';
 import { VisitStatus } from '../visit/visit.dto';
 import { Visit } from '../visit/visit.schema';
-import { TableTimeline, TimelineItem, UserTimeline } from './timeline.dto';
+import {
+  TableTimeline,
+  TimelineItem,
+  UserTimeline,
+  WaitingCall,
+} from './timeline.dto';
 import {
   computeLoad,
   LoadInput,
@@ -43,6 +55,7 @@ import {
   toTableCallItem,
   toUserCallItems,
 } from './timeline.utils';
+import { WaitingStaff, waitingSegments } from './timeline.waiting';
 
 const id = (ref: unknown) => ref as unknown as string;
 
@@ -74,6 +87,8 @@ export class TimelineService {
     private readonly middlemanModel: Model<Middleman>,
     @InjectModel(Shift.name) private readonly shiftModel: Model<Shift>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(UpstairsDuty.name)
+    private readonly upstairsDutyModel: Model<UpstairsDuty>,
   ) {}
 
   async findUserTimeline(user: string, date: string): Promise<UserTimeline> {
@@ -323,36 +338,229 @@ export class TimelineService {
   // tables and orders being prepared, and how many of the people who take
   // calls (game masters, the game manager, service staff) were free.
   async findLoad(location: number, date: string) {
-    const isToday = date === cafeToday();
-    const timestamps = cafeDayTimestamps(date);
-    const [
-      calls,
-      tables,
-      orders,
-      visits,
-      explanations,
-      breaks,
-      middlemen,
-      shift,
-    ] = await Promise.all([
-      this.buttonCallModel.find({ date, location }).lean(),
-      this.tableModel.find({ date, location }).lean(),
+    const [day, orders] = await Promise.all([
+      this.loadDay(location, date),
       this.orderModel
         .find({
           location,
-          createdAt: timestamps,
+          createdAt: cafeDayTimestamps(date),
           status: { $ne: OrderStatus.AUTOSERVED },
         })
         .select('createdAt preparedAt deliveredAt cancelledAt')
         .lean(),
-      this.visitModel
-        .find({ date, location, status: { $ne: VisitStatus.WRONG_ENTRY } })
-        .lean(),
-      this.gameplayTimeModel.find({ date, location }).lean(),
-      this.breakModel.find({ date, location }).lean(),
-      this.middlemanModel.find({ date, location }).lean(),
-      this.shiftModel.findOne({ day: date, location }).lean(),
     ]);
+    if (!day) return [];
+    const { span, now } = day;
+
+    const input: LoadInput = {
+      calls: day.calls.map((call) => ({
+        type: call.type,
+        span: span(call.startHour, call.finishHour),
+        unassigned: unassignedSpans(
+          call.startHour,
+          call.finishHour,
+          call.assignmentHistory ?? [],
+          now,
+        ),
+      })),
+      tables: day.tables
+        .filter(
+          (t) => t.type !== TableTypes.TAKEOUT && t.type !== TableTypes.ONLINE,
+        )
+        .map((t) => ({
+          span: span(t.startHour, t.finishHour),
+          playerCount: t.playerCount ?? 0,
+        })),
+      orders: orders
+        .map((o) => {
+          const done = o.preparedAt ?? o.deliveredAt ?? o.cancelledAt;
+          return {
+            start: cafeDaySeconds(toCafeHour(o.createdAt)),
+            end: done ? cafeDaySeconds(toCafeHour(done)) : now,
+          };
+        })
+        .filter((o) => o.end > o.start),
+      staff: [...day.takesCalls].map((user) => ({
+        inCafe: day.inCafeOf(user),
+        busy: day.busyOf(user),
+      })),
+    };
+    return computeLoad(input, 5 * 60, day.from, now);
+  }
+
+  // The calls that had nobody, one by one: how long, and why stretch by
+  // stretch (see waitingReasonAt). Rebuilt from the records, so with
+  // today's roles and known games.
+  async findWaitingCalls(
+    location: number,
+    date: string,
+  ): Promise<WaitingCall[]> {
+    const [day, duties, gameplays] = await Promise.all([
+      this.loadDay(location, date),
+      this.upstairsDutyModel.find({ location, date }).lean(),
+      this.gameplayModel
+        .find({ location, date })
+        .select('mentor game startHour finishHour')
+        .lean(),
+    ]);
+    if (!day) return [];
+    const { span, now } = day;
+
+    const isGameMasterCallRole = (role: number, settings?: UserSettings) =>
+      [RoleEnum.GAMEMASTER, RoleEnum.GAMEMANAGER].includes(role) ||
+      (role === RoleEnum.MANAGER &&
+        settings?.includeInGameAssignmentsDate === date);
+    // Like the assignment's candidates; baristas and the bar chef, who help
+    // only when the bar is quiet, are left out as on the day load.
+    const staffFor = (isServiceCall: boolean): WaitingStaff[] =>
+      day.users.map((u) => {
+        const user = u._id as string;
+        const role = Number(u.role);
+        const outside = day.outsideOperation.has(user);
+        const eligible = isServiceCall
+          ? !outside &&
+            ([
+              RoleEnum.SERVICE,
+              RoleEnum.GAMEMASTER,
+              RoleEnum.GAMEMANAGER,
+            ].includes(role) ||
+              day.serviceStaff.has(user))
+          : isGameMasterCallRole(role, u.settings) &&
+            !day.serviceStaff.has(user) &&
+            (!outside || role === RoleEnum.GAMEMANAGER);
+        return {
+          user,
+          inCafe: day.inCafeOf(user),
+          busy: day.busyOf(user),
+          eligible,
+          takesCalls: day.takesCalls.has(user),
+          knownGames: new Set((u.userGames ?? []).map((ug) => Number(ug.game))),
+        };
+      });
+    const staff = { service: staffFor(true), gameMaster: staffFor(false) };
+    const duty = duties.map((d) => ({
+      user: id(d.user),
+      span: span(d.startHour, d.finishHour),
+    }));
+    const gameplayById = new Map(
+      gameplays.map((g) => [g._id as unknown as number, g]),
+    );
+
+    // Anything that can change why a call waits (both staff lists have the
+    // same spans).
+    const declinesOf = (call: TimelineCall) =>
+      (call.assignmentHistory ?? [])
+        .filter((h) => h.action === AssignmentActionEnum.DECLINED)
+        .map((h) => ({ user: h.user, at: cafeDaySeconds(h.hour) }));
+    const boundaries = [
+      ...new Set(
+        [
+          ...staff.service.flatMap((p) => [
+            ...p.inCafe,
+            ...Object.values(p.busy).flat(),
+          ]),
+          ...duty.map((d) => d.span),
+          ...gameplays.map((g) => span(g.startHour, g.finishHour)),
+        ]
+          .flatMap((s) => [s.start, s.end])
+          .concat(day.calls.flatMap((c) => declinesOf(c).map((d) => d.at))),
+      ),
+    ].sort((a, b) => a - b);
+
+    const hourOf = (seconds: number) => {
+      const s = seconds % (24 * 3600);
+      return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+        .map((n) => String(n).padStart(2, '0'))
+        .join(':');
+    };
+
+    return day.calls
+      .map((call) => {
+        const start = cafeDaySeconds(call.startHour);
+        // The table the call came from: the latest opened by then.
+        const sameName = day.tables
+          .filter((t) => t.name === call.tableName)
+          .sort(
+            (a, b) => cafeDaySeconds(b.startHour) - cafeDaySeconds(a.startHour),
+          );
+        const table =
+          sameName.find((t) => cafeDaySeconds(t.startHour) <= start) ??
+          sameName[0];
+        const isServiceCall = isServiceCallType(call.type);
+        const segments = waitingSegments(
+          {
+            gmCallReason: call.gmCallReason,
+            game: call.game,
+            unassigned: unassignedSpans(
+              call.startHour,
+              call.finishHour,
+              call.assignmentHistory ?? [],
+              now,
+            ),
+            isUpstairs:
+              call.type !== ButtonCallTypeEnum.ORDERREADYCALL &&
+              (isUpstairsTableName(call.tableName) ||
+                table?.type === TableTypes.ACTIVITY),
+            declines: declinesOf(call),
+            tableGames: (table?.gameplays ?? []).flatMap((ref) => {
+              const g = gameplayById.get(ref as unknown as number);
+              return g
+                ? [
+                    {
+                      game: Number(g.game),
+                      mentor: id(g.mentor),
+                      span: span(g.startHour, g.finishHour),
+                    },
+                  ]
+                : [];
+            }),
+          },
+          isServiceCall ? staff.service : staff.gameMaster,
+          duty,
+          boundaries,
+        );
+        return {
+          callId: call._id,
+          callType: call.type,
+          gmCallReason: call.gmCallReason,
+          game: call.game,
+          tableName: call.tableName,
+          table: table?._id as unknown as number | undefined,
+          start: call.startHour,
+          end: call.finishHour,
+          assignedTo: call.assignedTo,
+          closedBy: call.cancelledBy,
+          waited: segments.reduce((sum, s) => sum + s.end - s.start, 0),
+          segments: segments.map((s) => ({
+            start: hourOf(s.start),
+            end: hourOf(s.end),
+            reason: s.reason,
+            free: s.free,
+          })),
+        };
+      })
+      .filter((call) => call.waited > 0)
+      .sort((a, b) => cafeDaySeconds(a.start) - cafeDaySeconds(b.start));
+  }
+
+  // What findLoad and findWaitingCalls read about a cafe day: its calls,
+  // tables and the people who take calls, with when each was in the cafe
+  // and busy. `from`–`now` is the part of the day shown. Null when nothing
+  // was recorded.
+  private async loadDay(location: number, date: string) {
+    const isToday = date === cafeToday();
+    const [calls, tables, visits, explanations, breaks, middlemen, shift] =
+      await Promise.all([
+        this.buttonCallModel.find({ date, location }).lean(),
+        this.tableModel.find({ date, location }).lean(),
+        this.visitModel
+          .find({ date, location, status: { $ne: VisitStatus.WRONG_ENTRY } })
+          .lean(),
+        this.gameplayTimeModel.find({ date, location }).lean(),
+        this.breakModel.find({ date, location }).lean(),
+        this.middlemanModel.find({ date, location }).lean(),
+        this.shiftModel.findOne({ day: date, location }).lean(),
+      ]);
 
     const starts = [
       ...tables.map((t) => cafeDaySeconds(t.startHour)),
@@ -364,13 +572,12 @@ export class TimelineService {
     ]
       .filter(Boolean)
       .map((h) => cafeDaySeconds(h as string));
-    if (starts.length === 0) return [];
+    if (starts.length === 0) return null;
     const HOUR = 3600;
     const from = Math.floor(Math.min(...starts) / HOUR) * HOUR;
     const now = isToday
       ? cafeDaySeconds(cafeHour())
       : Math.ceil(Math.max(...ends, ...starts) / HOUR) * HOUR;
-    const to = now;
     const span = (start: string, end?: string) => toSpan(start, end, now);
 
     const slots = shift?.shifts ?? [];
@@ -379,7 +586,7 @@ export class TimelineService {
     const visitors = [...new Set(visits.map((v) => id(v.user)))];
     const users = await this.userModel
       .find({ _id: { $in: visitors } })
-      .select('role')
+      .select('role userGames settings.includeInGameAssignmentsDate')
       .lean();
     const takesCalls = new Set(
       users
@@ -423,43 +630,24 @@ export class TimelineService {
       };
       return busy;
     };
+    const inCafeOf = (user: string) =>
+      visits
+        .filter((v) => id(v.user) === user)
+        .map((v) => span(v.startHour, v.finishHour));
 
-    const input: LoadInput = {
-      calls: assignedCalls.map((call) => ({
-        type: call.type,
-        span: span(call.startHour, call.finishHour),
-        unassigned: unassignedSpans(
-          call.startHour,
-          call.finishHour,
-          call.assignmentHistory ?? [],
-          now,
-        ),
-      })),
-      tables: tables
-        .filter(
-          (t) => t.type !== TableTypes.TAKEOUT && t.type !== TableTypes.ONLINE,
-        )
-        .map((t) => ({
-          span: span(t.startHour, t.finishHour),
-          playerCount: t.playerCount ?? 0,
-        })),
-      orders: orders
-        .map((o) => {
-          const done = o.preparedAt ?? o.deliveredAt ?? o.cancelledAt;
-          return {
-            start: cafeDaySeconds(toCafeHour(o.createdAt)),
-            end: done ? cafeDaySeconds(toCafeHour(done)) : now,
-          };
-        })
-        .filter((o) => o.end > o.start),
-      staff: [...takesCalls].map((user) => ({
-        inCafe: visits
-          .filter((v) => id(v.user) === user)
-          .map((v) => span(v.startHour, v.finishHour)),
-        busy: busyOf(user),
-      })),
+    return {
+      calls: assignedCalls,
+      tables,
+      users,
+      takesCalls,
+      serviceStaff,
+      outsideOperation,
+      busyOf,
+      inCafeOf,
+      span,
+      from,
+      now,
     };
-    return computeLoad(input, 5 * 60, from, to);
   }
 
   private async findTableNames(ids: number[]) {

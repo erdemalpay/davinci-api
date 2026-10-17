@@ -43,4 +43,10 @@ export class TimelineController {
     assertManager(user);
     return this.timelineService.findLoad(query.location, query.date);
   }
+
+  @Get('/waiting-calls')
+  findWaitingCalls(@ReqUser() user: User, @Query() query: LoadQueryDto) {
+    assertManager(user);
+    return this.timelineService.findWaitingCalls(query.location, query.date);
+  }
 }

@@ -44,6 +44,7 @@ export type TimelineCall = {
   startHour: string;
   finishHour?: string;
   cancelledBy?: string;
+  assignedTo?: string;
   gmCallReason?: string;
   game?: number;
   assignmentHistory?: {

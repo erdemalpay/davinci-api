@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsNumber, IsString, Matches } from 'class-validator';
+import { WaitingReason } from './timeline.waiting';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -136,4 +137,27 @@ export interface UserTimeline {
   user: string;
   date: string;
   items: TimelineItem[];
+}
+
+// A call that had nobody for a while, with why at each stretch.
+export interface WaitingCall {
+  callId: number;
+  callType: string;
+  gmCallReason?: string;
+  game?: number;
+  tableName: string;
+  table?: number;
+  start: string;
+  end?: string;
+  // Who had it last (none when it was closed without anyone).
+  assignedTo?: string;
+  closedBy?: string;
+  // Seconds without anyone, all stretches together.
+  waited: number;
+  segments: {
+    start: string;
+    end: string;
+    reason: WaitingReason;
+    free: string[];
+  }[];
 }

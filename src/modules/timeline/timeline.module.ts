@@ -16,6 +16,10 @@ import { Collection, CollectionSchema } from '../order/collection.schema';
 import { Order, OrderSchema } from '../order/order.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
 import { Table, TableSchema } from '../table/table.schema';
+import {
+  UpstairsDuty,
+  UpstairsDutySchema,
+} from '../upstairsDuty/upstairsDuty.schema';
 import { User, UserSchema } from '../user/user.schema';
 import { Visit, VisitSchema } from '../visit/visit.schema';
 import { TimelineController } from './timeline.controller';
@@ -33,6 +37,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   createAutoIncrementConfig(Break.name, BreakSchema),
   createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
   createAutoIncrementConfig(Shift.name, ShiftSchema),
+  createAutoIncrementConfig(UpstairsDuty.name, UpstairsDutySchema),
   // User ids are names, not numbers.
   { name: User.name, useFactory: () => UserSchema },
 ]);
