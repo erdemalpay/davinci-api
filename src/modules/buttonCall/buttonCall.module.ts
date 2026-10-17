@@ -18,6 +18,10 @@ import { Kitchen, KitchenSchema } from '../menu/kitchen.schema';
 import { Order, OrderSchema } from '../order/order.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
 import { Table, TableSchema } from '../table/table.schema';
+import {
+  UpstairsDuty,
+  UpstairsDutySchema,
+} from '../upstairsDuty/upstairsDuty.schema';
 import { User, UserSchema } from '../user/user.schema';
 import { Visit, VisitSchema } from '../visit/visit.schema';
 import { ButtonCallAssignmentService } from './buttonCall.assignment.service';
@@ -40,7 +44,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   // Read-only access for call assignment (who is available right now).
   createAutoIncrementConfig(Visit.name, VisitSchema),
   createAutoIncrementConfig(Break.name, BreakSchema),
+  // The middleman's automatic stand-in and the upstairs duty are started
+  // and ended here.
   createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
+  createAutoIncrementConfig(UpstairsDuty.name, UpstairsDutySchema),
   createAutoIncrementConfig(GameplayTime.name, GameplayTimeSchema),
   createAutoIncrementConfig(Gameplay.name, GameplaySchema),
   createAutoIncrementConfig(Shift.name, ShiftSchema),

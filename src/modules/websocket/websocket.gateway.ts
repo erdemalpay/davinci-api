@@ -77,6 +77,10 @@ export class AppWebSocketGateway {
     this.server.emit('middlemanChanged');
   }
 
+  emitUpstairsDutyChanged() {
+    this.server.emit('upstairsDutyChanged');
+  }
+
   emitGameplayTimeChanged() {
     this.server.emit('gameplayTimeChanged');
   }

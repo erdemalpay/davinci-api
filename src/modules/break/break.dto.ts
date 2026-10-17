@@ -17,7 +17,11 @@ export enum BreakTypeEnum {
   RECOMMENDING_GAME = 'RECOMMENDING_GAME',
   PREPARING_ORDER = 'PREPARING_ORDER',
   TAKING_PAYMENT = 'TAKING_PAYMENT',
+  // No longer offered; kept for past records.
   WC = 'WC',
+  WAREHOUSE = 'WAREHOUSE',
+  // Baristas only.
+  BAR_CLEANING = 'BAR_CLEANING',
   OTHER = 'OTHER',
 }
 
