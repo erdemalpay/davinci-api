@@ -194,11 +194,13 @@ export class BreakService {
           createBreakDto.date,
         ));
 
+      // Only "Other" keeps a note.
+      const { note, ...record } = createBreakDto;
       const breakRecord = await this.breakModel.create({
-        ...createBreakDto,
+        ...record,
         type: createBreakDto.type ?? BreakTypeEnum.BREAK,
         ...(createBreakDto.type === BreakTypeEnum.OTHER && {
-          note: createBreakDto.note?.trim(),
+          note: note?.trim(),
         }),
       });
       await tryAddActivity(
