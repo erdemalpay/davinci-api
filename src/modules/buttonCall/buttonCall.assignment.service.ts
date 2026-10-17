@@ -40,6 +40,7 @@ import {
   hourToSeconds,
   isUpstairsTableName,
   pickAssigneeByTier,
+  recentExplanationRate,
   toAssignmentEvents,
   upstairsDutyCanTake,
   upstairsDutyChange,
@@ -1127,6 +1128,11 @@ export class ButtonCallAssignmentService {
             ),
             lastActivity: Math.max(...activityHours.map(hourToSeconds)),
             gameplayCountToday: ownGameplays.length,
+            recentRate: recentExplanationRate(
+              ownGameplays.map((g) => g.startHour),
+              checkInByUser.get(userId)!,
+              hour,
+            ),
             // GM marked service staff for the day, or someone in the service
             // role (only candidates for service calls).
             isServiceStaff: isServiceStaff || role === RoleEnum.SERVICE,

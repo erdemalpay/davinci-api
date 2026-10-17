@@ -17,6 +17,8 @@ export interface AssignmentCandidate {
   // started, or call closed); the cafe check-in time when there is none yet.
   lastActivity: number;
   gameplayCountToday: number;
+  // Games explained per hour lately (see recentExplanationRate).
+  recentRate?: number;
   // Service staff ("Servis Elemanı") of the day, or the service role.
   isServiceStaff?: boolean;
   // Lower tiers are asked first; a higher tier only gets the call when
@@ -53,8 +55,49 @@ function compareCandidates(a: AssignmentCandidate, b: AssignmentCandidate) {
   );
 }
 
+// Someone who explained clearly fewer games lately (by this many per hour)
+// goes first; otherwise the longest without an action.
+export const RATE_GAP_PER_HOUR = 1;
+
 export function best(candidates: AssignmentCandidate[]) {
-  return [...candidates].sort(compareCandidates)[0];
+  const lowestRate = Math.min(...candidates.map((c) => c.recentRate ?? 0));
+  const behind = candidates.filter(
+    (c) => (c.recentRate ?? 0) < lowestRate + RATE_GAP_PER_HOUR,
+  );
+  return [...behind].sort(compareCandidates)[0];
+}
+
+// How much of the recent past counts: long enough to even out, short
+// enough that someone arriving in the evening isn't compared with the
+// whole morning.
+export const RATE_WINDOW_SECONDS = 3 * 3600;
+// The first hour in the cafe counts as a full hour, so a newcomer with no
+// explanation yet doesn't jump ahead of everyone.
+const RATE_MIN_PRESENCE_SECONDS = 3600;
+
+// Cafe days run past midnight: hours before 06:00 belong to the night.
+const cafeDaySeconds = (hour: string) => {
+  const seconds = hourToSeconds(hour);
+  return seconds < 6 * 3600 ? seconds + 24 * 3600 : seconds;
+};
+
+// Games explained per hour over the last 3 hours, or since check-in when
+// that is later.
+export function recentExplanationRate(
+  explanationStarts: string[],
+  checkIn: string,
+  now: string,
+): number {
+  const nowSeconds = cafeDaySeconds(now);
+  const from = Math.max(
+    nowSeconds - RATE_WINDOW_SECONDS,
+    cafeDaySeconds(checkIn),
+  );
+  const count = explanationStarts
+    .map(cafeDaySeconds)
+    .filter((s) => s >= from && s <= nowSeconds).length;
+  const hours = Math.max(nowSeconds - from, RATE_MIN_PRESENCE_SECONDS) / 3600;
+  return count / hours;
 }
 
 export function pickAssignee(
