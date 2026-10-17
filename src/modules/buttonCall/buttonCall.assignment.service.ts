@@ -153,6 +153,8 @@ const BUSY_STATE_FOR_DECLINE: Partial<
   [DeclineReasonEnum.BREAK]: BreakTypeEnum.BREAK,
   [DeclineReasonEnum.TAKING_PAYMENT]: BreakTypeEnum.TAKING_PAYMENT,
   [DeclineReasonEnum.WC]: BreakTypeEnum.WC,
+  [DeclineReasonEnum.WAREHOUSE]: BreakTypeEnum.WAREHOUSE,
+  [DeclineReasonEnum.BAR_CLEANING]: BreakTypeEnum.BAR_CLEANING,
   [DeclineReasonEnum.RECOMMENDING_GAME]: BreakTypeEnum.RECOMMENDING_GAME,
   [DeclineReasonEnum.PREPARING_ORDER]: BreakTypeEnum.PREPARING_ORDER,
   [DeclineReasonEnum.OTHER]: BreakTypeEnum.OTHER,
