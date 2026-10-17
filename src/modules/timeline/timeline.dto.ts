@@ -1,3 +1,4 @@
+import { AssignmentEvent } from '../buttonCall/buttonCall.assignment';
 import { Type } from 'class-transformer';
 import { IsNumber, IsString, Matches } from 'class-validator';
 import { WaitingReason } from './timeline.waiting';
@@ -160,4 +161,7 @@ export interface WaitingCall {
     reason: WaitingReason;
     free: string[];
   }[];
+  // Assignments, declines (with the reason picked) and take-overs, in
+  // order; for a take-over, who had it before.
+  events: AssignmentEvent[];
 }
