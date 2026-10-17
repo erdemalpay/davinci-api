@@ -1,5 +1,6 @@
 import {
   AssignmentActionEnum,
+  ButtonCallTypeEnum,
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
 
@@ -21,6 +22,7 @@ export interface AssignmentCandidate {
   // Lower tiers are asked first; a higher tier only gets the call when
   // nobody in the lower ones can take it. 0 by default.
   tier?: number;
+  role?: number;
 }
 
 export interface AssignmentRequest {
@@ -51,7 +53,7 @@ function compareCandidates(a: AssignmentCandidate, b: AssignmentCandidate) {
   );
 }
 
-function best(candidates: AssignmentCandidate[]) {
+export function best(candidates: AssignmentCandidate[]) {
   return [...candidates].sort(compareCandidates)[0];
 }
 
@@ -206,4 +208,60 @@ export function toAssignmentEvents(
       entry.action === AssignmentActionEnum.DECLINED ? undefined : entry.user;
     return event;
   });
+}
+
+// Tables from 20 up and event tables are upstairs.
+export const UPSTAIRS_FROM_TABLE = 20;
+export const isUpstairsTableName = (tableName: string) =>
+  (tableName.match(/\d+/g) ?? []).some((n) => Number(n) >= UPSTAIRS_FROM_TABLE);
+
+// "Üstçü" (upstairs duty): someone stays upstairs once more than 6
+// upstairs tables are open, and goes back to normal below 6. Only with more
+// than 2 game masters taking calls in the cafe.
+export const UPSTAIRS_DUTY_OPEN_ABOVE = 6;
+export const UPSTAIRS_DUTY_CLOSE_BELOW = 6;
+export const UPSTAIRS_DUTY_MIN_GAME_MASTERS = 3;
+
+export function upstairsDutyChange(state: {
+  upstairsTables: number;
+  gameMasters: number;
+  hasDuty: boolean;
+}): 'start' | 'end' | undefined {
+  const enoughGameMasters = state.gameMasters >= UPSTAIRS_DUTY_MIN_GAME_MASTERS;
+  if (state.hasDuty) {
+    return !enoughGameMasters ||
+      state.upstairsTables < UPSTAIRS_DUTY_CLOSE_BELOW
+      ? 'end'
+      : undefined;
+  }
+  return enoughGameMasters && state.upstairsTables > UPSTAIRS_DUTY_OPEN_ABOVE
+    ? 'start'
+    : undefined;
+}
+
+export interface OpenCallInfo {
+  type?: string;
+  gmCallReason?: string;
+}
+
+// Recommending or explaining a game takes the person away: nothing else
+// on top of it.
+const isLongGmCall = (call: OpenCallInfo) =>
+  call.type === ButtonCallTypeEnum.GAMEMASTERCALL &&
+  call.gmCallReason !== GmCallReasonEnum.QUESTION;
+
+// The upstairs duty may hold several calls: service calls on top of
+// service calls, and a rule question together with service calls. Never
+// two game master calls, and nothing with a recommendation or an
+// explanation.
+export function upstairsDutyCanTake(
+  openCalls: OpenCallInfo[],
+  call: OpenCallInfo,
+): boolean {
+  if (openCalls.length === 0) return true;
+  if (isLongGmCall(call) || openCalls.some(isLongGmCall)) return false;
+  if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
+    return !openCalls.some((c) => c.type === ButtonCallTypeEnum.GAMEMASTERCALL);
+  }
+  return true;
 }

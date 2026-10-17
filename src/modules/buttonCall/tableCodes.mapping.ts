@@ -1,4 +1,7 @@
-export const tableCodes: Record<string, { call_code: number; cancel_code: number }> = {
+export const tableCodes: Record<
+  string,
+  { call_code: number; cancel_code: number }
+> = {
   '1': { call_code: 15060466, cancel_code: 15060472 },
   '2': { call_code: 13513490, cancel_code: 13513496 },
   '3': { call_code: 13435954, cancel_code: 13435960 },

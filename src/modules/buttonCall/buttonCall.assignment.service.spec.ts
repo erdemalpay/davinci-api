@@ -53,6 +53,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       {
         exists: jest.fn(async () => (hasWaitingOrder ? { _id: 1 } : null)),
       } as never,
+      model([]) as never,
       { emit: jest.fn() } as never,
     );
     return { service, userModel };
@@ -259,7 +260,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
     const tiersOf = (candidates: { userId: string; tier?: number }[]) =>
       Object.fromEntries(candidates.map((c) => [c.userId, c.tier]));
 
-    it('game master calls: GMs, game manager, then managers and last resorts; never service staff', async () => {
+    it('game master calls: GMs, game manager, then managers and last resorts; never service staff or the middleman', async () => {
       const { service } = build({
         visits: [
           'gm',
@@ -296,12 +297,11 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
         [],
       );
 
-      // The GM working as service staff today gets none.
+      // The GM working as service staff today and the middleman get none.
       expect(tiersOf(candidates)).toEqual({
         gm: 0,
         gmanager: 1,
         manager: 2,
-        middleman: 2,
         outside: 2,
       });
     });
@@ -452,6 +452,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       { emitButtonCallChanged: jest.fn() } as never,
       model([]) as never,
       { exists: orderExists } as never,
+      model([]) as never,
       { emit: jest.fn() } as never,
     );
 
@@ -525,6 +526,7 @@ describe('ButtonCallAssignmentService.claim', () => {
       { emitButtonCallChanged: jest.fn() } as never,
       model([], null) as never,
       model([]) as never,
+      model([]) as never,
       { emit: jest.fn() } as never,
     );
     return { service, buttonCallModel };
@@ -570,6 +572,7 @@ describe('ButtonCallAssignmentService scheduling', () => {
       m(),
       { emitButtonCallChanged: jest.fn() } as never,
       model([], null) as never,
+      model([]) as never,
       model([]) as never,
       { emit: jest.fn() } as never,
     );
@@ -673,6 +676,7 @@ describe('ButtonCallAssignmentService.decline', () => {
       m(),
       websocketGateway as never,
       model([], null) as never,
+      model([]) as never,
       model([]) as never,
       eventEmitter as never,
     );
@@ -914,6 +918,7 @@ describe('ButtonCallAssignmentService questions', () => {
       tableModel as never,
       { emitButtonCallChanged: jest.fn() } as never,
       model([], null) as never,
+      model([]) as never,
       model([]) as never,
       { emit: jest.fn() } as never,
     );
