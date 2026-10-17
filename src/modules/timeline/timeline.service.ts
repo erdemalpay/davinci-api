@@ -7,6 +7,7 @@ import {
   findServiceStaff,
   findOutsideOperationStaff,
   isUpstairsTableName,
+  toAssignmentEvents,
 } from '../buttonCall/buttonCall.assignment';
 import {
   AssignmentActionEnum,
@@ -537,6 +538,7 @@ export class TimelineService {
             reason: s.reason,
             free: s.free,
           })),
+          events: toAssignmentEvents(call.assignmentHistory ?? []),
         };
       })
       .filter((call) => call.waited > 0)
@@ -605,6 +607,20 @@ export class TimelineService {
     const assignedCalls = (calls as unknown as TimelineCall[]).filter((c) =>
       isAssignedCall(c.type),
     );
+    // Breaks, explanations and middleman shifts store "HH:mm"; the record's
+    // own timestamps give the seconds when they fall in that minute, so a
+    // record ending at 19:11:50 doesn't look over at 19:11:00.
+    type Timed = {
+      startHour: string;
+      finishHour?: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+    const exactSpan = (r: Timed) =>
+      span(
+        withSeconds(r.startHour, r.createdAt),
+        withSeconds(r.finishHour, r.updatedAt),
+      );
     const busyOf = (user: string) => {
       const busy: Partial<Record<StaffBusyState, Span[]>> = {
         call: assignedCalls.flatMap((call) =>
@@ -614,19 +630,19 @@ export class TimelineService {
         ),
         explaining: explanations
           .filter((e) => id(e.user) === user)
-          .map((e) => span(e.startHour, e.finishHour)),
+          .map((e) => exactSpan(e as unknown as Timed)),
         middleman: middlemen
           .filter((m) => id(m.user) === user)
-          .map((m) => span(m.startHour, m.finishHour)),
+          .map((m) => exactSpan(m as unknown as Timed)),
         break: breaks
           .filter((b) => id(b.user) === user && b.type === BreakTypeEnum.BREAK)
-          .map((b) => span(b.startHour, b.finishHour)),
+          .map((b) => exactSpan(b as unknown as Timed)),
         otherBusy: breaks
           .filter(
             (b) =>
               id(b.user) === user && b.type && b.type !== BreakTypeEnum.BREAK,
           )
-          .map((b) => span(b.startHour, b.finishHour)),
+          .map((b) => exactSpan(b as unknown as Timed)),
       };
       return busy;
     };
@@ -678,4 +694,17 @@ export class TimelineService {
     }
     return byGameplay;
   }
+}
+
+// "19:11" and a timestamp at 19:11:50 (cafe time) -> "19:11:50"; the hour
+// as is when the timestamp is in another minute (e.g. edited later).
+export function withSeconds(hour: string, at?: Date): string;
+export function withSeconds(
+  hour: string | undefined,
+  at?: Date,
+): string | undefined;
+export function withSeconds(hour?: string, at?: Date) {
+  if (!hour || hour.length !== 5 || !at) return hour;
+  const exact = moment(at).tz(CAFE_TIME_ZONE).format('HH:mm:ss');
+  return exact.startsWith(hour) ? exact : hour;
 }
