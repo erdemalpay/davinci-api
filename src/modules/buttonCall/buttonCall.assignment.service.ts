@@ -554,6 +554,70 @@ export class ButtonCallAssignmentService {
     this.websocketGateway.emitUpstairsDutyChanged();
   }
 
+  // Someone who starts explaining a game can't go to another table: calls
+  // assigned to them for other tables go back to be assigned again (they
+  // may come back to them later). A call they took over themselves stays.
+  private async releaseCallsOfExplainers(date: string) {
+    const explaining = await this.gameplayTimeModel
+      .find({ date, finishHour: { $exists: false } })
+      .select('user table')
+      .lean();
+    if (explaining.length === 0) return;
+    const calls = await this.buttonCallModel
+      .find({
+        date,
+        type: { $in: ASSIGNED_CALL_TYPES },
+        finishHour: { $exists: false },
+        assignedTo: { $in: explaining.map((e) => String(e.user)) },
+      })
+      .select('assignedTo tableName assignmentHistory')
+      .lean();
+    for (const call of calls) {
+      const last = call.assignmentHistory?.[call.assignmentHistory.length - 1];
+      if (last?.action === AssignmentActionEnum.CLAIMED) continue;
+      const explanation = explaining.find(
+        (e) => String(e.user) === call.assignedTo,
+      );
+      const table =
+        explanation?.table !== undefined &&
+        (await this.tableModel
+          .findById(explanation.table)
+          .select('name tables')
+          .lean());
+      const sameTable =
+        !!table &&
+        !!call.tableName &&
+        (table.name === call.tableName ||
+          (table.tables ?? []).includes(call.tableName));
+      if (sameTable) continue;
+      const released = await this.buttonCallModel.findOneAndUpdate(
+        {
+          _id: call._id,
+          assignedTo: call.assignedTo,
+          finishHour: { $exists: false },
+        },
+        {
+          $unset: { assignedTo: '', assignedHour: '' },
+          $push: {
+            assignmentHistory: {
+              user: call.assignedTo,
+              action: AssignmentActionEnum.DECLINED,
+              hour: nowHour(),
+              reason: DeclineReasonEnum.STARTED_EXPLAINING,
+            },
+          },
+        },
+        { new: true },
+      );
+      if (released) {
+        this.websocketGateway.emitButtonCallChanged(
+          released,
+          ButtonCallActionEnum.ASSIGN,
+        );
+      }
+    }
+  }
+
   // Someone takes the upstairs duty over from whoever has it now. Only a
   // game master (or the game manager) in the cafe who isn't the middleman.
   async takeUpstairsDuty(user: User, location: number) {
@@ -835,6 +899,7 @@ export class ButtonCallAssignmentService {
     try {
       await this.handBackMiddlemen(today());
       await this.updateUpstairsDuties(today());
+      await this.releaseCallsOfExplainers(today());
     } catch (error) {
       this.logger.error('Failed to update middleman / upstairs duty', error);
     }
