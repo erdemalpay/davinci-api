@@ -33,6 +33,8 @@ export type LoadPoint = {
   preparingOrders: number;
   staffInCafe: number;
   freeStaff: number;
+  // Who is free and who is busy with what (user ids).
+  people: Partial<Record<'freeStaff' | StaffBusyState, string[]>>;
 } & Record<StaffBusyState, number>;
 
 export type LoadInput = {
@@ -40,7 +42,11 @@ export type LoadInput = {
   tables: { span: Span; playerCount: number }[];
   orders: Span[];
   // Per person who takes calls: when in the cafe, and when busy with what.
-  staff: { inCafe: Span[]; busy: Partial<Record<StaffBusyState, Span[]>> }[];
+  staff: {
+    user?: string;
+    inCafe: Span[];
+    busy: Partial<Record<StaffBusyState, Span[]>>;
+  }[];
 };
 
 const covers = (spans: Span[], t: number) =>
@@ -100,12 +106,16 @@ export function computeLoad(
     ) as Record<StaffBusyState, number>;
     let staffInCafe = 0;
     let freeStaff = 0;
+    const people: LoadPoint['people'] = {};
     for (const person of input.staff) {
       if (!covers(person.inCafe, t)) continue;
       staffInCafe += 1;
       const state = BUSY_STATES.find((s) => covers(person.busy[s] ?? [], t));
       if (state) busyCounts[state] += 1;
       else freeStaff += 1;
+      if (person.user) {
+        (people[state ?? 'freeStaff'] ??= []).push(person.user);
+      }
     }
     const seconds = t % (24 * 3600);
     points.push({
@@ -122,6 +132,7 @@ export function computeLoad(
       preparingOrders: input.orders.filter((o) => covers([o], t)).length,
       staffInCafe,
       freeStaff,
+      people,
       ...busyCounts,
     });
   }
