@@ -69,6 +69,9 @@ const cafeDayTimestamps = (date: string) => {
 
 // Read-only: what one person did through a day, and what happened at one
 // table while it was open, from the records the panel already keeps.
+// Day load points, one a minute (managers zoom into short stretches).
+const LOAD_STEP_SECONDS = 60;
+
 @Injectable()
 export class TimelineService {
   constructor(
@@ -335,7 +338,7 @@ export class TimelineService {
     };
   }
 
-  // How busy the cafe was through the day, every 5 minutes: open calls,
+  // How busy the cafe was through the day, every minute: open calls,
   // tables and orders being prepared, and how many of the people who take
   // calls (game masters, the game manager, service staff) were free.
   async findLoad(location: number, date: string) {
@@ -347,7 +350,7 @@ export class TimelineService {
           createdAt: cafeDayTimestamps(date),
           status: { $ne: OrderStatus.AUTOSERVED },
         })
-        .select('createdAt preparedAt deliveredAt cancelledAt')
+        .select('createdAt preparedAt deliveredAt cancelledAt status')
         .lean(),
     ]);
     if (!day) return [];
@@ -373,6 +376,16 @@ export class TimelineService {
           playerCount: t.playerCount ?? 0,
         })),
       orders: orders
+        // Without a done time only an order still waiting is being
+        // prepared; waste records and the like never were.
+        .filter(
+          (o) =>
+            o.preparedAt ||
+            o.deliveredAt ||
+            o.cancelledAt ||
+            o.status === OrderStatus.CONFIRMATIONREQ ||
+            o.status === OrderStatus.PENDING,
+        )
         .map((o) => {
           const done = o.preparedAt ?? o.deliveredAt ?? o.cancelledAt;
           return {
@@ -386,7 +399,7 @@ export class TimelineService {
         busy: day.busyOf(user),
       })),
     };
-    return computeLoad(input, 5 * 60, day.from, now);
+    return computeLoad(input, LOAD_STEP_SECONDS, day.from, now);
   }
 
   // The calls that had nobody, one by one: how long, and why stretch by

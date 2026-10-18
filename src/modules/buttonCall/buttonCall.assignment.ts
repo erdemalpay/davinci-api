@@ -3,6 +3,7 @@ import {
   ButtonCallTypeEnum,
   GmCallReasonEnum,
 } from './dto/create-buttonCall.dto';
+import { TableTypes } from '../table/table.dto';
 
 // Accepts both "HH:mm" (shifts) and "HH:mm:ss" (visits, calls).
 export function hourToSeconds(hour: string): number {
@@ -76,10 +77,10 @@ export const RATE_WINDOW_SECONDS = 3 * 3600;
 const RATE_MIN_PRESENCE_SECONDS = 3600;
 
 // Cafe days run past midnight: hours before 06:00 belong to the night.
-const cafeDaySeconds = (hour: string) => {
-  const seconds = hourToSeconds(hour);
-  return seconds < 6 * 3600 ? seconds + 24 * 3600 : seconds;
-};
+const toCafeDaySeconds = (seconds: number) =>
+  seconds < 6 * 3600 ? seconds + 24 * 3600 : seconds;
+export const cafeDaySeconds = (hour: string) =>
+  toCafeDaySeconds(hourToSeconds(hour));
 
 // Games explained per hour over the last 3 hours, or since check-in when
 // that is later.
@@ -181,8 +182,45 @@ function withBounds(slots: ShiftSlot[], locationShifts: LocationShiftHours[]) {
       slot,
       start: hourToSeconds(slot.shift),
       end: endHour ? hourToSeconds(endHour) : 24 * 3600,
+      hasEnd: !!endHour,
     };
   });
+}
+
+// When each person's shift ends (cafe-day seconds, so past midnight is
+// later); the latest end when they're in several slots. People in a slot
+// without a known end are left out.
+export function findShiftEnds(
+  slots: ShiftSlot[],
+  locationShifts: LocationShiftHours[] = [],
+): Map<string, number> {
+  const endByUser = new Map<string, number>();
+  for (const { slot, end, hasEnd } of withBounds(slots, locationShifts)) {
+    if (!hasEnd) continue;
+    const cafeEnd = toCafeDaySeconds(end);
+    for (const userId of slot.user ?? []) {
+      endByUser.set(userId, Math.max(endByUser.get(userId) ?? 0, cafeEnd));
+    }
+  }
+  return endByUser;
+}
+
+// Close to the end of their shift a game master gets no game explanation
+// (less than 10 minutes left) and no recommendation (less than 5); other
+// calls still come.
+const SHIFT_END_CUTOFF_SECONDS: Partial<Record<string, number>> = {
+  [GmCallReasonEnum.EXPLANATION]: 10 * 60,
+  [GmCallReasonEnum.RECOMMENDATION]: 5 * 60,
+};
+
+export function leavingTooSoonFor(
+  gmCallReason: string | undefined,
+  shiftEnd: number | undefined,
+  now: string,
+): boolean {
+  const cutoff = gmCallReason && SHIFT_END_CUTOFF_SECONDS[gmCallReason];
+  if (!cutoff || shiftEnd === undefined) return false;
+  return shiftEnd - cafeDaySeconds(now) < cutoff;
 }
 
 // Service staff ("Servis Elemanı", stored as chefUser) of the day. The role
@@ -257,6 +295,22 @@ export function toAssignmentEvents(
 export const UPSTAIRS_FROM_TABLE = 20;
 export const isUpstairsTableName = (tableName: string) =>
   (tableName.match(/\d+/g) ?? []).some((n) => Number(n) >= UPSTAIRS_FROM_TABLE);
+
+// How many upstairs tables an open table takes: an event table as many as
+// the tables it's set up on.
+export function upstairsTableCount(table: {
+  name: string;
+  type?: string;
+  tables?: string[];
+}): number {
+  if (table.type === TableTypes.ACTIVITY) {
+    return Math.max(1, (table.tables ?? []).filter((t) => t?.trim()).length);
+  }
+  return isUpstairsTableName(table.name) ? 1 : 0;
+}
+
+// The upstairs duty passes to another free game master every 2 hours.
+export const UPSTAIRS_DUTY_ROTATE_SECONDS = 2 * 3600;
 
 // "Üstçü" (upstairs duty): someone stays upstairs once more than 6
 // upstairs tables are open, and goes back to normal below 6. Only with more
