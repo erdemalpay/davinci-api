@@ -23,6 +23,7 @@ import {
   CreateButtonCallDto,
   DeclineButtonCallDto,
   CallReportQueryDto,
+  TakeUpstairsDutyDto,
 } from './dto/create-buttonCall.dto';
 import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
@@ -181,6 +182,15 @@ export class ButtonCallController {
     @Body() dto: DeclineButtonCallDto,
   ) {
     return this.buttonCallAssignmentService.decline(user, Number(id), dto);
+  }
+
+  // Someone takes the upstairs duty over, like the middleman role.
+  @Post('/upstairs-duty/take')
+  takeUpstairsDuty(@ReqUser() user: User, @Body() dto: TakeUpstairsDutyDto) {
+    return this.buttonCallAssignmentService.takeUpstairsDuty(
+      user,
+      Number(dto.location),
+    );
   }
 
   @ApiResponse({ type: ButtonCall })
