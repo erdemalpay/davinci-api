@@ -232,3 +232,9 @@ export class ButtonCallQueryDto {
   @IsString()
   search?: string;
 }
+
+export class TakeUpstairsDutyDto {
+  @ApiProperty()
+  @IsNumber()
+  readonly location: number;
+}

@@ -34,16 +34,21 @@ import {
   AssignmentCandidate,
   AssignmentRequest,
   best,
+  cafeDaySeconds,
   findOutsideOperationStaff,
   findScheduledStaff,
   findServiceStaff,
+  findShiftEnds,
   hourToSeconds,
   isUpstairsTableName,
+  leavingTooSoonFor,
   pickAssigneeByTier,
   recentExplanationRate,
   toAssignmentEvents,
+  UPSTAIRS_DUTY_ROTATE_SECONDS,
   upstairsDutyCanTake,
   upstairsDutyChange,
+  upstairsTableCount,
 } from './buttonCall.assignment';
 import {
   ASSIGNED_CALL_TYPES,
@@ -474,15 +479,16 @@ export class ButtonCallAssignmentService {
             finishHour: { $exists: false },
             type: { $nin: [TableTypes.TAKEOUT, TableTypes.ONLINE] },
           })
-          .select('name type')
+          .select('name type tables')
           .lean(),
         this.findCheckInByUser(location, date),
         this.findShiftSlots(location, date),
         this.findMiddlemanIds(date),
       ]);
-    const upstairsTables = tables.filter(
-      (t) => t.type === TableTypes.ACTIVITY || isUpstairsTableName(t.name),
-    ).length;
+    const upstairsTables = tables.reduce(
+      (n, t) => n + upstairsTableCount(t),
+      0,
+    );
     const serviceStaff = new Set(findServiceStaff(slots));
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
     const gameMasters = await this.userModel
@@ -517,12 +523,28 @@ export class ButtonCallAssignmentService {
       this.handleStaffAvailabilityChanged();
       return;
     }
-    if (change !== 'start') return;
-    // The free game master who has waited longest.
+    const rotate =
+      !!duty &&
+      cafeDaySeconds(nowHour()) - cafeDaySeconds(duty.startHour) >=
+        UPSTAIRS_DUTY_ROTATE_SECONDS;
+    if (change !== 'start' && !rotate) return;
+    // The free game master who has waited longest; on a rotation someone
+    // else than the one on duty, who stays on duty while nobody is free.
     const free = (
       await this.findCandidates(location, date, nowHour(), [])
-    ).filter((c) => gameMasterIds.includes(c.userId));
+    ).filter(
+      (c) =>
+        gameMasterIds.includes(c.userId) &&
+        (!duty || c.userId !== String(duty.user)),
+    );
     if (free.length === 0) return;
+    if (duty) {
+      const ended = await this.upstairsDutyModel.updateOne(
+        { _id: duty._id, finishHour: { $exists: false } },
+        { $set: { finishHour: cafeHour(false) } },
+      );
+      if (ended.modifiedCount === 0) return;
+    }
     await this.upstairsDutyModel.create({
       user: best(free).userId,
       location,
@@ -530,6 +552,58 @@ export class ButtonCallAssignmentService {
       startHour: cafeHour(false),
     });
     this.websocketGateway.emitUpstairsDutyChanged();
+  }
+
+  // Someone takes the upstairs duty over from whoever has it now. Only a
+  // game master (or the game manager) in the cafe who isn't the middleman.
+  async takeUpstairsDuty(user: User, location: number) {
+    const userId = String(user._id);
+    const role = Number(
+      (user.role as unknown as { _id?: number })?._id ?? user.role,
+    );
+    if (role !== RoleEnum.GAMEMASTER && role !== RoleEnum.GAMEMANAGER) {
+      throw new BadRequestException('Only game masters take upstairs duty');
+    }
+    const date = cafeToday();
+    const [duty, inCafe, middlemen] = await Promise.all([
+      this.upstairsDutyModel
+        .findOne({ location, date, finishHour: { $exists: false } })
+        .lean(),
+      this.visitModel.exists({
+        user: userId,
+        location,
+        date,
+        finishHour: { $exists: false },
+      }),
+      this.findMiddlemanIds(date),
+    ]);
+    if (!duty) {
+      throw new BadRequestException('There is no upstairs duty right now');
+    }
+    if (String(duty.user) === userId) return duty;
+    if (!inCafe) {
+      throw new BadRequestException('Check in to the cafe first');
+    }
+    if (middlemen.includes(userId)) {
+      throw new BadRequestException('The middleman cannot take upstairs duty');
+    }
+    const hour = cafeHour(false);
+    const ended = await this.upstairsDutyModel.updateOne(
+      { _id: duty._id, finishHour: { $exists: false } },
+      { $set: { finishHour: hour } },
+    );
+    if (ended.modifiedCount === 0) {
+      throw new BadRequestException('The upstairs duty just changed');
+    }
+    const taken = await this.upstairsDutyModel.create({
+      user: userId,
+      location,
+      date,
+      startHour: hour,
+    });
+    this.websocketGateway.emitUpstairsDutyChanged();
+    this.handleStaffAvailabilityChanged();
+    return taken;
   }
 
   async decline(
@@ -1061,6 +1135,7 @@ export class ButtonCallAssignmentService {
     const outsideOperation = new Set(
       findOutsideOperationStaff(shiftPlan.slots),
     );
+    const shiftEnds = findShiftEnds(shiftPlan.slots, shiftPlan.locationShifts);
     const excluded = new Set([
       ...busyNow.busy,
       // The middleman gets calls only through a stand-in (see assignNow).
@@ -1092,6 +1167,16 @@ export class ButtonCallAssignmentService {
         .filter((user) => !excluded.has(user._id))
         // A game master working as service staff takes no game master calls.
         .filter((user) => isServiceCall || !serviceStaff.has(user._id))
+        // Nobody starts a long game master call just before leaving.
+        .filter(
+          (user) =>
+            isServiceCall ||
+            !leavingTooSoonFor(
+              gmCallReason,
+              shiftEnds.get(user._id as string),
+              hour,
+            ),
+        )
         // "Operasyon Dışı" take no calls, with the game manager exception.
         .filter(
           (user) =>
