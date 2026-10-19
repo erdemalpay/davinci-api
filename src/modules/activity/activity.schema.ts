@@ -20,4 +20,7 @@ export class Activity<T extends keyof ActivityTypePayload> extends Document {
 
 export const ActivitySchema = SchemaFactory.createForClass(Activity);
 
+// Who learned or forgot a game.
+ActivitySchema.index({ type: 1, 'payload._id': 1 });
+
 purifySchema(ActivitySchema);
