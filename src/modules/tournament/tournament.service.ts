@@ -375,11 +375,15 @@ export class TournamentService {
       })),
     ]);
 
-    // İlk tur oluşunca kayıt kendiliğinden kapanır
+    // İlk tur oluşunca kayıt kendiliğinden kapanır; tur sayacı yeni tur için sıfırlanır
     await this.tournamentModel
       .findByIdAndUpdate(tournamentId, {
         status: TournamentStatus.ONGOING,
         isRegistrationOpen: false,
+        roundExtraMinutes: 0,
+        isRoundTimerStopped: false,
+        roundPausedAt: null,
+        roundPausedSeconds: 0,
       })
       .exec();
     this.websocketGateway.emitTournamentChanged();
