@@ -395,6 +395,7 @@ export class TimelineService {
         })
         .filter((o) => o.end > o.start),
       staff: [...day.takesCalls].map((user) => ({
+        user,
         inCafe: day.inCafeOf(user),
         busy: day.busyOf(user),
       })),

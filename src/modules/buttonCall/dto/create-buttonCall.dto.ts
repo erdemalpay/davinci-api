@@ -113,6 +113,9 @@ export enum DeclineReasonEnum {
   BAR_CLEANING = 'BAR_CLEANING',
   DOESNT_KNOW_GAME = 'DOESNT_KNOW_GAME',
   OTHER = 'OTHER',
+  // Set by the system: the assignee started explaining a game at another
+  // table, so the call went to someone else.
+  STARTED_EXPLAINING = 'STARTED_EXPLAINING',
 }
 
 export class DeclineButtonCallDto {
