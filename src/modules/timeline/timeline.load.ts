@@ -26,8 +26,11 @@ export type LoadPoint = {
   gmCalls: number;
   serviceCalls: number;
   orderReadyCalls: number;
-  // Open calls nobody has.
+  // Open calls nobody has, in all and by type.
   waitingCalls: number;
+  waitingGmCalls: number;
+  waitingServiceCalls: number;
+  waitingOrderReadyCalls: number;
   tables: number;
   customers: number;
   preparingOrders: number;
@@ -117,6 +120,7 @@ export function computeLoad(
         (people[state ?? 'freeStaff'] ??= []).push(person.user);
       }
     }
+    const waiting = openCalls.filter((c) => covers(c.unassigned, t));
     const seconds = t % (24 * 3600);
     points.push({
       hour: `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(
@@ -126,7 +130,11 @@ export function computeLoad(
       serviceCalls: openCalls.filter((c) => c.type === 'ORDERCALL').length,
       orderReadyCalls: openCalls.filter((c) => c.type === 'ORDERREADYCALL')
         .length,
-      waitingCalls: openCalls.filter((c) => covers(c.unassigned, t)).length,
+      waitingCalls: waiting.length,
+      waitingGmCalls: waiting.filter((c) => c.type === 'GAMEMASTERCALL').length,
+      waitingServiceCalls: waiting.filter((c) => c.type === 'ORDERCALL').length,
+      waitingOrderReadyCalls: waiting.filter((c) => c.type === 'ORDERREADYCALL')
+        .length,
       tables: openTables.length,
       customers: openTables.reduce((sum, tb) => sum + tb.playerCount, 0),
       preparingOrders: input.orders.filter((o) => covers([o], t)).length,
