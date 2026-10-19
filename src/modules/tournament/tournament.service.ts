@@ -20,10 +20,12 @@ import { Tournament, TournamentStatus } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
   CreateTournamentDto,
+  MoveParticipantDto,
   RegisterTournamentDto,
   ResolveTieDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
+  UpdateParticipantDto,
 } from './tournament.dto';
 import {
   applyTieBreak,
@@ -261,36 +263,95 @@ export class TournamentService {
     return participant;
   }
 
-  // Maç oynamışsa pasife alınır (geçmiş maçlar ve puan tablosu bozulmasın).
-  async removeParticipant(participantId: number) {
-    const participant = await this.participantModel
-      .findById(participantId)
+  // Geri alınan oyuncu, sonradan eklenen gibi sonraki turdan itibaren eşleşir
+  async updateParticipant(participantId: number, dto: UpdateParticipantDto) {
+    const participant = await this.findParticipant(participantId);
+    if (dto.isActive && !participant.isActive)
+      await this.assertCanAddParticipants(participant.tournamentId);
+    const updated = await this.participantModel
+      .findByIdAndUpdate(participantId, dto, { new: true })
       .exec();
-    if (!participant) throw new NotFoundException('Katılımcı bulunamadı');
+    this.websocketGateway.emitTournamentChanged();
+    return updated;
+  }
 
-    // Açık maçı varsa o gelir (isCompleted: false önce sıralanır); hiç maçı yoksa null
-    const match = await this.matchModel
-      .findOne(
-        {
+  // Maç oynamışsa pasife alınır (geçmiş maçlar ve puan tablosu bozulmasın);
+  // skoru girilmemiş bir masada oturuyorsa oradan da kalkar.
+  async removeParticipant(participantId: number) {
+    const participant = await this.findParticipant(participantId);
+    const [openMatch, hasPlayed] = await Promise.all([
+      this.findOpenMatch(participant),
+      this.matchModel
+        .exists({
           tournamentId: participant.tournamentId,
+          isCompleted: true,
           'players.participantId': participantId,
-        },
-        { isCompleted: 1 },
-        { sort: { isCompleted: 1 } },
-      )
-      .exec();
-    if (match && !match.isCompleted)
-      throw new BadRequestException(
-        'Katılımcı skoru girilmemiş bir maçta, önce maçı tamamlayın',
+        })
+        .exec(),
+    ]);
+    if (openMatch)
+      await this.saveSeats(
+        openMatch,
+        this.seatsWithout(openMatch, participantId),
       );
 
-    const result = match
+    const result = hasPlayed
       ? await this.participantModel
           .findByIdAndUpdate(participantId, { isActive: false }, { new: true })
           .exec()
       : await this.participantModel.findByIdAndDelete(participantId).exec();
     this.websocketGateway.emitTournamentChanged();
     return result;
+  }
+
+  // Aynı turun skoru girilmemiş iki masası arasında yer değiştirme ya da taşıma
+  async moveParticipant(participantId: number, dto: MoveParticipantDto) {
+    const participant = await this.findParticipant(participantId);
+    const [source, target, tournament] = await Promise.all([
+      this.findOpenMatch(participant),
+      this.findMatch(dto.matchId),
+      this.findTournament(participant.tournamentId),
+    ]);
+    if (
+      !source ||
+      target.isCompleted ||
+      target._id === source._id ||
+      target.tournamentId !== source.tournamentId ||
+      target.stage !== source.stage ||
+      target.round !== source.round
+    )
+      throw new BadRequestException(
+        'Sadece aynı turun skoru girilmemiş masaları arasında yer değiştirilebilir',
+      );
+
+    if (dto.swapWithId !== undefined) {
+      if (!target.players.some((p) => p.participantId === dto.swapWithId))
+        throw new BadRequestException(
+          'Yer değiştirilecek oyuncu bu masada değil',
+        );
+      const swap = (match: TournamentMatch, from: number, to: number) =>
+        match.players.map(({ participantId }) => ({
+          participantId: participantId === from ? to : participantId,
+        }));
+      await Promise.all([
+        this.saveSeats(source, swap(source, participantId, dto.swapWithId)),
+        this.saveSeats(target, swap(target, dto.swapWithId, participantId)),
+      ]);
+    } else {
+      const capacity =
+        target.stage === MatchStage.ELIMINATION
+          ? eliminationTableSize(tournament)
+          : tournament.tableSize;
+      if (target.players.length >= capacity)
+        throw new BadRequestException(
+          'Masa dolu; masadaki bir oyuncuyla yer değiştirin',
+        );
+      await Promise.all([
+        this.saveSeats(source, this.seatsWithout(source, participantId)),
+        this.saveSeats(target, [...target.players, { participantId }]),
+      ]);
+    }
+    this.websocketGateway.emitTournamentChanged();
   }
 
   // ─── Fikstür ─────────────────────────────────────────────────────────────────
@@ -388,6 +449,30 @@ export class TournamentService {
       .exec();
     this.websocketGateway.emitTournamentChanged();
     return created;
+  }
+
+  // Hiç skor girilmemiş son tur silinip kalan aktif oyuncularla yeniden kurulur
+  async regenerateRound(tournamentId: number) {
+    const matches = await this.matchModel.find({ tournamentId }).exec();
+    const stage = matches.some((m) => m.stage === MatchStage.ELIMINATION)
+      ? MatchStage.ELIMINATION
+      : MatchStage.LEAGUE;
+    const round = Math.max(
+      0,
+      ...matches.filter((m) => m.stage === stage).map((m) => m.round),
+    );
+    const latest = matches.filter(
+      (m) => m.stage === stage && m.round === round,
+    );
+    if (!latest.length)
+      throw new BadRequestException('Yeniden eşleştirilecek tur yok');
+    if (latest.some((m) => m.isCompleted && !m.isBye))
+      throw new BadRequestException('Skor girilmiş tur yeniden eşleştirilemez');
+
+    await this.matchModel
+      .deleteMany({ _id: { $in: latest.map((m) => m._id) } })
+      .exec();
+    return this.generateNextRound(tournamentId);
   }
 
   async submitScores(matchId: number, dto: SubmitScoresDto) {
@@ -567,6 +652,47 @@ export class TournamentService {
     const match = await this.matchModel.findById(matchId).exec();
     if (!match) throw new NotFoundException('Maç bulunamadı');
     return match;
+  }
+
+  private async findParticipant(participantId: number) {
+    const participant = await this.participantModel
+      .findById(participantId)
+      .exec();
+    if (!participant) throw new NotFoundException('Katılımcı bulunamadı');
+    return participant;
+  }
+
+  // Oyuncunun oturduğu skoru girilmemiş masa (varsa)
+  private findOpenMatch(participant: TournamentParticipant) {
+    return this.matchModel
+      .findOne({
+        tournamentId: participant.tournamentId,
+        isCompleted: false,
+        'players.participantId': participant._id,
+      })
+      .exec();
+  }
+
+  // Masadan kalkan oyuncudan sonra masada tek kişi kalmamalı; boşalan masa silinir
+  private seatsWithout(match: TournamentMatch, participantId: number) {
+    const players = match.players.filter(
+      (p) => p.participantId !== participantId,
+    );
+    if (players.length === 1)
+      throw new BadRequestException(
+        'Masada tek kişi kalıyor; önce masaya başka bir oyuncu taşıyın',
+      );
+    return players;
+  }
+
+  // Skoru girilmemiş masada oyuncuların sadece kimliği vardır
+  private saveSeats(
+    match: TournamentMatch,
+    players: { participantId: number }[],
+  ) {
+    return players.length
+      ? this.matchModel.findByIdAndUpdate(match._id, { players }).exec()
+      : this.matchModel.findByIdAndDelete(match._id).exec();
   }
 
   private isRegistrationOpen(tournament: Tournament) {
