@@ -646,6 +646,21 @@ describe('TournamentService.addParticipant', () => {
   });
 });
 
+describe('TournamentService.findLiveBySlug', () => {
+  it('katılımcıların sadece adını ve durumunu döner', async () => {
+    const { service, participantModel, matchModel } = createService();
+    const sorted = (value: unknown) => ({ sort: () => query(value) });
+    participantModel.find.mockReturnValue(
+      sorted([{ _id: 4, name: 'Ayşe', isActive: true, registrationId: 9 }]),
+    );
+    matchModel.find.mockReturnValue(sorted([]));
+    const live = await service.findLiveBySlug('catan');
+    expect(live.participants).toEqual([
+      { _id: 4, name: 'Ayşe', isActive: true },
+    ]);
+  });
+});
+
 describe('TournamentService.checkIn', () => {
   const registration = { _id: 5, tournamentId: 1, fullName: 'Ayşe Yılmaz' };
 

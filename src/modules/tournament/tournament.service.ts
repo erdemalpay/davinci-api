@@ -169,6 +169,25 @@ export class TournamentService {
     };
   }
 
+  // Oyuncuların telefondan takip ettiği sayfa; katılımcıların sadece adı gider
+  async findLiveBySlug(slug: string) {
+    const tournament = await this.findTournament({ slug });
+    const [participants, matches] = await Promise.all([
+      this.findParticipants(tournament._id),
+      this.findMatches(tournament._id),
+    ]);
+    return {
+      tournament,
+      participants: participants.map(({ _id, name, isActive }) => ({
+        _id,
+        name,
+        isActive,
+      })),
+      matches,
+      standings: this.rankParticipants(tournament, participants, matches),
+    };
+  }
+
   async register(slug: string, dto: RegisterTournamentDto) {
     const tournament = await this.findTournament({ slug });
     if (!this.isRegistrationOpen(tournament))
@@ -639,6 +658,15 @@ export class TournamentService {
       this.participantModel.find({ tournamentId }).exec(),
       this.matchModel.find({ tournamentId }).exec(),
     ]);
+    return this.rankParticipants(tournament, participants, matches);
+  }
+
+  // Takip sayfası zaten çektiği katılımcı ve maçlarla hesaplatır; tekrar sorgu atılmaz
+  private rankParticipants(
+    tournament: Tournament,
+    participants: TournamentParticipant[],
+    matches: TournamentMatch[],
+  ) {
     const names = new Map(participants.map((p) => [p._id, p.name]));
     const leagueMatches = matches.filter(
       (m) => m.stage === MatchStage.LEAGUE && m.isCompleted,
