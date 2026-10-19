@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { randomBytes } from 'crypto';
 import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
+import * as QRCode from 'qrcode';
 import { isMongoDuplicateKey } from 'src/utils/mongoErrors';
 import { generateUniqueSlug } from 'src/utils/uniqueSlug';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -19,6 +21,7 @@ import {
 import { Tournament, TournamentStatus } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
+  CheckInDto,
   CreateTournamentDto,
   MoveParticipantDto,
   RegisterTournamentDto,
@@ -177,6 +180,7 @@ export class TournamentService {
         phone: dto.phone.replace(/\s/g, ''),
         email: dto.email.toLowerCase(),
         tournamentId: tournament._id,
+        checkInCode: randomBytes(8).toString('hex'),
       });
       this.websocketGateway.emitTournamentChanged();
       // Beklenmez: mail gecikse ya da gitmese de başvuru yanıtı etkilenmez
@@ -184,7 +188,10 @@ export class TournamentService {
         tournament,
         registration,
       );
-      return { _id: registration._id };
+      return {
+        _id: registration._id,
+        checkInCode: registration.checkInCode,
+      };
     } catch (err) {
       if (isMongoDuplicateKey(err))
         throw new BadRequestException(
@@ -192,6 +199,12 @@ export class TournamentService {
         );
       throw err;
     }
+  }
+
+  // Kayıt mailindeki QR resmi; sadece gerçek bir başvurunun kodu için üretilir
+  async getCheckInQr(code: string) {
+    await this.findRegistrationByCode(code);
+    return QRCode.toBuffer(code, { width: 400, margin: 2 });
   }
 
   // ─── Başvurular ──────────────────────────────────────────────────────────────
@@ -250,6 +263,20 @@ export class TournamentService {
     );
     this.websocketGateway.emitTournamentChanged();
     return participants;
+  }
+
+  // Girişte okutulan QR'ın başvurusu katılımcı olur
+  async checkIn(tournamentId: number, dto: CheckInDto) {
+    const registration = await this.findRegistrationByCode(dto.code);
+    if (registration.tournamentId !== tournamentId)
+      throw new BadRequestException('Bu QR bu turnuvaya ait değil');
+    const existing = await this.participantModel
+      .exists({ tournamentId, registrationId: registration._id })
+      .exec();
+    if (existing)
+      throw new BadRequestException(`${registration.fullName} zaten katılımcı`);
+    await this.promoteRegistrations(tournamentId, [registration._id]);
+    return { fullName: registration.fullName };
   }
 
   async addParticipant(tournamentId: number, dto: AddParticipantDto) {
@@ -652,6 +679,14 @@ export class TournamentService {
     const match = await this.matchModel.findById(matchId).exec();
     if (!match) throw new NotFoundException('Maç bulunamadı');
     return match;
+  }
+
+  private async findRegistrationByCode(checkInCode: string) {
+    const registration = await this.registrationModel
+      .findOne({ checkInCode })
+      .exec();
+    if (!registration) throw new NotFoundException('QR bulunamadı');
+    return registration;
   }
 
   private async findParticipant(participantId: number) {

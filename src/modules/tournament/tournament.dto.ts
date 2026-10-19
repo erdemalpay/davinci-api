@@ -140,6 +140,11 @@ export class AddParticipantDto {
   name: string;
 }
 
+export class CheckInDto {
+  @IsString()
+  code: string;
+}
+
 export class UpdateParticipantDto {
   @IsOptional()
   @IsString()

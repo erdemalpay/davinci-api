@@ -307,6 +307,13 @@ export const mailTemplateParameterDefinitions: Record<
       false,
       'Optional publicly reachable logo image URL.',
     ),
+    definition(
+      'qrCodeUrl',
+      'Check-in QR URL',
+      'url',
+      false,
+      'Optional image URL of the QR shown at the entrance on tournament day.',
+    ),
   ],
 };
 
@@ -599,6 +606,14 @@ export const tournamentRegistrationTemplate = `
                             </table>
                         </td>
                     </tr>
+                    {{#if qrCodeUrl}}
+                    <tr>
+                        <td style="padding: 28px 40px 0; text-align: left;">
+                            <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Turnuva günü girişte bu QR kodu gösterin:</p>
+                            <img src="{{qrCodeUrl}}" alt="Giriş QR kodu" width="200" height="200" style="display: block; border: 0;">
+                        </td>
+                    </tr>
+                    {{/if}}
                     {{#if mapsUrl}}
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
