@@ -62,6 +62,8 @@ const createService = ({
     find: jest.fn().mockReturnValue(query(matches)),
     findById: jest.fn().mockReturnValue(query(match)),
     findByIdAndUpdate: jest.fn().mockReturnValue(query(match)),
+    findByIdAndDelete: jest.fn().mockReturnValue(query({})),
+    deleteMany: jest.fn().mockReturnValue(query({})),
     exists: jest.fn().mockReturnValue(query(exists)),
     findOne: jest.fn().mockReturnValue(query(blockingMatch)),
     countDocuments: jest.fn().mockReturnValue(query(tablesInRound)),
@@ -643,11 +645,17 @@ describe('TournamentService.addParticipant', () => {
 });
 
 describe('TournamentService.removeParticipant', () => {
+  const openTable = (...ids: number[]) => ({
+    _id: 9,
+    isCompleted: false,
+    players: ids.map((participantId) => ({ participantId })),
+  });
+
   it('maç oynamış katılımcıyı silmez, pasife alır', async () => {
-    const { service, participantModel, matchModel } = createService({
+    const { service, participantModel } = createService({
       participants: [{ _id: 4, tournamentId: 1 }],
+      exists: { _id: 1 }, // skoru girilmiş maçı var
     });
-    matchModel.findOne.mockReturnValueOnce(query({ isCompleted: true })); // maç oynamış
     await service.removeParticipant(4);
     expect(participantModel.findByIdAndUpdate).toHaveBeenCalledWith(
       4,
@@ -665,14 +673,156 @@ describe('TournamentService.removeParticipant', () => {
     expect(participantModel.findByIdAndDelete).toHaveBeenCalledWith(4);
   });
 
-  it('açık maçtaki katılımcıyı çıkarmaz', async () => {
+  it('skoru girilmemiş masadaysa masadan da kaldırır', async () => {
     const { service, matchModel } = createService({
       participants: [{ _id: 4, tournamentId: 1 }],
+      blockingMatch: openTable(4, 5, 6),
     });
-    matchModel.findOne.mockReturnValueOnce(query({ isCompleted: false }));
+    await service.removeParticipant(4);
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(9, {
+      players: [{ participantId: 5 }, { participantId: 6 }],
+    });
+  });
+
+  it('masada tek kişi kalacaksa reddeder', async () => {
+    const { service, participantModel } = createService({
+      participants: [{ _id: 4, tournamentId: 1 }],
+      blockingMatch: openTable(4, 5),
+    });
     await expect(service.removeParticipant(4)).rejects.toThrow(
-      'Katılımcı skoru girilmemiş bir maçta, önce maçı tamamlayın',
+      'Masada tek kişi kalıyor',
     );
+    expect(participantModel.findByIdAndDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('TournamentService.updateParticipant', () => {
+  it('adı değiştirir', async () => {
+    const { service, participantModel } = createService({
+      participants: [{ _id: 4, tournamentId: 1, isActive: true }],
+    });
+    await service.updateParticipant(4, { name: 'Deniz Kemal Şahin' });
+    expect(participantModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      4,
+      { name: 'Deniz Kemal Şahin' },
+      { new: true },
+    );
+  });
+
+  it('eleme başladıysa çekilen oyuncuyu geri almaz', async () => {
+    const { service } = createService({
+      participants: [{ _id: 4, tournamentId: 1, isActive: false }],
+      blockingMatch: { stage: MatchStage.ELIMINATION, isCompleted: true },
+    });
+    await expect(
+      service.updateParticipant(4, { isActive: true }),
+    ).rejects.toThrow('Eleme başladıktan sonra katılımcı eklenemez');
+  });
+});
+
+describe('TournamentService.moveParticipant', () => {
+  const table = (_id: number, ids: number[], extra = {}) => ({
+    _id,
+    tournamentId: 1,
+    stage: MatchStage.LEAGUE,
+    round: 1,
+    isCompleted: false,
+    players: ids.map((participantId) => ({ participantId })),
+    ...extra,
+  });
+  const setup = (target: unknown) =>
+    createService({
+      participants: [{ _id: 1, tournamentId: 1 }],
+      blockingMatch: table(10, [1, 2, 3]),
+      match: target,
+    });
+
+  it('iki masadaki oyuncuların yerini değiştirir', async () => {
+    const { service, matchModel } = setup(table(11, [4, 5, 6]));
+    await service.moveParticipant(1, { matchId: 11, swapWithId: 5 });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(10, {
+      players: [
+        { participantId: 5 },
+        { participantId: 2 },
+        { participantId: 3 },
+      ],
+    });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(11, {
+      players: [
+        { participantId: 4 },
+        { participantId: 1 },
+        { participantId: 6 },
+      ],
+    });
+  });
+
+  it('boş yeri olan masaya taşır', async () => {
+    const { service, matchModel } = setup(table(11, [4, 5]));
+    await service.moveParticipant(1, { matchId: 11 });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(10, {
+      players: [{ participantId: 2 }, { participantId: 3 }],
+    });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(11, {
+      players: [
+        { participantId: 4 },
+        { participantId: 5 },
+        { participantId: 1 },
+      ],
+    });
+  });
+
+  it('dolu masaya taşımaz', async () => {
+    const { service } = setup(table(11, [4, 5, 6]));
+    await expect(service.moveParticipant(1, { matchId: 11 })).rejects.toThrow(
+      'Masa dolu',
+    );
+  });
+
+  it('skoru girilmiş masaya dokunmaz', async () => {
+    const { service } = setup(table(11, [4, 5], { isCompleted: true }));
+    await expect(
+      service.moveParticipant(1, { matchId: 11, swapWithId: 4 }),
+    ).rejects.toThrow('skoru girilmemiş masaları arasında');
+  });
+});
+
+describe('TournamentService.regenerateRound', () => {
+  const leagueMatch = (round: number, extra = {}) => ({
+    _id: round * 10,
+    stage: MatchStage.LEAGUE,
+    round,
+    isBye: false,
+    isCompleted: false,
+    players: [],
+    ...extra,
+  });
+
+  it('skor girilmiş turu yeniden eşleştirmez', async () => {
+    const { service, matchModel } = createService({
+      matches: [leagueMatch(1, { isCompleted: true })],
+    });
+    await expect(service.regenerateRound(1)).rejects.toThrow(
+      'Skor girilmiş tur yeniden eşleştirilemez',
+    );
+    expect(matchModel.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('bay dışında skor yoksa son turu silip yeniden kurar', async () => {
+    const { service, matchModel } = createService({
+      matches: [
+        leagueMatch(1, { isCompleted: true }),
+        leagueMatch(2),
+        leagueMatch(2, { _id: 21, isBye: true, isCompleted: true }),
+      ],
+    });
+    const generate = jest
+      .spyOn(service, 'generateNextRound')
+      .mockResolvedValue([]);
+    await service.regenerateRound(1);
+    expect(matchModel.deleteMany).toHaveBeenCalledWith({
+      _id: { $in: [20, 21] },
+    });
+    expect(generate).toHaveBeenCalledWith(1);
   });
 });
 

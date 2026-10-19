@@ -17,11 +17,13 @@ import { Tournament } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
   CreateTournamentDto,
+  MoveParticipantDto,
   PromoteRegistrationsDto,
   RegisterTournamentDto,
   ResolveTieDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
+  UpdateParticipantDto,
 } from './tournament.dto';
 import { TournamentService } from './tournament.service';
 
@@ -106,6 +108,22 @@ export class TournamentController {
     return this.tournamentService.addParticipant(id, dto);
   }
 
+  @Patch('/participants/:participantId')
+  updateParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: UpdateParticipantDto,
+  ) {
+    return this.tournamentService.updateParticipant(participantId, dto);
+  }
+
+  @Patch('/participants/:participantId/seat')
+  moveParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: MoveParticipantDto,
+  ) {
+    return this.tournamentService.moveParticipant(participantId, dto);
+  }
+
   @Delete('/participants/:participantId')
   removeParticipant(@Param('participantId') participantId: number) {
     return this.tournamentService.removeParticipant(participantId);
@@ -127,6 +145,16 @@ export class TournamentController {
   })
   generateNextRound(@Param('id') id: number) {
     return this.tournamentService.generateNextRound(id);
+  }
+
+  @Post('/:id/rounds/regenerate')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  regenerateRound(@Param('id') id: number) {
+    return this.tournamentService.regenerateRound(id);
   }
 
   @Patch('/matches/:matchId/scores')
