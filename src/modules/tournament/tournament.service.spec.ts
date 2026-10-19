@@ -40,6 +40,7 @@ const createService = ({
   exists = null as unknown,
   blockingMatch = null as unknown,
   tablesInRound = 1,
+  registration = null as Record<string, unknown> | null,
 } = {}) => {
   const tournamentDoc = tournament && {
     ...tournament,
@@ -50,7 +51,9 @@ const createService = ({
     findByIdAndUpdate: jest.fn().mockReturnValue(query(tournamentDoc)),
   };
   const registrationModel = {
-    create: jest.fn().mockResolvedValue({ _id: 5 }),
+    create: jest.fn().mockImplementation(async (doc) => ({ _id: 5, ...doc })),
+    findOne: jest.fn().mockReturnValue(query(registration)),
+    find: jest.fn().mockReturnValue(query(registration ? [registration] : [])),
   };
   const participantModel = {
     find: jest.fn().mockReturnValue(query(participants)),
@@ -104,6 +107,7 @@ describe('TournamentService.register', () => {
         phone: '05550000000',
         email: 'ali@mail.com',
         tournamentId: 1,
+        checkInCode: expect.stringMatching(/^[0-9a-f]{16}$/),
       }),
     );
   });
@@ -167,7 +171,7 @@ describe('TournamentService.register', () => {
         phone: '1',
         email: 'ali@mail.com',
       }),
-    ).resolves.toEqual({ _id: 5 });
+    ).resolves.toEqual({ _id: 5, checkInCode: expect.any(String) });
   });
 
   it('son kayıt tarihi geçtiyse reddeder', async () => {
@@ -641,6 +645,46 @@ describe('TournamentService.addParticipant', () => {
     await expect(
       service.addParticipant(1, { name: 'Geç Gelen' }),
     ).rejects.toThrow('Tur devam ediyor');
+  });
+});
+
+describe('TournamentService.checkIn', () => {
+  const registration = { _id: 5, tournamentId: 1, fullName: 'Ayşe Yılmaz' };
+
+  it('QR sahibini katılımcı yapar', async () => {
+    const { service, participantModel } = createService({ registration });
+    (participantModel as any).exists = jest.fn().mockReturnValue(query(null));
+    (participantModel as any).create = jest.fn().mockResolvedValue([]);
+    await expect(service.checkIn(1, { code: 'abc' })).resolves.toEqual({
+      fullName: 'Ayşe Yılmaz',
+    });
+    expect((participantModel as any).create).toHaveBeenCalledWith([
+      { tournamentId: 1, name: 'Ayşe Yılmaz', registrationId: 5 },
+    ]);
+  });
+
+  it('zaten katılımcı olanı tekrar eklemez', async () => {
+    const { service, participantModel } = createService({ registration });
+    (participantModel as any).exists = jest
+      .fn()
+      .mockReturnValue(query({ _id: 9 }));
+    await expect(service.checkIn(1, { code: 'abc' })).rejects.toThrow(
+      'Ayşe Yılmaz zaten katılımcı',
+    );
+  });
+
+  it("başka turnuvanın QR'ını reddeder", async () => {
+    const { service } = createService({ registration });
+    await expect(service.checkIn(2, { code: 'abc' })).rejects.toThrow(
+      'Bu QR bu turnuvaya ait değil',
+    );
+  });
+
+  it('tanınmayan QR için hata verir', async () => {
+    const { service } = createService();
+    await expect(service.checkIn(1, { code: 'yok' })).rejects.toThrow(
+      'QR bulunamadı',
+    );
   });
 });
 

@@ -6,8 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
@@ -16,6 +18,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { Tournament } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
+  CheckInDto,
   CreateTournamentDto,
   MoveParticipantDto,
   PromoteRegistrationsDto,
@@ -49,6 +52,13 @@ export class TournamentController {
   @Post('/public/:slug/register')
   register(@Param('slug') slug: string, @Body() dto: RegisterTournamentDto) {
     return this.tournamentService.register(slug, dto);
+  }
+
+  @Public()
+  @Get('/public/check-in/:code/qr')
+  async getCheckInQr(@Param('code') code: string, @Res() res: Response) {
+    const image = await this.tournamentService.getCheckInQr(code);
+    return res.type('png').send(image);
   }
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────
@@ -106,6 +116,11 @@ export class TournamentController {
   @Post('/:id/participants')
   addParticipant(@Param('id') id: number, @Body() dto: AddParticipantDto) {
     return this.tournamentService.addParticipant(id, dto);
+  }
+
+  @Post('/:id/check-in')
+  checkIn(@Param('id') id: number, @Body() dto: CheckInDto) {
+    return this.tournamentService.checkIn(id, dto);
   }
 
   @Patch('/participants/:participantId')
