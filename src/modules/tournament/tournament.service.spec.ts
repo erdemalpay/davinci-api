@@ -630,21 +630,19 @@ describe('TournamentService.addParticipant', () => {
   });
 
   it('eleme başladıysa reddeder', async () => {
-    const { service } = createService({
-      blockingMatch: { stage: MatchStage.ELIMINATION, isCompleted: true },
-    });
+    const { service } = createService({ exists: { _id: 1 } });
     await expect(
       service.addParticipant(1, { name: 'Geç Gelen' }),
     ).rejects.toThrow('Eleme başladıktan sonra katılımcı eklenemez');
   });
 
-  it('skoru girilmemiş tur varken reddeder', async () => {
-    const { service } = createService({
+  it('tur sürerken de ekler (sonraki turdan eşleşir)', async () => {
+    const { service, participantModel } = createService({
       blockingMatch: { stage: MatchStage.LEAGUE, isCompleted: false },
     });
-    await expect(
-      service.addParticipant(1, { name: 'Geç Gelen' }),
-    ).rejects.toThrow('Tur devam ediyor');
+    (participantModel as any).create = jest.fn().mockResolvedValue({ _id: 7 });
+    await service.addParticipant(1, { name: 'Geç Gelen' });
+    expect((participantModel as any).create).toHaveBeenCalled();
   });
 });
 
@@ -756,7 +754,7 @@ describe('TournamentService.updateParticipant', () => {
   it('eleme başladıysa çekilen oyuncuyu geri almaz', async () => {
     const { service } = createService({
       participants: [{ _id: 4, tournamentId: 1, isActive: false }],
-      blockingMatch: { stage: MatchStage.ELIMINATION, isCompleted: true },
+      exists: { _id: 1 }, // eleme maçı var
     });
     await expect(
       service.updateParticipant(4, { isActive: true }),
