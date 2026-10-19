@@ -49,6 +49,12 @@ export class TournamentController {
   }
 
   @Public()
+  @Get('/public/:slug/live')
+  findLive(@Param('slug') slug: string) {
+    return this.tournamentService.findLiveBySlug(slug);
+  }
+
+  @Public()
   @Post('/public/:slug/register')
   register(@Param('slug') slug: string, @Body() dto: RegisterTournamentDto) {
     return this.tournamentService.register(slug, dto);
