@@ -311,6 +311,10 @@ describe('TournamentService.generateNextRound', () => {
     expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
       status: TournamentStatus.ONGOING,
       isRegistrationOpen: false,
+      roundExtraMinutes: 0,
+      isRoundTimerStopped: false,
+      roundPausedAt: null,
+      roundPausedSeconds: 0,
     });
   });
 

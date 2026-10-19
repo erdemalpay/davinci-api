@@ -100,6 +100,12 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   advancePerTable?: number;
+
+  // Tur süresi (dk); boşsa süre sınırı yok
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  roundDuration?: number;
 }
 
 export class RegisterTournamentDto {
