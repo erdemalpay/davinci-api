@@ -741,22 +741,15 @@ export class TournamentService {
     );
   }
 
-  // Geç gelen puan turlarına tur aralarında katılabilir; elemede masalar bir önceki
-  // turdan çıkanlarla kurulduğu için yeni oyuncunun yeri yoktur.
+  // Geç gelen puan turlarına her an eklenebilir ve sonraki turdan itibaren eşleşir; elemede
+  // masalar bir önceki turdan çıkanlarla kurulduğu için yeni oyuncunun yeri yoktur.
   private async assertCanAddParticipants(tournamentId: number) {
-    const blocking = await this.matchModel
-      .findOne({
-        tournamentId,
-        $or: [{ isCompleted: false }, { stage: MatchStage.ELIMINATION }],
-      })
+    const hasElimination = await this.matchModel
+      .exists({ tournamentId, stage: MatchStage.ELIMINATION })
       .exec();
-    if (blocking?.stage === MatchStage.ELIMINATION)
+    if (hasElimination)
       throw new BadRequestException(
         'Eleme başladıktan sonra katılımcı eklenemez',
-      );
-    if (blocking)
-      throw new BadRequestException(
-        'Tur devam ediyor; katılımcı skorlar girildikten sonra eklenebilir',
       );
   }
 
