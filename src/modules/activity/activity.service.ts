@@ -7,7 +7,11 @@ import { withSession } from 'src/utils/withSession';
 import { User } from '../user/user.schema';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { SessionOpts } from './../../utils/withSession';
-import { ActivityQueryDto, ActivityTypePayload } from './activity.dto';
+import {
+  ActivityQueryDto,
+  ActivityType,
+  ActivityTypePayload,
+} from './activity.dto';
 import { Activity } from './activity.schema';
 
 @Injectable()
@@ -17,6 +21,29 @@ export class ActivityService {
     private activityModel: Model<Activity<keyof ActivityTypePayload>>,
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
+
+  // When each person added the game to the games they know, or removed it,
+  // oldest first.
+  async getGameLearningHistory(gameId: number) {
+    const activities = await this.activityModel
+      .find({
+        type: {
+          $in: [
+            ActivityType.GAME_LEARNED_ADD,
+            ActivityType.GAME_LEARNED_REMOVE,
+          ],
+        },
+        'payload._id': gameId,
+      })
+      .select('user type createdAt')
+      .sort({ createdAt: 1 })
+      .lean();
+    return activities.map((a) => ({
+      user: a.user,
+      learned: a.type === ActivityType.GAME_LEARNED_ADD,
+      date: (a as unknown as { createdAt: Date }).createdAt,
+    }));
+  }
 
   parseLocalDate(dateString: string): Date {
     const [year, month, day] = dateString.split('-').map(Number);

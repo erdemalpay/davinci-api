@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { ActivityService } from './activity.service';
 @Controller('/activity')
 export class ActivityController {
@@ -29,5 +29,10 @@ export class ActivityController {
       asc,
       search,
     });
+  }
+
+  @Get('/game-learning/:gameId')
+  findGameLearningHistory(@Param('gameId', ParseIntPipe) gameId: number) {
+    return this.activityService.getGameLearningHistory(gameId);
   }
 }
