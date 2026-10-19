@@ -60,6 +60,8 @@ const createService = ({
     findById: jest.fn().mockReturnValue(query(participants[0] ?? null)),
     findByIdAndUpdate: jest.fn().mockReturnValue(query({})),
     findByIdAndDelete: jest.fn().mockReturnValue(query({})),
+    exists: jest.fn().mockReturnValue(query(null)),
+    create: jest.fn(),
   };
   const matchModel = {
     find: jest.fn().mockReturnValue(query(matches)),
@@ -640,9 +642,9 @@ describe('TournamentService.addParticipant', () => {
     const { service, participantModel } = createService({
       blockingMatch: { stage: MatchStage.LEAGUE, isCompleted: false },
     });
-    (participantModel as any).create = jest.fn().mockResolvedValue({ _id: 7 });
+    participantModel.create.mockResolvedValue({ _id: 7 });
     await service.addParticipant(1, { name: 'Geç Gelen' });
-    expect((participantModel as any).create).toHaveBeenCalled();
+    expect(participantModel.create).toHaveBeenCalled();
   });
 });
 
@@ -666,21 +668,18 @@ describe('TournamentService.checkIn', () => {
 
   it('QR sahibini katılımcı yapar', async () => {
     const { service, participantModel } = createService({ registration });
-    (participantModel as any).exists = jest.fn().mockReturnValue(query(null));
-    (participantModel as any).create = jest.fn().mockResolvedValue([]);
+    participantModel.create.mockResolvedValue([]);
     await expect(service.checkIn(1, { code: 'abc' })).resolves.toEqual({
       fullName: 'Ayşe Yılmaz',
     });
-    expect((participantModel as any).create).toHaveBeenCalledWith([
+    expect(participantModel.create).toHaveBeenCalledWith([
       { tournamentId: 1, name: 'Ayşe Yılmaz', registrationId: 5 },
     ]);
   });
 
   it('zaten katılımcı olanı tekrar eklemez', async () => {
     const { service, participantModel } = createService({ registration });
-    (participantModel as any).exists = jest
-      .fn()
-      .mockReturnValue(query({ _id: 9 }));
+    participantModel.exists.mockReturnValue(query({ _id: 9 }));
     await expect(service.checkIn(1, { code: 'abc' })).rejects.toThrow(
       'Ayşe Yılmaz zaten katılımcı',
     );
