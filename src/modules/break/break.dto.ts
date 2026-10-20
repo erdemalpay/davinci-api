@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -64,6 +65,13 @@ export class CreateBreakDto {
   @IsString()
   @MaxLength(300)
   note?: string;
+
+  // The person confirmed the "too many on a break" warning in the panel.
+  // Logged as an activity, not stored on the break.
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  breakWarningConfirmed?: boolean;
 }
 
 export class UpdateBreakDto {
