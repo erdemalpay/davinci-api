@@ -20,7 +20,12 @@ import {
   tryAddActivity,
   wrapHttpException,
 } from 'src/utils/serviceUtils';
+import { cafeHour } from 'src/utils/cafeTime';
 import { extractRefId } from 'src/utils/tsUtils';
+import {
+  isPastMiddlemanHours,
+  MIDDLEMAN_UNTIL,
+} from '../buttonCall/buttonCall.assignment';
 import {
   CreateMiddlemanDto,
   MiddlemanQueryDto,
@@ -40,6 +45,12 @@ export class MiddlemanService {
 
   async create(createMiddlemanDto: CreateMiddlemanDto): Promise<Middleman> {
     return wrapHttpException(async () => {
+      if (isPastMiddlemanHours(cafeHour(false))) {
+        throw new HttpException(
+          'No middleman after 22:00',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const existingActive = await this.middlemanModel.findOne({
         location: createMiddlemanDto.location,
         finishHour: { $exists: false },
@@ -203,6 +214,32 @@ export class MiddlemanService {
     this.websocketGateway.emitMiddlemanChanged();
     this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return deleted;
+  }
+
+  // The middleman role ends at 22:00 (and a stand-in's with it).
+  async closeForTheNight(): Promise<number> {
+    const open = await this.middlemanModel.find({
+      finishHour: { $exists: false },
+    });
+    if (open.length === 0) return 0;
+    await this.middlemanModel.updateMany(
+      { _id: { $in: open.map((m) => m._id) }, finishHour: { $exists: false } },
+      { $set: { finishHour: MIDDLEMAN_UNTIL } },
+    );
+    for (const record of open) {
+      record.finishHour = MIDDLEMAN_UNTIL;
+      await tryAddActivity(
+        this.activityService,
+        this.userService,
+        record.user,
+        ActivityType.FINISH_MIDDLEMAN_AUTO,
+        toPlainObject(record),
+        'close middleman for the night',
+      );
+    }
+    this.websocketGateway.emitMiddlemanChanged();
+    this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
+    return open.length;
   }
 
   async autoCloseStale(): Promise<number> {
