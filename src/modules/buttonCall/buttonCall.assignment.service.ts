@@ -81,8 +81,9 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // they're back. As a last resort, when nobody else can take it, the
 // middleman also gets a downstairs service call right away and a game
 // master call that has waited 3 minutes. A middleman who goes to a call
-// (assigned or taken over) leaves the role free: the first game master to
-// become free (not the upstairs duty) stands in until they're back. There
+// (assigned or taken over) leaves the role free: the first game master
+// left free with no call to take (not the upstairs duty) stands in until
+// they're back. There
 // is no middleman from 22:00.
 //
 // The upstairs duty ("Üstçü") gets the upstairs tables' game master and
@@ -509,9 +510,9 @@ export class ButtonCallAssignmentService {
     }
   }
 
-  // The first game master to become free stands in for a middleman away on
-  // a call; the one who waited longest when several are. Not the upstairs
-  // duty.
+  // The first game master left free once the waiting calls are assigned
+  // stands in for a middleman away on a call; the one who waited longest
+  // when several are. Not the upstairs duty.
   private async fillFreeMiddlemanRoles(date: string) {
     const away = await this.middlemanModel
       .find({
@@ -1086,7 +1087,6 @@ export class ButtonCallAssignmentService {
   async assignPendingCalls() {
     try {
       await this.handBackMiddlemen(today());
-      await this.fillFreeMiddlemanRoles(today());
       await this.updateUpstairsDuties(today());
       await this.releaseCallsOfExplainers(today());
     } catch (error) {
@@ -1110,6 +1110,18 @@ export class ButtonCallAssignmentService {
       } catch (error) {
         this.logger.error(`Failed to assign button call ${_id}`, error);
       }
+    }
+    // Waiting calls come first: whoever is still free after them stands in
+    // for a middleman away on a call. Queued like the assignments, so a new
+    // call can't pick the same person meanwhile.
+    const fill = this.assignmentQueue.then(() =>
+      this.fillFreeMiddlemanRoles(today()),
+    );
+    this.assignmentQueue = fill.catch(() => undefined);
+    try {
+      await fill;
+    } catch (error) {
+      this.logger.error('Failed to fill the middleman role', error);
     }
   }
 
