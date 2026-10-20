@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  Equals,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -100,6 +101,12 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   advancePerTable?: number;
+
+  // Tur süresi (dk); boşsa süre sınırı yok
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  roundDuration?: number;
 }
 
 export class RegisterTournamentDto {
@@ -131,6 +138,32 @@ export class PromoteRegistrationsDto {
 export class AddParticipantDto {
   @IsString()
   name: string;
+}
+
+export class CheckInDto {
+  @IsString()
+  code: string;
+}
+
+export class UpdateParticipantDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  // Sadece çekilen oyuncuyu geri almak için; çıkarma removeParticipant'tan geçer
+  @IsOptional()
+  @Equals(true)
+  isActive?: boolean;
+}
+
+export class MoveParticipantDto {
+  @IsNumber()
+  matchId: number;
+
+  // Hedef masadaki bu oyuncuyla yer değiştirir; boşsa hedef masaya taşınır
+  @IsOptional()
+  @IsNumber()
+  swapWithId?: number;
 }
 
 export class MatchScoreDto {

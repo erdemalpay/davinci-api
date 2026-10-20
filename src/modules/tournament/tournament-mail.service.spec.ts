@@ -12,7 +12,11 @@ const tournament = {
   game: 230802,
   location: 2,
 } as any;
-const registration = { fullName: 'Ayşe Yılmaz', email: 'ayse@mail.com' } as any;
+const registration = {
+  fullName: 'Ayşe Yılmaz',
+  email: 'ayse@mail.com',
+  checkInCode: 'abc123',
+} as any;
 
 const createService = () => {
   const mailService = { sendMail: jest.fn().mockResolvedValue({}) };
@@ -36,6 +40,7 @@ const createService = () => {
 
 describe('TournamentMailService.sendRegistrationMail', () => {
   it('turnuva, konum ve oyun bilgisiyle kayıt mailini gönderir', async () => {
+    process.env.STAGING_HOST_URL = 'https://api-staging.example.com';
     const { service, mailService } = createService();
 
     await expect(
@@ -56,6 +61,8 @@ describe('TournamentMailService.sendRegistrationMail', () => {
         locationAddress: 'Beştepe Mah., Ankara',
         mapsUrl: 'https://maps.app.goo.gl/x',
         logoUrl: 'https://www.davinciboardgame.com/images/davinci-logo.png',
+        qrCodeUrl:
+          'https://api-staging.example.com/tournaments/public/check-in/abc123/qr',
       },
     });
   });

@@ -6,8 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
@@ -16,12 +19,15 @@ import { RedisKeys } from '../redis/redis.dto';
 import { Tournament } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
+  CheckInDto,
   CreateTournamentDto,
+  MoveParticipantDto,
   PromoteRegistrationsDto,
   RegisterTournamentDto,
   ResolveTieDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
+  UpdateParticipantDto,
 } from './tournament.dto';
 import { TournamentService } from './tournament.service';
 
@@ -44,9 +50,22 @@ export class TournamentController {
   }
 
   @Public()
+  @Get('/public/:slug/live')
+  findLive(@Param('slug') slug: string, @Query('round') round?: number) {
+    return this.tournamentService.findLiveBySlug(slug, round);
+  }
+
+  @Public()
   @Post('/public/:slug/register')
   register(@Param('slug') slug: string, @Body() dto: RegisterTournamentDto) {
     return this.tournamentService.register(slug, dto);
+  }
+
+  @Public()
+  @Get('/public/check-in/:code/qr')
+  async getCheckInQr(@Param('code') code: string, @Res() res: Response) {
+    const image = await this.tournamentService.getCheckInQr(code);
+    return res.type('png').send(image);
   }
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────
@@ -106,6 +125,27 @@ export class TournamentController {
     return this.tournamentService.addParticipant(id, dto);
   }
 
+  @Post('/:id/check-in')
+  checkIn(@Param('id') id: number, @Body() dto: CheckInDto) {
+    return this.tournamentService.checkIn(id, dto);
+  }
+
+  @Patch('/participants/:participantId')
+  updateParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: UpdateParticipantDto,
+  ) {
+    return this.tournamentService.updateParticipant(participantId, dto);
+  }
+
+  @Patch('/participants/:participantId/seat')
+  moveParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: MoveParticipantDto,
+  ) {
+    return this.tournamentService.moveParticipant(participantId, dto);
+  }
+
   @Delete('/participants/:participantId')
   removeParticipant(@Param('participantId') participantId: number) {
     return this.tournamentService.removeParticipant(participantId);
@@ -129,6 +169,16 @@ export class TournamentController {
     return this.tournamentService.generateNextRound(id);
   }
 
+  @Post('/:id/rounds/regenerate')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  regenerateRound(@Param('id') id: number) {
+    return this.tournamentService.regenerateRound(id);
+  }
+
   @Patch('/matches/:matchId/scores')
   submitScores(
     @Param('matchId') matchId: number,
@@ -143,7 +193,7 @@ export class TournamentController {
   }
 
   @Get('/:id/standings')
-  getStandings(@Param('id') id: number) {
-    return this.tournamentService.getStandings(id);
+  getStandings(@Param('id') id: number, @Query('round') round?: number) {
+    return this.tournamentService.getStandings(id, round);
   }
 }

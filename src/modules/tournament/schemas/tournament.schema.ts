@@ -92,6 +92,25 @@ export class Tournament extends Document {
   @Prop({ required: false, type: Number })
   advancePerTable: number;
 
+  // Tur süresi (dk); boşsa süre sınırı yok. Turnuva başladıktan sonra da değişebilir
+  @Prop({ required: false, type: Number })
+  roundDuration?: number;
+
+  // O anki tura verilen ek süre (dk) ve sayacın elle bitirilmesi; her yeni turda sıfırlanır
+  @Prop({ required: false, type: Number, default: 0 })
+  roundExtraMinutes: number;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isRoundTimerStopped: boolean;
+
+  // Sayaç duraklatıldıysa duraklatıldığı an; devam edilince duraklamada geçen süre
+  // roundPausedSeconds'a eklenir ve sayaç kaldığı yerden sürer
+  @Prop({ required: false, type: Date })
+  roundPausedAt?: Date;
+
+  @Prop({ required: false, type: Number, default: 0 })
+  roundPausedSeconds: number;
+
   @Prop({ required: false, type: Boolean, default: false })
   isDeleted: boolean;
 }
