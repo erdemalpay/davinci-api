@@ -920,45 +920,48 @@ describe('TournamentService.getStandings', () => {
 });
 
 describe('TournamentService.getStandings (puan turları)', () => {
+  const participants = [
+    { _id: 1, name: 'Ali' },
+    { _id: 2, name: 'Veli' },
+    { _id: 3, name: 'Can' },
+  ];
+  const leagueMatches = [
+    {
+      stage: MatchStage.LEAGUE,
+      round: 1,
+      tableNo: 1,
+      isBye: false,
+      isCompleted: true,
+      players: [
+        { participantId: 1, rank: 1, points: 4 },
+        { participantId: 2, rank: 2, points: 2 },
+      ],
+    },
+    {
+      stage: MatchStage.LEAGUE,
+      round: 1,
+      tableNo: 0,
+      isBye: true,
+      isCompleted: true,
+      players: [{ participantId: 3, points: 4 }],
+    },
+    {
+      stage: MatchStage.LEAGUE,
+      round: 2,
+      tableNo: 1,
+      isBye: false,
+      isCompleted: true,
+      players: [
+        { participantId: 3, rank: 1, points: 4 },
+        { participantId: 1, rank: 2, points: 2 },
+      ],
+    },
+  ];
+
   it('her oyuncunun tur tur aldığı puanı ve bayı döner', async () => {
     const { service } = createService({
-      participants: [
-        { _id: 1, name: 'Ali' },
-        { _id: 2, name: 'Veli' },
-        { _id: 3, name: 'Can' },
-      ],
-      matches: [
-        {
-          stage: MatchStage.LEAGUE,
-          round: 1,
-          tableNo: 1,
-          isBye: false,
-          isCompleted: true,
-          players: [
-            { participantId: 1, rank: 1, points: 4 },
-            { participantId: 2, rank: 2, points: 2 },
-          ],
-        },
-        {
-          stage: MatchStage.LEAGUE,
-          round: 1,
-          tableNo: 0,
-          isBye: true,
-          isCompleted: true,
-          players: [{ participantId: 3, points: 4 }],
-        },
-        {
-          stage: MatchStage.LEAGUE,
-          round: 2,
-          tableNo: 1,
-          isBye: false,
-          isCompleted: true,
-          players: [
-            { participantId: 3, rank: 1, points: 4 },
-            { participantId: 1, rank: 2, points: 2 },
-          ],
-        },
-      ],
+      participants,
+      matches: leagueMatches,
     });
     const result = await service.getStandings(1);
     const ali = result.find((r) => r.name === 'Ali');
@@ -971,6 +974,33 @@ describe('TournamentService.getStandings (puan turları)', () => {
       { round: 1, points: 4, isBye: true },
       { round: 2, points: 4, isBye: false },
     ]);
+  });
+
+  it('istenen puan turunun sonundaki tabloyu döner, sonraki tur ve eleme sayılmaz', async () => {
+    const { service } = createService({
+      participants,
+      matches: [
+        ...leagueMatches,
+        {
+          stage: MatchStage.ELIMINATION,
+          round: 1,
+          tableNo: 1,
+          isBye: false,
+          isCompleted: true,
+          players: [
+            { participantId: 2, rank: 1, points: 4 },
+            { participantId: 3, rank: 2, points: 0 },
+          ],
+        },
+      ],
+    });
+    const result = await service.getStandings(1, 1);
+    expect(result.map((r) => [r.name, r.points, r.rounds.length])).toEqual([
+      ['Ali', 4, 1],
+      ['Can', 4, 1],
+      ['Veli', 2, 1],
+    ]);
+    expect(result.some((r) => r.elimination)).toBe(false);
   });
 });
 

@@ -170,7 +170,7 @@ export class TournamentService {
   }
 
   // Oyuncuların telefondan takip ettiği sayfa; katılımcıların sadece adı gider
-  async findLiveBySlug(slug: string) {
+  async findLiveBySlug(slug: string, afterRound?: number) {
     const tournament = await this.findTournament({ slug });
     const [participants, matches] = await Promise.all([
       this.findParticipants(tournament._id),
@@ -184,7 +184,12 @@ export class TournamentService {
         isActive,
       })),
       matches,
-      standings: this.rankParticipants(tournament, participants, matches),
+      standings: this.rankParticipants(
+        tournament,
+        participants,
+        matches,
+        afterRound,
+      ),
     };
   }
 
@@ -652,24 +657,29 @@ export class TournamentService {
   }
 
   // Lig puan tablosu + eleme sonucu: turnuvanın genel sıralaması
-  async getStandings(tournamentId: number) {
+  async getStandings(tournamentId: number, afterRound?: number) {
     const [tournament, participants, matches] = await Promise.all([
       this.findTournament(tournamentId),
       this.participantModel.find({ tournamentId }).exec(),
       this.matchModel.find({ tournamentId }).exec(),
     ]);
-    return this.rankParticipants(tournament, participants, matches);
+    return this.rankParticipants(tournament, participants, matches, afterRound);
   }
 
-  // Takip sayfası zaten çektiği katılımcı ve maçlarla hesaplatır; tekrar sorgu atılmaz
+  // Takip sayfası zaten çektiği katılımcı ve maçlarla hesaplatır; tekrar sorgu atılmaz.
+  // afterRound verilirse tablo o puan turunun sonundaki haliyle döner: sonraki turlar ve eleme sayılmaz.
   private rankParticipants(
     tournament: Tournament,
     participants: TournamentParticipant[],
     matches: TournamentMatch[],
+    afterRound?: number,
   ) {
     const names = new Map(participants.map((p) => [p._id, p.name]));
     const leagueMatches = matches.filter(
-      (m) => m.stage === MatchStage.LEAGUE && m.isCompleted,
+      (m) =>
+        m.stage === MatchStage.LEAGUE &&
+        m.isCompleted &&
+        (!afterRound || m.round <= afterRound),
     );
     const leagueStandings = computeStandings(
       participants.map((p) => p._id),
@@ -678,7 +688,9 @@ export class TournamentService {
     const rounds = roundResults(leagueMatches);
     return computeFinalRanking(
       leagueStandings,
-      matches.filter((m) => m.stage === MatchStage.ELIMINATION),
+      afterRound
+        ? []
+        : matches.filter((m) => m.stage === MatchStage.ELIMINATION),
       {
         shareTies: tournament.format === TournamentFormat.ELIMINATION,
         advancePerTable: tournament.advancePerTable,
