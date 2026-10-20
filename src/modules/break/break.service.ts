@@ -195,7 +195,7 @@ export class BreakService {
         ));
 
       // Only "Other" keeps a note.
-      const { note, ...record } = createBreakDto;
+      const { note, breakWarningConfirmed, ...record } = createBreakDto;
       const breakRecord = await this.breakModel.create({
         ...record,
         type: createBreakDto.type ?? BreakTypeEnum.BREAK,
@@ -211,6 +211,16 @@ export class BreakService {
         toPlainObject(breakRecord),
         'start break',
       );
+      if (isBreak && breakWarningConfirmed) {
+        await tryAddActivity(
+          this.activityService,
+          this.userService,
+          createBreakDto.user,
+          ActivityType.CONFIRM_BREAK_WARNING,
+          toPlainObject(breakRecord),
+          'confirm break warning',
+        );
+      }
       this.websocketGateway.emitBreakChanged();
       this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
 
@@ -230,6 +240,7 @@ export class BreakService {
   @OnEvent(BUSY_STATE_STARTED_ON_DECLINE)
   async handleBusyStateStartedOnDecline({
     breakRecord,
+    breakWarningConfirmed,
   }: BusyStateStartedEvent) {
     try {
       await tryAddActivity(
@@ -240,6 +251,16 @@ export class BreakService {
         breakRecord,
         'start break',
       );
+      if (breakRecord.type === BreakTypeEnum.BREAK && breakWarningConfirmed) {
+        await tryAddActivity(
+          this.activityService,
+          this.userService,
+          breakRecord.user,
+          ActivityType.CONFIRM_BREAK_WARNING,
+          breakRecord,
+          'confirm break warning',
+        );
+      }
       if (
         breakRecord.type === BreakTypeEnum.BREAK &&
         (await this.leavesCafeShort(

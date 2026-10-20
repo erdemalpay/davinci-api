@@ -771,6 +771,20 @@ describe('ButtonCallAssignmentService.decline', () => {
       );
     });
 
+    it('passes on a confirmed break warning', async () => {
+      const { service, eventEmitter } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.BREAK,
+        breakWarningConfirmed: true,
+      });
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'break.busyStateStartedOnDecline',
+        expect.objectContaining({ breakWarningConfirmed: true }),
+      );
+    });
+
     it('puts the person in the matching busy state', async () => {
       const { service, breakModel, websocketGateway } = build();
 

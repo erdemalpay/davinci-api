@@ -93,6 +93,7 @@ export enum ActivityType {
   FINISH_VISIT = 'FINISH_VISIT',
   START_BREAK = 'START_BREAK',
   FINISH_BREAK = 'FINISH_BREAK',
+  CONFIRM_BREAK_WARNING = 'CONFIRM_BREAK_WARNING',
   START_GAMEPLAY_TIME = 'START_GAMEPLAY_TIME',
   FINISH_GAMEPLAY_TIME = 'FINISH_GAMEPLAY_TIME',
   SHIFT_CHANGE_APPROVED = 'SHIFT_CHANGE_APPROVED',
@@ -212,6 +213,7 @@ export type ActivityTypePayload = {
   [ActivityType.FINISH_VISIT]: Visit;
   [ActivityType.START_BREAK]: Break;
   [ActivityType.FINISH_BREAK]: Break;
+  [ActivityType.CONFIRM_BREAK_WARNING]: Break;
   [ActivityType.START_GAMEPLAY_TIME]: GameplayTime;
   [ActivityType.FINISH_GAMEPLAY_TIME]: GameplayTime;
   [ActivityType.SHIFT_CHANGE_APPROVED]: ShiftChangeRequest;
