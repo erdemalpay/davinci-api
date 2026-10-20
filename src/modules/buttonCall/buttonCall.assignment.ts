@@ -362,3 +362,16 @@ export function upstairsDutyCanTake(
   }
   return true;
 }
+
+// No middleman from 22:00 on: the role ends for the night and nobody can
+// take it until the next day.
+export const MIDDLEMAN_UNTIL = '22:00';
+export const isPastMiddlemanHours = (hour: string) =>
+  cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_UNTIL);
+
+// A game master call nobody could take for 3 minutes goes to the middleman.
+export const MIDDLEMAN_AFTER_WAITING_SECONDS = 3 * 60;
+
+// With at most 10 upstairs tables the upstairs duty helps downstairs when
+// nobody else can.
+export const DUTY_HELPS_DOWNSTAIRS_UP_TO = 10;

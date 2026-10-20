@@ -8,6 +8,14 @@ export class MiddlemanCronService {
 
   constructor(private readonly middlemanService: MiddlemanService) {}
 
+  @Cron('0 0 22 * * *', { timeZone: 'Europe/Istanbul' })
+  async handleCloseForTheNight() {
+    const closedCount = await this.middlemanService.closeForTheNight();
+    if (closedCount > 0) {
+      this.logger.log(`Closed ${closedCount} middleman record(s) at 22:00`);
+    }
+  }
+
   @Cron('0 10 0 * * *', { timeZone: 'Europe/Istanbul' })
   async handleAutoCloseStaleMiddlemen() {
     this.logger.log('🔄 [Cron] Closing stale middleman records…');
