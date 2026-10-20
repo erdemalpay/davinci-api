@@ -956,7 +956,10 @@ export class ButtonCallAssignmentService {
     await this.breakModel.create(breakRecord);
     this.websocketGateway.emitBreakChanged();
     // Activity log and the concurrent break warning, as for any break.
-    const event: BusyStateStartedEvent = { breakRecord };
+    const event: BusyStateStartedEvent = {
+      breakRecord,
+      breakWarningConfirmed: dto.breakWarningConfirmed,
+    };
     this.eventEmitter.emit(BUSY_STATE_STARTED_ON_DECLINE, event);
   }
 

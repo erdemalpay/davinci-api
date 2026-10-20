@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -137,6 +138,12 @@ export class DeclineButtonCallDto {
   @IsOptional()
   @IsNumber()
   readonly game?: number;
+
+  // Declining to go on a break after confirming the break warning.
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  readonly breakWarningConfirmed?: boolean;
 }
 
 export class CallReportQueryDto {

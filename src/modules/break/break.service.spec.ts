@@ -242,6 +242,86 @@ describe('BreakService concurrent break warning', () => {
   });
 });
 
+describe('BreakService break warning confirmation activity', () => {
+  const dto = {
+    user: 'ali',
+    location: 1,
+    date: '2026-10-05',
+    startHour: '14:00',
+  };
+  const rowsQuery = (rows: unknown) => ({
+    select: () => ({ lean: async () => rows }),
+  });
+  function build() {
+    const activityService = { addActivity: jest.fn() };
+    const breakModel = {
+      findOne: jest.fn(async () => null),
+      find: jest.fn(() => rowsQuery([])),
+      create: jest.fn(async (doc: unknown) => ({ ...(doc as object), _id: 1 })),
+    };
+    const service = new BreakService(
+      breakModel as never,
+      { emitBreakChanged: jest.fn() } as never,
+      { findLocationById: jest.fn(async () => null) } as never,
+      { findById: jest.fn(async (id: string) => ({ _id: id })) } as never,
+      activityService as never,
+      {
+        findAllEventNotifications: jest.fn(async () => []),
+        createNotification: jest.fn(),
+      } as never,
+      { emit: jest.fn() } as never,
+      { exists: jest.fn(async () => null) } as never,
+      {} as never,
+      {} as never,
+      { find: jest.fn(() => rowsQuery([])) } as never,
+      { findOne: jest.fn(() => rowsQuery(null)) } as never,
+    );
+    const loggedTypes = () =>
+      activityService.addActivity.mock.calls.map((call) => call[1]);
+    return { service, breakModel, loggedTypes };
+  }
+
+  it('logs the confirmation and does not store the flag on the break', async () => {
+    const { service, breakModel, loggedTypes } = build();
+
+    await service.create({ ...dto, breakWarningConfirmed: true } as never);
+
+    expect(breakModel.create).toHaveBeenCalledWith({ ...dto, type: 'BREAK' });
+    expect(loggedTypes()).toEqual(['START_BREAK', 'CONFIRM_BREAK_WARNING']);
+  });
+
+  it('logs nothing extra without a confirmation', async () => {
+    const { service, loggedTypes } = build();
+
+    await service.create(dto as never);
+
+    expect(loggedTypes()).toEqual(['START_BREAK']);
+  });
+
+  it('logs nothing extra for other busy states', async () => {
+    const { service, loggedTypes } = build();
+
+    await service.create({
+      ...dto,
+      type: 'WAREHOUSE',
+      breakWarningConfirmed: true,
+    } as never);
+
+    expect(loggedTypes()).toEqual(['START_BREAK']);
+  });
+
+  it('logs the confirmation for a break started by declining a call', async () => {
+    const { service, loggedTypes } = build();
+
+    await service.handleBusyStateStartedOnDecline({
+      breakRecord: { user: 'ali', location: 1, date: dto.date, type: 'BREAK' },
+      breakWarningConfirmed: true,
+    });
+
+    expect(loggedTypes()).toEqual(['START_BREAK', 'CONFIRM_BREAK_WARNING']);
+  });
+});
+
 describe('BreakService.getStateSummary', () => {
   const find = (rows: unknown[]) => ({
     find: jest.fn(() => ({
