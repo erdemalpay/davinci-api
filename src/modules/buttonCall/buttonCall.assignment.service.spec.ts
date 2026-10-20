@@ -513,12 +513,16 @@ describe('ButtonCallAssignmentService.claim', () => {
       })),
     };
     const m = () => model([]) as never;
+    // The one taking over isn't the middleman.
+    const middlemanModel = {
+      updateOne: jest.fn(async () => ({ modifiedCount: 0 })),
+    };
     const service = new ButtonCallAssignmentService(
       buttonCallModel as never,
       m(),
       m(),
       m(),
-      m(),
+      middlemanModel as never,
       m(),
       m(),
       m(),

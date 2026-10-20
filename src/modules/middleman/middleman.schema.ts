@@ -24,8 +24,8 @@ export class Middleman extends Document {
   @Prop()
   finishHour: string;
 
-  // Set on an automatic stand-in: the middleman who went to a game master
-  // call because only they knew the game, the call and the game. The
+  // Set on a stand-in: the middleman who went to a call (and, when they
+  // went because only they knew the game, the call and the game). The
   // middleman takes the role back once the call and the explanation are
   // over.
   @Prop({ type: String, ref: User.name })
@@ -36,6 +36,11 @@ export class Middleman extends Document {
 
   @Prop({ type: Number })
   coveringGame?: number;
+
+  // The middleman went to this call and nobody has stood in yet: the role
+  // goes to whoever becomes free first.
+  @Prop({ type: Number })
+  awayOnCall?: number;
 }
 
 export const MiddlemanSchema = SchemaFactory.createForClass(Middleman);

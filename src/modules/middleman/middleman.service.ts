@@ -56,14 +56,33 @@ export class MiddlemanService {
         finishHour: { $exists: false },
       });
 
-      if (existingActive) {
+      // A middleman away on a call leaves the role free: taking it is
+      // standing in until they're back.
+      const standsIn = !!existingActive?.awayOnCall;
+      if (existingActive && !standsIn) {
         throw new HttpException(
           'There is already an active middleman for this location',
           HttpStatus.CONFLICT,
         );
       }
+      if (standsIn) {
+        await this.middlemanModel.updateOne(
+          { _id: existingActive._id, finishHour: { $exists: false } },
+          { $set: { finishHour: cafeHour(false) } },
+        );
+      }
 
-      const record = await this.middlemanModel.create(createMiddlemanDto);
+      const record = await this.middlemanModel.create(
+        standsIn
+          ? {
+              ...createMiddlemanDto,
+              coveringFor: String(
+                existingActive.coveringFor ?? extractRefId(existingActive.user),
+              ),
+              coveringCall: existingActive.awayOnCall,
+            }
+          : createMiddlemanDto,
+      );
       await tryAddActivity(
         this.activityService,
         this.userService,
