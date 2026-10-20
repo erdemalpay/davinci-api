@@ -17,6 +17,12 @@ const formatTournamentDate = (date: Date) => {
   return `${day}, ${format({ weekday: 'long' })}`;
 };
 
+// Maildeki linklerin yönlendirildiği API adresi (MailService'teki gibi)
+const apiHost = () =>
+  process.env.NODE_ENV === 'production'
+    ? process.env.PRODUCTION_HOST_URL
+    : process.env.STAGING_HOST_URL;
+
 @Injectable()
 export class TournamentMailService {
   private readonly logger = new Logger(TournamentMailService.name);
@@ -53,6 +59,9 @@ export class TournamentMailService {
           locationAddress: location?.address,
           mapsUrl: location?.googleMapsUrl,
           logoUrl: config.get<string>('mail.logoUrl'),
+          qrCodeUrl: `${apiHost()}/tournaments/public/check-in/${
+            registration.checkInCode
+          }/qr`,
         },
       });
       return true;

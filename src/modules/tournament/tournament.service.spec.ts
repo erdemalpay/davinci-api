@@ -40,6 +40,7 @@ const createService = ({
   exists = null as unknown,
   blockingMatch = null as unknown,
   tablesInRound = 1,
+  registration = null as Record<string, unknown> | null,
 } = {}) => {
   const tournamentDoc = tournament && {
     ...tournament,
@@ -50,13 +51,17 @@ const createService = ({
     findByIdAndUpdate: jest.fn().mockReturnValue(query(tournamentDoc)),
   };
   const registrationModel = {
-    create: jest.fn().mockResolvedValue({ _id: 5 }),
+    create: jest.fn().mockImplementation(async (doc) => ({ _id: 5, ...doc })),
+    findOne: jest.fn().mockReturnValue(query(registration)),
+    find: jest.fn().mockReturnValue(query(registration ? [registration] : [])),
   };
   const participantModel = {
     find: jest.fn().mockReturnValue(query(participants)),
     findById: jest.fn().mockReturnValue(query(participants[0] ?? null)),
     findByIdAndUpdate: jest.fn().mockReturnValue(query({})),
     findByIdAndDelete: jest.fn().mockReturnValue(query({})),
+    exists: jest.fn().mockReturnValue(query(null)),
+    create: jest.fn(),
   };
   const matchModel = {
     find: jest.fn().mockReturnValue(query(matches)),
@@ -104,6 +109,7 @@ describe('TournamentService.register', () => {
         phone: '05550000000',
         email: 'ali@mail.com',
         tournamentId: 1,
+        checkInCode: expect.stringMatching(/^[0-9a-f]{16}$/),
       }),
     );
   });
@@ -167,7 +173,7 @@ describe('TournamentService.register', () => {
         phone: '1',
         email: 'ali@mail.com',
       }),
-    ).resolves.toEqual({ _id: 5 });
+    ).resolves.toEqual({ _id: 5, checkInCode: expect.any(String) });
   });
 
   it('son kayıt tarihi geçtiyse reddeder', async () => {
@@ -636,9 +642,61 @@ describe('TournamentService.addParticipant', () => {
     const { service, participantModel } = createService({
       blockingMatch: { stage: MatchStage.LEAGUE, isCompleted: false },
     });
-    (participantModel as any).create = jest.fn().mockResolvedValue({ _id: 7 });
+    participantModel.create.mockResolvedValue({ _id: 7 });
     await service.addParticipant(1, { name: 'Geç Gelen' });
-    expect((participantModel as any).create).toHaveBeenCalled();
+    expect(participantModel.create).toHaveBeenCalled();
+  });
+});
+
+describe('TournamentService.findLiveBySlug', () => {
+  it('katılımcıların sadece adını ve durumunu döner', async () => {
+    const { service, participantModel, matchModel } = createService();
+    const sorted = (value: unknown) => ({ sort: () => query(value) });
+    participantModel.find.mockReturnValue(
+      sorted([{ _id: 4, name: 'Ayşe', isActive: true, registrationId: 9 }]),
+    );
+    matchModel.find.mockReturnValue(sorted([]));
+    const live = await service.findLiveBySlug('catan');
+    expect(live.participants).toEqual([
+      { _id: 4, name: 'Ayşe', isActive: true },
+    ]);
+  });
+});
+
+describe('TournamentService.checkIn', () => {
+  const registration = { _id: 5, tournamentId: 1, fullName: 'Ayşe Yılmaz' };
+
+  it('QR sahibini katılımcı yapar', async () => {
+    const { service, participantModel } = createService({ registration });
+    participantModel.create.mockResolvedValue([]);
+    await expect(service.checkIn(1, { code: 'abc' })).resolves.toEqual({
+      fullName: 'Ayşe Yılmaz',
+    });
+    expect(participantModel.create).toHaveBeenCalledWith([
+      { tournamentId: 1, name: 'Ayşe Yılmaz', registrationId: 5 },
+    ]);
+  });
+
+  it('zaten katılımcı olanı tekrar eklemez', async () => {
+    const { service, participantModel } = createService({ registration });
+    participantModel.exists.mockReturnValue(query({ _id: 9 }));
+    await expect(service.checkIn(1, { code: 'abc' })).rejects.toThrow(
+      'Ayşe Yılmaz zaten katılımcı',
+    );
+  });
+
+  it("başka turnuvanın QR'ını reddeder", async () => {
+    const { service } = createService({ registration });
+    await expect(service.checkIn(2, { code: 'abc' })).rejects.toThrow(
+      'Bu QR bu turnuvaya ait değil',
+    );
+  });
+
+  it('tanınmayan QR için hata verir', async () => {
+    const { service } = createService();
+    await expect(service.checkIn(1, { code: 'yok' })).rejects.toThrow(
+      'QR bulunamadı',
+    );
   });
 });
 
@@ -862,45 +920,48 @@ describe('TournamentService.getStandings', () => {
 });
 
 describe('TournamentService.getStandings (puan turları)', () => {
+  const participants = [
+    { _id: 1, name: 'Ali' },
+    { _id: 2, name: 'Veli' },
+    { _id: 3, name: 'Can' },
+  ];
+  const leagueMatches = [
+    {
+      stage: MatchStage.LEAGUE,
+      round: 1,
+      tableNo: 1,
+      isBye: false,
+      isCompleted: true,
+      players: [
+        { participantId: 1, rank: 1, points: 4 },
+        { participantId: 2, rank: 2, points: 2 },
+      ],
+    },
+    {
+      stage: MatchStage.LEAGUE,
+      round: 1,
+      tableNo: 0,
+      isBye: true,
+      isCompleted: true,
+      players: [{ participantId: 3, points: 4 }],
+    },
+    {
+      stage: MatchStage.LEAGUE,
+      round: 2,
+      tableNo: 1,
+      isBye: false,
+      isCompleted: true,
+      players: [
+        { participantId: 3, rank: 1, points: 4 },
+        { participantId: 1, rank: 2, points: 2 },
+      ],
+    },
+  ];
+
   it('her oyuncunun tur tur aldığı puanı ve bayı döner', async () => {
     const { service } = createService({
-      participants: [
-        { _id: 1, name: 'Ali' },
-        { _id: 2, name: 'Veli' },
-        { _id: 3, name: 'Can' },
-      ],
-      matches: [
-        {
-          stage: MatchStage.LEAGUE,
-          round: 1,
-          tableNo: 1,
-          isBye: false,
-          isCompleted: true,
-          players: [
-            { participantId: 1, rank: 1, points: 4 },
-            { participantId: 2, rank: 2, points: 2 },
-          ],
-        },
-        {
-          stage: MatchStage.LEAGUE,
-          round: 1,
-          tableNo: 0,
-          isBye: true,
-          isCompleted: true,
-          players: [{ participantId: 3, points: 4 }],
-        },
-        {
-          stage: MatchStage.LEAGUE,
-          round: 2,
-          tableNo: 1,
-          isBye: false,
-          isCompleted: true,
-          players: [
-            { participantId: 3, rank: 1, points: 4 },
-            { participantId: 1, rank: 2, points: 2 },
-          ],
-        },
-      ],
+      participants,
+      matches: leagueMatches,
     });
     const result = await service.getStandings(1);
     const ali = result.find((r) => r.name === 'Ali');
@@ -913,6 +974,33 @@ describe('TournamentService.getStandings (puan turları)', () => {
       { round: 1, points: 4, isBye: true },
       { round: 2, points: 4, isBye: false },
     ]);
+  });
+
+  it('istenen puan turunun sonundaki tabloyu döner, sonraki tur ve eleme sayılmaz', async () => {
+    const { service } = createService({
+      participants,
+      matches: [
+        ...leagueMatches,
+        {
+          stage: MatchStage.ELIMINATION,
+          round: 1,
+          tableNo: 1,
+          isBye: false,
+          isCompleted: true,
+          players: [
+            { participantId: 2, rank: 1, points: 4 },
+            { participantId: 3, rank: 2, points: 0 },
+          ],
+        },
+      ],
+    });
+    const result = await service.getStandings(1, 1);
+    expect(result.map((r) => [r.name, r.points, r.rounds.length])).toEqual([
+      ['Ali', 4, 1],
+      ['Can', 4, 1],
+      ['Veli', 2, 1],
+    ]);
+    expect(result.some((r) => r.elimination)).toBe(false);
   });
 });
 

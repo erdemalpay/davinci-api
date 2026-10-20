@@ -6,8 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
@@ -16,6 +19,7 @@ import { RedisKeys } from '../redis/redis.dto';
 import { Tournament } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
+  CheckInDto,
   CreateTournamentDto,
   MoveParticipantDto,
   PromoteRegistrationsDto,
@@ -46,9 +50,22 @@ export class TournamentController {
   }
 
   @Public()
+  @Get('/public/:slug/live')
+  findLive(@Param('slug') slug: string, @Query('round') round?: number) {
+    return this.tournamentService.findLiveBySlug(slug, round);
+  }
+
+  @Public()
   @Post('/public/:slug/register')
   register(@Param('slug') slug: string, @Body() dto: RegisterTournamentDto) {
     return this.tournamentService.register(slug, dto);
+  }
+
+  @Public()
+  @Get('/public/check-in/:code/qr')
+  async getCheckInQr(@Param('code') code: string, @Res() res: Response) {
+    const image = await this.tournamentService.getCheckInQr(code);
+    return res.type('png').send(image);
   }
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────
@@ -106,6 +123,11 @@ export class TournamentController {
   @Post('/:id/participants')
   addParticipant(@Param('id') id: number, @Body() dto: AddParticipantDto) {
     return this.tournamentService.addParticipant(id, dto);
+  }
+
+  @Post('/:id/check-in')
+  checkIn(@Param('id') id: number, @Body() dto: CheckInDto) {
+    return this.tournamentService.checkIn(id, dto);
   }
 
   @Patch('/participants/:participantId')
@@ -171,7 +193,7 @@ export class TournamentController {
   }
 
   @Get('/:id/standings')
-  getStandings(@Param('id') id: number) {
-    return this.tournamentService.getStandings(id);
+  getStandings(@Param('id') id: number, @Query('round') round?: number) {
+    return this.tournamentService.getStandings(id, round);
   }
 }

@@ -50,6 +50,10 @@ export class TournamentRegistration extends Document {
 
   @Prop({ required: false, type: Date })
   confirmedAt: Date;
+
+  // Turnuva günü girişte okutulan QR'ın içeriği; bu özellikten önceki başvurularda boş
+  @Prop({ required: false, type: String })
+  checkInCode: string;
 }
 
 export const TournamentRegistrationSchema = SchemaFactory.createForClass(
@@ -58,5 +62,9 @@ export const TournamentRegistrationSchema = SchemaFactory.createForClass(
 TournamentRegistrationSchema.index(
   { tournamentId: 1, phone: 1 },
   { unique: true },
+);
+TournamentRegistrationSchema.index(
+  { checkInCode: 1 },
+  { unique: true, sparse: true },
 );
 purifySchema(TournamentRegistrationSchema);
