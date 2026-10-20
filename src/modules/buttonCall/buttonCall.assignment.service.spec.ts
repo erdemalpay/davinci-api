@@ -513,12 +513,16 @@ describe('ButtonCallAssignmentService.claim', () => {
       })),
     };
     const m = () => model([]) as never;
+    // The one taking over isn't the middleman.
+    const middlemanModel = {
+      updateOne: jest.fn(async () => ({ modifiedCount: 0 })),
+    };
     const service = new ButtonCallAssignmentService(
       buttonCallModel as never,
       m(),
       m(),
       m(),
-      m(),
+      middlemanModel as never,
       m(),
       m(),
       m(),
@@ -764,6 +768,20 @@ describe('ButtonCallAssignmentService.decline', () => {
             type: 'BREAK',
           }),
         },
+      );
+    });
+
+    it('passes on a confirmed break warning', async () => {
+      const { service, eventEmitter } = build();
+
+      await service.decline({ _id: 'ali' } as never, 7, {
+        reason: DeclineReasonEnum.BREAK,
+        breakWarningConfirmed: true,
+      });
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'break.busyStateStartedOnDecline',
+        expect.objectContaining({ breakWarningConfirmed: true }),
       );
     });
 

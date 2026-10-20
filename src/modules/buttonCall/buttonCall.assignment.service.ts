@@ -35,6 +35,7 @@ import {
   AssignmentRequest,
   best,
   cafeDaySeconds,
+  DUTY_HELPS_DOWNSTAIRS_UP_TO,
   findOutsideOperationStaff,
   findScheduledStaff,
   findServiceStaff,
@@ -42,6 +43,8 @@ import {
   hourToSeconds,
   isUpstairsTableName,
   leavingTooSoonFor,
+  MIDDLEMAN_AFTER_WAITING_SECONDS,
+  pickAssignee,
   pickAssigneeByTier,
   recentExplanationRate,
   toAssignmentEvents,
@@ -75,10 +78,17 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // The middleman gets no call, except an explanation or a question about a
 // game nobody else in the cafe knows while another game master is free:
 // then they go, and the free game master stands in as middleman until
-// they're back.
+// they're back. As a last resort, when nobody else can take it, the
+// middleman also gets a downstairs service call right away and a game
+// master call that has waited 3 minutes. A middleman who goes to a call
+// (assigned or taken over) leaves the role free: the first game master
+// left free with no call to take (not the upstairs duty) stands in until
+// they're back. There
+// is no middleman from 22:00.
 //
 // The upstairs duty ("Üstçü") gets the upstairs tables' game master and
-// service calls first, and no other call.
+// service calls first. While at most 10 upstairs tables are open, they
+// also get a downstairs call nobody else can take, before the middleman.
 //
 // Service calls (a table calling to order, or the bar calling for ready
 // orders to be taken): service staff (service role or the GM marked service staff
@@ -253,6 +263,9 @@ export class ButtonCallAssignmentService {
       userId = standIn && String(standIn.middleman.user);
     }
     if (!userId) {
+      userId = await this.pickLastResort(call, request, hour);
+    }
+    if (!userId) {
       return null;
     }
 
@@ -278,6 +291,8 @@ export class ButtonCallAssignmentService {
     if (assigned) {
       if (standIn) {
         await this.startStandIn(standIn.middleman, standIn.user, assigned);
+      } else {
+        await this.leaveMiddlemanRole(userId, assigned);
       }
       this.websocketGateway.emitButtonCallChanged(
         assigned,
@@ -285,6 +300,86 @@ export class ButtonCallAssignmentService {
       );
     }
     return assigned;
+  }
+
+  // Nobody else could take the call. A downstairs call goes to the upstairs
+  // duty while upstairs is quiet, then to the middleman: a downstairs
+  // service call right away, a game master call once it has waited 3
+  // minutes. The usual rules still hold (e.g. knowing the game to explain).
+  private async pickLastResort(
+    call: CallInfo &
+      Pick<ButtonCall, 'type' | 'declinedBy'> & { createdAt?: Date },
+    request: AssignmentRequest,
+    hour: string,
+  ): Promise<string | undefined> {
+    const isServiceCall = isServiceCallType(call.type);
+    const downstairs =
+      !!call.tableName &&
+      !(await this.isUpstairs(call.location, call.date, call.tableName));
+    const waitedSeconds = call.createdAt
+      ? (Date.now() - new Date(call.createdAt).getTime()) / 1000
+      : 0;
+    const middlemanTakesIt = isServiceCall
+      ? downstairs
+      : waitedSeconds >= MIDDLEMAN_AFTER_WAITING_SECONDS;
+    const open = {
+      location: call.location,
+      date: call.date,
+      finishHour: { $exists: false },
+    };
+    const [duty, middlemen] = await Promise.all([
+      downstairs
+        ? this.upstairsDutyModel.findOne(open).select('user').lean()
+        : null,
+      middlemanTakesIt
+        ? this.middlemanModel
+            .find({ ...open, awayOnCall: { $exists: false } })
+            .select('user')
+            .lean()
+        : [],
+    ]);
+    const lastResorts: string[] = [];
+    if (
+      duty &&
+      (await this.countUpstairsTables(call.location, call.date)) <=
+        DUTY_HELPS_DOWNSTAIRS_UP_TO
+    ) {
+      lastResorts.push(String(duty.user));
+    }
+    lastResorts.push(...middlemen.map((m) => String(m.user)));
+    if (lastResorts.length === 0) return undefined;
+    const candidates = await this.findCandidates(
+      call.location,
+      call.date,
+      hour,
+      call.declinedBy ?? [],
+      call.type as ButtonCallTypeEnum,
+      call.tableName,
+      call.gmCallReason,
+      { lastResort: true },
+    );
+    for (const userId of lastResorts) {
+      const picked = pickAssignee(
+        candidates.filter((c) => c.userId === userId),
+        request,
+      );
+      if (picked) return picked;
+    }
+    return undefined;
+  }
+
+  // Upstairs tables open now, an event table counting its tables.
+  private async countUpstairsTables(location: number, date: string) {
+    const tables = await this.tableModel
+      .find({
+        location,
+        date,
+        finishHour: { $exists: false },
+        type: { $nin: [TableTypes.TAKEOUT, TableTypes.ONLINE] },
+      })
+      .select('name type tables')
+      .lean();
+    return tables.reduce((n, t) => n + upstairsTableCount(t), 0);
   }
 
   // An explanation or a question about a game only the middleman knows:
@@ -310,6 +405,7 @@ export class ButtonCallAssignmentService {
         finishHour: { $exists: false },
         // A stand-in doesn't hand over again.
         coveringFor: { $exists: false },
+        awayOnCall: { $exists: false },
       })
       .lean();
     const middlemanId = middleman && String(middleman.user);
@@ -391,62 +487,166 @@ export class ButtonCallAssignmentService {
     this.websocketGateway.emitMiddlemanChanged();
   }
 
-  // The middleman is back when their call is over and they aren't
-  // explaining a game: they take the role back and the stand-in is free.
-  // A middleman who left the cafe leaves the role to the stand-in.
-  private async handBackMiddlemen(date: string) {
-    const standIns = await this.middlemanModel
+  // A middleman who goes to a call leaves the role free until someone
+  // stands in (see fillFreeMiddlemanRoles).
+  private async leaveMiddlemanRole(
+    userId: string,
+    call: Pick<ButtonCall, '_id' | 'location' | 'date'>,
+  ) {
+    const left = await this.middlemanModel.updateOne(
+      {
+        user: userId,
+        location: call.location,
+        date: call.date,
+        finishHour: { $exists: false },
+        awayOnCall: { $exists: false },
+      },
+      { $set: { awayOnCall: call._id } },
+    );
+    if (left.modifiedCount > 0) {
+      this.websocketGateway.emitMiddlemanChanged();
+      // Someone free may stand in right away.
+      this.handleStaffAvailabilityChanged();
+    }
+  }
+
+  // The first game master left free once the waiting calls are assigned
+  // stands in for a middleman away on a call; the one who waited longest
+  // when several are. Not the upstairs duty.
+  private async fillFreeMiddlemanRoles(date: string) {
+    const away = await this.middlemanModel
       .find({
         date,
         finishHour: { $exists: false },
-        coveringFor: { $exists: true },
+        awayOnCall: { $exists: true },
       })
       .lean();
-    for (const standIn of standIns) {
-      const middlemanId = String(standIn.coveringFor);
-      const [call, explaining, inCafe] = await Promise.all([
-        this.buttonCallModel
-          .findById(standIn.coveringCall)
-          .select('assignedTo finishHour')
-          .lean(),
-        this.gameplayTimeModel.exists({
-          user: middlemanId,
+    for (const record of away) {
+      const location = Number(record.location);
+      const middlemanId = String(record.coveringFor ?? record.user);
+      const duty = await this.upstairsDutyModel
+        .findOne({ location, date, finishHour: { $exists: false } })
+        .select('user')
+        .lean();
+      const free = (
+        await this.findCandidates(location, date, nowHour(), [])
+      ).filter(
+        (c) =>
+          (c.role === RoleEnum.GAMEMASTER || c.role === RoleEnum.GAMEMANAGER) &&
+          c.userId !== middlemanId &&
+          c.userId !== String(record.user) &&
+          (!duty || c.userId !== String(duty.user)),
+      );
+      if (free.length === 0) continue;
+      const hour = cafeHour(false);
+      const ended = await this.middlemanModel.updateOne(
+        { _id: record._id, finishHour: { $exists: false } },
+        { $set: { finishHour: hour } },
+      );
+      if (ended.modifiedCount === 0) continue;
+      await this.middlemanModel.create({
+        user: best(free).userId,
+        location,
+        date,
+        startHour: hour,
+        coveringFor: middlemanId,
+        coveringCall: record.awayOnCall,
+      });
+      this.websocketGateway.emitMiddlemanChanged();
+    }
+  }
+
+  // On a call, explaining a game, or just closed a call (the explanation
+  // may be about to start).
+  private async isBusyWithCalls(userId: string, date: string) {
+    const [openCall, explaining, lastClosed] = await Promise.all([
+      this.buttonCallModel.exists({
+        date,
+        type: { $in: ASSIGNED_CALL_TYPES },
+        assignedTo: userId,
+        finishHour: { $exists: false },
+      }),
+      this.gameplayTimeModel.exists({
+        user: userId,
+        date,
+        finishHour: { $exists: false },
+      }),
+      this.buttonCallModel
+        .findOne({
           date,
-          finishHour: { $exists: false },
-        }),
-        this.visitModel.exists({
-          user: middlemanId,
-          date,
-          location: standIn.location,
-          finishHour: { $exists: false },
-        }),
-      ]);
+          type: { $in: ASSIGNED_CALL_TYPES },
+          assignedTo: userId,
+          finishHour: { $exists: true },
+        })
+        .sort({ updatedAt: -1 })
+        .select('finishHour')
+        .lean(),
+    ]);
+    const justClosed =
+      !!lastClosed?.finishHour &&
+      cafeDaySeconds(nowHour()) - cafeDaySeconds(lastClosed.finishHour) <
+        HAND_BACK_AFTER_SECONDS;
+    return !!openCall || !!explaining || justClosed;
+  }
+
+  // The middleman is back when they're done with calls and explanations:
+  // they take the role back (from the stand-in, if there is one). A
+  // middleman who left the cafe leaves the role to the stand-in; with
+  // nobody standing in, the role ends.
+  private async handBackMiddlemen(date: string) {
+    const records = await this.middlemanModel
+      .find({
+        date,
+        finishHour: { $exists: false },
+        $or: [
+          { coveringFor: { $exists: true } },
+          { awayOnCall: { $exists: true } },
+        ],
+      })
+      .lean();
+    for (const record of records) {
+      const isStandIn = !!record.coveringFor;
+      const middlemanId = String(record.coveringFor ?? record.user);
+      const inCafe = await this.visitModel.exists({
+        user: middlemanId,
+        date,
+        location: record.location,
+        finishHour: { $exists: false },
+      });
       if (!inCafe) {
         await this.middlemanModel.updateOne(
-          { _id: standIn._id },
-          { $unset: { coveringFor: '', coveringCall: '', coveringGame: '' } },
+          { _id: record._id },
+          isStandIn
+            ? {
+                $unset: {
+                  coveringFor: '',
+                  coveringCall: '',
+                  coveringGame: '',
+                },
+              }
+            : { $set: { finishHour: cafeHour(false) } },
         );
         this.websocketGateway.emitMiddlemanChanged();
         continue;
       }
-      const onCall =
-        call && !call.finishHour && call.assignedTo === middlemanId;
-      const justClosed =
-        call?.finishHour &&
-        hourToSeconds(nowHour()) - hourToSeconds(call.finishHour) <
-          HAND_BACK_AFTER_SECONDS;
-      if (onCall || explaining || justClosed) {
+      if (await this.isBusyWithCalls(middlemanId, date)) continue;
+      if (!isStandIn) {
+        await this.middlemanModel.updateOne(
+          { _id: record._id, finishHour: { $exists: false } },
+          { $unset: { awayOnCall: '' } },
+        );
+        this.websocketGateway.emitMiddlemanChanged();
         continue;
       }
       const hour = cafeHour(false);
       const ended = await this.middlemanModel.updateOne(
-        { _id: standIn._id, finishHour: { $exists: false } },
+        { _id: record._id, finishHour: { $exists: false } },
         { $set: { finishHour: hour } },
       );
       if (ended.modifiedCount === 0) continue;
       await this.middlemanModel.create({
         user: middlemanId,
-        location: standIn.location,
+        location: record.location,
         date,
         startHour: hour,
       });
@@ -467,28 +667,16 @@ export class ButtonCallAssignmentService {
   }
 
   private async updateUpstairsDuty(location: number, date: string) {
-    const [duty, tables, checkInByUser, { slots }, middlemen] =
+    const [duty, upstairsTables, checkInByUser, { slots }, middlemen] =
       await Promise.all([
         this.upstairsDutyModel
           .findOne({ location, date, finishHour: { $exists: false } })
           .lean(),
-        this.tableModel
-          .find({
-            location,
-            date,
-            finishHour: { $exists: false },
-            type: { $nin: [TableTypes.TAKEOUT, TableTypes.ONLINE] },
-          })
-          .select('name type tables')
-          .lean(),
+        this.countUpstairsTables(location, date),
         this.findCheckInByUser(location, date),
         this.findShiftSlots(location, date),
         this.findMiddlemanIds(date),
       ]);
-    const upstairsTables = tables.reduce(
-      (n, t) => n + upstairsTableCount(t),
-      0,
-    );
     const serviceStaff = new Set(findServiceStaff(slots));
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
     const gameMasters = await this.userModel
@@ -768,7 +956,10 @@ export class ButtonCallAssignmentService {
     await this.breakModel.create(breakRecord);
     this.websocketGateway.emitBreakChanged();
     // Activity log and the concurrent break warning, as for any break.
-    const event: BusyStateStartedEvent = { breakRecord };
+    const event: BusyStateStartedEvent = {
+      breakRecord,
+      breakWarningConfirmed: dto.breakWarningConfirmed,
+    };
     this.eventEmitter.emit(BUSY_STATE_STARTED_ON_DECLINE, event);
   }
 
@@ -869,6 +1060,7 @@ export class ButtonCallAssignmentService {
     if (!claimed) {
       throw new NotFoundException('Call not found');
     }
+    await this.leaveMiddlemanRole(user._id as string, claimed);
     this.websocketGateway.emitButtonCallChanged(
       claimed,
       ButtonCallActionEnum.ASSIGN,
@@ -921,6 +1113,18 @@ export class ButtonCallAssignmentService {
       } catch (error) {
         this.logger.error(`Failed to assign button call ${_id}`, error);
       }
+    }
+    // Waiting calls come first: whoever is still free after them stands in
+    // for a middleman away on a call. Queued like the assignments, so a new
+    // call can't pick the same person meanwhile.
+    const fill = this.assignmentQueue.then(() =>
+      this.fillFreeMiddlemanRoles(today()),
+    );
+    this.assignmentQueue = fill.catch(() => undefined);
+    try {
+      await fill;
+    } catch (error) {
+      this.logger.error('Failed to fill the middleman role', error);
     }
   }
 
@@ -1138,6 +1342,9 @@ export class ButtonCallAssignmentService {
     callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
     tableName?: string,
     gmCallReason?: string,
+    // Also the middleman and the upstairs duty for any table, for the last
+    // resort (see pickLastResort).
+    { lastResort = false }: { lastResort?: boolean } = {},
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
     const isServiceCall = isServiceCallType(callType);
@@ -1194,7 +1401,7 @@ export class ButtonCallAssignmentService {
       );
     // Without a table (e.g. asking who could explain a game) the duty
     // counts as anyone else.
-    const dutyExcluded = !!dutyId && !!tableName && !dutyTakesIt;
+    const dutyExcluded = !!dutyId && !!tableName && !dutyTakesIt && !lastResort;
     // Service staff and outside operation are set for the whole day.
     const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
     const outsideOperation = new Set(
@@ -1203,8 +1410,9 @@ export class ButtonCallAssignmentService {
     const shiftEnds = findShiftEnds(shiftPlan.slots, shiftPlan.locationShifts);
     const excluded = new Set([
       ...busyNow.busy,
-      // The middleman gets calls only through a stand-in (see assignNow).
-      ...busyNow.middlemen,
+      // The middleman gets calls only through a stand-in or as the last
+      // resort (see assignNow).
+      ...(lastResort ? [] : busyNow.middlemen),
       ...excludedUsers,
       ...handlingCall.filter((id) => !(dutyTakesIt && id === dutyId)),
       ...(dutyExcluded ? [dutyId] : []),
