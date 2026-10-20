@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UseInterceptors,
 } from '@nestjs/common';
@@ -50,8 +51,8 @@ export class TournamentController {
 
   @Public()
   @Get('/public/:slug/live')
-  findLive(@Param('slug') slug: string) {
-    return this.tournamentService.findLiveBySlug(slug);
+  findLive(@Param('slug') slug: string, @Query('round') round?: number) {
+    return this.tournamentService.findLiveBySlug(slug, round);
   }
 
   @Public()
@@ -192,7 +193,7 @@ export class TournamentController {
   }
 
   @Get('/:id/standings')
-  getStandings(@Param('id') id: number) {
-    return this.tournamentService.getStandings(id);
+  getStandings(@Param('id') id: number, @Query('round') round?: number) {
+    return this.tournamentService.getStandings(id, round);
   }
 }
