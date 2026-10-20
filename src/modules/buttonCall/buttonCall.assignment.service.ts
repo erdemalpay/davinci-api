@@ -35,6 +35,7 @@ import {
   AssignmentRequest,
   best,
   cafeDaySeconds,
+  DUTY_HELPS_DOWNSTAIRS_UP_TO,
   findOutsideOperationStaff,
   findScheduledStaff,
   findServiceStaff,
@@ -42,6 +43,8 @@ import {
   hourToSeconds,
   isUpstairsTableName,
   leavingTooSoonFor,
+  MIDDLEMAN_AFTER_WAITING_SECONDS,
+  pickAssignee,
   pickAssigneeByTier,
   recentExplanationRate,
   toAssignmentEvents,
@@ -75,10 +78,13 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // The middleman gets no call, except an explanation or a question about a
 // game nobody else in the cafe knows while another game master is free:
 // then they go, and the free game master stands in as middleman until
-// they're back.
+// they're back. As a last resort, when nobody else can take it, the
+// middleman also gets a downstairs service call right away and a game
+// master call that has waited 3 minutes. There is no middleman from 22:00.
 //
 // The upstairs duty ("Üstçü") gets the upstairs tables' game master and
-// service calls first, and no other call.
+// service calls first. While at most 10 upstairs tables are open, they
+// also get a downstairs call nobody else can take, before the middleman.
 //
 // Service calls (a table calling to order, or the bar calling for ready
 // orders to be taken): service staff (service role or the GM marked service staff
@@ -253,6 +259,9 @@ export class ButtonCallAssignmentService {
       userId = standIn && String(standIn.middleman.user);
     }
     if (!userId) {
+      userId = await this.pickLastResort(call, request, hour);
+    }
+    if (!userId) {
       return null;
     }
 
@@ -285,6 +294,83 @@ export class ButtonCallAssignmentService {
       );
     }
     return assigned;
+  }
+
+  // Nobody else could take the call. A downstairs call goes to the upstairs
+  // duty while upstairs is quiet, then to the middleman: a downstairs
+  // service call right away, a game master call once it has waited 3
+  // minutes. The usual rules still hold (e.g. knowing the game to explain).
+  private async pickLastResort(
+    call: CallInfo &
+      Pick<ButtonCall, 'type' | 'declinedBy'> & { createdAt?: Date },
+    request: AssignmentRequest,
+    hour: string,
+  ): Promise<string | undefined> {
+    const isServiceCall = isServiceCallType(call.type);
+    const downstairs =
+      !!call.tableName &&
+      !(await this.isUpstairs(call.location, call.date, call.tableName));
+    const waitedSeconds = call.createdAt
+      ? (Date.now() - new Date(call.createdAt).getTime()) / 1000
+      : 0;
+    const middlemanTakesIt = isServiceCall
+      ? downstairs
+      : waitedSeconds >= MIDDLEMAN_AFTER_WAITING_SECONDS;
+    const open = {
+      location: call.location,
+      date: call.date,
+      finishHour: { $exists: false },
+    };
+    const [duty, middlemen] = await Promise.all([
+      downstairs
+        ? this.upstairsDutyModel.findOne(open).select('user').lean()
+        : null,
+      middlemanTakesIt
+        ? this.middlemanModel.find(open).select('user').lean()
+        : [],
+    ]);
+    const lastResorts: string[] = [];
+    if (
+      duty &&
+      (await this.countUpstairsTables(call.location, call.date)) <=
+        DUTY_HELPS_DOWNSTAIRS_UP_TO
+    ) {
+      lastResorts.push(String(duty.user));
+    }
+    lastResorts.push(...middlemen.map((m) => String(m.user)));
+    if (lastResorts.length === 0) return undefined;
+    const candidates = await this.findCandidates(
+      call.location,
+      call.date,
+      hour,
+      call.declinedBy ?? [],
+      call.type as ButtonCallTypeEnum,
+      call.tableName,
+      call.gmCallReason,
+      { lastResort: true },
+    );
+    for (const userId of lastResorts) {
+      const picked = pickAssignee(
+        candidates.filter((c) => c.userId === userId),
+        request,
+      );
+      if (picked) return picked;
+    }
+    return undefined;
+  }
+
+  // Upstairs tables open now, an event table counting its tables.
+  private async countUpstairsTables(location: number, date: string) {
+    const tables = await this.tableModel
+      .find({
+        location,
+        date,
+        finishHour: { $exists: false },
+        type: { $nin: [TableTypes.TAKEOUT, TableTypes.ONLINE] },
+      })
+      .select('name type tables')
+      .lean();
+    return tables.reduce((n, t) => n + upstairsTableCount(t), 0);
   }
 
   // An explanation or a question about a game only the middleman knows:
@@ -467,28 +553,16 @@ export class ButtonCallAssignmentService {
   }
 
   private async updateUpstairsDuty(location: number, date: string) {
-    const [duty, tables, checkInByUser, { slots }, middlemen] =
+    const [duty, upstairsTables, checkInByUser, { slots }, middlemen] =
       await Promise.all([
         this.upstairsDutyModel
           .findOne({ location, date, finishHour: { $exists: false } })
           .lean(),
-        this.tableModel
-          .find({
-            location,
-            date,
-            finishHour: { $exists: false },
-            type: { $nin: [TableTypes.TAKEOUT, TableTypes.ONLINE] },
-          })
-          .select('name type tables')
-          .lean(),
+        this.countUpstairsTables(location, date),
         this.findCheckInByUser(location, date),
         this.findShiftSlots(location, date),
         this.findMiddlemanIds(date),
       ]);
-    const upstairsTables = tables.reduce(
-      (n, t) => n + upstairsTableCount(t),
-      0,
-    );
     const serviceStaff = new Set(findServiceStaff(slots));
     const outsideOperation = new Set(findOutsideOperationStaff(slots));
     const gameMasters = await this.userModel
@@ -1138,6 +1212,9 @@ export class ButtonCallAssignmentService {
     callType: ButtonCallTypeEnum = ButtonCallTypeEnum.GAMEMASTERCALL,
     tableName?: string,
     gmCallReason?: string,
+    // Also the middleman and the upstairs duty for any table, for the last
+    // resort (see pickLastResort).
+    { lastResort = false }: { lastResort?: boolean } = {},
   ): Promise<AssignmentCandidate[]> {
     const checkInByUser = await this.findCheckInByUser(location, date);
     const isServiceCall = isServiceCallType(callType);
@@ -1194,7 +1271,7 @@ export class ButtonCallAssignmentService {
       );
     // Without a table (e.g. asking who could explain a game) the duty
     // counts as anyone else.
-    const dutyExcluded = !!dutyId && !!tableName && !dutyTakesIt;
+    const dutyExcluded = !!dutyId && !!tableName && !dutyTakesIt && !lastResort;
     // Service staff and outside operation are set for the whole day.
     const serviceStaff = new Set(findServiceStaff(shiftPlan.slots));
     const outsideOperation = new Set(
@@ -1203,8 +1280,9 @@ export class ButtonCallAssignmentService {
     const shiftEnds = findShiftEnds(shiftPlan.slots, shiftPlan.locationShifts);
     const excluded = new Set([
       ...busyNow.busy,
-      // The middleman gets calls only through a stand-in (see assignNow).
-      ...busyNow.middlemen,
+      // The middleman gets calls only through a stand-in or as the last
+      // resort (see assignNow).
+      ...(lastResort ? [] : busyNow.middlemen),
       ...excludedUsers,
       ...handlingCall.filter((id) => !(dutyTakesIt && id === dutyId)),
       ...(dutyExcluded ? [dutyId] : []),
