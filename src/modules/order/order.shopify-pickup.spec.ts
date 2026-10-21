@@ -17,6 +17,23 @@ type FakeOrder = {
   isShopifyPickUpOrderBrought?: boolean;
   isShopifyCustomerPicked?: boolean;
   shopifyFulfillmentId?: string;
+  stockLocation?: number;
+  shopifyPickUpStockLocation?: number;
+};
+
+type FakeUpdate = {
+  $set?: Partial<FakeOrder>;
+  $unset?: Partial<Record<keyof FakeOrder, ''>>;
+};
+
+const applyUpdate = (order: FakeOrder, update: FakeUpdate) => {
+  Object.assign(order, update.$set ?? {});
+  Object.assign(
+    order,
+    Object.fromEntries(
+      Object.keys(update.$unset ?? {}).map((key) => [key, undefined]),
+    ),
+  );
 };
 
 const orderLine = (over: Partial<FakeOrder> = {}): FakeOrder => ({
@@ -24,6 +41,7 @@ const orderLine = (over: Partial<FakeOrder> = {}): FakeOrder => ({
   item: { _id: 10, isPreOrder: false },
   quantity: 1,
   status: 'paid',
+  stockLocation: 6,
   shopifyOrderId: SHOPIFY_ORDER_ID,
   shopifyOrderLineItemId: '100',
   isShopifyPickUp: true,
@@ -48,6 +66,51 @@ const buildService = (orders: FakeOrder[]) => {
       updateManyCalls.push({ filter, update });
       return { modifiedCount: 0 };
     }),
+    // Yalnızca _id ve shopifyPickUpStockLocation.$exists filtrelerini taklit eder
+    findOneAndUpdate: jest.fn(
+      (
+        filter: {
+          _id: number;
+          shopifyPickUpStockLocation?: { $exists: boolean };
+        },
+        update: FakeUpdate,
+        options?: { new?: boolean },
+      ) => ({
+        populate: jest.fn(async () => {
+          const found = orders.find((o) => o._id === filter._id);
+          const mustExist = filter.shopifyPickUpStockLocation?.$exists;
+          if (
+            !found ||
+            (mustExist !== undefined &&
+              (found.shopifyPickUpStockLocation !== undefined) !== mustExist)
+          ) {
+            return null;
+          }
+          const before = { ...found };
+          applyUpdate(found, update);
+          return options?.new === false ? before : { ...found };
+        }),
+      }),
+    ),
+    updateOne: jest.fn(async (filter: { _id: number }, update: FakeUpdate) => {
+      const found = orders.find((o) => o._id === filter._id);
+      if (found) applyUpdate(found, update);
+      return { modifiedCount: found ? 1 : 0 };
+    }),
+  };
+
+  const accountingService = {
+    invalidateReservedStocks: jest.fn(),
+    stockTransfer: jest.fn(
+      async (
+        _user: unknown,
+        _from: number,
+        _to: number,
+        _product: string,
+        _quantity: number,
+        _status?: string,
+      ) => undefined,
+    ),
   };
 
   const shopifyService = {
@@ -78,7 +141,7 @@ const buildService = (orders: FakeOrder[]) => {
     ...Array(9).fill(undefined),
     websocketGateway,
     undefined,
-    { invalidateReservedStocks: jest.fn() },
+    accountingService,
     ...Array(7).fill(undefined),
     shopifyService,
     undefined,
@@ -87,7 +150,14 @@ const buildService = (orders: FakeOrder[]) => {
   jest.spyOn((service as any).logger, 'log').mockImplementation(() => void 0);
   jest.spyOn((service as any).logger, 'error').mockImplementation(() => void 0);
 
-  return { service, shopifyService, orderModel, websocketGateway, updateManyCalls };
+  return {
+    service,
+    shopifyService,
+    accountingService,
+    orderModel,
+    websocketGateway,
+    updateManyCalls,
+  };
 };
 
 describe('syncShopifyPickup — "Depodan Getirildi"', () => {
@@ -694,5 +764,176 @@ describe('prod sekilleri — takilan siparisler yakinsamayla kurtulur', () => {
       ['802'],
       false,
     );
+  });
+});
+
+const GAME = {
+  _id: 10,
+  isPreOrder: false,
+  itemProduction: [{ product: 'azul', quantity: 1, isDecrementStock: true }],
+};
+const NEORAMA = 2;
+const PICKUP_TRANSFER = 'PICKUPSTOCKTRANSFER';
+const DEPO = 6;
+const DELIVER = {
+  isShopifyCustomerPicked: true,
+  isShopifyPickUpOrderBrought: true,
+};
+
+describe('teslimde stok yeri secimi', () => {
+  it('Neorama secilince teslim edilen her satiri Neoramadan depoya aktarir', async () => {
+    const orders = [
+      orderLine({ _id: 1, item: GAME, shopifyOrderLineItemId: '100' }),
+      orderLine({
+        _id: 2,
+        item: GAME,
+        quantity: 2,
+        shopifyOrderLineItemId: '200',
+      }),
+    ];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleBulkOrderUpdate({ _id: 'dv' }, [1, 2], DELIVER, NEORAMA);
+
+    expect(accountingService.stockTransfer.mock.calls).toEqual([
+      [{ _id: 'dv' }, NEORAMA, DEPO, 'azul', 1, PICKUP_TRANSFER],
+      [{ _id: 'dv' }, NEORAMA, DEPO, 'azul', 2, PICKUP_TRANSFER],
+    ]);
+    expect(orders.map((o) => o.shopifyPickUpStockLocation)).toEqual([
+      NEORAMA,
+      NEORAMA,
+    ]);
+  });
+
+  it('Depo secilince aktarma yapmaz, sadece yeri kaydeder', async () => {
+    const orders = [orderLine({ _id: 1, item: GAME })];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleBulkOrderUpdate({ _id: 'dv' }, [1], DELIVER, DEPO);
+
+    expect(accountingService.stockTransfer).not.toHaveBeenCalled();
+    expect(orders[0].shopifyPickUpStockLocation).toBe(DEPO);
+  });
+
+  it('zaten aktarilmis satiri ikinci kez aktarmaz', async () => {
+    const orders = [
+      orderLine({ _id: 1, item: GAME, shopifyPickUpStockLocation: NEORAMA }),
+    ];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleBulkOrderUpdate({ _id: 'dv' }, [1], DELIVER, NEORAMA);
+
+    expect(accountingService.stockTransfer).not.toHaveBeenCalled();
+  });
+
+  it('stok yeri verilmezse eskisi gibi aktarma yapmaz', async () => {
+    const orders = [orderLine({ _id: 1, item: GAME })];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleBulkOrderUpdate({ _id: 'dv' }, [1], DELIVER);
+
+    expect(accountingService.stockTransfer).not.toHaveBeenCalled();
+    expect(orders[0].shopifyPickUpStockLocation).toBeUndefined();
+  });
+
+  it('aktarma basarisizsa uyari doner ve kaydi geri alir', async () => {
+    const orders = [orderLine({ _id: 1, item: GAME })];
+    const { service, accountingService } = buildService(orders);
+    accountingService.stockTransfer.mockRejectedValue(
+      new Error('Stock not found'),
+    );
+
+    const result: any[] = await service.simpleBulkOrderUpdate(
+      { _id: 'dv' },
+      [1],
+      DELIVER,
+      NEORAMA,
+    );
+
+    expect(result[0].shopifyWarning).toBe('PICKUP_STOCK_TRANSFER_FAILED');
+    expect(orders[0].shopifyPickUpStockLocation).toBeUndefined();
+  });
+});
+
+describe('teslimi geri alma — stok yeri', () => {
+  it('Neoramadan verilen satiri geri alinca stogu Neoramaya geri aktarir', async () => {
+    const orders = [
+      orderLine({
+        _id: 1,
+        item: GAME,
+        isShopifyPickUpOrderBrought: true,
+        isShopifyCustomerPicked: true,
+        shopifyPickUpStockLocation: NEORAMA,
+      }),
+    ];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleOrderUpdate({ _id: 'dv' }, 1, {
+      isShopifyCustomerPicked: false,
+    });
+
+    expect(accountingService.stockTransfer.mock.calls).toEqual([
+      [{ _id: 'dv' }, DEPO, NEORAMA, 'azul', 1, PICKUP_TRANSFER],
+    ]);
+    expect(orders[0].shopifyPickUpStockLocation).toBeUndefined();
+  });
+
+  it('Neoramadan verilen satir geri alininca getirildi isareti de kalkar', async () => {
+    const orders = [
+      orderLine({
+        _id: 1,
+        item: GAME,
+        isShopifyPickUpOrderBrought: true,
+        isShopifyCustomerPicked: true,
+        shopifyPickUpStockLocation: NEORAMA,
+      }),
+    ];
+    const { service } = buildService(orders);
+
+    const result: any = await service.simpleOrderUpdate({ _id: 'dv' }, 1, {
+      isShopifyCustomerPicked: false,
+    });
+
+    expect(orders[0].isShopifyPickUpOrderBrought).toBe(false);
+    expect(result.isShopifyPickUpOrderBrought).toBe(false);
+  });
+
+  it('depodan verilen satir geri alininca aktarma yapmaz, getirildi kalir', async () => {
+    const orders = [
+      orderLine({
+        _id: 1,
+        item: GAME,
+        isShopifyPickUpOrderBrought: true,
+        isShopifyCustomerPicked: true,
+        shopifyPickUpStockLocation: DEPO,
+      }),
+    ];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleOrderUpdate({ _id: 'dv' }, 1, {
+      isShopifyCustomerPicked: false,
+    });
+
+    expect(accountingService.stockTransfer).not.toHaveBeenCalled();
+    expect(orders[0].isShopifyPickUpOrderBrought).toBe(true);
+    expect(orders[0].shopifyPickUpStockLocation).toBeUndefined();
+  });
+
+  it('stok yeri kaydi olmayan eski teslimde aktarma yapmaz', async () => {
+    const orders = [
+      orderLine({
+        _id: 1,
+        item: GAME,
+        isShopifyPickUpOrderBrought: true,
+        isShopifyCustomerPicked: true,
+      }),
+    ];
+    const { service, accountingService } = buildService(orders);
+
+    await service.simpleOrderUpdate({ _id: 'dv' }, 1, {
+      isShopifyCustomerPicked: false,
+    });
+
+    expect(accountingService.stockTransfer).not.toHaveBeenCalled();
   });
 });
