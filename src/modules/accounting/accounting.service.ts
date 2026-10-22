@@ -2970,6 +2970,7 @@ export class AccountingService {
     transferredStockLocation: number,
     product: string,
     quantity: number,
+    status = StockHistoryStatusEnum.STOCKTRANSFER,
   ) {
     const currentStockId = usernamify(product + currentStockLocation);
     const stock = await this.stockModel.findById(currentStockId);
@@ -2983,7 +2984,7 @@ export class AccountingService {
           product: product,
           location: transferredStockLocation,
           quantity: quantity,
-          status: StockHistoryStatusEnum.STOCKTRANSFER,
+          status,
         },
         false,
       ),
@@ -2993,7 +2994,7 @@ export class AccountingService {
           product: product,
           location: currentStockLocation,
           quantity: -quantity,
-          status: StockHistoryStatusEnum.STOCKTRANSFER,
+          status,
         },
         false,
       ),

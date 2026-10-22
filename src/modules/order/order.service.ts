@@ -2268,6 +2268,11 @@ export class OrderService {
         }
       }
 
+      if (updates.isShopifyCustomerPicked === false) {
+        shopifyWarning =
+          (await this.revertPickupStock(user, order)) ?? shopifyWarning;
+      }
+
       if (
         updates.isShopifyPickUpOrderBrought === true &&
         order.isShopifyPickUp &&
@@ -2291,6 +2296,7 @@ export class OrderService {
     user: User,
     ids: number[],
     updates: Partial<Order>,
+    pickupStockLocation?: number,
   ) {
     const touchesShopifyPickup =
       updates.isShopifyPickUpOrderBrought === true ||
@@ -2311,6 +2317,10 @@ export class OrderService {
 
     const found = updated.filter(Boolean);
     this.accountingService.invalidateReservedStocks();
+    const transferFailed =
+      updates.isShopifyCustomerPicked === true && pickupStockLocation != null
+        ? await this.transferPickupStock(user, found, pickupStockLocation)
+        : new Set<string>();
     const shopifyOrderIds = [
       ...new Set(
         found
@@ -2324,7 +2334,11 @@ export class OrderService {
 
     const warnings = new Map<string, string>();
     for (const shopifyOrderId of shopifyOrderIds) {
-      const warning = await this.syncShopifyPickup(shopifyOrderId, mode);
+      const syncWarning = await this.syncShopifyPickup(shopifyOrderId, mode);
+      // Stok aktarılamadıysa personelin elle düzeltmesi gerekir; bu uyarı önce gelir.
+      const warning = transferFailed.has(shopifyOrderId)
+        ? 'PICKUP_STOCK_TRANSFER_FAILED'
+        : syncWarning;
       if (warning) {
         warnings.set(shopifyOrderId, warning);
       }
@@ -2340,6 +2354,119 @@ export class OrderService {
       const warning = warnings.get(String(order.shopifyOrderId));
       return warning ? { ...order.toObject(), shopifyWarning: warning } : order;
     });
+  }
+
+  /**
+   * Gel-al ürünü sipariş anında stockLocation'dan (depo) düşer. Teslimde başka
+   * bir yerden verildiyse stok o yerden depoya aktarılır. Satır başına bir kez
+   * yapılır: alan zaten yazılıysa çift tıklamada tekrar aktarmaz.
+   * Aktarılamayan siparişlerin Shopify id'lerini döner.
+   */
+  private async transferPickupStock(
+    user: User,
+    orders: Order[],
+    location: number,
+  ): Promise<Set<string>> {
+    const failed = new Set<string>();
+
+    for (const order of orders) {
+      const claimed = await this.orderModel
+        .findOneAndUpdate(
+          { _id: order._id, shopifyPickUpStockLocation: { $exists: false } },
+          { $set: { shopifyPickUpStockLocation: location } },
+          { new: true },
+        )
+        .populate('item');
+
+      if (!claimed || claimed.stockLocation === location) continue;
+
+      try {
+        await this.movePickupStock(
+          user,
+          claimed,
+          location,
+          claimed.stockLocation,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to transfer pickup stock for order ${order._id}:`,
+          error,
+        );
+        await this.orderModel.updateOne(
+          { _id: order._id },
+          { $unset: { shopifyPickUpStockLocation: '' } },
+        );
+        failed.add(String(order.shopifyOrderId));
+      }
+    }
+
+    return failed;
+  }
+
+  /** Teslim geri alınınca teslimde yapılan stok aktarmasını tersine çevirir. */
+  private async revertPickupStock(
+    user: User,
+    order: Order,
+  ): Promise<string | undefined> {
+    const released = await this.orderModel
+      .findOneAndUpdate(
+        { _id: order._id, shopifyPickUpStockLocation: { $exists: true } },
+        { $unset: { shopifyPickUpStockLocation: '' } },
+        { new: false },
+      )
+      .populate('item');
+    order.shopifyPickUpStockLocation = undefined;
+
+    if (
+      !released ||
+      released.shopifyPickUpStockLocation === released.stockLocation
+    ) {
+      return undefined;
+    }
+
+    // Depo dışından verilen ürün depodan getirilmemişti; teslim öncesine dönülür.
+    await this.orderModel.updateOne(
+      { _id: order._id },
+      { $set: { isShopifyPickUpOrderBrought: false } },
+    );
+    order.isShopifyPickUpOrderBrought = false;
+
+    try {
+      await this.movePickupStock(
+        user,
+        released,
+        released.stockLocation,
+        released.shopifyPickUpStockLocation,
+      );
+      return undefined;
+    } catch (error) {
+      this.logger.error(
+        `Failed to revert pickup stock for order ${order._id}:`,
+        error,
+      );
+      return 'PICKUP_STOCK_TRANSFER_FAILED';
+    }
+  }
+
+  private async movePickupStock(
+    user: User,
+    order: Order,
+    from: number,
+    to: number,
+  ) {
+    if (!isPopulatedMenuItem(order.item)) return;
+
+    for (const ingredient of order.item.itemProduction) {
+      if (!ingredient?.isDecrementStock) continue;
+      await this.accountingService.stockTransfer(
+        user,
+        from,
+        to,
+        ingredient.product,
+        ingredient.quantity * order.quantity,
+        StockHistoryStatusEnum.PICKUPSTOCKTRANSFER,
+      );
+    }
   }
 
   async cancelIkasOrder(user: User, ikasId: string, quantity: number) {
