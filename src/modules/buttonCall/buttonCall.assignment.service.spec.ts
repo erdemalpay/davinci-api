@@ -989,3 +989,89 @@ describe('ButtonCallAssignmentService questions', () => {
     });
   });
 });
+
+describe('ButtonCallAssignmentService calls of someone who starts explaining', () => {
+  const date = '2026-10-21';
+  // Ceren explains at table 36 of an activity table made of 26, 27 and 36.
+  const activityTable = {
+    _id: 85904,
+    name: 'Genç Mühendisler',
+    type: 'activity',
+    tables: ['26', '27', '36'],
+  };
+  const call = (tableName: string) => ({
+    _id: 1,
+    tableName,
+    assignedTo: 'ceren',
+    assignmentHistory: [{ user: 'ceren', action: 'assigned' }],
+  });
+
+  function build(callTableName: string, table: unknown, gameplay: unknown) {
+    const buttonCallModel = {
+      ...model([call(callTableName)]),
+      findOneAndUpdate: jest.fn(async () => ({ _id: 1 })),
+    };
+    const m = () => model([]) as never;
+    const service = new ButtonCallAssignmentService(
+      buttonCallModel as never,
+      m(),
+      m(),
+      m(),
+      m(),
+      model([{ user: 'ceren', table: 85904, gameplay: 150341 }]) as never,
+      model([], gameplay) as never,
+      m(),
+      model([], table) as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      m(),
+      m(),
+      m(),
+      { emit: jest.fn() } as never,
+    );
+    const release = () =>
+      (
+        service as unknown as {
+          releaseCallsOfExplainers: (date: string) => Promise<void>;
+        }
+      ).releaseCallsOfExplainers(date);
+    return { release, buttonCallModel };
+  }
+
+  it("releases a call from another of the activity table's tables", async () => {
+    const { release, buttonCallModel } = build('26', activityTable, {
+      activityTableName: '36',
+    });
+
+    await release();
+
+    expect(buttonCallModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: 1, assignedTo: 'ceren', finishHour: { $exists: false } },
+      expect.objectContaining({
+        $unset: { assignedTo: '', assignedHour: '' },
+      }),
+      { new: true },
+    );
+  });
+
+  it('keeps the call of the table they explain at', async () => {
+    const { release, buttonCallModel } = build('36', activityTable, {
+      activityTableName: '36',
+    });
+
+    await release();
+
+    expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('keeps a call of an ordinary table they explain at', async () => {
+    const { release, buttonCallModel } = build(
+      '12',
+      { _id: 85904, name: '12', type: 'normal', tables: [] },
+      null,
+    );
+
+    await release();
+
+    expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+});

@@ -254,6 +254,17 @@ export class GameplayTimeService {
     }, 'Failed to update gameplay time record');
   }
 
+  // The explanation of a game ends with the game (another game at its table
+  // or the table closing) if it hasn't been ended already.
+  async finishByGameplay(gameplay: number, finishHour: string) {
+    const open = await this.gameplayTimeModel
+      .findOne({ gameplay, finishHour: { $exists: false } })
+      .select('_id')
+      .lean();
+    if (!open) return;
+    await this.update(String(open._id), { finishHour });
+  }
+
   async delete(id: string): Promise<GameplayTime> {
     const deletedGameplayTime = await this.gameplayTimeModel.findByIdAndDelete(
       id,
