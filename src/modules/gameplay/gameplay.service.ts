@@ -463,6 +463,14 @@ export class GameplayService {
   findById(id: number) {
     return this.gameplayModel.findById(id);
   }
+
+  // The ones among these games that are still going on.
+  findOpenByIds(ids: number[]) {
+    return this.gameplayModel
+      .find({ _id: { $in: ids }, finishHour: { $in: [null, ''] } })
+      .select('activityTableName')
+      .lean();
+  }
   findByMentor(mentor: string) {
     return this.gameplayModel.find({
       mentor,
