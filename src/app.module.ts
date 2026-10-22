@@ -36,6 +36,7 @@ import { MembershipModule } from './modules/membership/membership.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { UpstairsDutyModule } from './modules/upstairsDuty/upstairsDuty.module';
+import { StaffLeaveModule } from './modules/staffLeave/staffLeave.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
@@ -133,6 +134,7 @@ const modules = [
   ConcurrencyLogModule,
   IntegrationRequestLogModule,
   InventoryModule,
+  StaffLeaveModule,
 ];
 
 if (config.get('migrationEnabled')) {
