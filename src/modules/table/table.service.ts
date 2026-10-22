@@ -286,20 +286,7 @@ export class TableService {
       );
     }
 
-    // Close the previous gameplay
-    if (table.gameplays.length) {
-      const lastGameplayId = table.gameplays[table.gameplays.length - 1];
-      const lastGameplay = await this.gameplayService.findById(
-        lastGameplayId as unknown as number,
-      );
-      if (!lastGameplay?.finishHour) {
-        await this.gameplayService.close(
-          user,
-          lastGameplayId as unknown as number,
-          tableDto.finishHour,
-        );
-      }
-    }
+    await this.finishOpenGameplays(user, table, tableDto.finishHour);
     const updatedTable = await this.tableModel
       .findByIdAndUpdate(
         id,
@@ -492,6 +479,32 @@ export class TableService {
     }
   }
 
+  // Ends the games still going on at the table, with their explanations: a
+  // table has one game at a time, so a new game (forTable) ends the previous
+  // one. An activity table is a group of tables played in parallel: a new
+  // game ends only the one at its own table, and closing the group ends all.
+  private async finishOpenGameplays(
+    user: User,
+    table: Table,
+    finishHour: string,
+    forTable?: string | null,
+  ) {
+    if (!table.gameplays?.length) return;
+    const ids = table.gameplays as unknown as number[];
+    const isActivity = table.type === TableTypes.ACTIVITY;
+    const toFinish =
+      isActivity && forTable !== null
+        ? (await this.gameplayService.findOpenByIds(ids)).filter(
+            (gameplay) =>
+              forTable === undefined || gameplay.activityTableName === forTable,
+          )
+        : await this.gameplayService.findOpenByIds(ids.slice(-1));
+    for (const gameplay of toFinish) {
+      await this.gameplayService.close(user, gameplay._id, finishHour);
+      await this.gameplayTimeService.finishByGameplay(gameplay._id, finishHour);
+    }
+  }
+
   async addGameplay(user: User, id: number, gameplayDto: CreateGameplayDto) {
     const table = await this.tableModel.findById(id);
 
@@ -501,20 +514,12 @@ export class TableService {
         HttpStatus.NOT_FOUND,
       );
     }
-    // Close the previous gameplay
-    if (table.gameplays.length) {
-      const lastGameplayId = table.gameplays[table.gameplays.length - 1];
-      const lastGameplay = await this.gameplayService.findById(
-        lastGameplayId as unknown as number,
-      );
-      if (!lastGameplay?.finishHour) {
-        await this.gameplayService.close(
-          user,
-          lastGameplayId as unknown as number,
-          gameplayDto.startHour,
-        );
-      }
-    }
+    await this.finishOpenGameplays(
+      user,
+      table,
+      gameplayDto.startHour,
+      gameplayDto.activityTableName || null,
+    );
     const gameplay = await this.gameplayService.create(user, gameplayDto, id);
     this.activityService.addActivity(user, ActivityType.CREATE_GAMEPLAY, {
       tableId: id,

@@ -748,7 +748,7 @@ export class ButtonCallAssignmentService {
   private async releaseCallsOfExplainers(date: string) {
     const explaining = await this.gameplayTimeModel
       .find({ date, finishHour: { $exists: false } })
-      .select('user table')
+      .select('user table gameplay')
       .lean();
     if (explaining.length === 0) return;
     const calls = await this.buttonCallModel
@@ -770,13 +770,28 @@ export class ButtonCallAssignmentService {
         explanation?.table !== undefined &&
         (await this.tableModel
           .findById(explanation.table)
-          .select('name tables')
+          .select('name tables type')
           .lean());
+      // At an activity table they explain at one of its tables: calls from
+      // the group's other tables are someone else's.
+      const activityTableName =
+        !!table &&
+        table.type === TableTypes.ACTIVITY &&
+        explanation?.gameplay !== undefined
+          ? (
+              await this.gameplayModel
+                .findById(explanation.gameplay)
+                .select('activityTableName')
+                .lean()
+            )?.activityTableName
+          : undefined;
       const sameTable =
         !!table &&
         !!call.tableName &&
-        (table.name === call.tableName ||
-          (table.tables ?? []).includes(call.tableName));
+        (activityTableName
+          ? activityTableName === call.tableName
+          : table.name === call.tableName ||
+            (table.tables ?? []).includes(call.tableName));
       if (sameTable) continue;
       const released = await this.buttonCallModel.findOneAndUpdate(
         {
