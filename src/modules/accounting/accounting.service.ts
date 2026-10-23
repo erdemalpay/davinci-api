@@ -4767,6 +4767,10 @@ export class AccountingService {
     updateMultipleProductDto: UpdateMultipleProduct[],
   ) {
     const errorDatas = [];
+    // Adlar satır başına sorgulanmasın; bulunamayan ad atlanır
+    const lookups = await this.getBulkProductLookups();
+    const findIds = (names: string[], map: Map<string, any>) =>
+      names.filter((item) => map.has(item)).map((item) => map.get(item));
     for (const updateDto of updateMultipleProductDto) {
       try {
         const {
@@ -4804,34 +4808,9 @@ export class AccountingService {
               .map((item) => item.trim())
               .filter(Boolean)
           : [];
-        const newExpenseTypes = [];
-        const newVendor = [];
-        const newBrand = [];
-        // find the ids of the expenseType, vendor and brand
-        for (const expTypeName of expenseTypeArray) {
-          const foundExpenseType = await this.expenseTypeModel.find({
-            name: expTypeName,
-          });
-          if (foundExpenseType.length > 0) {
-            newExpenseTypes.push(foundExpenseType[0]._id);
-          }
-        }
-        for (const vendorName of vendorArray) {
-          const foundVendor = await this.vendorModel.find({
-            name: vendorName,
-          });
-          if (foundVendor.length > 0) {
-            newVendor.push(foundVendor[0]._id);
-          }
-        }
-        for (const brandName of brandArray) {
-          const foundBrand = await this.brandModel.find({
-            name: brandName,
-          });
-          if (foundBrand.length > 0) {
-            newBrand.push(foundBrand[0]._id);
-          }
-        }
+        const newExpenseTypes = findIds(expenseTypeArray, lookups.expenseTypes);
+        const newVendor = findIds(vendorArray, lookups.vendors);
+        const newBrand = findIds(brandArray, lookups.brands);
         if (expenseTypeArray?.length > newExpenseTypes?.length) {
           errorDatas.push({
             ...updateDto,
@@ -4871,19 +4850,11 @@ export class AccountingService {
                 .filter(Boolean)
             : [];
 
-          if (countListNames.length > 0) {
-            const foundCountLists = await this.countListModel
-              .find({ name: { $in: countListNames } })
-              .select('_id')
-              .lean();
-            countListIds = foundCountLists.map((cl) => cl._id);
-          }
-          if (locationNames.length > 0) {
-            const foundLocations = await this.locationService.findManyByNames(
-              locationNames,
-            );
-            locationIds = foundLocations.map((loc) => loc._id);
-          }
+          // `$in` sorgusu gibi her kaydı bir kez döndür
+          countListIds = [
+            ...new Set(findIds(countListNames, lookups.countLists)),
+          ];
+          locationIds = [...new Set(findIds(locationNames, lookups.locations))];
         }
 
         const updatedProduct = await this.productModel.findOneAndUpdate(
