@@ -51,3 +51,18 @@ describe('JwtAuthGuard.handleRequest', () => {
     expect(guard.handleRequest(null, false, null, context(true))).toBeNull();
   });
 });
+
+describe('JwtAuthGuard.canActivate', () => {
+  it("leaves the customer app's routes to ConsumerAuthGuard", () => {
+    const reflector = {
+      get: () => false,
+      getAllAndOverride: (key: string) => key === 'consumerProtected',
+    } as unknown as Reflector;
+    const guard = new JwtAuthGuard(reflector);
+    const context = {
+      getHandler: () => 'handler',
+      getClass: () => 'class',
+    } as never;
+    expect(guard.canActivate(context)).toBe(true);
+  });
+});

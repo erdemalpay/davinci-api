@@ -9,6 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { normalizeLocale } from 'src/utils/normalizeLocale';
+import { CONSUMER_PROTECTED_METADATA } from '../consumerApp/consumerToken';
 import { API_TOKEN_CONFIG_KEY_METADATA } from './api-token.guard';
 
 @Injectable()
@@ -33,6 +34,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       [context.getHandler(), context.getClass()],
     );
     if (apiTokenConfigKey) return true;
+    const isConsumerProtected = this.reflector.getAllAndOverride<boolean>(
+      CONSUMER_PROTECTED_METADATA,
+      [context.getHandler(), context.getClass()],
+    );
+    if (isConsumerProtected) return true;
     return super.canActivate(context);
   }
 

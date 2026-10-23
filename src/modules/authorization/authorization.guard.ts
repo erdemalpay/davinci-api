@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { API_TOKEN_CONFIG_KEY_METADATA } from '../auth/api-token.guard';
+import { CONSUMER_PROTECTED_METADATA } from '../consumerApp/consumerToken';
 import { AuthorizationService } from './authorization.service';
 
 @Injectable()
@@ -29,6 +30,13 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
     if (apiTokenConfigKey) {
+      return true;
+    }
+    const isConsumerProtected = this.reflector.getAllAndOverride<boolean>(
+      CONSUMER_PROTECTED_METADATA,
+      [context.getHandler(), context.getClass()],
+    );
+    if (isConsumerProtected) {
       return true;
     }
 

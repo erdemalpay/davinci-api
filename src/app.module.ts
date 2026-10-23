@@ -19,6 +19,7 @@ import { CheckoutModule } from './modules/checkout/checkout.module';
 import { ConcurrencyLogModule } from './modules/concurrency-log/concurrency-log.module';
 import { IntegrationRequestLogModule } from './modules/integration-request-log/integration-request-log.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
+import { ConsumerAppModule } from './modules/consumerApp/consumerApp.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
@@ -113,6 +114,7 @@ const modules = [
   EventSurveyModule,
   TournamentModule,
   ConsumerModule,
+  ConsumerAppModule,
   AssignmentModule,
   AssignmentReminderModule,
   PanelControlModule,

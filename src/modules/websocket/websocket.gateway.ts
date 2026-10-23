@@ -1,11 +1,20 @@
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import {
+  OnGatewayConnection,
   WebSocketGateway as WSGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { extractRefId } from 'src/utils/tsUtils';
 import { Stock } from '../accounting/stock.schema';
 import { ButtonCallActionEnum } from '../buttonCall/dto/create-buttonCall.dto';
+import {
+  CONSUMER_APP,
+  CONSUMER_ROOM,
+  consumerRoom,
+  isConsumerTokenPayload,
+} from '../consumerApp/consumerToken';
 import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { Gameplay } from '../gameplay/gameplay.schema';
 import { Notification } from '../notification/notification.schema';
@@ -17,100 +26,138 @@ import { Table } from '../table/table.schema';
 import { User } from '../user/user.schema';
 
 @WSGateway({ path: '/socket.io' })
-export class AppWebSocketGateway {
+export class AppWebSocketGateway implements OnGatewayConnection {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  // The customer app joins the consumers' room, and its consumer's own room
+  // when its token is valid. Panel events skip the consumers' room.
+  handleConnection(client: Socket) {
+    const auth = client.handshake.auth as { app?: string; token?: string };
+    if (auth?.app !== CONSUMER_APP) return;
+    client.join(CONSUMER_ROOM);
+    if (!auth.token) return;
+    try {
+      const payload = this.jwtService.verify(auth.token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+      if (isConsumerTokenPayload(payload)) {
+        client.join(consumerRoom(payload.consumer));
+      }
+    } catch {
+      // An expired token: the app only gets the public events.
+    }
+  }
+
+  // Everyone but the customer app.
+  private toStaff() {
+    return this.server.except(CONSUMER_ROOM);
+  }
+
+  // A table opened, closed or got a game: the customer app reloads its table.
+  private emitTablesChangedToConsumers() {
+    this.server.to(CONSUMER_ROOM).emit('myTableChanged');
+  }
+
+  private toConsumers(consumerIds: number[]) {
+    return this.server.to(consumerIds.map(consumerRoom));
+  }
 
   afterInit() {
     // Disable the default EventEmitter listener limit
     this.server.setMaxListeners(0);
   }
   emitActionChanged() {
-    this.server.emit('actionChanged');
+    this.toStaff().emit('actionChanged');
   }
 
   emitActivityChanged() {
-    this.server.emit('activityChanged');
+    this.toStaff().emit('activityChanged');
   }
 
   async emitAssetChanged() {
     await this.redisService.reset(RedisKeys.ScreenImages);
-    this.server.emit('assetChanged');
+    this.toStaff().emit('assetChanged');
   }
 
   emitAssignmentChanged() {
-    this.server.emit('assignmentChanged');
+    this.toStaff().emit('assignmentChanged');
   }
 
   emitBackInStockChanged() {
-    this.server.emit('backInStockChanged');
+    this.toStaff().emit('backInStockChanged');
   }
 
   async emitAuthorizationChanged() {
     await this.redisService.reset(RedisKeys.Authorizations);
-    this.server.emit('authorizationChanged');
+    this.toStaff().emit('authorizationChanged');
   }
 
   emitMailSubscriptionChanged() {
-    this.server.emit('mailSubscriptionChanged');
+    this.toStaff().emit('mailSubscriptionChanged');
   }
 
   emitMailTemplateChanged() {
-    this.server.emit('mailTemplateChanged');
+    this.toStaff().emit('mailTemplateChanged');
   }
 
   emitMailDraftChanged() {
-    this.server.emit('mailDraftChanged');
+    this.toStaff().emit('mailDraftChanged');
   }
 
   emitBrandChanged() {
-    this.server.emit('brandChanged');
+    this.toStaff().emit('brandChanged');
   }
 
   emitBreakChanged() {
-    this.server.emit('breakChanged');
+    this.toStaff().emit('breakChanged');
   }
 
   emitMiddlemanChanged() {
-    this.server.emit('middlemanChanged');
+    this.toStaff().emit('middlemanChanged');
   }
 
   emitUpstairsDutyChanged() {
-    this.server.emit('upstairsDutyChanged');
+    this.toStaff().emit('upstairsDutyChanged');
   }
 
   emitGameplayTimeChanged() {
-    this.server.emit('gameplayTimeChanged');
+    this.toStaff().emit('gameplayTimeChanged');
   }
 
   async emitBulkProductAndMenuItemChanged() {
     await this.redisService.reset(RedisKeys.AccountingAllProducts);
     await this.redisService.reset(RedisKeys.AccountingProducts);
     await this.redisService.reset(RedisKeys.MenuItems);
-    this.server.emit('bulkProductAndMenuItemChanged');
+    this.toStaff().emit('bulkProductAndMenuItemChanged');
   }
 
   emitButtonCallChanged(
     buttonCall?: ButtonCall,
     action?: ButtonCallActionEnum,
   ) {
-    this.server.emit('buttonCallChanged', {
+    this.toStaff().emit('buttonCallChanged', {
       location: buttonCall?.location,
       type: buttonCall?.type,
       action,
       tableName: buttonCall?.tableName,
       assignedTo: buttonCall?.assignedTo,
     });
+    this.server.to(CONSUMER_ROOM).emit('buttonCallChanged');
   }
 
   emitCafeActivityChanged() {
-    this.server.emit('cafeActivityChanged');
+    this.toStaff().emit('cafeActivityChanged');
   }
 
   emitCashoutChanged() {
-    this.server.emit('cashoutChanged');
+    this.toStaff().emit('cashoutChanged');
   }
 
   async emitCategoryChanged() {
@@ -121,31 +168,31 @@ export class AppWebSocketGateway {
   }
 
   emitCheckChanged() {
-    this.server.emit('checkChanged');
+    this.toStaff().emit('checkChanged');
   }
 
   emitChecklistChanged() {
-    this.server.emit('checklistChanged');
+    this.toStaff().emit('checklistChanged');
   }
 
   emitCheckoutControlChanged() {
-    this.server.emit('checkoutControlChanged');
+    this.toStaff().emit('checkoutControlChanged');
   }
 
   emitCollectionChanged(collection: Collection) {
-    this.server.emit('collectionChanged', { collection });
+    this.toStaff().emit('collectionChanged', { collection });
   }
 
   emitConsumerChanged() {
-    this.server.emit('consumerChanged');
+    this.toStaff().emit('consumerChanged');
   }
 
   emitCountChanged() {
-    this.server.emit('countChanged');
+    this.toStaff().emit('countChanged');
   }
 
   emitCountListChanged() {
-    this.server.emit('countListChanged');
+    this.toStaff().emit('countListChanged');
   }
 
   // Carries the created orders so that panels add them to what they have
@@ -157,7 +204,7 @@ export class AppWebSocketGateway {
     kitchenIds: string[],
     orders: Order[] = [],
   ) {
-    this.server.emit('createMultipleOrder', {
+    this.toStaff().emit('createMultipleOrder', {
       user,
       table,
       locationId,
@@ -167,36 +214,36 @@ export class AppWebSocketGateway {
   }
 
   emitDisabledConditionChanged() {
-    this.server.emit('disabledConditionChanged');
+    this.toStaff().emit('disabledConditionChanged');
   }
 
   async emitDiscountChanged() {
     await this.redisService.reset(RedisKeys.Discounts);
-    this.server.emit('discountChanged');
+    this.toStaff().emit('discountChanged');
   }
 
   emitEducationChanged() {
-    this.server.emit('educationChanged');
+    this.toStaff().emit('educationChanged');
   }
 
   emitExpenseChanged() {
-    this.server.emit('expenseChanged');
+    this.toStaff().emit('expenseChanged');
   }
 
   emitExpenseTypeChanged() {
-    this.server.emit('expenseTypeChanged');
+    this.toStaff().emit('expenseTypeChanged');
   }
 
   emitExpirationCountChanged() {
-    this.server.emit('expirationCountChanged');
+    this.toStaff().emit('expirationCountChanged');
   }
 
   emitExpirationListChanged() {
-    this.server.emit('expirationListChanged');
+    this.toStaff().emit('expirationListChanged');
   }
 
   emitFeedbackChanged() {
-    this.server.emit('feedbackChanged');
+    this.toStaff().emit('feedbackChanged');
   }
 
   async emitGameChanged() {
@@ -212,38 +259,41 @@ export class AppWebSocketGateway {
   async emitGameplayCreated(gameplay: Gameplay, tableId: Table['id']) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayCreated', { gameplay, tableId });
+    this.toStaff().emit('gameplayCreated', { gameplay, tableId });
+    this.emitTablesChangedToConsumers();
   }
 
   async emitGameplayUpdated(gameplay: Gameplay) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('gameplayUpdated', { gameplay });
+    this.toStaff().emit('gameplayUpdated', { gameplay });
+    this.emitTablesChangedToConsumers();
   }
 
   async emitGameplayDeleted(gameplay: Gameplay, tableId: Table['id']) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('gameplayDeleted', { gameplay, tableId });
+    this.toStaff().emit('gameplayDeleted', { gameplay, tableId });
+    this.emitTablesChangedToConsumers();
   }
 
   emitIkasProductStockChanged() {
-    this.server.emit('ikasProductStockChanged');
+    this.toStaff().emit('ikasProductStockChanged');
   }
 
   emitShopifyProductStockChanged() {
-    this.server.emit('shopifyProductStockChanged');
+    this.toStaff().emit('shopifyProductStockChanged');
   }
 
   emitIncomeChanged() {
-    this.server.emit('incomeChanged');
+    this.toStaff().emit('incomeChanged');
   }
 
   emitInventoryChanged() {
-    this.server.emit('inventoryChanged');
+    this.toStaff().emit('inventoryChanged');
   }
 
   emitStaffLeaveChanged() {
-    this.server.emit('staffLeaveChanged');
+    this.toStaff().emit('staffLeaveChanged');
   }
 
   async emitItemChanged() {
@@ -254,32 +304,32 @@ export class AppWebSocketGateway {
   }
 
   emitCustomerPopupChanged() {
-    this.server.emit('customerPopupChanged');
+    this.toStaff().emit('customerPopupChanged');
   }
 
   async emitKitchenChanged() {
     await this.redisService.reset(RedisKeys.Kitchens);
-    this.server.emit('kitchenChanged');
+    this.toStaff().emit('kitchenChanged');
   }
 
   async emitLocationChanged() {
     await this.redisService.reset(RedisKeys.Locations);
     await this.redisService.reset(RedisKeys.AllLocations);
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('locationChanged');
+    this.toStaff().emit('locationChanged');
   }
 
   async emitMembershipChanged() {
     await this.redisService.reset(RedisKeys.Memberships);
-    this.server.emit('membershipChanged');
+    this.toStaff().emit('membershipChanged');
   }
 
   emitNotificationChanged(notifications: Notification[]) {
-    this.server.emit('notificationChanged', { notifications });
+    this.toStaff().emit('notificationChanged', { notifications });
   }
 
   emitNotificationRemoved(notification: Notification) {
-    this.server.emit('notificationRemoved', { notification });
+    this.toStaff().emit('notificationRemoved', { notification });
   }
 
   async emitOrderCreated(order: Order) {
@@ -289,55 +339,55 @@ export class AppWebSocketGateway {
       item: extractRefId(order.item),
       kitchen: extractRefId(order.kitchen),
     };
-    this.server.emit('orderCreated', { order: normalizedOrder });
+    this.toStaff().emit('orderCreated', { order: normalizedOrder });
   }
 
   emitOrderGroupChanged() {
-    this.server.emit('orderGroupChanged');
+    this.toStaff().emit('orderGroupChanged');
   }
 
   emitOrderNotesChanged() {
-    this.server.emit('orderNotesChanged');
+    this.toStaff().emit('orderNotesChanged');
   }
 
   async emitOrderUpdated(orders: Order[]) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderUpdated', { orders });
+    this.toStaff().emit('orderUpdated', { orders });
   }
 
   async emitOrderDeleted(order: Order) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('orderDeleted', { order });
+    this.toStaff().emit('orderDeleted', { order });
   }
 
   async emitTodayOrderChanged() {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('todayOrderChanged');
+    this.toStaff().emit('todayOrderChanged');
   }
 
   async emitPageChanged() {
     await this.redisService.reset(RedisKeys.Pages);
-    this.server.emit('pageChanged');
+    this.toStaff().emit('pageChanged');
   }
 
   emitPanelSettingsChanged() {
-    this.server.emit('panelSettingsChanged');
+    this.toStaff().emit('panelSettingsChanged');
   }
 
   emitPaymentChanged() {
-    this.server.emit('paymentChanged');
+    this.toStaff().emit('paymentChanged');
   }
 
   emitPaymentMethodChanged() {
-    this.server.emit('paymentMethodChanged');
+    this.toStaff().emit('paymentMethodChanged');
   }
 
   emitPointChanged() {
-    this.server.emit('pointChanged');
+    this.toStaff().emit('pointChanged');
   }
 
   emitPointHistoryChanged() {
-    this.server.emit('pointHistoryChanged');
+    this.toStaff().emit('pointHistoryChanged');
   }
 
   emitPopularChanged() {
@@ -345,108 +395,122 @@ export class AppWebSocketGateway {
   }
 
   emitProductCategoryChanged() {
-    this.server.emit('productCategoryChanged');
+    this.toStaff().emit('productCategoryChanged');
   }
 
   async emitProductChanged() {
     await this.redisService.reset(RedisKeys.AccountingAllProducts);
     await this.redisService.reset(RedisKeys.AccountingProducts);
-    this.server.emit('productChanged');
+    this.toStaff().emit('productChanged');
   }
 
   emitProductStockHistoryChanged() {
-    this.server.emit('productStockHistoryChanged');
+    this.toStaff().emit('productStockHistoryChanged');
   }
 
   emitReservationChanged() {
-    this.server.emit('reservationChanged');
+    this.toStaff().emit('reservationChanged');
   }
 
   emitRewardChanged() {
-    this.server.emit('rewardChanged');
+    this.toStaff().emit('rewardChanged');
   }
 
   emitTournamentChanged() {
-    this.server.emit('tournamentChanged');
+    this.toStaff().emit('tournamentChanged');
   }
 
   emitRetailerChanged() {
-    this.server.emit('retailerChanged');
+    this.toStaff().emit('retailerChanged');
   }
 
   emitServiceChanged() {
-    this.server.emit('serviceChanged');
+    this.toStaff().emit('serviceChanged');
   }
 
   emitShiftChangeRequestChanged() {
-    this.server.emit('shiftChangeRequestChanged');
+    this.toStaff().emit('shiftChangeRequestChanged');
   }
 
   async emitShiftChanged() {
     await this.redisService.reset(RedisKeys.Shifts);
-    this.server.emit('shiftChanged');
+    this.toStaff().emit('shiftChanged');
   }
 
   async emitSingleTableChanged(table: Partial<Table>) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('singleTableChanged', { table });
+    this.toStaff().emit('singleTableChanged', { table });
   }
 
   async emitStockChanged() {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockChanged');
+    this.toStaff().emit('stockChanged');
   }
   async emitStockAdded(stock: Stock) {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockAdded', { stock });
+    this.toStaff().emit('stockAdded', { stock });
   }
 
   async emitTableChanged(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableChanged', { table });
+    this.toStaff().emit('tableChanged', { table });
+    this.emitTablesChangedToConsumers();
   }
   async emitTableDeleted(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableDeleted', { table });
+    this.toStaff().emit('tableDeleted', { table });
+    this.emitTablesChangedToConsumers();
   }
 
   async emitTableCreated(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
 
-    this.server.emit('tableCreated', { table });
+    this.toStaff().emit('tableCreated', { table });
   }
   async emitTableClosed(table: Table) {
     await this.redisService.reset(RedisKeys.Tables);
-    this.server.emit('tableClosed', { table });
+    this.toStaff().emit('tableClosed', { table });
+    this.emitTablesChangedToConsumers();
   }
 
   emitTaskTrackChanged() {
-    this.server.emit('taskTrackChanged');
+    this.toStaff().emit('taskTrackChanged');
   }
 
   emitReleaseNoteChanged() {
-    this.server.emit('releaseNoteChanged');
+    this.toStaff().emit('releaseNoteChanged');
   }
 
   emitUpperCategoryChanged() {
-    this.server.emit('upperCategoryChanged');
+    this.toStaff().emit('upperCategoryChanged');
   }
 
   async emitUserChanged() {
     await this.redisService.reset(RedisKeys.Users);
     await this.redisService.reset(RedisKeys.MinimalUsers);
-    this.server.emit('userChanged');
+    this.toStaff().emit('userChanged');
   }
 
   emitVendorChanged() {
-    this.server.emit('vendorChanged');
+    this.toStaff().emit('vendorChanged');
   }
 
   emitVisitChanged() {
-    this.server.emit('visitChanged');
+    this.toStaff().emit('visitChanged');
   }
 
   emitQrCodeChanged() {
-    this.server.emit('qrCodeChanged');
+    this.toStaff().emit('qrCodeChanged');
+  }
+
+  emitConsumerTableChanged(consumerIds: number[]) {
+    if (consumerIds.length)
+      this.toConsumers(consumerIds).emit('myTableChanged');
+  }
+
+  emitGameplayResultChanged(consumerIds: number[]) {
+    if (consumerIds.length) {
+      this.toConsumers(consumerIds).emit('gameplayResultChanged');
+    }
   }
 }

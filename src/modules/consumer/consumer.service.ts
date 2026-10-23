@@ -10,6 +10,10 @@ import {
 } from './consumer.dto';
 import { Consumer, ConsumerStatus } from './consumer.schema';
 
+// Given to consumers added from the panel without a password. Such an
+// account can't be used to log in to the app.
+export const DEFAULT_CONSUMER_PASSWORD = 'default123';
+
 @Injectable()
 export class ConsumerService {
   constructor(
@@ -42,7 +46,7 @@ export class ConsumerService {
     // Hash password if provided, otherwise use a default password
     const hashedPassword = createConsumerDto.password
       ? await hash(createConsumerDto.password, 10)
-      : await hash('default123', 10);
+      : await hash(DEFAULT_CONSUMER_PASSWORD, 10);
 
     // Create fullName from name and surname
     const fullName = `${createConsumerDto.name} ${createConsumerDto.surname}`;
@@ -130,6 +134,13 @@ export class ConsumerService {
   async findByEmail(email: string): Promise<Consumer | null> {
     const consumer = await this.consumerModel.findOne({ email });
     return consumer;
+  }
+
+  // For logging in with either the email or the user name.
+  async findByEmailOrUserName(identity: string): Promise<Consumer | null> {
+    return this.consumerModel.findOne({
+      $or: [{ email: identity.toLowerCase() }, { userName: identity }],
+    });
   }
 
   async update(

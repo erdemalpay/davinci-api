@@ -16,6 +16,7 @@ import {
 import * as moment from 'moment-timezone';
 import { Model, PipelineStage, UpdateQuery } from 'mongoose';
 import { DailyPlayerCount } from 'src/types';
+import { cafeToday } from 'src/utils/cafeTime';
 import { pick, pickWith } from 'src/utils/tsUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
@@ -343,6 +344,31 @@ export class TableService {
 
   async findByQuery(query: Partial<TableDto>): Promise<Table | undefined> {
     return this.tableModel.findOne(query);
+  }
+
+  // The table open today that a QR code's table name belongs to (a merged
+  // table carries the names of the tables it gathers).
+  async findOpenByName(location: number, name: string) {
+    return this.tableModel.findOne({
+      location,
+      date: cafeToday(),
+      status: { $ne: TableStatus.CANCELLED },
+      finishHour: { $exists: false },
+      $or: [{ name }, { tables: name }],
+    });
+  }
+
+  // For the customer app: the table with the games played at it.
+  async findByIdWithGameplays(id: number) {
+    return this.tableModel.findById(id).populate({
+      path: 'gameplays',
+      select: 'startHour game playerCount date finishHour',
+      populate: { path: 'game', select: 'name thumbnail' },
+    });
+  }
+
+  async findByGameplay(gameplayId: number) {
+    return this.tableModel.findOne({ gameplays: gameplayId });
   }
 
   async findByDateAndLocationWithOrderData(
