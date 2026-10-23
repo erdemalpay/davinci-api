@@ -257,7 +257,8 @@ export class NotificationService {
     createNotificationDto: CreateNotificationDto,
     user?: User,
   ) {
-    const finalCreateDto: CreateNotificationDto = { ...createNotificationDto };
+    const { isPersonal, ...notificationFields } = createNotificationDto;
+    const finalCreateDto: CreateNotificationDto = { ...notificationFields };
 
     if (createNotificationDto.event) {
       const eventNotifications = await this.findAllEventNotifications();
@@ -280,6 +281,12 @@ export class NotificationService {
       }
       if (!createNotificationDto?.isAssigned && assignedTemplate) {
         finalCreateDto.mutedBy = assignedTemplate.mutedBy ?? [];
+      }
+      if (
+        !createNotificationDto?.isAssigned &&
+        assignedTemplate &&
+        !isPersonal
+      ) {
         const selectedLocations = this.sanitizeSelectedLocations(
           assignedTemplate.selectedLocations,
         );
