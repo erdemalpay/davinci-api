@@ -114,6 +114,14 @@ describe('TournamentMailService.sendRegistrationMail', () => {
     expect(asil.waitlistNote).toBeUndefined();
   });
 
+  it('kontenjan değişince gönderilen mailde güncelleme olduğunu belirtir', async () => {
+    const { service, mailService } = createService();
+    await service.sendRegistrationMail(tournament, registration, true);
+    expect(mailService.sendMail.mock.calls[0][0].variables.isStatusUpdate).toBe(
+      true,
+    );
+  });
+
   it('mail gönderilemezse hata fırlatmaz, false döner', async () => {
     const { service, mailService } = createService();
     mailService.sendMail.mockRejectedValue(new Error('SES down'));

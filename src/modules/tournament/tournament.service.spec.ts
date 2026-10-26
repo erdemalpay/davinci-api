@@ -424,6 +424,69 @@ describe('TournamentService.update', () => {
   });
 });
 
+describe('TournamentService.update (kontenjan değişince mail)', () => {
+  const registrations = [1, 2, 3, 4].map((sequence) => ({
+    _id: 70 + sequence,
+    tournamentId: 1,
+    sequence,
+  }));
+  const sorted = (value: unknown) => ({ sort: () => query(value) });
+  // update beklemeden dönen mail döngüsünün bitmesini bekler
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const setup = (before: object, after: object) => {
+    const mocks = createService({
+      tournament: { ...baseTournament, ...before },
+    });
+    mocks.tournamentModel.findByIdAndUpdate.mockReturnValue(
+      query({ ...baseTournament, ...after }),
+    );
+    mocks.registrationModel.find.mockReturnValue(sorted(registrations));
+    return mocks;
+  };
+
+  it('kontenjan artınca yedekten asile geçenlere güncelleme maili gönderir', async () => {
+    const { service, tournamentMailService } = setup(
+      { capacity: 2 },
+      { capacity: 50 },
+    );
+    await service.update(1, { capacity: 50 });
+    await flush();
+    const mailed = tournamentMailService.sendRegistrationMail.mock.calls;
+    expect(mailed.map(([, r]) => r._id)).toEqual([73, 74]);
+    expect(mailed.every(([, , isStatusUpdate]) => isStatusUpdate)).toBe(true);
+  });
+
+  it('yedek numarası değişene de gönderir, durumu aynı kalana göndermez', async () => {
+    const { service, tournamentMailService } = setup(
+      { capacity: 1 },
+      { capacity: 2 },
+    );
+    await service.update(1, { capacity: 2 });
+    await flush();
+    expect(
+      tournamentMailService.sendRegistrationMail.mock.calls.map(
+        ([, r]) => r._id,
+      ),
+    ).toEqual([72, 73, 74]);
+  });
+
+  it('kontenjan değişmediyse, kaldırıldıysa ya da turnuva başladıysa göndermez', async () => {
+    for (const [before, after] of [
+      [{ capacity: 2 }, { capacity: 2, name: 'Yeni ad' }],
+      [{ capacity: 2 }, { capacity: null }],
+      [
+        { capacity: 2, status: TournamentStatus.ONGOING },
+        { capacity: 50, status: TournamentStatus.ONGOING },
+      ],
+    ]) {
+      const { service, tournamentMailService } = setup(before, after);
+      await service.update(1, after);
+      await flush();
+      expect(tournamentMailService.sendRegistrationMail).not.toHaveBeenCalled();
+    }
+  });
+});
+
 describe('TournamentService.generateNextRound', () => {
   afterEach(() => jest.restoreAllMocks());
 
