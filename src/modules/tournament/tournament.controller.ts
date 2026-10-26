@@ -130,6 +130,20 @@ export class TournamentController {
     return this.tournamentService.checkIn(id, dto);
   }
 
+  // Aynı anda iki görevli son boş yeri vermesin
+  @Post('/:id/registrations/:registrationId/admit')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  admitRegistration(
+    @Param('id') id: number,
+    @Param('registrationId') registrationId: number,
+  ) {
+    return this.tournamentService.admitRegistration(id, registrationId);
+  }
+
   @Patch('/participants/:participantId')
   updateParticipant(
     @Param('participantId') participantId: number,

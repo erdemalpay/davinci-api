@@ -88,6 +88,32 @@ describe('TournamentMailService.sendRegistrationMail', () => {
     );
   });
 
+  it('kontenjanlı turnuvada asil/yedek durumunu ve notları gönderir', async () => {
+    const { service, mailService } = createService();
+    await service.sendRegistrationMail(
+      {
+        ...tournament,
+        capacity: 64,
+        participationNote: 'Giriş ücreti',
+        waitlistNote: 'Sırayla',
+      },
+      { ...registration, sequence: 67 },
+    );
+    expect(mailService.sendMail.mock.calls[0][0].variables).toMatchObject({
+      registrationStatus: 'Yedek 3',
+      participationNote: 'Giriş ücreti',
+      waitlistNote: 'Sırayla',
+    });
+
+    await service.sendRegistrationMail(
+      { ...tournament, capacity: 64, waitlistNote: 'Sırayla' },
+      { ...registration, sequence: 10 },
+    );
+    const asil = mailService.sendMail.mock.calls[1][0].variables;
+    expect(asil.registrationStatus).toBe('Asil');
+    expect(asil.waitlistNote).toBeUndefined();
+  });
+
   it('mail gönderilemezse hata fırlatmaz, false döner', async () => {
     const { service, mailService } = createService();
     mailService.sendMail.mockRejectedValue(new Error('SES down'));

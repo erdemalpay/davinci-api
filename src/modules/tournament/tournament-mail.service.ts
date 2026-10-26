@@ -6,6 +6,7 @@ import { MailType } from '../mail/mail.schema';
 import { MailService } from '../mail/mail.service';
 import { TournamentRegistration } from './schemas/tournament-registration.schema';
 import { Tournament } from './schemas/tournament.schema';
+import { registrationStatus, waitlistNumber } from './tournament.waitlist';
 
 // Turnuva günü UTC gece yarısı olarak saklanır; "11 Ekim 2026, Pazar" biçimine çevrilir
 const formatTournamentDate = (date: Date) => {
@@ -45,6 +46,10 @@ export class TournamentMailService {
           : null,
         tournament.game ? this.gameService.getGameById(tournament.game) : null,
       ]);
+      const waitlist = waitlistNumber(
+        tournament.capacity,
+        registration.sequence,
+      );
       await this.mailService.sendMail({
         to: registration.email,
         mailType: MailType.TOURNAMENT_REGISTRATION,
@@ -62,6 +67,12 @@ export class TournamentMailService {
           qrCodeUrl: `${apiHost()}/tournaments/public/check-in/${
             registration.checkInCode
           }/qr`,
+          registrationStatus: registrationStatus(
+            tournament.capacity,
+            registration.sequence,
+          ),
+          participationNote: tournament.participationNote,
+          waitlistNote: waitlist ? tournament.waitlistNote : undefined,
         },
       });
       return true;

@@ -49,6 +49,11 @@ import {
   TournamentFormat,
   TournamentRules,
 } from './tournament.round-plan';
+import {
+  isOverLimit,
+  registrationStatus,
+  waitlistNumber,
+} from './tournament.waitlist';
 
 // Turnuva başladıktan sonra değiştirilemeyen alanlar (fikstürü bozar)
 const RULE_FIELDS = [
@@ -166,6 +171,7 @@ export class TournamentService {
       date: tournament.date,
       startTime: tournament.startTime,
       isRegistrationOpen: this.isRegistrationOpen(tournament),
+      participationNote: tournament.participationNote,
     };
   }
 
@@ -198,24 +204,52 @@ export class TournamentService {
     if (!this.isRegistrationOpen(tournament))
       throw new BadRequestException('Bu turnuvanın kayıtları kapandı');
 
+    const registration = await this.createRegistration(tournament, dto);
+    // Numara sayaçtan $inc ile alınır: aynı anda gelen iki kayıt aynı numarayı alamaz.
+    // Kayıt önce eklendiği için reddedilen (aynı telefon) başvuru numara harcamaz.
+    const { registrationCount: sequence } = await this.tournamentModel
+      .findByIdAndUpdate(
+        tournament._id,
+        { $inc: { registrationCount: 1 } },
+        { new: true },
+      )
+      .exec();
+    if (isOverLimit(tournament, sequence)) {
+      await this.registrationModel.findByIdAndDelete(registration._id).exec();
+      throw new BadRequestException('Kayıtlar doldu');
+    }
+    await this.registrationModel
+      .findByIdAndUpdate(registration._id, { sequence })
+      .exec();
+    registration.sequence = sequence;
+    this.websocketGateway.emitTournamentChanged();
+    // Beklenmez: mail gecikse ya da gitmese de başvuru yanıtı etkilenmez
+    void this.tournamentMailService.sendRegistrationMail(
+      tournament,
+      registration,
+    );
+    return {
+      _id: registration._id,
+      checkInCode: registration.checkInCode,
+      registrationStatus: registrationStatus(tournament.capacity, sequence),
+      waitlistNote: waitlistNumber(tournament.capacity, sequence)
+        ? tournament.waitlistNote
+        : undefined,
+    };
+  }
+
+  private async createRegistration(
+    tournament: Tournament,
+    dto: RegisterTournamentDto,
+  ) {
     try {
-      const registration = await this.registrationModel.create({
+      return await this.registrationModel.create({
         ...dto,
         phone: dto.phone.replace(/\s/g, ''),
         email: dto.email.toLowerCase(),
         tournamentId: tournament._id,
         checkInCode: randomBytes(8).toString('hex'),
       });
-      this.websocketGateway.emitTournamentChanged();
-      // Beklenmez: mail gecikse ya da gitmese de başvuru yanıtı etkilenmez
-      void this.tournamentMailService.sendRegistrationMail(
-        tournament,
-        registration,
-      );
-      return {
-        _id: registration._id,
-        checkInCode: registration.checkInCode,
-      };
     } catch (err) {
       if (isMongoDuplicateKey(err))
         throw new BadRequestException(
@@ -289,17 +323,41 @@ export class TournamentService {
     return participants;
   }
 
-  // Girişte okutulan QR'ın başvurusu katılımcı olur
+  // Girişte okutulan QR: geliş saati yazılır. Ücretsiz turnuvada asil hemen katılımcı olur;
+  // ücretli turnuvada asil ödemeyle, yedek boş yer kalırsa panelden (admitRegistration) alınır.
   async checkIn(tournamentId: number, dto: CheckInDto) {
+    const tournament = await this.findTournament(tournamentId);
     const registration = await this.findRegistrationByCode(dto.code);
     if (registration.tournamentId !== tournamentId)
       throw new BadRequestException('Bu QR bu turnuvaya ait değil');
-    const existing = await this.participantModel
-      .exists({ tournamentId, registrationId: registration._id })
+    await this.assertNotParticipant(registration);
+    if (!registration.arrivedAt)
+      await this.registrationModel
+        .findByIdAndUpdate(registration._id, { arrivedAt: new Date() })
+        .exec();
+    this.websocketGateway.emitTournamentChanged();
+
+    const waitlist = waitlistNumber(tournament.capacity, registration.sequence);
+    const isParticipant = !tournament.hasEntryFee && !waitlist;
+    if (isParticipant) await this.admit(tournament, registration);
+    return {
+      registrationId: registration._id,
+      fullName: registration.fullName,
+      waitlistNumber: waitlist,
+      hasEntryFee: tournament.hasEntryFee,
+      isParticipant,
+    };
+  }
+
+  // QR sonucundaki "Ödendi" ve Başvurular'daki "Ücreti al, katılımcı yap"
+  async admitRegistration(tournamentId: number, registrationId: number) {
+    const tournament = await this.findTournament(tournamentId);
+    const registration = await this.registrationModel
+      .findOne({ _id: registrationId, tournamentId })
       .exec();
-    if (existing)
-      throw new BadRequestException(`${registration.fullName} zaten katılımcı`);
-    await this.promoteRegistrations(tournamentId, [registration._id]);
+    if (!registration) throw new NotFoundException('Başvuru bulunamadı');
+    await this.assertNotParticipant(registration);
+    await this.admit(tournament, registration);
     return { fullName: registration.fullName };
   }
 
@@ -727,6 +785,36 @@ export class TournamentService {
       .exec();
     if (!registration) throw new NotFoundException('QR bulunamadı');
     return registration;
+  }
+
+  private async assertNotParticipant(registration: TournamentRegistration) {
+    const existing = await this.participantModel
+      .exists({
+        tournamentId: registration.tournamentId,
+        registrationId: registration._id,
+      })
+      .exec();
+    if (existing)
+      throw new BadRequestException(`${registration.fullName} zaten katılımcı`);
+  }
+
+  // Kontenjan aktif katılımcılarla dolduysa kimse eklenmez; elle "Katılımcı Ekle" bu kontrole girmez
+  private async admit(
+    tournament: Tournament,
+    registration: TournamentRegistration,
+  ) {
+    if (tournament.capacity) {
+      const count = await this.participantModel
+        .countDocuments({ tournamentId: tournament._id, isActive: true })
+        .exec();
+      if (count >= tournament.capacity)
+        throw new BadRequestException('Kontenjan dolu');
+    }
+    if (tournament.hasEntryFee)
+      await this.registrationModel
+        .findByIdAndUpdate(registration._id, { isPaid: true })
+        .exec();
+    await this.promoteRegistrations(tournament._id, [registration._id]);
   }
 
   private async findParticipant(participantId: number) {

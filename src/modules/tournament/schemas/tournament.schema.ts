@@ -92,6 +92,30 @@ export class Tournament extends Document {
   @Prop({ required: false, type: Number })
   advancePerTable: number;
 
+  // Asil kontenjanı; boşsa sınırsız ve asil/yedek ayrımı yok
+  @Prop({ required: false, type: Number })
+  capacity?: number;
+
+  // Asillerden sonra alınacak yedek sayısı; boşsa sınırsız
+  @Prop({ required: false, type: Number })
+  waitlistCapacity?: number;
+
+  // Ücretliyse asil QR okutunca değil, ödeme alınınca katılımcı olur
+  @Prop({ required: true, type: Boolean, default: false })
+  hasEntryFee: boolean;
+
+  // Kayıt formunun altında ve kayıt mailinde gösterilen serbest metin
+  @Prop({ required: false, type: String })
+  participationNote?: string;
+
+  // Yalnızca yedeklere, kayıt sonucunda ve mailde gösterilen serbest metin
+  @Prop({ required: false, type: String })
+  waitlistNote?: string;
+
+  // Başvuru sıra numaralarının sayacı; $inc ile atomik artırılır
+  @Prop({ required: true, type: Number, default: 0 })
+  registrationCount: number;
+
   // Tur süresi (dk); boşsa süre sınırı yok. Turnuva başladıktan sonra da değişebilir
   @Prop({ required: false, type: Number })
   roundDuration?: number;
