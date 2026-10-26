@@ -314,6 +314,30 @@ export const mailTemplateParameterDefinitions: Record<
       false,
       'Optional image URL of the QR shown at the entrance on tournament day.',
     ),
+    definition(
+      'registrationStatus',
+      'Registration status',
+      'string',
+      false,
+      'Asil or waitlist position; empty when the tournament has no capacity.',
+      'Yedek 3',
+    ),
+    definition(
+      'participationNote',
+      'Participation note',
+      'multiline',
+      false,
+      'Free text from the tournament form, e.g. entry fee and arrival time.',
+      'Turnuvaya hafta sonu giriş ücreti uygulanır.',
+    ),
+    definition(
+      'waitlistNote',
+      'Waitlist note',
+      'multiline',
+      false,
+      'Free text shown only to waitlisted registrations.',
+      'Gelmeyen asillerin yerine sırayla alınırsınız.',
+    ),
   ],
 };
 
@@ -578,6 +602,15 @@ export const tournamentRegistrationTemplate = `
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
                             <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;"><strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.</p>
+                            {{#if registrationStatus}}
+                            <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Kayıt durumunuz: <strong style="color: #a80000;">{{registrationStatus}}</strong></p>
+                            {{/if}}
+                            {{#if waitlistNote}}
+                            <p style="margin: 8px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{waitlistNote}}</p>
+                            {{/if}}
+                            {{#if participationNote}}
+                            <p style="margin: 16px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{participationNote}}</p>
+                            {{/if}}
                         </td>
                     </tr>
                     <tr>

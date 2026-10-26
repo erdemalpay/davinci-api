@@ -54,6 +54,17 @@ export class TournamentRegistration extends Document {
   // Turnuva günü girişte okutulan QR'ın içeriği; bu özellikten önceki başvurularda boş
   @Prop({ required: false, type: String })
   checkInCode: string;
+
+  // Turnuvadaki kayıt sırası (1'den başlar); bu özellikten önceki başvurularda boş
+  @Prop({ required: false, type: Number })
+  sequence?: number;
+
+  @Prop({ required: true, type: Boolean, default: false })
+  isPaid: boolean;
+
+  // QR okutulup kafeye geldiği an; katılımcı olmasa da yazılır
+  @Prop({ required: false, type: Date })
+  arrivedAt?: Date;
 }
 
 export const TournamentRegistrationSchema = SchemaFactory.createForClass(
