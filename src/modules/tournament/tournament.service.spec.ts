@@ -21,6 +21,7 @@ const baseTournament = {
   slug: 'catan',
   status: TournamentStatus.NOT_STARTED,
   isRegistrationOpen: true,
+  hasEntryFee: false,
   format: TournamentFormat.LEAGUE_THEN_ELIMINATION,
   pairingMode: PairingMode.SWISS,
   tableSize: 3,
@@ -54,6 +55,8 @@ const createService = ({
     create: jest.fn().mockImplementation(async (doc) => ({ _id: 5, ...doc })),
     findOne: jest.fn().mockReturnValue(query(registration)),
     find: jest.fn().mockReturnValue(query(registration ? [registration] : [])),
+    findByIdAndUpdate: jest.fn().mockReturnValue(query({})),
+    findByIdAndDelete: jest.fn().mockReturnValue(query({})),
   };
   const participantModel = {
     find: jest.fn().mockReturnValue(query(participants)),
@@ -61,6 +64,7 @@ const createService = ({
     findByIdAndUpdate: jest.fn().mockReturnValue(query({})),
     findByIdAndDelete: jest.fn().mockReturnValue(query({})),
     exists: jest.fn().mockReturnValue(query(null)),
+    countDocuments: jest.fn().mockReturnValue(query(0)),
     create: jest.fn(),
   };
   const matchModel = {
@@ -199,6 +203,131 @@ describe('TournamentService.register', () => {
         email: 'ali@mail.com',
       }),
     ).rejects.toThrow('Bu telefon numarasıyla zaten başvuru yapılmış');
+  });
+
+  // Gerçek Mongo'daki $inc gibi: her çağrı sayacı bir artırıp yeni değeri döner
+  const counter = (tournamentModel: { findByIdAndUpdate: jest.Mock }) => {
+    let count = 0;
+    tournamentModel.findByIdAndUpdate.mockImplementation(() =>
+      query({ registrationCount: ++count }),
+    );
+  };
+  const registerMany = (service: TournamentService, n: number) =>
+    Promise.allSettled(
+      Array.from({ length: n }, (_, i) =>
+        service.register('catan', {
+          fullName: `Oyuncu ${i}`,
+          phone: `${i}`,
+          email: `o${i}@mail.com`,
+        }),
+      ),
+    );
+
+  it('aynı anda gelen kayıtlara sayaçtan tekrarsız sıra numarası verir', async () => {
+    const { service, tournamentModel, registrationModel } = createService({
+      tournament: { ...baseTournament, capacity: 64 },
+    });
+    counter(tournamentModel);
+    await registerMany(service, 100);
+    const sequences = registrationModel.findByIdAndUpdate.mock.calls
+      .map(([, update]) => update.sequence)
+      .sort((a, b) => a - b);
+    expect(sequences).toEqual(Array.from({ length: 100 }, (_, i) => i + 1));
+  });
+
+  it('asil + yedek kontenjanı dolunca "Kayıtlar doldu" der ve kaydı siler', async () => {
+    const {
+      service,
+      tournamentModel,
+      registrationModel,
+      tournamentMailService,
+    } = createService({
+      tournament: { ...baseTournament, capacity: 64, waitlistCapacity: 20 },
+    });
+    counter(tournamentModel);
+    const results = await registerMany(service, 100);
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(rejected).toHaveLength(16);
+    expect(rejected[0]).toMatchObject({
+      reason: expect.objectContaining({ message: 'Kayıtlar doldu' }),
+    });
+    expect(registrationModel.findByIdAndDelete).toHaveBeenCalledTimes(16);
+    expect(tournamentMailService.sendRegistrationMail).toHaveBeenCalledTimes(
+      84,
+    );
+  });
+
+  it('kontenjanı aşan kayda yedek numarasını ve yedek notunu döner', async () => {
+    const { service, tournamentModel } = createService({
+      tournament: {
+        ...baseTournament,
+        capacity: 64,
+        waitlistNote: 'Sırayla alınırsınız',
+      },
+    });
+    tournamentModel.findByIdAndUpdate.mockReturnValue(
+      query({ registrationCount: 67 }),
+    );
+    await expect(
+      service.register('catan', {
+        fullName: 'Can',
+        phone: '1',
+        email: 'c@mail.com',
+      }),
+    ).resolves.toEqual({
+      _id: 5,
+      checkInCode: expect.any(String),
+      registrationStatus: 'Yedek 3',
+      waitlistNote: 'Sırayla alınırsınız',
+    });
+  });
+
+  it('asile durumunu döner, yedek notunu dönmez', async () => {
+    const { service, tournamentModel } = createService({
+      tournament: { ...baseTournament, capacity: 64, waitlistNote: 'Sırayla' },
+    });
+    tournamentModel.findByIdAndUpdate.mockReturnValue(
+      query({ registrationCount: 64 }),
+    );
+    await expect(
+      service.register('catan', {
+        fullName: 'Ece',
+        phone: '2',
+        email: 'e@mail.com',
+      }),
+    ).resolves.toEqual({
+      _id: 5,
+      checkInCode: expect.any(String),
+      registrationStatus: 'Asil',
+    });
+  });
+
+  it('aynı telefonla tekrar başvuran sayaçtan numara almaz', async () => {
+    const { service, registrationModel, tournamentModel } = createService();
+    registrationModel.create.mockRejectedValue({ code: 11000 });
+    await expect(
+      service.register('catan', {
+        fullName: 'Ali',
+        phone: '1',
+        email: 'a@mail.com',
+      }),
+    ).rejects.toThrow('Bu telefon numarasıyla zaten başvuru yapılmış');
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('TournamentService.findPublicBySlug', () => {
+  it('kayıt formunda gösterilecek katılım bilgisini döner, kalan yeri dönmez', async () => {
+    const { service } = createService({
+      tournament: {
+        ...baseTournament,
+        capacity: 64,
+        participationNote: 'Hafta sonu giriş ücreti',
+      },
+    });
+    const result = await service.findPublicBySlug('catan');
+    expect(result.participationNote).toBe('Hafta sonu giriş ücreti');
+    expect(result).not.toHaveProperty('capacity');
   });
 });
 
@@ -664,17 +793,67 @@ describe('TournamentService.findLiveBySlug', () => {
 });
 
 describe('TournamentService.checkIn', () => {
-  const registration = { _id: 5, tournamentId: 1, fullName: 'Ayşe Yılmaz' };
+  const registration = {
+    _id: 5,
+    tournamentId: 1,
+    fullName: 'Ayşe Yılmaz',
+    sequence: 3,
+  };
+  const paid = { ...baseTournament, capacity: 64, hasEntryFee: true };
 
-  it('QR sahibini katılımcı yapar', async () => {
-    const { service, participantModel } = createService({ registration });
+  it('ücretsiz turnuvada QR sahibini katılımcı yapar ve gelişini yazar', async () => {
+    const { service, participantModel, registrationModel } = createService({
+      registration,
+    });
     participantModel.create.mockResolvedValue([]);
     await expect(service.checkIn(1, { code: 'abc' })).resolves.toEqual({
+      registrationId: 5,
       fullName: 'Ayşe Yılmaz',
+      hasEntryFee: false,
+      isParticipant: true,
+    });
+    expect(registrationModel.findByIdAndUpdate).toHaveBeenCalledWith(5, {
+      arrivedAt: expect.any(Date),
     });
     expect(participantModel.create).toHaveBeenCalledWith([
       { tournamentId: 1, name: 'Ayşe Yılmaz', registrationId: 5 },
     ]);
+  });
+
+  it('ücretli turnuvada asili ödeme alınana kadar katılımcı yapmaz', async () => {
+    const { service, participantModel } = createService({
+      tournament: paid,
+      registration,
+    });
+    await expect(service.checkIn(1, { code: 'abc' })).resolves.toMatchObject({
+      hasEntryFee: true,
+      isParticipant: false,
+    });
+    expect(participantModel.create).not.toHaveBeenCalled();
+  });
+
+  it('yedeği katılımcı yapmaz, yedek numarasını döner', async () => {
+    const { service, participantModel } = createService({
+      tournament: { ...baseTournament, capacity: 2 },
+      registration,
+    });
+    await expect(service.checkIn(1, { code: 'abc' })).resolves.toMatchObject({
+      waitlistNumber: 1,
+      isParticipant: false,
+    });
+    expect(participantModel.create).not.toHaveBeenCalled();
+  });
+
+  it('ikinci kez okutulunca geliş saatini ezmez', async () => {
+    const { service, registrationModel } = createService({
+      tournament: paid,
+      registration: {
+        ...registration,
+        arrivedAt: new Date('2026-11-02T09:00:00Z'),
+      },
+    });
+    await service.checkIn(1, { code: 'abc' });
+    expect(registrationModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it('zaten katılımcı olanı tekrar eklemez', async () => {
@@ -696,6 +875,62 @@ describe('TournamentService.checkIn', () => {
     const { service } = createService();
     await expect(service.checkIn(1, { code: 'yok' })).rejects.toThrow(
       'QR bulunamadı',
+    );
+  });
+});
+
+describe('TournamentService.admitRegistration', () => {
+  const registration = {
+    _id: 5,
+    tournamentId: 1,
+    fullName: 'Can Demir',
+    sequence: 66,
+  };
+  const paid = { ...baseTournament, capacity: 64, hasEntryFee: true };
+
+  it('ödemeyi işaretler ve katılımcı yapar', async () => {
+    const { service, participantModel, registrationModel } = createService({
+      tournament: paid,
+      registration,
+    });
+    participantModel.create.mockResolvedValue([]);
+    await expect(service.admitRegistration(1, 5)).resolves.toEqual({
+      fullName: 'Can Demir',
+    });
+    expect(registrationModel.findByIdAndUpdate).toHaveBeenCalledWith(5, {
+      isPaid: true,
+    });
+    expect(participantModel.create).toHaveBeenCalledWith([
+      { tournamentId: 1, name: 'Can Demir', registrationId: 5 },
+    ]);
+  });
+
+  it('ücretsiz turnuvada ödeme işaretlemez', async () => {
+    const { service, participantModel, registrationModel } = createService({
+      registration,
+    });
+    participantModel.create.mockResolvedValue([]);
+    await service.admitRegistration(1, 5);
+    expect(registrationModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('kontenjan doluysa katılımcı yapmaz ve ödeme işaretlemez', async () => {
+    const { service, participantModel, registrationModel } = createService({
+      tournament: paid,
+      registration,
+    });
+    participantModel.countDocuments.mockReturnValue(query(64));
+    await expect(service.admitRegistration(1, 5)).rejects.toThrow(
+      'Kontenjan dolu',
+    );
+    expect(registrationModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(participantModel.create).not.toHaveBeenCalled();
+  });
+
+  it('turnuvada olmayan başvuruyu reddeder', async () => {
+    const { service } = createService();
+    await expect(service.admitRegistration(1, 99)).rejects.toThrow(
+      'Başvuru bulunamadı',
     );
   });
 });

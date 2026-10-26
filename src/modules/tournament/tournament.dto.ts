@@ -107,6 +107,28 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   roundDuration?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  capacity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  waitlistCapacity?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasEntryFee?: boolean;
+
+  @IsOptional()
+  @IsString()
+  participationNote?: string;
+
+  @IsOptional()
+  @IsString()
+  waitlistNote?: string;
 }
 
 export class RegisterTournamentDto {
