@@ -34,10 +34,12 @@ export class TournamentMailService {
     private readonly gameService: GameService,
   ) {}
 
-  // Hata fırlatmaz: mail gidemese de kayıt başarılı sayılır, sonuç true/false döner
+  // Hata fırlatmaz: mail gidemese de kayıt başarılı sayılır, sonuç true/false döner.
+  // isStatusUpdate: kontenjan değişip asil/yedek durumu değiştiği için yeniden gönderiliyor
   async sendRegistrationMail(
     tournament: Tournament,
     registration: TournamentRegistration,
+    isStatusUpdate = false,
   ): Promise<boolean> {
     try {
       const [location, game] = await Promise.all([
@@ -73,6 +75,7 @@ export class TournamentMailService {
           ),
           participationNote: tournament.participationNote,
           waitlistNote: waitlist ? tournament.waitlistNote : undefined,
+          isStatusUpdate: isStatusUpdate || undefined,
         },
       });
       return true;

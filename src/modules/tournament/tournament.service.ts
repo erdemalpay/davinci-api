@@ -135,7 +135,39 @@ export class TournamentService {
       .findByIdAndUpdate(id, updates, { new: true })
       .exec();
     this.websocketGateway.emitTournamentChanged();
+    // Beklenmez: kaydetme yanıtı mailleri beklemesin
+    if (
+      tournament.status === TournamentStatus.NOT_STARTED &&
+      updated.capacity !== tournament.capacity
+    )
+      void this.notifyStatusChanges(tournament.capacity, updated);
     return updated;
+  }
+
+  // Kontenjan değişince asil/yedek durumu ya da yedek numarası değişenlere yeni mail gider.
+  // Mailler sırayla gönderilir (SES hız sınırı); hatayı sendRegistrationMail kendisi loglar.
+  private async notifyStatusChanges(
+    oldCapacity: number | undefined,
+    tournament: Tournament,
+  ) {
+    // Kontenjan kaldırılınca asil/yedek ayrımı kalmaz, bildirilecek durum yok
+    if (!tournament.capacity) return;
+    const registrations = await this.registrationModel
+      .find({ tournamentId: tournament._id, sequence: { $exists: true } })
+      .sort({ sequence: 1 })
+      .exec();
+    for (const registration of registrations) {
+      const { sequence } = registration;
+      if (
+        registrationStatus(oldCapacity, sequence) !==
+        registrationStatus(tournament.capacity, sequence)
+      )
+        await this.tournamentMailService.sendRegistrationMail(
+          tournament,
+          registration,
+          true,
+        );
+    }
   }
 
   async remove(id: number) {

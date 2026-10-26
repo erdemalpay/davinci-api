@@ -338,6 +338,14 @@ export const mailTemplateParameterDefinitions: Record<
       'Free text shown only to waitlisted registrations.',
       'Gelmeyen asillerin yerine sırayla alınırsınız.',
     ),
+    definition(
+      'isStatusUpdate',
+      'Status update',
+      'string',
+      false,
+      'Set when the mail is re-sent because the capacity changed the registration status.',
+      'true',
+    ),
   ],
 };
 
@@ -595,13 +603,13 @@ export const tournamentRegistrationTemplate = `
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
-                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">Kaydınız alınmıştır</h1>
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">{{#if isStatusUpdate}}Kayıt durumunuz güncellendi{{else}}Kaydınız alınmıştır{{/if}}</h1>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
-                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;"><strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isStatusUpdate}}Kontenjan değiştiği için <strong style="color: #1c1917;">{{tournamentName}}</strong> kaydınızın durumu güncellendi.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
                             {{#if registrationStatus}}
                             <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Kayıt durumunuz: <strong style="color: #a80000;">{{registrationStatus}}</strong></p>
                             {{/if}}
