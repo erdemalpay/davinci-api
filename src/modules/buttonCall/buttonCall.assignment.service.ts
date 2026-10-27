@@ -7,6 +7,7 @@ import {
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
+import { format, subDays } from 'date-fns';
 import { Model } from 'mongoose';
 import {
   BUSY_STATE_STARTED_ON_DECLINE,
@@ -19,6 +20,7 @@ import { Gameplay } from '../gameplay/gameplay.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Location } from '../location/location.schema';
 import { Middleman } from '../middleman/middleman.schema';
+import { findMiddlemanShares } from '../middleman/middlemanShare';
 import {
   MiddlemanPlan,
   MiddlemanPlanSource,
@@ -792,7 +794,7 @@ export class ButtonCallAssignmentService {
       .filter((id) => working(id));
     const picked = pickPlannedMiddleman(
       candidates,
-      await this.countMiddlemanDaysThisMonth(date),
+      await this.findMiddlemanSharesThisMonth(date),
     );
     if (!picked) return undefined;
     await setMiddlemanPlan(this.middlemanPlanModel, {
@@ -818,21 +820,21 @@ export class ButtonCallAssignmentService {
     );
   }
 
-  // Days each person was the middleman (not just standing in) this month
-  // before today.
-  private async countMiddlemanDaysThisMonth(date: string) {
-    const rows: { _id: string; days: number }[] =
-      await this.middlemanModel.aggregate([
-        {
-          $match: {
-            date: { $gte: `${date.slice(0, 7)}-01`, $lt: date },
-            coveringFor: { $exists: false },
-          },
-        },
-        { $group: { _id: '$user', dates: { $addToSet: '$date' } } },
-        { $project: { days: { $size: '$dates' } } },
-      ]);
-    return new Map(rows.map((r) => [String(r._id), r.days]));
+  // Middleman days and worked days this month before today.
+  private async findMiddlemanSharesThisMonth(date: string) {
+    const yesterday = format(
+      subDays(new Date(`${date}T00:00:00`), 1),
+      'yyyy-MM-dd',
+    );
+    return findMiddlemanShares(
+      {
+        middleman: this.middlemanModel,
+        shift: this.shiftModel,
+        location: this.locationModel,
+      },
+      `${date.slice(0, 7)}-01`,
+      yesterday,
+    );
   }
 
   // From 14:00, with no middleman and at least two game masters in the
