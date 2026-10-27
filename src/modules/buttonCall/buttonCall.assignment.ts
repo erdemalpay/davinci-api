@@ -402,17 +402,100 @@ export function findMiddlemanHoursStaff(
   return [...staff];
 }
 
-// The day's middleman: whoever was the middleman on the fewest days this
-// month; a random one of them on a tie.
+// A day counts for one middleman only: whoever was the middleman (not a
+// stand-in) the longest that day, at least this long.
+export const MIDDLEMAN_DAY_MIN_MINUTES = 30;
+
+export interface MiddlemanRecord {
+  user: string;
+  location: number;
+  date: string;
+  startHour: string;
+  finishHour?: string;
+  coveringFor?: string;
+  awayOnCall?: number;
+}
+
+// The middleman of each day and location, by the rule above.
+export function findMainMiddlemen(
+  records: MiddlemanRecord[],
+): { date: string; location: number; user: string }[] {
+  const minutesByDay = new Map<string, Map<string, number>>();
+  for (const r of records) {
+    if (r.coveringFor || r.awayOnCall || !r.finishHour) continue;
+    const minutes =
+      (cafeDaySeconds(r.finishHour) - cafeDaySeconds(r.startHour)) / 60;
+    const key = `${r.date}|${r.location}`;
+    const byUser = minutesByDay.get(key) ?? new Map<string, number>();
+    byUser.set(String(r.user), (byUser.get(String(r.user)) ?? 0) + minutes);
+    minutesByDay.set(key, byUser);
+  }
+  const main: { date: string; location: number; user: string }[] = [];
+  for (const [key, byUser] of minutesByDay) {
+    const [user, minutes] = [...byUser].sort((a, b) => b[1] - a[1])[0];
+    if (minutes < MIDDLEMAN_DAY_MIN_MINUTES) continue;
+    const [date, location] = key.split('|');
+    main.push({ date, location: Number(location), user });
+  }
+  return main;
+}
+
+export interface MiddlemanShare {
+  // The days they were the middleman.
+  dates: string[];
+  // The days they worked in the middleman hours.
+  workedDays: number;
+}
+
+// Each person's middleman days against the days they worked between 14:00
+// and 22:00 (service staff and outside operation days left out).
+export function countMiddlemanShares(
+  records: MiddlemanRecord[],
+  shifts: {
+    day: string;
+    slots: ShiftSlot[];
+    locationShifts: LocationShiftHours[];
+  }[],
+): Map<string, MiddlemanShare> {
+  const shares = new Map<string, MiddlemanShare>();
+  const share = (user: string) => {
+    if (!shares.has(user)) shares.set(user, { dates: [], workedDays: 0 });
+    return shares.get(user);
+  };
+  const worked = new Map<string, Set<string>>();
+  for (const { day, slots, locationShifts } of shifts) {
+    for (const user of findMiddlemanHoursStaff(slots, locationShifts)) {
+      worked.set(user, (worked.get(user) ?? new Set()).add(day));
+    }
+  }
+  for (const [user, days] of worked) share(user).workedDays = days.size;
+  for (const { date, user } of findMainMiddlemen(records)) {
+    const dates = share(user).dates;
+    if (!dates.includes(date)) dates.push(date);
+  }
+  for (const s of shares.values()) s.dates.sort();
+  return shares;
+}
+
+// Middleman days per worked day; nobody who never worked counts as 0.
+export const middlemanRatio = (share?: MiddlemanShare) =>
+  share && share.workedDays > 0 ? share.dates.length / share.workedDays : 0;
+
+// The day's middleman: whoever was the middleman on the smallest share of
+// the days they worked this month; then the fewest days; a random one of
+// them on a tie.
 export function pickPlannedMiddleman(
   candidates: string[],
-  daysThisMonth: Map<string, number>,
+  shares: Map<string, MiddlemanShare>,
   random: () => number = Math.random,
 ): string | undefined {
   if (candidates.length === 0) return undefined;
-  const days = (id: string) => daysThisMonth.get(id) ?? 0;
-  const fewest = Math.min(...candidates.map(days));
-  const tied = candidates.filter((id) => days(id) === fewest);
+  const ratio = (id: string) => middlemanRatio(shares.get(id));
+  const days = (id: string) => shares.get(id)?.dates.length ?? 0;
+  const lowest = Math.min(...candidates.map(ratio));
+  const byRatio = candidates.filter((id) => ratio(id) === lowest);
+  const fewest = Math.min(...byRatio.map(days));
+  const tied = byRatio.filter((id) => days(id) === fewest);
   return tied[Math.floor(random() * tied.length)];
 }
 

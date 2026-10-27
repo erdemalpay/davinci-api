@@ -20,7 +20,7 @@ import {
   tryAddActivity,
   wrapHttpException,
 } from 'src/utils/serviceUtils';
-import { cafeHour } from 'src/utils/cafeTime';
+import { cafeHour, cafeToday } from 'src/utils/cafeTime';
 import { extractRefId } from 'src/utils/tsUtils';
 import {
   isMiddlemanHours,
@@ -32,7 +32,10 @@ import {
   MiddlemanQueryDto,
   UpdateMiddlemanDto,
 } from './middleman.dto';
+import { Location } from '../location/location.schema';
+import { Shift } from '../shift/shift.schema';
 import { Middleman } from './middleman.schema';
+import { findMiddlemanShares } from './middlemanShare';
 import {
   MiddlemanPlan,
   MiddlemanPlanSource,
@@ -45,6 +48,8 @@ export class MiddlemanService {
     @InjectModel(Middleman.name) private middlemanModel: Model<Middleman>,
     @InjectModel(MiddlemanPlan.name)
     private middlemanPlanModel: Model<MiddlemanPlan>,
+    @InjectModel(Shift.name) private shiftModel: Model<Shift>,
+    @InjectModel(Location.name) private locationModel: Model<Location>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
@@ -186,6 +191,22 @@ export class MiddlemanService {
       .sort({ date: -1 })
       .lean()
       .exec() as Promise<Middleman[]>;
+  }
+
+  // Each person's middleman days and days worked in the middleman hours,
+  // up to today.
+  async findShares(after: string, before: string) {
+    const today = cafeToday();
+    const shares = await findMiddlemanShares(
+      {
+        middleman: this.middlemanModel,
+        shift: this.shiftModel,
+        location: this.locationModel,
+      },
+      after,
+      before && before < today ? before : today,
+    );
+    return [...shares].map(([user, share]) => ({ user, ...share }));
   }
 
   async findByDate(date: string): Promise<Middleman[]> {
