@@ -4,6 +4,14 @@ import { purifySchema } from 'src/lib/purifySchema';
 import { Tiebreaker } from '../tournament.fixture';
 import { PairingMode, TournamentFormat } from '../tournament.round-plan';
 
+// sequence: son güncellemedeki son kayıt sırası, freeMain: kalan asil yeri,
+// waitlistCount: o anki yedek sayısı
+export interface WaitlistAnchor {
+  sequence: number;
+  freeMain: number;
+  waitlistCount: number;
+}
+
 export enum TournamentStatus {
   NOT_STARTED = 'not_started',
   ONGOING = 'ongoing',
@@ -128,6 +136,10 @@ export class Tournament extends Document {
   // Başvuru sıra numaralarının sayacı; $inc ile atomik artırılır
   @Prop({ required: true, type: Number, default: 0 })
   registrationCount: number;
+
+  // Yedek listesinin son güncellendiği an; sonra gelen başvurular listenin sonuna eklenir
+  @Prop({ required: false, type: Object })
+  waitlistAnchor?: WaitlistAnchor;
 
   // Tur süresi (dk); boşsa süre sınırı yok. Turnuva başladıktan sonra da değişebilir
   @Prop({ required: false, type: Number })

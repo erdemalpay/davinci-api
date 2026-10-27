@@ -9,6 +9,11 @@ import {
   PairingMode,
   TournamentFormat,
 } from './tournament.round-plan';
+import {
+  ConfirmationStatus,
+  DeclineSource,
+  ListStatus,
+} from './schemas/tournament-registration.schema';
 import { TournamentStatus } from './schemas/tournament.schema';
 import { Tiebreaker } from './tournament.fixture';
 import { TournamentService } from './tournament.service';
@@ -55,7 +60,9 @@ const createService = ({
   const registrationModel = {
     create: jest.fn().mockImplementation(async (doc) => ({ _id: 5, ...doc })),
     findOne: jest.fn().mockReturnValue(query(registration)),
+    findById: jest.fn().mockReturnValue(query(registration)),
     find: jest.fn().mockReturnValue(query(registration ? [registration] : [])),
+    bulkWrite: jest.fn().mockResolvedValue({}),
     findByIdAndUpdate: jest.fn().mockReturnValue(query({})),
     findByIdAndDelete: jest.fn().mockReturnValue(query({})),
   };
@@ -425,66 +432,190 @@ describe('TournamentService.update', () => {
   });
 });
 
-describe('TournamentService.update (kontenjan değişince mail)', () => {
-  const registrations = [1, 2, 3, 4].map((sequence) => ({
-    _id: 70 + sequence,
-    tournamentId: 1,
-    sequence,
-  }));
-  const sorted = (value: unknown) => ({ sort: () => query(value) });
-  // update beklemeden dönen mail döngüsünün bitmesini bekler
-  const flush = () => new Promise((resolve) => setImmediate(resolve));
-  const setup = (before: object, after: object) => {
-    const mocks = createService({
-      tournament: { ...baseTournament, ...before },
+describe('TournamentService.update (kontenjan değişince)', () => {
+  it('mail göndermez; bildirilen yerleri eski kontenjana göre sabitler', async () => {
+    const { service, tournamentModel, tournamentMailService } = createService({
+      tournament: { ...baseTournament, capacity: 2 },
     });
-    mocks.tournamentModel.findByIdAndUpdate.mockReturnValue(
-      query({ ...baseTournament, ...after }),
-    );
-    mocks.registrationModel.find.mockReturnValue(sorted(registrations));
-    return mocks;
-  };
-
-  it('kontenjan artınca yedekten asile geçenlere güncelleme maili gönderir', async () => {
-    const { service, tournamentMailService } = setup(
-      { capacity: 2 },
-      { capacity: 50 },
-    );
     await service.update(1, { capacity: 50 });
-    await flush();
-    const mailed = tournamentMailService.sendRegistrationMail.mock.calls;
-    expect(mailed.map(([, r]) => r._id)).toEqual([73, 74]);
-    expect(mailed.every(([, , isStatusUpdate]) => isStatusUpdate)).toBe(true);
-  });
-
-  it('yedek numarası değişene de gönderir, durumu aynı kalana göndermez', async () => {
-    const { service, tournamentMailService } = setup(
-      { capacity: 1 },
-      { capacity: 2 },
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      1,
+      {
+        capacity: 50,
+        waitlistAnchor: { sequence: 0, freeMain: 2, waitlistCount: 0 },
+      },
+      { new: true },
     );
-    await service.update(1, { capacity: 2 });
-    await flush();
-    expect(
-      tournamentMailService.sendRegistrationMail.mock.calls.map(
-        ([, r]) => r._id,
-      ),
-    ).toEqual([72, 73, 74]);
+    expect(tournamentMailService.sendRegistrationMail).not.toHaveBeenCalled();
   });
 
-  it('kontenjan değişmediyse, kaldırıldıysa ya da turnuva başladıysa göndermez', async () => {
-    for (const [before, after] of [
-      [{ capacity: 2 }, { capacity: 2, name: 'Yeni ad' }],
-      [{ capacity: 2 }, { capacity: null }],
-      [
-        { capacity: 2, status: TournamentStatus.ONGOING },
-        { capacity: 50, status: TournamentStatus.ONGOING },
-      ],
+  it('liste zaten sabitse, kontenjan değişmediyse ya da önceden yoksa olduğu gibi kaydeder', async () => {
+    const waitlistAnchor = { sequence: 70, freeMain: 0, waitlistCount: 4 };
+    for (const [before, updates] of [
+      [{ capacity: 2, waitlistAnchor }, { capacity: 50 }],
+      [{ capacity: 2 }, { name: 'Yeni ad' }],
+      [{}, { capacity: 50 }],
     ]) {
-      const { service, tournamentMailService } = setup(before, after);
-      await service.update(1, after);
-      await flush();
-      expect(tournamentMailService.sendRegistrationMail).not.toHaveBeenCalled();
+      const { service, tournamentModel } = createService({
+        tournament: { ...baseTournament, ...before },
+      });
+      await service.update(1, updates);
+      expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        1,
+        updates,
+        { new: true },
+      );
     }
+  });
+});
+
+describe('TournamentService yedek listesi', () => {
+  // Kontenjan 2: 1-2 asil, 3-4 yedek
+  const doc = (fields: Record<string, unknown>) => ({
+    ...fields,
+    toObject: () => fields,
+  });
+  const registrations = (declinedId?: number) =>
+    [1, 2, 3, 4].map((id) =>
+      doc({
+        _id: id,
+        tournamentId: 1,
+        sequence: id,
+        fullName: `Oyuncu ${id}`,
+        confirmationStatus:
+          id === declinedId
+            ? ConfirmationStatus.DECLINED
+            : ConfirmationStatus.PENDING,
+      }),
+    );
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  it('başvurulara bildirilen ve bekleyen yeri ekler', async () => {
+    const { service, registrationModel } = createService({
+      tournament: { ...baseTournament, capacity: 2 },
+    });
+    registrationModel.find.mockReturnValue({
+      sort: () => query(registrations(1)),
+    });
+    const result = await service.findRegistrations(1);
+    expect(result.find((r) => r._id === 3)).toMatchObject({
+      position: { listStatus: ListStatus.WAITLIST, waitlist: 1 },
+      nextPosition: { listStatus: ListStatus.MAIN },
+    });
+  });
+
+  it('güncelleyince yerleri yazar, asile geçene ve sırası değişene mail atar', async () => {
+    const {
+      service,
+      registrationModel,
+      tournamentModel,
+      tournamentMailService,
+    } = createService({
+      tournament: { ...baseTournament, capacity: 2, registrationCount: 4 },
+    });
+    registrationModel.find.mockReturnValue(query(registrations(1)));
+
+    await expect(service.publishWaitlist(1)).resolves.toEqual({
+      promoted: 1,
+      waitlistUpdated: 1,
+    });
+    await flush();
+
+    const [writes] = registrationModel.bulkWrite.mock.calls[0];
+    expect(writes.map(({ updateOne }) => updateOne.update.$set)).toEqual([
+      { listStatus: ListStatus.WITHDRAWN },
+      { listStatus: ListStatus.MAIN },
+      { listStatus: ListStatus.MAIN },
+      { listStatus: ListStatus.WAITLIST, waitlist: 1 },
+    ]);
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      1,
+      { waitlistAnchor: { sequence: 4, freeMain: 0, waitlistCount: 1 } },
+      { new: true },
+    );
+    const mailed = tournamentMailService.sendRegistrationMail.mock.calls.map(
+      ([, registration, kind]) => [registration._id, kind],
+    );
+    expect(mailed).toEqual([
+      [3, 'promoted'],
+      [4, 'waitlistUpdate'],
+    ]);
+  });
+
+  it('panelden katılmayacak işaretlenince kaynağı panel olur', async () => {
+    const { service, registrationModel } = createService({
+      registration: { _id: 7, confirmationStatus: ConfirmationStatus.PENDING },
+    });
+    await service.updateConfirmation(7, {
+      confirmationStatus: ConfirmationStatus.DECLINED,
+    });
+    expect(registrationModel.findByIdAndUpdate.mock.calls[0][1]).toMatchObject({
+      confirmationStatus: ConfirmationStatus.DECLINED,
+      declineSource: DeclineSource.PANEL,
+      isManualMain: false,
+    });
+  });
+
+  it('yeri verildikten sonra geri alınan iptal kişiyi listenin sonuna ekler', async () => {
+    const { service, registrationModel } = createService({
+      registration: {
+        _id: 7,
+        confirmationStatus: ConfirmationStatus.DECLINED,
+        listStatus: ListStatus.WITHDRAWN,
+      },
+    });
+    await service.updateConfirmation(7, {
+      confirmationStatus: ConfirmationStatus.CONFIRMED,
+    });
+    const update = registrationModel.findByIdAndUpdate.mock.calls[0][1];
+    expect(update.declineSource).toBeNull();
+    expect(update.requeuedAt).toBeInstanceOf(Date);
+  });
+
+  it('linkten iptal ederken kaynağı link olur; turnuva başladıysa reddeder', async () => {
+    const registration = {
+      _id: 7,
+      tournamentId: 1,
+      fullName: 'Ayşe',
+      confirmationStatus: ConfirmationStatus.PENDING,
+    };
+    const { service, registrationModel } = createService({ registration });
+    registrationModel.findByIdAndUpdate.mockReturnValue(
+      query({
+        ...registration,
+        confirmationStatus: ConfirmationStatus.DECLINED,
+      }),
+    );
+    await expect(service.declineByCode('abc')).resolves.toMatchObject({
+      fullName: 'Ayşe',
+      isDeclined: true,
+      canDecline: false,
+    });
+    expect(registrationModel.findByIdAndUpdate.mock.calls[0][1]).toMatchObject({
+      declineSource: DeclineSource.LINK,
+    });
+
+    const started = createService({
+      registration,
+      tournament: { ...baseTournament, status: TournamentStatus.ONGOING },
+    });
+    await expect(started.service.declineByCode('abc')).rejects.toThrow(
+      'Bu kaydın iptal süresi doldu',
+    );
+  });
+
+  it('sadece yedek asil yapılabilir', async () => {
+    const { service } = createService({
+      tournament: { ...baseTournament, capacity: 2 },
+      registration: {
+        _id: 1,
+        sequence: 1,
+        confirmationStatus: ConfirmationStatus.PENDING,
+      },
+    });
+    await expect(
+      service.setManualMain(1, 1, { isManualMain: true }),
+    ).rejects.toThrow('Sadece yedekler asil yapılabilir');
   });
 });
 

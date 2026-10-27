@@ -3,7 +3,11 @@ jest.mock('@shopify/shopify-api/adapters/node', () => ({}), {
 });
 
 import { MailType } from '../mail/mail.schema';
-import { TournamentMailService } from './tournament-mail.service';
+import { ListStatus } from './schemas/tournament-registration.schema';
+import {
+  RegistrationMailKind,
+  TournamentMailService,
+} from './tournament-mail.service';
 
 const tournament = {
   name: 'AZUL TURNUVASI',
@@ -63,6 +67,8 @@ describe('TournamentMailService.sendRegistrationMail', () => {
         logoUrl: 'https://www.davinciboardgame.com/images/davinci-logo.png',
         qrCodeUrl:
           'https://api-staging.example.com/tournaments/public/check-in/abc123/qr',
+        cancelUrl:
+          'https://staging-panel.davinciboardgame.com/tournament/registration/abc123/cancel',
       },
     });
   });
@@ -114,12 +120,36 @@ describe('TournamentMailService.sendRegistrationMail', () => {
     expect(asil.waitlistNote).toBeUndefined();
   });
 
-  it('kontenjan değişince gönderilen mailde güncelleme olduğunu belirtir', async () => {
+  it('yedek listesi güncellenince bildirilen yeni yeri ve mailin türünü gönderir', async () => {
     const { service, mailService } = createService();
-    await service.sendRegistrationMail(tournament, registration, true);
-    expect(mailService.sendMail.mock.calls[0][0].variables.isStatusUpdate).toBe(
-      true,
+    const capped = { ...tournament, capacity: 64 };
+    await service.sendRegistrationMail(
+      capped,
+      { ...registration, sequence: 70, listStatus: ListStatus.MAIN },
+      RegistrationMailKind.PROMOTED,
     );
+    await service.sendRegistrationMail(
+      capped,
+      {
+        ...registration,
+        sequence: 80,
+        listStatus: ListStatus.WAITLIST,
+        waitlist: 2,
+      },
+      RegistrationMailKind.WAITLIST_UPDATE,
+    );
+    const [promoted, updated] = mailService.sendMail.mock.calls.map(
+      ([mail]) => mail.variables,
+    );
+    expect(promoted).toMatchObject({
+      registrationStatus: 'Asil',
+      isPromoted: true,
+    });
+    expect(promoted.isWaitlistUpdate).toBeUndefined();
+    expect(updated).toMatchObject({
+      registrationStatus: 'Yedek 2',
+      isWaitlistUpdate: true,
+    });
   });
 
   it('mail gönderilemezse hata fırlatmaz, false döner', async () => {

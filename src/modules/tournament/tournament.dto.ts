@@ -161,6 +161,11 @@ export class UpdateConfirmationDto {
   confirmationStatus: ConfirmationStatus;
 }
 
+export class SetManualMainDto {
+  @IsBoolean()
+  isManualMain: boolean;
+}
+
 export class PromoteRegistrationsDto {
   @IsArray()
   @IsNumber({}, { each: true })
