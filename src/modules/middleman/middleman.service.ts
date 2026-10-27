@@ -23,6 +23,7 @@ import {
 import { cafeHour } from 'src/utils/cafeTime';
 import { extractRefId } from 'src/utils/tsUtils';
 import {
+  isMiddlemanHours,
   isPastMiddlemanHours,
   MIDDLEMAN_UNTIL,
 } from '../buttonCall/buttonCall.assignment';
@@ -32,11 +33,18 @@ import {
   UpdateMiddlemanDto,
 } from './middleman.dto';
 import { Middleman } from './middleman.schema';
+import {
+  MiddlemanPlan,
+  MiddlemanPlanSource,
+  setMiddlemanPlan,
+} from './middlemanPlan.schema';
 
 @Injectable()
 export class MiddlemanService {
   constructor(
     @InjectModel(Middleman.name) private middlemanModel: Model<Middleman>,
+    @InjectModel(MiddlemanPlan.name)
+    private middlemanPlanModel: Model<MiddlemanPlan>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
@@ -45,9 +53,16 @@ export class MiddlemanService {
 
   async create(createMiddlemanDto: CreateMiddlemanDto): Promise<Middleman> {
     return wrapHttpException(async () => {
-      if (isPastMiddlemanHours(cafeHour(false))) {
+      const hour = cafeHour(false);
+      if (isPastMiddlemanHours(hour)) {
         throw new HttpException(
           'No middleman after 22:00',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!isMiddlemanHours(hour)) {
+        throw new HttpException(
+          'No middleman before 14:00',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -56,33 +71,33 @@ export class MiddlemanService {
         finishHour: { $exists: false },
       });
 
-      // A middleman away on a call leaves the role free: taking it is
-      // standing in until they're back.
-      const standsIn = !!existingActive?.awayOnCall;
-      if (existingActive && !standsIn) {
+      // Taking the role yourself makes you the day's middleman. Only a
+      // middleman who is there (not away on a call, not just standing in)
+      // keeps it.
+      const replaces =
+        !!existingActive &&
+        String(extractRefId(existingActive.user)) !== createMiddlemanDto.user &&
+        (!!existingActive.awayOnCall || !!existingActive.coveringFor);
+      if (existingActive && !replaces) {
         throw new HttpException(
           'There is already an active middleman for this location',
           HttpStatus.CONFLICT,
         );
       }
-      if (standsIn) {
+      if (replaces) {
         await this.middlemanModel.updateOne(
           { _id: existingActive._id, finishHour: { $exists: false } },
-          { $set: { finishHour: cafeHour(false) } },
+          { $set: { finishHour: hour } },
         );
       }
 
-      const record = await this.middlemanModel.create(
-        standsIn
-          ? {
-              ...createMiddlemanDto,
-              coveringFor: String(
-                existingActive.coveringFor ?? extractRefId(existingActive.user),
-              ),
-              coveringCall: existingActive.awayOnCall,
-            }
-          : createMiddlemanDto,
-      );
+      const record = await this.middlemanModel.create(createMiddlemanDto);
+      await setMiddlemanPlan(this.middlemanPlanModel, {
+        location: createMiddlemanDto.location,
+        date: createMiddlemanDto.date,
+        user: createMiddlemanDto.user,
+        source: MiddlemanPlanSource.MANUAL,
+      });
       await tryAddActivity(
         this.activityService,
         this.userService,

@@ -9,11 +9,13 @@ import { MiddlemanController } from './middleman.controller';
 import { MiddlemanCronService } from './middleman.cron.service';
 import { Middleman, MiddlemanSchema } from './middleman.schema';
 import { MiddlemanService } from './middleman.service';
+import { MiddlemanPlan, MiddlemanPlanSchema } from './middlemanPlan.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeatureAsync([
       createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
+      createAutoIncrementConfig(MiddlemanPlan.name, MiddlemanPlanSchema),
     ]),
     WebSocketModule,
     LocationModule,
