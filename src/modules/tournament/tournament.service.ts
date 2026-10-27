@@ -11,11 +11,16 @@ import * as QRCode from 'qrcode';
 import { isMongoDuplicateKey } from 'src/utils/mongoErrors';
 import { generateUniqueSlug } from 'src/utils/uniqueSlug';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { TournamentMailService } from './tournament-mail.service';
+import {
+  RegistrationMailKind,
+  TournamentMailService,
+} from './tournament-mail.service';
 import { TournamentMatch } from './schemas/tournament-match.schema';
 import { TournamentParticipant } from './schemas/tournament-participant.schema';
 import {
   ConfirmationStatus,
+  DeclineSource,
+  ListStatus,
   TournamentRegistration,
 } from './schemas/tournament-registration.schema';
 import { Tournament, TournamentStatus } from './schemas/tournament.schema';
@@ -26,6 +31,7 @@ import {
   MoveParticipantDto,
   RegisterTournamentDto,
   ResolveTieDto,
+  SetManualMainDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
   UpdateParticipantDto,
@@ -52,8 +58,12 @@ import {
 } from './tournament.round-plan';
 import {
   isOverLimit,
-  registrationStatus,
-  waitlistNumber,
+  isSamePosition,
+  ListPosition,
+  nextPositions,
+  positionFromSequence,
+  publishedPosition,
+  statusLabel,
 } from './tournament.waitlist';
 
 // Turnuva başladıktan sonra değiştirilemeyen alanlar (fikstürü bozar)
@@ -134,43 +144,31 @@ export class TournamentService {
         ...updates,
       } as TournamentRules);
 
+    // Kontenjan değişse de bildirilen yerler eski kontenjana göre kalır; fark "Yedek Listesini
+    // Güncelle" ile yayınlanır
+    const freezesList =
+      tournament.capacity &&
+      'capacity' in updates &&
+      updates.capacity !== tournament.capacity &&
+      !tournament.waitlistAnchor;
     const updated = await this.tournamentModel
-      .findByIdAndUpdate(id, updates, { new: true })
+      .findByIdAndUpdate(
+        id,
+        freezesList
+          ? {
+              ...updates,
+              waitlistAnchor: {
+                sequence: 0,
+                freeMain: tournament.capacity,
+                waitlistCount: 0,
+              },
+            }
+          : updates,
+        { new: true },
+      )
       .exec();
     this.websocketGateway.emitTournamentChanged();
-    // Beklenmez: kaydetme yanıtı mailleri beklemesin
-    if (
-      tournament.status === TournamentStatus.NOT_STARTED &&
-      updated.capacity !== tournament.capacity
-    )
-      void this.notifyStatusChanges(tournament.capacity, updated);
     return updated;
-  }
-
-  // Kontenjan değişince asil/yedek durumu ya da yedek numarası değişenlere yeni mail gider.
-  // Mailler sırayla gönderilir (SES hız sınırı); hatayı sendRegistrationMail kendisi loglar.
-  private async notifyStatusChanges(
-    oldCapacity: number | undefined,
-    tournament: Tournament,
-  ) {
-    // Kontenjan kaldırılınca asil/yedek ayrımı kalmaz, bildirilecek durum yok
-    if (!tournament.capacity) return;
-    const registrations = await this.registrationModel
-      .find({ tournamentId: tournament._id, sequence: { $exists: true } })
-      .sort({ sequence: 1 })
-      .exec();
-    for (const registration of registrations) {
-      const { sequence } = registration;
-      if (
-        registrationStatus(oldCapacity, sequence) !==
-        registrationStatus(tournament.capacity, sequence)
-      )
-        await this.tournamentMailService.sendRegistrationMail(
-          tournament,
-          registration,
-          true,
-        );
-    }
   }
 
   async remove(id: number) {
@@ -263,13 +261,15 @@ export class TournamentService {
       tournament,
       registration,
     );
+    const position = positionFromSequence(tournament, sequence);
     return {
       _id: registration._id,
       checkInCode: registration.checkInCode,
-      registrationStatus: registrationStatus(tournament.capacity, sequence),
-      waitlistNote: waitlistNumber(tournament.capacity, sequence)
-        ? tournament.waitlistNote
-        : undefined,
+      registrationStatus: statusLabel(position),
+      waitlistNote:
+        position?.listStatus === ListStatus.WAITLIST
+          ? tournament.waitlistNote
+          : undefined,
     };
   }
 
@@ -302,15 +302,29 @@ export class TournamentService {
 
   // ─── Başvurular ──────────────────────────────────────────────────────────────
 
-  findRegistrations(tournamentId: number) {
-    return this.registrationModel
-      .find({ tournamentId })
-      .sort({ createdAt: -1 })
-      .exec();
+  // Her başvurunun kişiye bildirilen yeri ve "Yedek Listesini Güncelle"de alacağı yer
+  async findRegistrations(tournamentId: number) {
+    const [tournament, registrations] = await Promise.all([
+      this.findTournament(tournamentId),
+      this.registrationModel
+        .find({ tournamentId })
+        .sort({ createdAt: -1 })
+        .exec(),
+    ]);
+    const next = nextPositions(tournament, registrations);
+    return registrations.map((registration) => ({
+      ...registration.toObject(),
+      position: publishedPosition(tournament, registration),
+      nextPosition: next.get(registration._id),
+    }));
   }
 
   async updateConfirmation(registrationId: number, dto: UpdateConfirmationDto) {
     const registration = await this.registrationModel
+      .findById(registrationId)
+      .exec();
+    if (!registration) throw new NotFoundException('Başvuru bulunamadı');
+    const updated = await this.registrationModel
       .findByIdAndUpdate(
         registrationId,
         {
@@ -319,12 +333,221 @@ export class TournamentService {
             dto.confirmationStatus === ConfirmationStatus.CONFIRMED
               ? new Date()
               : null,
+          ...this.declineChanges(
+            registration,
+            dto.confirmationStatus,
+            DeclineSource.PANEL,
+          ),
         },
         { new: true },
       )
       .exec();
     this.websocketGateway.emitTournamentChanged();
-    return registration;
+    return updated;
+  }
+
+  // Katılmayacak işareti listeyi hemen değiştirmez, yer "Yedek Listesini Güncelle"de boşalır.
+  // Yeri başkasına verildikten sonra geri alınırsa kişi listenin sonuna eklenir.
+  private declineChanges(
+    registration: TournamentRegistration,
+    status: ConfirmationStatus,
+    source: DeclineSource,
+  ) {
+    const isDeclined = status === ConfirmationStatus.DECLINED;
+    if (
+      isDeclined ===
+      (registration.confirmationStatus === ConfirmationStatus.DECLINED)
+    )
+      return {};
+    if (isDeclined) return { declineSource: source, isManualMain: false };
+    return {
+      declineSource: null,
+      ...(registration.listStatus === ListStatus.WITHDRAWN && {
+        requeuedAt: new Date(),
+      }),
+    };
+  }
+
+  // "Asil yap": yedek, liste güncellenince asil olur (kontenjan dolu olsa da)
+  async setManualMain(
+    tournamentId: number,
+    registrationId: number,
+    dto: SetManualMainDto,
+  ) {
+    const tournament = await this.findTournament(tournamentId);
+    const registration = await this.registrationModel
+      .findOne({ _id: registrationId, tournamentId })
+      .exec();
+    if (!registration) throw new NotFoundException('Başvuru bulunamadı');
+    if (dto.isManualMain) {
+      if (registration.confirmationStatus === ConfirmationStatus.DECLINED)
+        throw new BadRequestException('Katılmayacak başvuru asil yapılamaz');
+      if (
+        publishedPosition(tournament, registration)?.listStatus !==
+        ListStatus.WAITLIST
+      )
+        throw new BadRequestException('Sadece yedekler asil yapılabilir');
+    }
+    const updated = await this.registrationModel
+      .findByIdAndUpdate(
+        registrationId,
+        { isManualMain: dto.isManualMain },
+        { new: true },
+      )
+      .exec();
+    this.websocketGateway.emitTournamentChanged();
+    return updated;
+  }
+
+  // Bekleyen değişiklikleri bildirilen yer yapar; asile geçene ve yedek numarası değişene mail
+  // gider. Sonra gelen başvurular güncel listenin sonuna eklenir (waitlistAnchor).
+  async publishWaitlist(tournamentId: number) {
+    const tournament = await this.findTournament(tournamentId);
+    if (!tournament.capacity)
+      throw new BadRequestException('Bu turnuvada kontenjan yok');
+    const registrations = await this.registrationModel
+      .find({ tournamentId, sequence: { $exists: true } })
+      .exec();
+    const next = nextPositions(tournament, registrations);
+    const changes = registrations.flatMap((registration) => {
+      const after = next.get(registration._id);
+      return after
+        ? [
+            {
+              registration,
+              after,
+              isChanged: !isSamePosition(
+                publishedPosition(tournament, registration),
+                after,
+              ),
+            },
+          ]
+        : [];
+    });
+
+    // Hepsi yazılır: liste sabitlenince eski başvuruların yeri artık kayıt sırasından hesaplanmaz
+    await this.registrationModel.bulkWrite(
+      changes.map(({ registration, after }) => ({
+        updateOne: {
+          filter: { _id: registration._id },
+          update: {
+            $set: {
+              listStatus: after.listStatus,
+              ...(after.waitlist && { waitlist: after.waitlist }),
+            },
+            $unset: {
+              isManualMain: '',
+              requeuedAt: '',
+              ...(!after.waitlist && { waitlist: '' }),
+            },
+          },
+        },
+      })),
+    );
+    const count = (status: ListStatus) =>
+      changes.filter(({ after }) => after.listStatus === status).length;
+    const waitlistAnchor = {
+      sequence: tournament.registrationCount,
+      freeMain: Math.max(0, tournament.capacity - count(ListStatus.MAIN)),
+      waitlistCount: count(ListStatus.WAITLIST),
+    };
+    const updated = await this.tournamentModel
+      .findByIdAndUpdate(tournamentId, { waitlistAnchor }, { new: true })
+      .exec();
+    this.websocketGateway.emitTournamentChanged();
+
+    const mails = changes.filter(
+      ({ after, isChanged }) =>
+        isChanged && after.listStatus !== ListStatus.WITHDRAWN,
+    );
+    // Beklenmez: mailler sırayla gider (SES hız sınırı), hatayı mail servisi loglar
+    void this.sendListMails(updated, mails);
+    const isPromoted = ({ after }: { after: ListPosition }) =>
+      after.listStatus === ListStatus.MAIN;
+    return {
+      promoted: mails.filter(isPromoted).length,
+      waitlistUpdated: mails.filter((mail) => !isPromoted(mail)).length,
+    };
+  }
+
+  private async sendListMails(
+    tournament: Tournament,
+    mails: { registration: TournamentRegistration; after: ListPosition }[],
+  ) {
+    for (const { registration, after } of mails)
+      await this.tournamentMailService.sendRegistrationMail(
+        tournament,
+        { ...registration.toObject(), ...after },
+        after.listStatus === ListStatus.MAIN
+          ? RegistrationMailKind.PROMOTED
+          : RegistrationMailKind.WAITLIST_UPDATE,
+      );
+  }
+
+  // Maildeki "Katılamayacağım" linkinin açtığı sayfa
+  async findPublicRegistration(code: string) {
+    const { tournament, registration } = await this.findByCode(code);
+    return this.publicRegistration(tournament, registration);
+  }
+
+  async declineByCode(code: string) {
+    const { tournament, registration } = await this.findByCode(code);
+    const current = await this.publicRegistration(tournament, registration);
+    if (current.isDeclined) return current;
+    if (!current.canDecline)
+      throw new BadRequestException('Bu kaydın iptal süresi doldu');
+    const updated = await this.registrationModel
+      .findByIdAndUpdate(
+        registration._id,
+        {
+          confirmationStatus: ConfirmationStatus.DECLINED,
+          confirmedAt: null,
+          ...this.declineChanges(
+            registration,
+            ConfirmationStatus.DECLINED,
+            DeclineSource.LINK,
+          ),
+        },
+        { new: true },
+      )
+      .exec();
+    this.websocketGateway.emitTournamentChanged();
+    return this.publicRegistration(tournament, updated);
+  }
+
+  private async findByCode(code: string) {
+    const registration = await this.findRegistrationByCode(code);
+    const tournament = await this.findTournament(registration.tournamentId);
+    return { tournament, registration };
+  }
+
+  // İptal sadece turnuva başlamadan ve kişi katılımcı olmadan yapılabilir
+  private async publicRegistration(
+    tournament: Tournament,
+    registration: TournamentRegistration,
+  ) {
+    const isDeclined =
+      registration.confirmationStatus === ConfirmationStatus.DECLINED;
+    const isParticipant = await this.participantModel
+      .exists({
+        tournamentId: tournament._id,
+        registrationId: registration._id,
+      })
+      .exec();
+    return {
+      tournamentName: tournament.name,
+      date: tournament.date,
+      startTime: tournament.startTime,
+      fullName: registration.fullName,
+      registrationStatus: statusLabel(
+        publishedPosition(tournament, registration),
+      ),
+      isDeclined,
+      canDecline:
+        !isDeclined &&
+        !isParticipant &&
+        tournament.status === TournamentStatus.NOT_STARTED,
+    };
   }
 
   // ─── Katılımcılar ────────────────────────────────────────────────────────────
@@ -372,13 +595,17 @@ export class TournamentService {
         .exec();
     this.websocketGateway.emitTournamentChanged();
 
-    const waitlist = waitlistNumber(tournament.capacity, registration.sequence);
-    const isParticipant = !tournament.hasEntryFee && !waitlist;
+    // Katılmayacağı yayınlanmış kişi de gelirse görevli Başvurular'dan karar verir
+    const position = publishedPosition(tournament, registration);
+    const isParticipant =
+      !tournament.hasEntryFee &&
+      (!position || position.listStatus === ListStatus.MAIN);
     if (isParticipant) await this.admit(tournament, registration);
     return {
       registrationId: registration._id,
       fullName: registration.fullName,
-      waitlistNumber: waitlist,
+      listStatus: position?.listStatus,
+      waitlistNumber: position?.waitlist,
       hasEntryFee: tournament.hasEntryFee,
       isParticipant,
     };

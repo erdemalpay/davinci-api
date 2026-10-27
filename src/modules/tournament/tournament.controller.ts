@@ -25,6 +25,7 @@ import {
   PromoteRegistrationsDto,
   RegisterTournamentDto,
   ResolveTieDto,
+  SetManualMainDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
   UpdateParticipantDto,
@@ -66,6 +67,19 @@ export class TournamentController {
   async getCheckInQr(@Param('code') code: string, @Res() res: Response) {
     const image = await this.tournamentService.getCheckInQr(code);
     return res.type('png').send(image);
+  }
+
+  // Kayıt mailindeki "Katılamayacağım" linki
+  @Public()
+  @Get('/public/registration/:code')
+  findPublicRegistration(@Param('code') code: string) {
+    return this.tournamentService.findPublicRegistration(code);
+  }
+
+  @Public()
+  @Post('/public/registration/:code/decline')
+  declineRegistration(@Param('code') code: string) {
+    return this.tournamentService.declineByCode(code);
   }
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────
@@ -111,6 +125,26 @@ export class TournamentController {
     @Body() dto: PromoteRegistrationsDto,
   ) {
     return this.tournamentService.promoteRegistrations(id, dto.registrationIds);
+  }
+
+  @Patch('/:id/registrations/:registrationId/main')
+  setManualMain(
+    @Param('id') id: number,
+    @Param('registrationId') registrationId: number,
+    @Body() dto: SetManualMainDto,
+  ) {
+    return this.tournamentService.setManualMain(id, registrationId, dto);
+  }
+
+  // Mailler iki kez gitmesin; giriş (admit) ile aynı kilidi kullanır
+  @Post('/:id/waitlist/publish')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  publishWaitlist(@Param('id') id: number) {
+    return this.tournamentService.publishWaitlist(id);
   }
 
   // ─── Katılımcılar ────────────────────────────────────────────────────────

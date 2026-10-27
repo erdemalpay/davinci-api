@@ -4,9 +4,18 @@ import { GameService } from '../game/game.service';
 import { LocationService } from '../location/location.service';
 import { MailType } from '../mail/mail.schema';
 import { MailService } from '../mail/mail.service';
-import { TournamentRegistration } from './schemas/tournament-registration.schema';
+import {
+  ListStatus,
+  TournamentRegistration,
+} from './schemas/tournament-registration.schema';
 import { Tournament } from './schemas/tournament.schema';
-import { registrationStatus, waitlistNumber } from './tournament.waitlist';
+import { publishedPosition, statusLabel } from './tournament.waitlist';
+
+// Yedek listesi güncellenince giden mailin türü; boşsa ilk kayıt maili
+export enum RegistrationMailKind {
+  PROMOTED = 'promoted',
+  WAITLIST_UPDATE = 'waitlistUpdate',
+}
 
 // Turnuva günü UTC gece yarısı olarak saklanır; "11 Ekim 2026, Pazar" biçimine çevrilir
 const formatTournamentDate = (date: Date) => {
@@ -24,6 +33,12 @@ const apiHost = () =>
     ? process.env.PRODUCTION_HOST_URL
     : process.env.STAGING_HOST_URL;
 
+// "Katılamayacağım" linkinin açtığı panel sayfası (apiHost ile aynı ortam ayrımı)
+const panelHost = () =>
+  process.env.NODE_ENV === 'production'
+    ? 'https://panel.davinciboardgame.com'
+    : 'https://staging-panel.davinciboardgame.com';
+
 @Injectable()
 export class TournamentMailService {
   private readonly logger = new Logger(TournamentMailService.name);
@@ -35,11 +50,19 @@ export class TournamentMailService {
   ) {}
 
   // Hata fırlatmaz: mail gidemese de kayıt başarılı sayılır, sonuç true/false döner.
-  // isStatusUpdate: kontenjan değişip asil/yedek durumu değiştiği için yeniden gönderiliyor
+  // Durum kişiye bildirilen yerden yazılır (yedek listesi güncellendiyse yeni yeri)
   async sendRegistrationMail(
     tournament: Tournament,
-    registration: TournamentRegistration,
-    isStatusUpdate = false,
+    registration: Pick<
+      TournamentRegistration,
+      | 'email'
+      | 'fullName'
+      | 'checkInCode'
+      | 'sequence'
+      | 'listStatus'
+      | 'waitlist'
+    >,
+    kind?: RegistrationMailKind,
   ): Promise<boolean> {
     try {
       const [location, game] = await Promise.all([
@@ -48,10 +71,7 @@ export class TournamentMailService {
           : null,
         tournament.game ? this.gameService.getGameById(tournament.game) : null,
       ]);
-      const waitlist = waitlistNumber(
-        tournament.capacity,
-        registration.sequence,
-      );
+      const position = publishedPosition(tournament, registration);
       await this.mailService.sendMail({
         to: registration.email,
         mailType: MailType.TOURNAMENT_REGISTRATION,
@@ -69,13 +89,18 @@ export class TournamentMailService {
           qrCodeUrl: `${apiHost()}/tournaments/public/check-in/${
             registration.checkInCode
           }/qr`,
-          registrationStatus: registrationStatus(
-            tournament.capacity,
-            registration.sequence,
-          ),
+          registrationStatus: statusLabel(position),
           participationNote: tournament.participationNote,
-          waitlistNote: waitlist ? tournament.waitlistNote : undefined,
-          isStatusUpdate: isStatusUpdate || undefined,
+          waitlistNote:
+            position?.listStatus === ListStatus.WAITLIST
+              ? tournament.waitlistNote
+              : undefined,
+          isPromoted: kind === RegistrationMailKind.PROMOTED || undefined,
+          isWaitlistUpdate:
+            kind === RegistrationMailKind.WAITLIST_UPDATE || undefined,
+          cancelUrl: `${panelHost()}/tournament/registration/${
+            registration.checkInCode
+          }/cancel`,
         },
       });
       return true;
