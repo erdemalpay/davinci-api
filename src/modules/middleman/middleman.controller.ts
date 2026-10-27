@@ -36,6 +36,14 @@ export class MiddlemanController {
     return this.middlemanService.findAll(query);
   }
 
+  @Get('shares')
+  async findShares(
+    @Query('after') after: string,
+    @Query('before') before: string,
+  ) {
+    return this.middlemanService.findShares(after, before);
+  }
+
   @ApiResponse({ type: [Middleman] })
   @Get('location/:location')
   async findByLocation(@Param('location') location: number) {
