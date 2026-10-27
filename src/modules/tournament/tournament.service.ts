@@ -46,6 +46,7 @@ import {
   MatchStage,
   eliminationTableSize,
   planNextRound,
+  standingOptions,
   TournamentFormat,
   TournamentRules,
 } from './tournament.round-plan';
@@ -69,6 +70,8 @@ const RULE_FIELDS = [
   'advanceCount',
   'advancePerTable',
   'thirdPlaceMatch',
+  'tiebreaker',
+  'scoreCap',
 ];
 
 // Girilmemiş (undefined/null) değer de geçersiz sayılır
@@ -649,16 +652,14 @@ export class TournamentService {
         'Sonraki tur oluşturulduğu için bu maçın skoru değiştirilemez',
       );
 
-    const players = rankTable(
-      dto.scores,
-      placementPointsFor(tournament, dto.scores.length),
-    );
+    const placementPoints = placementPointsFor(tournament, dto.scores.length);
+    const players = rankTable(dto.scores, placementPoints);
     // Elemede masadan çıkanlar (finalde şampiyon, 3.'lük masasında 3.) eşit skorla
-    // belirsiz kalırsa, puan turlarında her eşitlikte karar beklenir
+    // belirsiz kalırsa, puan turlarında da eşitlik puanı değiştiriyorsa karar beklenir
     const cut = isFinal ? 1 : tournament.advancePerTable;
     const pendingTie = isElimination
       ? findCutTie(players, cut)
-      : findTieAfter(players, 0);
+      : findTieAfter(players, 0, placementPoints);
     const updated = await this.matchModel
       .findByIdAndUpdate(
         matchId,
@@ -666,11 +667,6 @@ export class TournamentService {
         { new: true },
       )
       .exec();
-
-    const isLastMatch = isElimination
-      ? isFinal && !pendingTie && (await this.isFinalRoundDone(match))
-      : await this.isLastMatchOfTournament(tournament, match);
-    if (isLastMatch) await this.finishTournament(match.tournamentId);
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
@@ -726,21 +722,16 @@ export class TournamentService {
                 ),
         }))
       : ranked;
-    const pendingTie = tournament ? findTieAfter(players, tiedRank ?? 0) : null;
-    // Birbirinden bağımsız okumalar tek seferde
-    const [updated, lastMatchCheck] = await Promise.all([
-      this.matchModel
-        .findByIdAndUpdate(matchId, { players, pendingTie }, { new: true })
-        .exec(),
-      tournament
-        ? this.isLastMatchOfTournament(tournament, match)
-        : this.isFinalRound(match),
-    ]);
-    // Elemede final turundaysa turnuva bitmiş olabilir
-    const isLastMatch = tournament
-      ? !pendingTie && lastMatchCheck
-      : lastMatchCheck && (await this.isFinalRoundDone(match));
-    if (isLastMatch) await this.finishTournament(match.tournamentId);
+    const pendingTie = tournament
+      ? findTieAfter(
+          players,
+          tiedRank ?? 0,
+          placementPointsFor(tournament, ranked.length),
+        )
+      : null;
+    const updated = await this.matchModel
+      .findByIdAndUpdate(matchId, { players, pendingTie }, { new: true })
+      .exec();
 
     this.websocketGateway.emitTournamentChanged();
     return updated;
@@ -774,8 +765,9 @@ export class TournamentService {
     const leagueStandings = computeStandings(
       participants.map((p) => p._id),
       leagueMatches,
+      standingOptions(tournament),
     );
-    const rounds = roundResults(leagueMatches);
+    const rounds = roundResults(leagueMatches, tournament.scoreCap);
     return computeFinalRanking(
       leagueStandings,
       afterRound
@@ -930,38 +922,6 @@ export class TournamentService {
       })
       .exec();
     return tablesInRound === 1;
-  }
-
-  // Final ve varsa 3.'lük masası skorlandı, bekleyen beraberlik kararı yok
-  private async isFinalRoundDone(match: TournamentMatch) {
-    const hasOpenTable = await this.matchModel
-      .exists({
-        tournamentId: match.tournamentId,
-        stage: MatchStage.ELIMINATION,
-        round: match.round,
-        $or: [{ isCompleted: false }, { pendingTie: { $ne: null } }],
-      })
-      .exec();
-    return !hasOpenTable;
-  }
-
-  // Sadece Swiss'te son turun son maçı (elemede final turu ayrıca denetlenir)
-  private async isLastMatchOfTournament(
-    tournament: Tournament,
-    match: TournamentMatch,
-  ) {
-    if (
-      tournament.format !== TournamentFormat.LEAGUE ||
-      match.round !== tournament.leagueRounds
-    )
-      return false;
-    const hasOpenMatch = await this.matchModel
-      .exists({
-        tournamentId: match.tournamentId,
-        $or: [{ isCompleted: false }, { pendingTie: { $ne: null } }],
-      })
-      .exec();
-    return !hasOpenMatch;
   }
 
   // Sadece seçilen formatta kullanılan ayarlar zorunlu

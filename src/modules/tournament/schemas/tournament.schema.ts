@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
+import { Tiebreaker } from '../tournament.fixture';
 import { PairingMode, TournamentFormat } from '../tournament.round-plan';
 
 export enum TournamentStatus {
@@ -91,6 +92,18 @@ export class Tournament extends Document {
 
   @Prop({ required: false, type: Number })
   advancePerTable: number;
+
+  // Puanı eşit oyuncuların sırası (bkz. Tiebreaker); oyun skorunda skor scoreCap ile sınırlanır
+  @Prop({
+    required: true,
+    type: String,
+    enum: Tiebreaker,
+    default: Tiebreaker.OPPONENTS,
+  })
+  tiebreaker: Tiebreaker;
+
+  @Prop({ required: false, type: Number })
+  scoreCap?: number;
 
   // Asil kontenjanı; boşsa sınırsız ve asil/yedek ayrımı yok
   @Prop({ required: false, type: Number })

@@ -10,6 +10,7 @@ import {
   TournamentFormat,
 } from './tournament.round-plan';
 import { TournamentStatus } from './schemas/tournament.schema';
+import { Tiebreaker } from './tournament.fixture';
 import { TournamentService } from './tournament.service';
 
 const query = (value: unknown) => ({
@@ -557,6 +558,30 @@ describe('TournamentService.generateNextRound', () => {
     );
   });
 
+  it('final skorlandıysa yeni tur yerine turnuvayı bitirir', async () => {
+    const { service, matchModel, tournamentModel } = createService({
+      tournament: { ...baseTournament, status: TournamentStatus.ONGOING },
+      participants: [{ _id: 1 }, { _id: 2 }],
+      matches: [
+        {
+          stage: MatchStage.ELIMINATION,
+          round: 1,
+          tableNo: 1,
+          isCompleted: true,
+          players: [
+            { participantId: 1, rank: 1 },
+            { participantId: 2, rank: 2 },
+          ],
+        },
+      ],
+    });
+    await expect(service.generateNextRound(1)).resolves.toEqual([]);
+    expect(matchModel.create).not.toHaveBeenCalled();
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
+      status: TournamentStatus.FINISHED,
+    });
+  });
+
   it('bitmiş turnuvada yeni tur üretmez', async () => {
     const { service } = createService({
       tournament: { ...baseTournament, status: TournamentStatus.FINISHED },
@@ -610,7 +635,7 @@ describe('TournamentService.submitScores', () => {
     );
   });
 
-  it('sıraya göre puanı yazar, final masasıysa turnuvayı bitirir', async () => {
+  it('sıraya göre puanı yazar, final masası olsa da turnuvayı kendisi bitirmez', async () => {
     const { service, matchModel, tournamentModel } = createService({
       match: tableMatch,
       tablesInRound: 1,
@@ -630,9 +655,7 @@ describe('TournamentService.submitScores', () => {
       },
       { new: true },
     );
-    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
-      status: TournamentStatus.FINISHED,
-    });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it('finalde 1.lik berabereyse karar bekler, turnuvayı bitirmez', async () => {
@@ -684,7 +707,7 @@ describe('TournamentService.resolveTie', () => {
     ],
   };
 
-  it('seçileni öne alır, diğerini bir alt sıraya indirir ve finali bitirir', async () => {
+  it('seçileni öne alır, diğerini bir alt sıraya indirir, turnuvayı kendisi bitirmez', async () => {
     const { service, matchModel, tournamentModel } = createService({
       match: tiedFinal,
       tablesInRound: 1,
@@ -709,9 +732,7 @@ describe('TournamentService.resolveTie', () => {
       },
       { new: true },
     );
-    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
-      status: TournamentStatus.FINISHED,
-    });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it('berabere olmayan ya da eksik seçimi reddeder', async () => {
@@ -1265,13 +1286,46 @@ describe('TournamentService.getStandings (puan turları)', () => {
     const ali = result.find((r) => r.name === 'Ali');
     const can = result.find((r) => r.name === 'Can');
     expect(ali?.rounds).toEqual([
-      { round: 1, points: 4, isBye: false },
-      { round: 2, points: 2, isBye: false },
+      { round: 1, points: 4, score: 0, isBye: false },
+      { round: 2, points: 2, score: 0, isBye: false },
     ]);
     expect(can?.rounds).toEqual([
       { round: 1, points: 4, isBye: true },
-      { round: 2, points: 4, isBye: false },
+      { round: 2, points: 4, score: 0, isBye: false },
     ]);
+  });
+
+  it('oyun skoruyla eşitlik bozmada toplam skoru ve payı döner', async () => {
+    const { service } = createService({
+      tournament: {
+        ...baseTournament,
+        tiebreaker: Tiebreaker.SCORE,
+        scoreCap: 10,
+        tableSize: 2,
+      },
+      participants: participants.slice(0, 2),
+      matches: [
+        {
+          ...leagueMatches[0],
+          players: [
+            { participantId: 1, rank: 1, points: 1, score: 11 },
+            { participantId: 2, rank: 2, points: 0, score: 6 },
+          ],
+        },
+      ],
+    });
+    const [ali, veli] = await service.getStandings(1);
+    expect(ali).toMatchObject({
+      name: 'Ali',
+      totalScore: 10,
+      scoreShare: 62.5,
+      rounds: [{ round: 1, points: 1, score: 10, isBye: false }],
+    });
+    expect(veli).toMatchObject({
+      name: 'Veli',
+      totalScore: 6,
+      scoreShare: 37.5,
+    });
   });
 
   it('istenen puan turunun sonundaki tabloyu döner, sonraki tur ve eleme sayılmaz', async () => {
@@ -1321,15 +1375,13 @@ describe('TournamentService.submitScores (sadece Swiss)', () => {
     { participantId: 2, score: 5 },
   ];
 
-  it('son turun son maçı skorlanınca turnuvayı bitirir', async () => {
+  it('son turun son maçı skorlansa da turnuvayı kendisi bitirmez', async () => {
     const { service, tournamentModel } = createService({
       tournament: leagueTournament,
       match: leagueMatch(2),
     });
     await service.submitScores(9, { scores });
-    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
-      status: TournamentStatus.FINISHED,
-    });
+    expect(tournamentModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it('eksik masada o masa büyüklüğünün puanlarını yazar', async () => {
@@ -1357,6 +1409,24 @@ describe('TournamentService.submitScores (sadece Swiss)', () => {
       participantIds: [1, 2],
       slots: 1,
     });
+  });
+
+  it('eşitlerin puanı sıradan bağımsızsa sormadan kaydeder', async () => {
+    const { service, matchModel } = createService({
+      tournament: { ...leagueTournament, placementPoints: [1, 0, 0, 0] },
+      match: {
+        ...leagueMatch(1),
+        players: [1, 2, 3].map((participantId) => ({ participantId })),
+      },
+    });
+    await service.submitScores(9, {
+      scores: [
+        { participantId: 1, score: 10 },
+        { participantId: 2, score: 4 },
+        { participantId: 3, score: 4 },
+      ],
+    });
+    expect(matchModel.findByIdAndUpdate.mock.calls[0][1].pendingTie).toBeNull();
   });
 
   it('son tur değilse turnuvayı bitirmez', async () => {
