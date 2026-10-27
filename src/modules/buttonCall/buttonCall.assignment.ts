@@ -473,7 +473,7 @@ export function countMiddlemanShares(
     const dates = share(user).dates;
     if (!dates.includes(date)) dates.push(date);
   }
-  for (const s of shares.values()) s.dates.sort();
+  for (const s of shares.values()) s.dates.sort((a, b) => a.localeCompare(b));
   return shares;
 }
 
