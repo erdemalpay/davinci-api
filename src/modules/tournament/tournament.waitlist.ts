@@ -68,6 +68,17 @@ export const statusLabel = (position?: ListPosition) => {
   return undefined;
 };
 
+// Kayıttan sonra kişiye gösterilen not: asile asil bilgisi, yedeğe yedek bilgisi
+export const registrationNote = (
+  tournament: Pick<Tournament, 'mainNote' | 'waitlistNote'>,
+  position?: ListPosition,
+) => {
+  if (position?.listStatus === ListStatus.MAIN) return tournament.mainNote;
+  if (position?.listStatus === ListStatus.WAITLIST)
+    return tournament.waitlistNote;
+  return undefined;
+};
+
 export const isSamePosition = (a?: ListPosition, b?: ListPosition) =>
   a?.listStatus === b?.listStatus && a?.waitlist === b?.waitlist;
 

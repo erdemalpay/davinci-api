@@ -138,6 +138,10 @@ export class CreateTournamentDto {
 
   @IsOptional()
   @IsString()
+  mainNote?: string;
+
+  @IsOptional()
+  @IsString()
   waitlistNote?: string;
 }
 

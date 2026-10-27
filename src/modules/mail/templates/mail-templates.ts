@@ -323,20 +323,20 @@ export const mailTemplateParameterDefinitions: Record<
       'Yedek 3',
     ),
     definition(
-      'participationNote',
-      'Participation note',
-      'multiline',
+      'waitlistNumber',
+      'Waitlist number',
+      'string',
       false,
-      'Free text from the tournament form, e.g. entry fee and arrival time.',
-      'Turnuvaya hafta sonu giriş ücreti uygulanır.',
+      'Waitlist position; empty for the main list.',
+      '3',
     ),
     definition(
-      'waitlistNote',
-      'Waitlist note',
+      'registrationNote',
+      'Registration note',
       'multiline',
       false,
-      'Free text shown only to waitlisted registrations.',
-      'Gelmeyen asillerin yerine sırayla alınırsınız.',
+      'Free text from the tournament form: the main list note for main registrations, the waitlist note for waitlisted ones.',
+      "Kesin kayıt için turnuva günü en geç 13:00'da kafede olmanız gerekir.",
     ),
     definition(
       'isPromoted',
@@ -625,15 +625,12 @@ export const tournamentRegistrationTemplate = `
                     <tr>
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
-                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}Asil listede yer açıldığı için <strong style="color: #1c1917;">{{tournamentName}}</strong> kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> yedek listesinde sıranız değişti.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
-                            {{#if registrationStatus}}
-                            <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Kayıt durumunuz: <strong style="color: #a80000;">{{registrationStatus}}</strong></p>
-                            {{/if}}
-                            {{#if waitlistNote}}
-                            <p style="margin: 8px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{waitlistNote}}</p>
-                            {{/if}}
-                            {{#if participationNote}}
-                            <p style="margin: 16px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{participationNote}}</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Asil listede kontenjan açılması ile kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Yedek listesindeki sıranız güncellendi.{{else if registrationStatus}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
+                            {{#if registrationStatus}}{{#unless isPromoted}}
+                            <p style="margin: 8px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if waitlistNumber}}Yedek listesinde <strong style="color: #a80000;">{{waitlistNumber}}. yedek</strong> olarak yer alıyorsunuz.{{else}}<strong style="color: #a80000;">Asil listede</strong> yer alıyorsunuz.{{/if}}</p>
+                            {{/unless}}{{/if}}
+                            {{#if registrationNote}}
+                            <p style="margin: 8px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{registrationNote}}</p>
                             {{/if}}
                         </td>
                     </tr>

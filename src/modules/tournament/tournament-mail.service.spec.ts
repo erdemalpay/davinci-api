@@ -94,30 +94,36 @@ describe('TournamentMailService.sendRegistrationMail', () => {
     );
   });
 
-  it('kontenjanlı turnuvada asil/yedek durumunu ve notları gönderir', async () => {
+  it('asile asil notunu, yedeğe yedek numarasını ve yedek notunu gönderir', async () => {
     const { service, mailService } = createService();
-    await service.sendRegistrationMail(
-      {
-        ...tournament,
-        capacity: 64,
-        participationNote: 'Giriş ücreti',
-        waitlistNote: 'Sırayla',
-      },
-      { ...registration, sequence: 67 },
-    );
-    expect(mailService.sendMail.mock.calls[0][0].variables).toMatchObject({
-      registrationStatus: 'Yedek 3',
-      participationNote: 'Giriş ücreti',
+    const capped = {
+      ...tournament,
+      capacity: 64,
+      participationNote: 'Kayıt formu bilgisi',
+      mainNote: 'Kesin kayıt 13:00',
       waitlistNote: 'Sırayla',
+    };
+    await service.sendRegistrationMail(capped, {
+      ...registration,
+      sequence: 67,
     });
+    const yedek = mailService.sendMail.mock.calls[0][0].variables;
+    expect(yedek).toMatchObject({
+      registrationStatus: 'Yedek 3',
+      waitlistNumber: 3,
+      registrationNote: 'Sırayla',
+    });
+    expect(yedek.participationNote).toBeUndefined();
 
-    await service.sendRegistrationMail(
-      { ...tournament, capacity: 64, waitlistNote: 'Sırayla' },
-      { ...registration, sequence: 10 },
-    );
-    const asil = mailService.sendMail.mock.calls[1][0].variables;
-    expect(asil.registrationStatus).toBe('Asil');
-    expect(asil.waitlistNote).toBeUndefined();
+    await service.sendRegistrationMail(capped, {
+      ...registration,
+      sequence: 10,
+    });
+    expect(mailService.sendMail.mock.calls[1][0].variables).toMatchObject({
+      registrationStatus: 'Asil',
+      waitlistNumber: undefined,
+      registrationNote: 'Kesin kayıt 13:00',
+    });
   });
 
   it('yedek listesi güncellenince bildirilen yeni yeri ve mailin türünü gönderir', async () => {

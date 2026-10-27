@@ -125,9 +125,13 @@ export class Tournament extends Document {
   @Prop({ required: true, type: Boolean, default: false })
   hasEntryFee: boolean;
 
-  // Kayıt formunun altında ve kayıt mailinde gösterilen serbest metin
+  // Kayıt formunun altında, kayıt olmadan önce gösterilen serbest metin
   @Prop({ required: false, type: String })
   participationNote?: string;
+
+  // Yalnızca asillere (ve asile geçenlere), kayıt sonucunda ve mailde gösterilen serbest metin
+  @Prop({ required: false, type: String })
+  mainNote?: string;
 
   // Yalnızca yedeklere, kayıt sonucunda ve mailde gösterilen serbest metin
   @Prop({ required: false, type: String })
