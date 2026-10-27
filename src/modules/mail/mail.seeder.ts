@@ -83,10 +83,10 @@ export class MailSeeder {
         name: 'tournament-registration-tr',
         mailType: MailType.TOURNAMENT_REGISTRATION,
         subject:
-          '{{#if isStatusUpdate}}Kayıt durumunuz güncellendi{{else}}Kaydınız alınmıştır{{/if}} - {{tournamentName}}',
+          '{{#if isPromoted}}Asil listeye alındınız{{else if isWaitlistUpdate}}Yedek sıranız güncellendi{{else}}Kaydınız alınmıştır{{/if}} - {{tournamentName}}',
         htmlContent: tournamentRegistrationTemplate,
         textContent:
-          'Merhaba {{fullName}}, {{#if isStatusUpdate}}{{tournamentName}} için kayıt durumunuz güncellendi: {{registrationStatus}}.{{else}}{{tournamentName}} için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}',
+          'Merhaba {{fullName}}, {{#if isPromoted}}{{tournamentName}} için asil listede yer açıldı, kaydınızı asil listeye taşıdık.{{else if isWaitlistUpdate}}{{tournamentName}} yedek listesinde sıranız değişti: {{registrationStatus}}.{{else}}{{tournamentName}} için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}',
         requiredVariables: getRequiredMailTemplateParameters(
           MailType.TOURNAMENT_REGISTRATION,
         ),

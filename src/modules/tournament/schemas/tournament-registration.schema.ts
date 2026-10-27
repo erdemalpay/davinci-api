@@ -15,6 +15,19 @@ export enum ConfirmationStatus {
   UNREACHABLE = 'unreachable',
 }
 
+// Yedek listesinde kişiye en son bildirilen yer (asil, Yedek N ya da listeden çıktı)
+export enum ListStatus {
+  MAIN = 'main',
+  WAITLIST = 'waitlist',
+  WITHDRAWN = 'withdrawn',
+}
+
+// Katılmayacak bilgisinin nereden geldiği
+export enum DeclineSource {
+  LINK = 'link',
+  PANEL = 'panel',
+}
+
 @Schema({ _id: false, timestamps: true })
 export class TournamentRegistration extends Document {
   @Prop({ type: Number })
@@ -65,6 +78,24 @@ export class TournamentRegistration extends Document {
   // QR okutulup kafeye geldiği an; katılımcı olmasa da yazılır
   @Prop({ required: false, type: Date })
   arrivedAt?: Date;
+
+  // Yedek listesi ilk kez güncellenene kadar boş; durum kayıt sırasından hesaplanır
+  @Prop({ required: false, type: String, enum: ListStatus })
+  listStatus?: ListStatus;
+
+  @Prop({ required: false, type: Number })
+  waitlist?: number;
+
+  @Prop({ required: false, type: String, enum: DeclineSource })
+  declineSource?: DeclineSource;
+
+  // Panelden "Asil yap" denildi; liste güncellenince asil olur
+  @Prop({ required: false, type: Boolean })
+  isManualMain?: boolean;
+
+  // Yeri başkasına verildikten sonra iptali geri alındı; listenin sonuna eklenir
+  @Prop({ required: false, type: Date })
+  requeuedAt?: Date;
 }
 
 export const TournamentRegistrationSchema = SchemaFactory.createForClass(

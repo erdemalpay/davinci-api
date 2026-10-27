@@ -339,12 +339,28 @@ export const mailTemplateParameterDefinitions: Record<
       'Gelmeyen asillerin yerine sırayla alınırsınız.',
     ),
     definition(
-      'isStatusUpdate',
-      'Status update',
+      'isPromoted',
+      'Promoted to main list',
       'string',
       false,
-      'Set when the mail is re-sent because the capacity changed the registration status.',
+      'Set when the waitlist update moved the registration to the main list.',
       'true',
+    ),
+    definition(
+      'isWaitlistUpdate',
+      'Waitlist position update',
+      'string',
+      false,
+      'Set when the waitlist update changed the waitlist position.',
+      'true',
+    ),
+    definition(
+      'cancelUrl',
+      'Cancel link',
+      'url',
+      false,
+      'Page where the registrant can cancel their registration.',
+      'https://panel.davinciboardgame.com/tournament/registration/abc/cancel',
     ),
   ],
 };
@@ -603,13 +619,13 @@ export const tournamentRegistrationTemplate = `
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
-                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">{{#if isStatusUpdate}}Kayıt durumunuz güncellendi{{else}}Kaydınız alınmıştır{{/if}}</h1>
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">{{#if isPromoted}}Asil listeye alındınız{{else if isWaitlistUpdate}}Yedek sıranız güncellendi{{else}}Kaydınız alınmıştır{{/if}}</h1>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
-                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isStatusUpdate}}Kontenjan değiştiği için <strong style="color: #1c1917;">{{tournamentName}}</strong> kaydınızın durumu güncellendi.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}Asil listede yer açıldığı için <strong style="color: #1c1917;">{{tournamentName}}</strong> kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> yedek listesinde sıranız değişti.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
                             {{#if registrationStatus}}
                             <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Kayıt durumunuz: <strong style="color: #a80000;">{{registrationStatus}}</strong></p>
                             {{/if}}
@@ -660,6 +676,11 @@ export const tournamentRegistrationTemplate = `
                         <td style="padding: 24px 40px 0; text-align: left;">
                             <a href="{{mapsUrl}}" style="display: inline-block; padding: 13px 26px; background-color: #a80000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: bold;">Yol tarifi al</a>
                         </td>
+                    </tr>
+                    {{/if}}
+                    {{#if cancelUrl}}
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left; color: #44403c; font-size: 14px; line-height: 1.6;">Katılamayacaksanız <a href="{{cancelUrl}}" style="color: #a80000;">buradan kaydınızı iptal edebilirsiniz</a>; yeriniz sıradaki yedeğe verilir.</td>
                     </tr>
                     {{/if}}
                     <tr>
