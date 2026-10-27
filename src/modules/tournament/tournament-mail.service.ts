@@ -4,12 +4,13 @@ import { GameService } from '../game/game.service';
 import { LocationService } from '../location/location.service';
 import { MailType } from '../mail/mail.schema';
 import { MailService } from '../mail/mail.service';
-import {
-  ListStatus,
-  TournamentRegistration,
-} from './schemas/tournament-registration.schema';
+import { TournamentRegistration } from './schemas/tournament-registration.schema';
 import { Tournament } from './schemas/tournament.schema';
-import { publishedPosition, statusLabel } from './tournament.waitlist';
+import {
+  publishedPosition,
+  registrationNote,
+  statusLabel,
+} from './tournament.waitlist';
 
 // Yedek listesi güncellenince giden mailin türü; boşsa ilk kayıt maili
 export enum RegistrationMailKind {
@@ -90,11 +91,8 @@ export class TournamentMailService {
             registration.checkInCode
           }/qr`,
           registrationStatus: statusLabel(position),
-          participationNote: tournament.participationNote,
-          waitlistNote:
-            position?.listStatus === ListStatus.WAITLIST
-              ? tournament.waitlistNote
-              : undefined,
+          waitlistNumber: position?.waitlist,
+          registrationNote: registrationNote(tournament, position),
           isPromoted: kind === RegistrationMailKind.PROMOTED || undefined,
           isWaitlistUpdate:
             kind === RegistrationMailKind.WAITLIST_UPDATE || undefined,

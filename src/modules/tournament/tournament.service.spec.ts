@@ -270,6 +270,7 @@ describe('TournamentService.register', () => {
       tournament: {
         ...baseTournament,
         capacity: 64,
+        mainNote: 'Kesin kayıt 13:00',
         waitlistNote: 'Sırayla alınırsınız',
       },
     });
@@ -286,13 +287,19 @@ describe('TournamentService.register', () => {
       _id: 5,
       checkInCode: expect.any(String),
       registrationStatus: 'Yedek 3',
-      waitlistNote: 'Sırayla alınırsınız',
+      waitlistNumber: 3,
+      registrationNote: 'Sırayla alınırsınız',
     });
   });
 
-  it('asile durumunu döner, yedek notunu dönmez', async () => {
+  it('asile durumunu ve asil notunu döner, yedek notunu dönmez', async () => {
     const { service, tournamentModel } = createService({
-      tournament: { ...baseTournament, capacity: 64, waitlistNote: 'Sırayla' },
+      tournament: {
+        ...baseTournament,
+        capacity: 64,
+        mainNote: 'Kesin kayıt 13:00',
+        waitlistNote: 'Sırayla',
+      },
     });
     tournamentModel.findByIdAndUpdate.mockReturnValue(
       query({ registrationCount: 64 }),
@@ -307,6 +314,7 @@ describe('TournamentService.register', () => {
       _id: 5,
       checkInCode: expect.any(String),
       registrationStatus: 'Asil',
+      registrationNote: 'Kesin kayıt 13:00',
     });
   });
 

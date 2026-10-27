@@ -63,6 +63,7 @@ import {
   nextPositions,
   positionFromSequence,
   publishedPosition,
+  registrationNote,
   statusLabel,
 } from './tournament.waitlist';
 
@@ -266,10 +267,8 @@ export class TournamentService {
       _id: registration._id,
       checkInCode: registration.checkInCode,
       registrationStatus: statusLabel(position),
-      waitlistNote:
-        position?.listStatus === ListStatus.WAITLIST
-          ? tournament.waitlistNote
-          : undefined,
+      waitlistNumber: position?.waitlist,
+      registrationNote: registrationNote(tournament, position),
     };
   }
 
