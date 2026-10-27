@@ -363,11 +363,58 @@ export function upstairsDutyCanTake(
   return true;
 }
 
-// No middleman from 22:00 on: the role ends for the night and nobody can
-// take it until the next day.
+// The middleman role runs from 14:00 to 22:00: it ends for the night at
+// 22:00 and nobody can take it before 14:00.
+export const MIDDLEMAN_FROM = '14:00';
 export const MIDDLEMAN_UNTIL = '22:00';
 export const isPastMiddlemanHours = (hour: string) =>
   cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_UNTIL);
+export const isMiddlemanHours = (hour: string) =>
+  cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_FROM) &&
+  !isPastMiddlemanHours(hour);
+
+// The system starts the middleman role only with at least this many game
+// masters in the cafe, and ends it when fewer are left.
+export const MIDDLEMAN_MIN_GAME_MASTERS = 2;
+
+// People scheduled in a slot overlapping the middleman hours who take game
+// master calls that day: not service staff, not outside operation.
+export function findMiddlemanHoursStaff(
+  slots: ShiftSlot[],
+  locationShifts: LocationShiftHours[] = [],
+): string[] {
+  const from = cafeDaySeconds(MIDDLEMAN_FROM);
+  const until = cafeDaySeconds(MIDDLEMAN_UNTIL);
+  const excluded = new Set([
+    ...findServiceStaff(slots),
+    ...findOutsideOperationStaff(slots),
+  ]);
+  const staff = new Set<string>();
+  for (const { slot, start, end } of withBounds(slots, locationShifts)) {
+    const slotStart = toCafeDaySeconds(start);
+    let slotEnd = toCafeDaySeconds(end);
+    if (slotEnd <= slotStart) slotEnd += 24 * 3600;
+    if (slotStart >= until || slotEnd <= from) continue;
+    for (const userId of slot.user ?? []) {
+      if (!excluded.has(userId)) staff.add(userId);
+    }
+  }
+  return [...staff];
+}
+
+// The day's middleman: whoever was the middleman on the fewest days this
+// month; a random one of them on a tie.
+export function pickPlannedMiddleman(
+  candidates: string[],
+  daysThisMonth: Map<string, number>,
+  random: () => number = Math.random,
+): string | undefined {
+  if (candidates.length === 0) return undefined;
+  const days = (id: string) => daysThisMonth.get(id) ?? 0;
+  const fewest = Math.min(...candidates.map(days));
+  const tied = candidates.filter((id) => days(id) === fewest);
+  return tied[Math.floor(random() * tied.length)];
+}
 
 // A game master call nobody could take for 3 minutes goes to the middleman.
 export const MIDDLEMAN_AFTER_WAITING_SECONDS = 3 * 60;

@@ -55,6 +55,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       } as never,
       model([]) as never,
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
     return { service, userModel };
   }
@@ -454,6 +455,7 @@ describe('ButtonCallAssignmentService.findCandidates', () => {
       { exists: orderExists } as never,
       model([]) as never,
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
 
     await service.findCandidates(
@@ -532,6 +534,7 @@ describe('ButtonCallAssignmentService.claim', () => {
       model([]) as never,
       model([]) as never,
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
     return { service, buttonCallModel };
   }
@@ -579,6 +582,7 @@ describe('ButtonCallAssignmentService scheduling', () => {
       model([]) as never,
       model([]) as never,
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
   };
 
@@ -683,6 +687,7 @@ describe('ButtonCallAssignmentService.decline', () => {
       model([]) as never,
       model([]) as never,
       eventEmitter as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
     jest.spyOn(service, 'assign').mockResolvedValue(null);
     return {
@@ -939,6 +944,7 @@ describe('ButtonCallAssignmentService questions', () => {
       model([]) as never,
       model([]) as never,
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
     jest
       .spyOn(service, 'getGameAvailability')
@@ -1027,6 +1033,7 @@ describe('ButtonCallAssignmentService calls of someone who starts explaining', (
       m(),
       m(),
       { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
     );
     const release = () =>
       (
