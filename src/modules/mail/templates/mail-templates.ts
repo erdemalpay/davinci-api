@@ -625,12 +625,13 @@ export const tournamentRegistrationTemplate = `
                     <tr>
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
+                            {{#if registrationNote}}
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{registrationNote}}</p>
+                            {{else}}
                             <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Asil listede kontenjan açılması ile kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Yedek listesindeki sıranız güncellendi.{{else if registrationStatus}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
                             {{#if registrationStatus}}{{#unless isPromoted}}
                             <p style="margin: 8px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if waitlistNumber}}Yedek listesinde <strong style="color: #a80000;">{{waitlistNumber}}. yedek</strong> olarak yer alıyorsunuz.{{else}}<strong style="color: #a80000;">Asil listede</strong> yer alıyorsunuz.{{/if}}</p>
                             {{/unless}}{{/if}}
-                            {{#if registrationNote}}
-                            <p style="margin: 8px 0 0; color: #44403c; font-size: 15px; line-height: 1.7;">{{registrationNote}}</p>
                             {{/if}}
                         </td>
                     </tr>
