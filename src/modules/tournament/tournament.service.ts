@@ -655,7 +655,7 @@ export class TournamentService {
     const placementPoints = placementPointsFor(tournament, dto.scores.length);
     const players = rankTable(dto.scores, placementPoints);
     // Elemede masadan çıkanlar (finalde şampiyon, 3.'lük masasında 3.) eşit skorla
-    // belirsiz kalırsa, puan turlarında her eşitlikte karar beklenir
+    // belirsiz kalırsa, puan turlarında da eşitlik puanı değiştiriyorsa karar beklenir
     const cut = isFinal ? 1 : tournament.advancePerTable;
     const pendingTie = isElimination
       ? findCutTie(players, cut)
