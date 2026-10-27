@@ -404,7 +404,7 @@ export function findMiddlemanHoursStaff(
 
 // A day counts for one middleman only: whoever was the middleman (not a
 // stand-in) the longest that day, at least this long.
-export const MIDDLEMAN_DAY_MIN_MINUTES = 30;
+export const MIDDLEMAN_DAY_MIN_MINUTES = 2 * 60;
 
 export interface MiddlemanRecord {
   user: string;
