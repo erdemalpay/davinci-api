@@ -14,6 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { Tiebreaker } from './tournament.fixture';
 import { PairingMode, TournamentFormat } from './tournament.round-plan';
 import {
   ConfirmationStatus,
@@ -107,6 +108,15 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   roundDuration?: number;
+
+  @IsOptional()
+  @IsEnum(Tiebreaker)
+  tiebreaker?: Tiebreaker;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  scoreCap?: number;
 
   @IsOptional()
   @IsNumber()
