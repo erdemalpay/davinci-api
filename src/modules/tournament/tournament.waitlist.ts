@@ -68,6 +68,9 @@ export const statusLabel = (position?: ListPosition) => {
   return undefined;
 };
 
+// Notta yazılan {sira}, kişinin güncel yedek numarasıyla değişir
+const WAITLIST_NUMBER_TOKEN = /\{sira\}/g;
+
 // Kayıttan sonra kişiye gösterilen not: asile asil bilgisi, yedeğe yedek bilgisi
 export const registrationNote = (
   tournament: Pick<Tournament, 'mainNote' | 'waitlistNote'>,
@@ -75,7 +78,10 @@ export const registrationNote = (
 ) => {
   if (position?.listStatus === ListStatus.MAIN) return tournament.mainNote;
   if (position?.listStatus === ListStatus.WAITLIST)
-    return tournament.waitlistNote;
+    return tournament.waitlistNote?.replace(
+      WAITLIST_NUMBER_TOKEN,
+      String(position.waitlist),
+    );
   return undefined;
 };
 
