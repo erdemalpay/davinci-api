@@ -114,6 +114,7 @@ describe('TournamentMailService.sendRegistrationMail', () => {
       registrationNote: 'Sırayla',
     });
     expect(yedek.participationNote).toBeUndefined();
+    expect(yedek.registrationNoteHtml).toBe('Sırayla');
 
     await service.sendRegistrationMail(capped, {
       ...registration,

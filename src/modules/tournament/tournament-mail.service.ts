@@ -9,6 +9,7 @@ import { Tournament } from './schemas/tournament.schema';
 import {
   publishedPosition,
   registrationNote,
+  registrationNoteHtml,
   statusLabel,
 } from './tournament.waitlist';
 
@@ -73,6 +74,10 @@ export class TournamentMailService {
         tournament.game ? this.gameService.getGameById(tournament.game) : null,
       ]);
       const position = publishedPosition(tournament, registration);
+      const note = registrationNote(tournament, position);
+      const cancelUrl = `${panelHost()}/tournament/registration/${
+        registration.checkInCode
+      }/cancel`;
       await this.mailService.sendMail({
         to: registration.email,
         mailType: MailType.TOURNAMENT_REGISTRATION,
@@ -92,13 +97,12 @@ export class TournamentMailService {
           }/qr`,
           registrationStatus: statusLabel(position),
           waitlistNumber: position?.waitlist,
-          registrationNote: registrationNote(tournament, position),
+          registrationNote: note,
+          registrationNoteHtml: registrationNoteHtml(note, cancelUrl),
           isPromoted: kind === RegistrationMailKind.PROMOTED || undefined,
           isWaitlistUpdate:
             kind === RegistrationMailKind.WAITLIST_UPDATE || undefined,
-          cancelUrl: `${panelHost()}/tournament/registration/${
-            registration.checkInCode
-          }/cancel`,
+          cancelUrl,
         },
       });
       return true;

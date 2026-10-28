@@ -7,6 +7,7 @@ import {
   nextPositions,
   positionFromSequence,
   publishedPosition,
+  registrationNoteHtml,
   statusLabel,
 } from './tournament.waitlist';
 
@@ -80,6 +81,35 @@ describe('isOverLimit', () => {
     expect(
       isOverLimit({ capacity: 64, waitlistCapacity: 20, waitlistAnchor }, 105),
     ).toBe(false);
+  });
+});
+
+describe('registrationNoteHtml', () => {
+  const url = 'https://panel.test/tournament/registration/KOD/cancel';
+
+  it('{iptal} yerine iptal bağlantısını koyar', () => {
+    expect(registrationNoteHtml('Değişirse {iptal}.', url)).toBe(
+      `Değişirse <a href="${url}" style="color: #a80000;">buradan kaydınızı iptal edebilirsiniz</a>.`,
+    );
+  });
+
+  it('notun HTML karakterlerini kaçışlar, bağlantı dışında etiket çıkmaz', () => {
+    const html = registrationNoteHtml('<b>380 TL</b> & {iptal}', url) ?? '';
+    expect(html).toContain('&lt;b&gt;380 TL&lt;/b&gt; &amp; ');
+    expect(html).not.toContain('<b>');
+  });
+
+  it('{iptal} yoksa notu olduğu gibi döner, not yoksa boş döner', () => {
+    expect(registrationNoteHtml('Sırayla alınırsınız', url)).toBe(
+      'Sırayla alınırsınız',
+    );
+    expect(registrationNoteHtml(undefined, url)).toBeUndefined();
+  });
+
+  it('bağlantı adresi yoksa yalnızca metni yazar', () => {
+    expect(registrationNoteHtml('Değişirse {iptal}.')).toBe(
+      'Değişirse buradan kaydınızı iptal edebilirsiniz.',
+    );
   });
 });
 
