@@ -76,6 +76,11 @@ export class User extends Document {
   @Prop({ type: Boolean })
   isVisitDisabled: boolean;
 
+  // Never made the upstairs duty ("Üstçü") by the system; can still take
+  // it themselves.
+  @Prop({ type: Boolean })
+  noUpstairsDuty?: boolean;
+
   @Prop({ type: String })
   birthDate: Date;
 

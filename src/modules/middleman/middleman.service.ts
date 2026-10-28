@@ -20,9 +20,10 @@ import {
   tryAddActivity,
   wrapHttpException,
 } from 'src/utils/serviceUtils';
-import { cafeHour } from 'src/utils/cafeTime';
+import { cafeHour, cafeToday } from 'src/utils/cafeTime';
 import { extractRefId } from 'src/utils/tsUtils';
 import {
+  isMiddlemanHours,
   isPastMiddlemanHours,
   MIDDLEMAN_UNTIL,
 } from '../buttonCall/buttonCall.assignment';
@@ -31,12 +32,24 @@ import {
   MiddlemanQueryDto,
   UpdateMiddlemanDto,
 } from './middleman.dto';
+import { Location } from '../location/location.schema';
+import { Shift } from '../shift/shift.schema';
 import { Middleman } from './middleman.schema';
+import { findMiddlemanShares } from './middlemanShare';
+import {
+  MiddlemanPlan,
+  MiddlemanPlanSource,
+  setMiddlemanPlan,
+} from './middlemanPlan.schema';
 
 @Injectable()
 export class MiddlemanService {
   constructor(
     @InjectModel(Middleman.name) private middlemanModel: Model<Middleman>,
+    @InjectModel(MiddlemanPlan.name)
+    private middlemanPlanModel: Model<MiddlemanPlan>,
+    @InjectModel(Shift.name) private shiftModel: Model<Shift>,
+    @InjectModel(Location.name) private locationModel: Model<Location>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
@@ -45,9 +58,16 @@ export class MiddlemanService {
 
   async create(createMiddlemanDto: CreateMiddlemanDto): Promise<Middleman> {
     return wrapHttpException(async () => {
-      if (isPastMiddlemanHours(cafeHour(false))) {
+      const hour = cafeHour(false);
+      if (isPastMiddlemanHours(hour)) {
         throw new HttpException(
           'No middleman after 22:00',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!isMiddlemanHours(hour)) {
+        throw new HttpException(
+          'No middleman before 14:00',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -56,33 +76,33 @@ export class MiddlemanService {
         finishHour: { $exists: false },
       });
 
-      // A middleman away on a call leaves the role free: taking it is
-      // standing in until they're back.
-      const standsIn = !!existingActive?.awayOnCall;
-      if (existingActive && !standsIn) {
+      // Taking the role yourself makes you the day's middleman. Only a
+      // middleman who is there (not away on a call, not just standing in)
+      // keeps it.
+      const replaces =
+        !!existingActive &&
+        String(extractRefId(existingActive.user)) !== createMiddlemanDto.user &&
+        (!!existingActive.awayOnCall || !!existingActive.coveringFor);
+      if (existingActive && !replaces) {
         throw new HttpException(
           'There is already an active middleman for this location',
           HttpStatus.CONFLICT,
         );
       }
-      if (standsIn) {
+      if (replaces) {
         await this.middlemanModel.updateOne(
           { _id: existingActive._id, finishHour: { $exists: false } },
-          { $set: { finishHour: cafeHour(false) } },
+          { $set: { finishHour: hour } },
         );
       }
 
-      const record = await this.middlemanModel.create(
-        standsIn
-          ? {
-              ...createMiddlemanDto,
-              coveringFor: String(
-                existingActive.coveringFor ?? extractRefId(existingActive.user),
-              ),
-              coveringCall: existingActive.awayOnCall,
-            }
-          : createMiddlemanDto,
-      );
+      const record = await this.middlemanModel.create(createMiddlemanDto);
+      await setMiddlemanPlan(this.middlemanPlanModel, {
+        location: createMiddlemanDto.location,
+        date: createMiddlemanDto.date,
+        user: createMiddlemanDto.user,
+        source: MiddlemanPlanSource.MANUAL,
+      });
       await tryAddActivity(
         this.activityService,
         this.userService,
@@ -171,6 +191,22 @@ export class MiddlemanService {
       .sort({ date: -1 })
       .lean()
       .exec() as Promise<Middleman[]>;
+  }
+
+  // Each person's middleman days and days worked in the middleman hours,
+  // up to today.
+  async findShares(after: string, before: string) {
+    const today = cafeToday();
+    const shares = await findMiddlemanShares(
+      {
+        middleman: this.middlemanModel,
+        shift: this.shiftModel,
+        location: this.locationModel,
+      },
+      after,
+      before && before < today ? before : today,
+    );
+    return [...shares].map(([user, share]) => ({ user, ...share }));
   }
 
   async findByDate(date: string): Promise<Middleman[]> {

@@ -14,6 +14,10 @@ import {
 } from '../gameplaytime/gameplaytime.schema';
 import { Location, LocationSchema } from '../location/location.schema';
 import { Middleman, MiddlemanSchema } from '../middleman/middleman.schema';
+import {
+  MiddlemanPlan,
+  MiddlemanPlanSchema,
+} from '../middleman/middlemanPlan.schema';
 import { Kitchen, KitchenSchema } from '../menu/kitchen.schema';
 import { Order, OrderSchema } from '../order/order.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
@@ -44,9 +48,10 @@ const mongooseModule = MongooseModule.forFeatureAsync([
   // Read-only access for call assignment (who is available right now).
   createAutoIncrementConfig(Visit.name, VisitSchema),
   createAutoIncrementConfig(Break.name, BreakSchema),
-  // The middleman's automatic stand-in and the upstairs duty are started
-  // and ended here.
+  // The middleman (by the day's plan), their stand-ins and the upstairs
+  // duty are started and ended here.
   createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
+  createAutoIncrementConfig(MiddlemanPlan.name, MiddlemanPlanSchema),
   createAutoIncrementConfig(UpstairsDuty.name, UpstairsDutySchema),
   createAutoIncrementConfig(GameplayTime.name, GameplayTimeSchema),
   createAutoIncrementConfig(Gameplay.name, GameplaySchema),

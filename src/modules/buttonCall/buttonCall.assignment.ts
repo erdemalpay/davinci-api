@@ -363,11 +363,141 @@ export function upstairsDutyCanTake(
   return true;
 }
 
-// No middleman from 22:00 on: the role ends for the night and nobody can
-// take it until the next day.
+// The middleman role runs from 14:00 to 22:00: it ends for the night at
+// 22:00 and nobody can take it before 14:00.
+export const MIDDLEMAN_FROM = '14:00';
 export const MIDDLEMAN_UNTIL = '22:00';
 export const isPastMiddlemanHours = (hour: string) =>
   cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_UNTIL);
+export const isMiddlemanHours = (hour: string) =>
+  cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_FROM) &&
+  !isPastMiddlemanHours(hour);
+
+// The system starts the middleman role only with at least this many game
+// masters in the cafe, and ends it when fewer are left.
+export const MIDDLEMAN_MIN_GAME_MASTERS = 2;
+
+// People scheduled in a slot overlapping the middleman hours who take game
+// master calls that day: not service staff, not outside operation.
+export function findMiddlemanHoursStaff(
+  slots: ShiftSlot[],
+  locationShifts: LocationShiftHours[] = [],
+): string[] {
+  const from = cafeDaySeconds(MIDDLEMAN_FROM);
+  const until = cafeDaySeconds(MIDDLEMAN_UNTIL);
+  const excluded = new Set([
+    ...findServiceStaff(slots),
+    ...findOutsideOperationStaff(slots),
+  ]);
+  const staff = new Set<string>();
+  for (const { slot, start, end } of withBounds(slots, locationShifts)) {
+    const slotStart = toCafeDaySeconds(start);
+    let slotEnd = toCafeDaySeconds(end);
+    if (slotEnd <= slotStart) slotEnd += 24 * 3600;
+    if (slotStart >= until || slotEnd <= from) continue;
+    for (const userId of slot.user ?? []) {
+      if (!excluded.has(userId)) staff.add(userId);
+    }
+  }
+  return [...staff];
+}
+
+// A day counts for one middleman only: whoever was the middleman (not a
+// stand-in) the longest that day, at least this long.
+export const MIDDLEMAN_DAY_MIN_MINUTES = 2 * 60;
+
+export interface MiddlemanRecord {
+  user: string;
+  location: number;
+  date: string;
+  startHour: string;
+  finishHour?: string;
+  coveringFor?: string;
+  awayOnCall?: number;
+}
+
+// The middleman of each day and location, by the rule above.
+export function findMainMiddlemen(
+  records: MiddlemanRecord[],
+): { date: string; location: number; user: string }[] {
+  const minutesByDay = new Map<string, Map<string, number>>();
+  for (const r of records) {
+    if (r.coveringFor || r.awayOnCall || !r.finishHour) continue;
+    const minutes =
+      (cafeDaySeconds(r.finishHour) - cafeDaySeconds(r.startHour)) / 60;
+    const key = `${r.date}|${r.location}`;
+    const byUser = minutesByDay.get(key) ?? new Map<string, number>();
+    byUser.set(String(r.user), (byUser.get(String(r.user)) ?? 0) + minutes);
+    minutesByDay.set(key, byUser);
+  }
+  const main: { date: string; location: number; user: string }[] = [];
+  for (const [key, byUser] of minutesByDay) {
+    const [user, minutes] = [...byUser].sort((a, b) => b[1] - a[1])[0];
+    if (minutes < MIDDLEMAN_DAY_MIN_MINUTES) continue;
+    const [date, location] = key.split('|');
+    main.push({ date, location: Number(location), user });
+  }
+  return main;
+}
+
+export interface MiddlemanShare {
+  // The days they were the middleman.
+  dates: string[];
+  // The days they worked in the middleman hours.
+  workedDays: number;
+}
+
+// Each person's middleman days against the days they worked between 14:00
+// and 22:00 (service staff and outside operation days left out).
+export function countMiddlemanShares(
+  records: MiddlemanRecord[],
+  shifts: {
+    day: string;
+    slots: ShiftSlot[];
+    locationShifts: LocationShiftHours[];
+  }[],
+): Map<string, MiddlemanShare> {
+  const shares = new Map<string, MiddlemanShare>();
+  const share = (user: string) => {
+    if (!shares.has(user)) shares.set(user, { dates: [], workedDays: 0 });
+    return shares.get(user);
+  };
+  const worked = new Map<string, Set<string>>();
+  for (const { day, slots, locationShifts } of shifts) {
+    for (const user of findMiddlemanHoursStaff(slots, locationShifts)) {
+      worked.set(user, (worked.get(user) ?? new Set()).add(day));
+    }
+  }
+  for (const [user, days] of worked) share(user).workedDays = days.size;
+  for (const { date, user } of findMainMiddlemen(records)) {
+    const dates = share(user).dates;
+    if (!dates.includes(date)) dates.push(date);
+  }
+  for (const s of shares.values()) s.dates.sort((a, b) => a.localeCompare(b));
+  return shares;
+}
+
+// Middleman days per worked day; nobody who never worked counts as 0.
+export const middlemanRatio = (share?: MiddlemanShare) =>
+  share && share.workedDays > 0 ? share.dates.length / share.workedDays : 0;
+
+// The day's middleman: whoever was the middleman on the smallest share of
+// the days they worked this month; then the fewest days; a random one of
+// them on a tie.
+export function pickPlannedMiddleman(
+  candidates: string[],
+  shares: Map<string, MiddlemanShare>,
+  random: () => number = Math.random,
+): string | undefined {
+  if (candidates.length === 0) return undefined;
+  const ratio = (id: string) => middlemanRatio(shares.get(id));
+  const days = (id: string) => shares.get(id)?.dates.length ?? 0;
+  const lowest = Math.min(...candidates.map(ratio));
+  const byRatio = candidates.filter((id) => ratio(id) === lowest);
+  const fewest = Math.min(...byRatio.map(days));
+  const tied = byRatio.filter((id) => days(id) === fewest);
+  return tied[Math.floor(random() * tied.length)];
+}
 
 // A game master call nobody could take for 3 minutes goes to the middleman.
 export const MIDDLEMAN_AFTER_WAITING_SECONDS = 3 * 60;
