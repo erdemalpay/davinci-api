@@ -479,24 +479,11 @@ export class AccountingService {
       }
     }
     if (updates?.countList !== undefined && updates?.countList !== null) {
-      await this.countListModel.updateMany(
-        {},
-        { $pull: { products: { product: product._id } } },
+      await this.syncProductCountListMembership(
+        product._id,
+        updates.countList,
+        updates?.locations,
       );
-      if (updates?.countList?.length > 0) {
-        await this.countListModel.updateMany(
-          { _id: { $in: updates.countList } },
-          {
-            $push: {
-              products: {
-                product: product._id,
-                locations: updates?.locations ?? [],
-              },
-            },
-          },
-        );
-      }
-      this.websocketGateway.emitCountListChanged();
     }
     const updatedProduct = await this.productModel.findByIdAndUpdate(
       id,
@@ -514,6 +501,51 @@ export class AccountingService {
     await this.websocketGateway.emitProductChanged();
 
     return updatedProduct;
+  }
+
+  // Ürün zaten bulunduğu listelerde konumlarıyla kalır; yalnızca çıkarılan
+  // listeden silinir, eklenen listeye eklenir. Konum verilmezse eklenen listenin
+  // kendi konumları kullanılır, yoksa ürün sayımda hiçbir yerde görünmez.
+  private async syncProductCountListMembership(
+    productId: string,
+    countListIds: string[],
+    locations?: number[],
+  ) {
+    const currentCountLists = await this.countListModel
+      .find({ 'products.product': productId })
+      .select('_id')
+      .lean();
+    const currentIds = currentCountLists.map((countList) => countList._id);
+    const removedIds = currentIds.filter((id) => !countListIds.includes(id));
+    const addedIds = countListIds.filter((id) => !currentIds.includes(id));
+    if (removedIds.length === 0 && addedIds.length === 0) return;
+
+    if (removedIds.length > 0) {
+      await this.countListModel.updateMany(
+        { _id: { $in: removedIds } },
+        { $pull: { products: { product: productId } } },
+      );
+    }
+    if (addedIds.length > 0) {
+      const addedCountLists = await this.countListModel
+        .find({ _id: { $in: addedIds } })
+        .select('locations')
+        .lean();
+      for (const countList of addedCountLists) {
+        await this.countListModel.updateOne(
+          { _id: countList._id },
+          {
+            $push: {
+              products: {
+                product: productId,
+                locations: locations?.length ? locations : countList.locations,
+              },
+            },
+          },
+        );
+      }
+    }
+    this.websocketGateway.emitCountListChanged();
   }
   async updateItemProduct(
     user: User,
@@ -2970,6 +3002,7 @@ export class AccountingService {
     transferredStockLocation: number,
     product: string,
     quantity: number,
+    status = StockHistoryStatusEnum.STOCKTRANSFER,
   ) {
     const currentStockId = usernamify(product + currentStockLocation);
     const stock = await this.stockModel.findById(currentStockId);
@@ -2983,7 +3016,7 @@ export class AccountingService {
           product: product,
           location: transferredStockLocation,
           quantity: quantity,
-          status: StockHistoryStatusEnum.STOCKTRANSFER,
+          status,
         },
         false,
       ),
@@ -2993,7 +3026,7 @@ export class AccountingService {
           product: product,
           location: currentStockLocation,
           quantity: -quantity,
-          status: StockHistoryStatusEnum.STOCKTRANSFER,
+          status,
         },
         false,
       ),

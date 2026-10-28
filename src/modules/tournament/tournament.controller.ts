@@ -6,8 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { UpdateQuery } from 'mongoose';
 import { Public } from '../auth/public.decorator';
 import { LockInterceptor } from '../lock/lock.interceptor';
@@ -16,12 +19,16 @@ import { RedisKeys } from '../redis/redis.dto';
 import { Tournament } from './schemas/tournament.schema';
 import {
   AddParticipantDto,
+  CheckInDto,
   CreateTournamentDto,
+  MoveParticipantDto,
   PromoteRegistrationsDto,
   RegisterTournamentDto,
   ResolveTieDto,
+  SetManualMainDto,
   SubmitScoresDto,
   UpdateConfirmationDto,
+  UpdateParticipantDto,
 } from './tournament.dto';
 import { TournamentService } from './tournament.service';
 
@@ -44,9 +51,35 @@ export class TournamentController {
   }
 
   @Public()
+  @Get('/public/:slug/live')
+  findLive(@Param('slug') slug: string, @Query('round') round?: number) {
+    return this.tournamentService.findLiveBySlug(slug, round);
+  }
+
+  @Public()
   @Post('/public/:slug/register')
   register(@Param('slug') slug: string, @Body() dto: RegisterTournamentDto) {
     return this.tournamentService.register(slug, dto);
+  }
+
+  @Public()
+  @Get('/public/check-in/:code/qr')
+  async getCheckInQr(@Param('code') code: string, @Res() res: Response) {
+    const image = await this.tournamentService.getCheckInQr(code);
+    return res.type('png').send(image);
+  }
+
+  // Kayıt mailindeki "Katılamayacağım" linki
+  @Public()
+  @Get('/public/registration/:code')
+  findPublicRegistration(@Param('code') code: string) {
+    return this.tournamentService.findPublicRegistration(code);
+  }
+
+  @Public()
+  @Post('/public/registration/:code/decline')
+  declineRegistration(@Param('code') code: string) {
+    return this.tournamentService.declineByCode(code);
   }
 
   // ─── Turnuva ─────────────────────────────────────────────────────────────
@@ -94,6 +127,26 @@ export class TournamentController {
     return this.tournamentService.promoteRegistrations(id, dto.registrationIds);
   }
 
+  @Patch('/:id/registrations/:registrationId/main')
+  setManualMain(
+    @Param('id') id: number,
+    @Param('registrationId') registrationId: number,
+    @Body() dto: SetManualMainDto,
+  ) {
+    return this.tournamentService.setManualMain(id, registrationId, dto);
+  }
+
+  // Mailler iki kez gitmesin; giriş (admit) ile aynı kilidi kullanır
+  @Post('/:id/waitlist/publish')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  publishWaitlist(@Param('id') id: number) {
+    return this.tournamentService.publishWaitlist(id);
+  }
+
   // ─── Katılımcılar ────────────────────────────────────────────────────────
 
   @Get('/:id/participants')
@@ -104,6 +157,41 @@ export class TournamentController {
   @Post('/:id/participants')
   addParticipant(@Param('id') id: number, @Body() dto: AddParticipantDto) {
     return this.tournamentService.addParticipant(id, dto);
+  }
+
+  @Post('/:id/check-in')
+  checkIn(@Param('id') id: number, @Body() dto: CheckInDto) {
+    return this.tournamentService.checkIn(id, dto);
+  }
+
+  // Aynı anda iki görevli son boş yeri vermesin
+  @Post('/:id/registrations/:registrationId/admit')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  admitRegistration(
+    @Param('id') id: number,
+    @Param('registrationId') registrationId: number,
+  ) {
+    return this.tournamentService.admitRegistration(id, registrationId);
+  }
+
+  @Patch('/participants/:participantId')
+  updateParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: UpdateParticipantDto,
+  ) {
+    return this.tournamentService.updateParticipant(participantId, dto);
+  }
+
+  @Patch('/participants/:participantId/seat')
+  moveParticipant(
+    @Param('participantId') participantId: number,
+    @Body() dto: MoveParticipantDto,
+  ) {
+    return this.tournamentService.moveParticipant(participantId, dto);
   }
 
   @Delete('/participants/:participantId')
@@ -129,6 +217,16 @@ export class TournamentController {
     return this.tournamentService.generateNextRound(id);
   }
 
+  @Post('/:id/rounds/regenerate')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.TournamentLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
+  regenerateRound(@Param('id') id: number) {
+    return this.tournamentService.regenerateRound(id);
+  }
+
   @Patch('/matches/:matchId/scores')
   submitScores(
     @Param('matchId') matchId: number,
@@ -143,7 +241,7 @@ export class TournamentController {
   }
 
   @Get('/:id/standings')
-  getStandings(@Param('id') id: number) {
-    return this.tournamentService.getStandings(id);
+  getStandings(@Param('id') id: number, @Query('round') round?: number) {
+    return this.tournamentService.getStandings(id, round);
   }
 }

@@ -256,6 +256,10 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isShopifyPickUpOrderBrought: boolean;
 
+  /** Gel-al ürününün teslimde verildiği stok yeri; stockLocation'dan farklıysa stok oradan aktarılmıştır. */
+  @Prop({ required: false, type: Number })
+  shopifyPickUpStockLocation: number;
+
   @Prop({ required: false, type: Boolean })
   isShipped: boolean;
 

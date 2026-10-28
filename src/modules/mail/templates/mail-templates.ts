@@ -307,6 +307,61 @@ export const mailTemplateParameterDefinitions: Record<
       false,
       'Optional publicly reachable logo image URL.',
     ),
+    definition(
+      'qrCodeUrl',
+      'Check-in QR URL',
+      'url',
+      false,
+      'Optional image URL of the QR shown at the entrance on tournament day.',
+    ),
+    definition(
+      'registrationStatus',
+      'Registration status',
+      'string',
+      false,
+      'Asil or waitlist position; empty when the tournament has no capacity.',
+      'Yedek 3',
+    ),
+    definition(
+      'waitlistNumber',
+      'Waitlist number',
+      'string',
+      false,
+      'Waitlist position; empty for the main list.',
+      '3',
+    ),
+    definition(
+      'registrationNote',
+      'Registration note',
+      'multiline',
+      false,
+      'Free text from the tournament form: the main list note for main registrations, the waitlist note for waitlisted ones.',
+      "Kesin kayıt için turnuva günü en geç 13:00'da kafede olmanız gerekir.",
+    ),
+    definition(
+      'isPromoted',
+      'Promoted to main list',
+      'string',
+      false,
+      'Set when the waitlist update moved the registration to the main list.',
+      'true',
+    ),
+    definition(
+      'isWaitlistUpdate',
+      'Waitlist position update',
+      'string',
+      false,
+      'Set when the waitlist update changed the waitlist position.',
+      'true',
+    ),
+    definition(
+      'cancelUrl',
+      'Cancel link',
+      'url',
+      false,
+      'Page where the registrant can cancel their registration.',
+      'https://panel.davinciboardgame.com/tournament/registration/abc/cancel',
+    ),
   ],
 };
 
@@ -564,13 +619,20 @@ export const tournamentRegistrationTemplate = `
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
-                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">Kaydınız alınmıştır</h1>
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; font-weight: normal;">{{#if isPromoted}}Asil listeye alındınız{{else if isWaitlistUpdate}}Yedek sıranız güncellendi{{else}}Kaydınız alınmıştır{{/if}}</h1>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
-                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;"><strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.</p>
+                            {{#if registrationNote}}
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{registrationNote}}</p>
+                            {{else}}
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Asil listede kontenjan açılması ile kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Yedek listesindeki sıranız güncellendi.{{else if registrationStatus}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
+                            {{#if registrationStatus}}{{#unless isPromoted}}
+                            <p style="margin: 8px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if waitlistNumber}}Yedek listesinde <strong style="color: #a80000;">{{waitlistNumber}}. yedek</strong> olarak yer alıyorsunuz.{{else}}<strong style="color: #a80000;">Asil listede</strong> yer alıyorsunuz.{{/if}}</p>
+                            {{/unless}}{{/if}}
+                            {{/if}}
                         </td>
                     </tr>
                     <tr>
@@ -599,11 +661,24 @@ export const tournamentRegistrationTemplate = `
                             </table>
                         </td>
                     </tr>
+                    {{#if qrCodeUrl}}
+                    <tr>
+                        <td style="padding: 28px 40px 0; text-align: left;">
+                            <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Turnuva günü girişte bu QR kodu gösterin:</p>
+                            <img src="{{qrCodeUrl}}" alt="Giriş QR kodu" width="200" height="200" style="display: block; border: 0;">
+                        </td>
+                    </tr>
+                    {{/if}}
                     {{#if mapsUrl}}
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
                             <a href="{{mapsUrl}}" style="display: inline-block; padding: 13px 26px; background-color: #a80000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: bold;">Yol tarifi al</a>
                         </td>
+                    </tr>
+                    {{/if}}
+                    {{#if cancelUrl}}
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left; color: #44403c; font-size: 14px; line-height: 1.6;">Katılamayacaksanız <a href="{{cancelUrl}}" style="color: #a80000;">buradan kaydınızı iptal edebilirsiniz</a>; yeriniz sıradaki yedeğe verilir.</td>
                     </tr>
                     {{/if}}
                     <tr>

@@ -6,7 +6,9 @@ import {
   RankedTableEntry,
   seedEliminationTables,
   shuffle,
+  StandingOptions,
   TableAssignment,
+  Tiebreaker,
 } from './tournament.fixture';
 
 export enum TournamentFormat {
@@ -35,7 +37,15 @@ export interface TournamentRules {
   advanceCount: number;
   advancePerTable: number;
   thirdPlaceMatch?: boolean; // final turunda yarı finalde elenenler de bir masada oynar
+  tiebreaker?: Tiebreaker; // boşsa rakiplerin ortalama puanı
+  scoreCap?: number;
 }
+
+export const standingOptions = (rules: TournamentRules): StandingOptions => ({
+  tiebreaker: rules.tiebreaker,
+  scoreCap: rules.scoreCap,
+  tableSize: rules.tableSize,
+});
 
 export interface MatchState {
   stage: MatchStage;
@@ -80,6 +90,8 @@ const toPlayed = (matches: MatchState[]): PlayedMatch[] =>
     players: m.players.map((p) => ({
       participantId: p.participantId,
       points: p.points ?? 0,
+      score: p.score,
+      rank: p.rank,
     })),
   }));
 
@@ -113,9 +125,11 @@ function nextLeagueRound(
   const rankedIds =
     round === 1 || rules.pairingMode === PairingMode.RANDOM
       ? shuffle(participantIds, random)
-      : computeStandings(participantIds, toPlayed(league)).map(
-          (row) => row.participantId,
-        );
+      : computeStandings(
+          participantIds,
+          toPlayed(league),
+          standingOptions(rules),
+        ).map((row) => row.participantId);
 
   const { tables, byes } = pairRound({
     rankedIds,
@@ -244,7 +258,11 @@ export function planNextRound(
     );
   if (rules.format === TournamentFormat.LEAGUE) return null;
 
-  const standings = computeStandings(participantIds, toPlayed(league));
+  const standings = computeStandings(
+    participantIds,
+    toPlayed(league),
+    standingOptions(rules),
+  );
   return firstEliminationRound(
     rules,
     standings.slice(0, rules.advanceCount).map((row) => row.participantId),
