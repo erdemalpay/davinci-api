@@ -242,6 +242,10 @@ export class AppWebSocketGateway {
     this.server.emit('inventoryChanged');
   }
 
+  emitStaffLeaveChanged() {
+    this.server.emit('staffLeaveChanged');
+  }
+
   async emitItemChanged() {
     await this.redisService.reset(RedisKeys.MenuItems);
     await this.redisService.reset(RedisKeys.AccountingAllProducts);

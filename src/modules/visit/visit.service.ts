@@ -13,6 +13,7 @@ import { format, subDays } from 'date-fns';
 import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
+import { computeDurationMinutes } from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import {
@@ -829,8 +830,10 @@ export class VisitService {
       );
       if (foundShift?.shiftEndHour) {
         const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+        // A start closer to the shift start is an early check-in, not one after the shift ended
         const endIsAfterStart = isNightShift
-          ? visit.startHour >= foundShift.shift
+          ? computeDurationMinutes(visit.startHour, foundShift.shift) <
+            computeDurationMinutes(foundShift.shiftEndHour, visit.startHour)
           : foundShift.shiftEndHour > visit.startHour;
         if (endIsAfterStart) {
           return foundShift.shiftEndHour;

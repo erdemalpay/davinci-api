@@ -113,7 +113,20 @@ describe('VisitService.notifyUnfinishedVisits', () => {
     ['vardiya bitişi varsa onu yazar', '13:00', '13:00', '23:00', '23:00'],
     ['bitiş girişten önceyse fallback', '23:29', '12:00', '22:00', '01:10'],
     ['gece vardiyasında bitişi yazar', '14:15', '14:10', '00:10', '00:10'],
-    ['gece vardiyasında erken giriş', '00:30', '19:00', '00:10', '01:10'],
+    [
+      'gece vardiyasına birkaç dakika erken giriş',
+      '18:54',
+      '19:00',
+      '00:10',
+      '00:10',
+    ],
+    [
+      'gece vardiyası bittikten sonra giriş',
+      '00:30',
+      '19:00',
+      '00:10',
+      '01:10',
+    ],
   ])('%s', async (_case, startHour, shift, shiftEndHour, expected) => {
     givenOpenVisits([makeVisit({ startHour })]);
     givenShift({ user: ['ceren'], shift, shiftEndHour });

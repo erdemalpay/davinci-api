@@ -494,12 +494,18 @@ export class OrderController {
   @Patch('/simple-bulk')
   simpleBulkUpdateOrders(
     @ReqUser() user: User,
-    @Body() payload: { ids: number[]; updates: Partial<Order> },
+    @Body()
+    payload: {
+      ids: number[];
+      updates: Partial<Order>;
+      pickupStockLocation?: number;
+    },
   ) {
     return this.orderService.simpleBulkOrderUpdate(
       user,
       payload.ids,
       payload.updates,
+      payload.pickupStockLocation,
     );
   }
 

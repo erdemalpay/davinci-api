@@ -20,7 +20,25 @@ export interface RankedTableEntry extends TableScore {
 
 export interface PlayedMatch {
   isBye: boolean;
-  players: { participantId: number; points: number }[];
+  players: {
+    participantId: number;
+    points: number;
+    score?: number;
+    rank?: number;
+  }[];
+}
+
+// Puanı eşit oyuncuların sırası: rakiplerin ortalama puanı (BGA) ya da oyunda alınan skor
+// (Catan resmi kuralı: toplam skor → masadaki pay → 2.lik, 3.lük sayısı)
+export enum Tiebreaker {
+  OPPONENTS = 'opponents',
+  SCORE = 'score',
+}
+
+export interface StandingOptions {
+  tiebreaker?: Tiebreaker;
+  scoreCap?: number; // oyun başına sayılacak en fazla skor; boşsa sınır yok
+  tableSize?: number; // eksik masada paya eklenecek sanal oyuncular için
 }
 
 export interface StandingRow {
@@ -30,6 +48,8 @@ export interface StandingRow {
   matchesPlayed: number;
   byeCount: number;
   avgOpponentPoints: number;
+  totalScore?: number; // sadece oyun skoruyla eşitlik bozmada
+  scoreShare?: number;
 }
 
 // Masaları olabildiğince eşit dağıtır; en küçük masa minimumun altına düşerse
@@ -305,14 +325,31 @@ export function findCutTie(
   };
 }
 
-// Puan turlarında verilen sıradan sonraki ilk eşitlik sorulur; her seferinde bir kişi
-// üst sıraya geçer (üçlü eşitlikte önce 1., sonra kalan ikisi arasında 2. seçilir)
+// Eşitler hangi sırayla dizilirse dizilsin aynı puanı alıyorsa (1-0-0-0'da 2. ile 3.) karar gerekmez
+const tieChangesPoints = (
+  ranked: RankedTableEntry[],
+  rank: number,
+  placementPoints: number[],
+) => {
+  const count = ranked.filter((entry) => entry.rank === rank).length;
+  const points = Array.from({ length: count }, (_, i) =>
+    pointsForRank(placementPoints, rank + i),
+  );
+  return new Set(points).size > 1;
+};
+
+// Puan turlarında verilen sıradan sonraki, puanı değiştiren ilk eşitlik sorulur; her seferinde
+// bir kişi üst sıraya geçer (üçlü eşitlikte önce 1., sonra kalan ikisi arasında 2. seçilir)
 export function findTieAfter(
   ranked: RankedTableEntry[],
   afterRank: number,
+  placementPoints: number[],
 ): PendingTie | null {
   const first = ranked.find(
-    (entry, i) => entry.rank > afterRank && ranked[i + 1]?.rank === entry.rank,
+    (entry, i) =>
+      entry.rank > afterRank &&
+      ranked[i + 1]?.rank === entry.rank &&
+      tieChangesPoints(ranked, entry.rank, placementPoints),
   );
   if (!first) return null;
   return {
@@ -344,32 +381,82 @@ export function applyTieBreak<T extends RankedTableEntry>(
 export interface RoundResult {
   round: number;
   points: number;
+  score?: number;
+  share?: number; // o turdaki masa payı (%); computeStandings'teki scoreShare bunların toplamı
   isBye: boolean;
 }
 
-// Puan tablosunda tur tur gösterim için her oyuncunun her turda aldığı puan
+// Puan tablosunda tur tur gösterim için her oyuncunun her turda aldığı puan, sayılan skor ve masa payı
 export function roundResults(
   matches: (PlayedMatch & { round: number })[],
+  { tiebreaker, scoreCap, tableSize }: StandingOptions = {},
 ): Map<number, RoundResult[]> {
   const results = new Map<number, RoundResult[]>();
   [...matches]
     .sort((a, b) => a.round - b.round)
-    .forEach((match) =>
+    .forEach((match) => {
+      const scores = match.players.map((p) => cappedScore(p.score, scoreCap));
       match.players.forEach((player) =>
         results.set(player.participantId, [
           ...(results.get(player.participantId) ?? []),
-          { round: match.round, points: player.points, isBye: match.isBye },
+          {
+            round: match.round,
+            points: player.points,
+            score: match.isBye
+              ? scoreCap
+              : cappedScore(player.score, scoreCap),
+            ...(tiebreaker === Tiebreaker.SCORE &&
+              !match.isBye && {
+                share: round2(
+                  scoreShare(
+                    scores,
+                    cappedScore(player.score, scoreCap),
+                    tableSize,
+                  ),
+                ),
+              }),
+            isBye: match.isBye,
+          },
         ]),
-      ),
-    );
+      );
+    });
   return results;
 }
 
-// Sıralama: toplam puan → rakiplerin ortalama puanı (BGA'daki gibi) → id.
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+const cappedScore = (score = 0, scoreCap?: number) =>
+  scoreCap ? Math.min(score, scoreCap) : score;
+
+// Oyuncunun masadaki payı (%). Masa tam değilse eksik her koltuğa oturanların ortalama
+// skoru eklenir (Catan: 3 kişilik masada sanal 4. oyuncu).
+function scoreShare(scores: number[], own: number, tableSize = 0) {
+  const sum = scores.reduce((total, score) => total + score, 0);
+  const missing = Math.max(0, tableSize - scores.length);
+  const total = sum + Math.round(sum / scores.length) * missing;
+  return total ? (own / total) * 100 : 0;
+}
+
+// 2., 3., ... sıra sayılarını karşılaştırır; daha çok üst sıra alan önde
+const comparePlaces = (a: number[], b: number[]) => {
+  for (let rank = 2; rank < Math.max(a.length, b.length); rank++) {
+    const diff = (b[rank] ?? 0) - (a[rank] ?? 0);
+    if (diff) return diff;
+  }
+  return 0;
+};
+
+// Sıralama: toplam puan → eşitlik bozucu (rakip ortalaması ya da oyun skoru) → id.
 export function computeStandings(
   participantIds: number[],
   matches: PlayedMatch[],
+  {
+    tiebreaker = Tiebreaker.OPPONENTS,
+    scoreCap,
+    tableSize,
+  }: StandingOptions = {},
 ): StandingRow[] {
+  const capped = (score?: number) => cappedScore(score, scoreCap);
   const rows = new Map(
     participantIds.map((id) => [
       id,
@@ -379,20 +466,29 @@ export function computeStandings(
         matchesPlayed: 0,
         byeCount: 0,
         opponents: [] as number[],
+        totalScore: 0,
+        scoreShare: 0,
+        places: [] as number[],
       },
     ]),
   );
 
   for (const match of matches) {
+    const scores = match.players.map((p) => capped(p.score));
     for (const player of match.players) {
       const row = rows.get(player.participantId);
       if (!row) continue;
       row.points += player.points;
       if (match.isBye) {
         row.byeCount++;
+        row.totalScore += scoreCap ?? 0;
         continue;
       }
       row.matchesPlayed++;
+      row.totalScore += capped(player.score);
+      row.scoreShare += scoreShare(scores, capped(player.score), tableSize);
+      if (player.rank)
+        row.places[player.rank] = (row.places[player.rank] ?? 0) + 1;
       row.opponents.push(
         ...match.players
           .filter((p) => p.participantId !== player.participantId)
@@ -401,27 +497,38 @@ export function computeStandings(
     }
   }
 
-  const result = [...rows.values()].map((row) => {
-    const opponentPoints = row.opponents.map((id) => rows.get(id)?.points ?? 0);
-    const avg = opponentPoints.length
-      ? opponentPoints.reduce((sum, v) => sum + v, 0) / opponentPoints.length
+  const byScore = tiebreaker === Tiebreaker.SCORE;
+  const avgOpponentPoints = (opponents: number[]) =>
+    opponents.length
+      ? round2(
+          opponents.reduce((sum, id) => sum + (rows.get(id)?.points ?? 0), 0) /
+            opponents.length,
+        )
       : 0;
-    return {
-      participantId: row.participantId,
-      points: row.points,
-      matchesPlayed: row.matchesPlayed,
-      byeCount: row.byeCount,
-      avgOpponentPoints: Math.round(avg * 100) / 100,
-    };
-  });
-
-  result.sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.avgOpponentPoints - a.avgOpponentPoints ||
-      a.participantId - b.participantId,
-  );
-  return result.map((row, i) => ({ ...row, rank: i + 1 }));
+  const ranked = [...rows.values()]
+    .map((row) => ({ ...row, avg: avgOpponentPoints(row.opponents) }))
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        (byScore
+          ? b.totalScore - a.totalScore ||
+            b.scoreShare - a.scoreShare ||
+            comparePlaces(a.places, b.places)
+          : b.avg - a.avg) ||
+        a.participantId - b.participantId,
+    );
+  return ranked.map((row, i) => ({
+    participantId: row.participantId,
+    points: row.points,
+    matchesPlayed: row.matchesPlayed,
+    byeCount: row.byeCount,
+    avgOpponentPoints: row.avg,
+    ...(byScore && {
+      totalScore: row.totalScore,
+      scoreShare: round2(row.scoreShare),
+    }),
+    rank: i + 1,
+  }));
 }
 
 // Güçlü oyuncuları masalara yayar: 8 kişi / 2 masa → 1-4-5-8 ve 2-3-6-7.

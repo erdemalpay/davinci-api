@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  Equals,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -13,6 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { Tiebreaker } from './tournament.fixture';
 import { PairingMode, TournamentFormat } from './tournament.round-plan';
 import {
   ConfirmationStatus,
@@ -100,6 +102,51 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   advancePerTable?: number;
+
+  // Tur süresi (dk); boşsa süre sınırı yok
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  roundDuration?: number;
+
+  @IsOptional()
+  @IsEnum(Tiebreaker)
+  tiebreaker?: Tiebreaker;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  scoreCap?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  capacity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  waitlistCapacity?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasEntryFee?: boolean;
+
+  @IsOptional()
+  @IsString()
+  participationNote?: string;
+
+  @IsOptional()
+  @IsString()
+  mainNote?: string;
+
+  @IsOptional()
+  @IsString()
+  waitlistNote?: string;
+
+  @IsOptional()
+  @IsString()
+  secondaryLogoUrl?: string;
 }
 
 export class RegisterTournamentDto {
@@ -122,6 +169,11 @@ export class UpdateConfirmationDto {
   confirmationStatus: ConfirmationStatus;
 }
 
+export class SetManualMainDto {
+  @IsBoolean()
+  isManualMain: boolean;
+}
+
 export class PromoteRegistrationsDto {
   @IsArray()
   @IsNumber({}, { each: true })
@@ -131,6 +183,32 @@ export class PromoteRegistrationsDto {
 export class AddParticipantDto {
   @IsString()
   name: string;
+}
+
+export class CheckInDto {
+  @IsString()
+  code: string;
+}
+
+export class UpdateParticipantDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  // Sadece çekilen oyuncuyu geri almak için; çıkarma removeParticipant'tan geçer
+  @IsOptional()
+  @Equals(true)
+  isActive?: boolean;
+}
+
+export class MoveParticipantDto {
+  @IsNumber()
+  matchId: number;
+
+  // Hedef masadaki bu oyuncuyla yer değiştirir; boşsa hedef masaya taşınır
+  @IsOptional()
+  @IsNumber()
+  swapWithId?: number;
 }
 
 export class MatchScoreDto {
