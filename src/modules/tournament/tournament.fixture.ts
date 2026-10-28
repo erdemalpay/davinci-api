@@ -382,18 +382,20 @@ export interface RoundResult {
   round: number;
   points: number;
   score?: number;
+  share?: number; // o turdaki masa payı (%); computeStandings'teki scoreShare bunların toplamı
   isBye: boolean;
 }
 
-// Puan tablosunda tur tur gösterim için her oyuncunun her turda aldığı puan ve sayılan skor
+// Puan tablosunda tur tur gösterim için her oyuncunun her turda aldığı puan, sayılan skor ve masa payı
 export function roundResults(
   matches: (PlayedMatch & { round: number })[],
-  scoreCap?: number,
+  { tiebreaker, scoreCap, tableSize }: StandingOptions = {},
 ): Map<number, RoundResult[]> {
   const results = new Map<number, RoundResult[]>();
   [...matches]
     .sort((a, b) => a.round - b.round)
-    .forEach((match) =>
+    .forEach((match) => {
+      const scores = match.players.map((p) => cappedScore(p.score, scoreCap));
       match.players.forEach((player) =>
         results.set(player.participantId, [
           ...(results.get(player.participantId) ?? []),
@@ -403,11 +405,21 @@ export function roundResults(
             score: match.isBye
               ? scoreCap
               : cappedScore(player.score, scoreCap),
+            ...(tiebreaker === Tiebreaker.SCORE &&
+              !match.isBye && {
+                share: round2(
+                  scoreShare(
+                    scores,
+                    cappedScore(player.score, scoreCap),
+                    tableSize,
+                  ),
+                ),
+              }),
             isBye: match.isBye,
           },
         ]),
-      ),
-    );
+      );
+    });
   return results;
 }
 

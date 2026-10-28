@@ -993,7 +993,7 @@ export class TournamentService {
       leagueMatches,
       standingOptions(tournament),
     );
-    const rounds = roundResults(leagueMatches, tournament.scoreCap);
+    const rounds = roundResults(leagueMatches, standingOptions(tournament));
     return computeFinalRanking(
       leagueStandings,
       afterRound
