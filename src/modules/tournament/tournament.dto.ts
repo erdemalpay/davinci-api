@@ -143,6 +143,10 @@ export class CreateTournamentDto {
   @IsOptional()
   @IsString()
   waitlistNote?: string;
+
+  @IsOptional()
+  @IsString()
+  secondaryLogoUrl?: string;
 }
 
 export class RegisterTournamentDto {
