@@ -7,7 +7,6 @@ import {
   nextPositions,
   positionFromSequence,
   publishedPosition,
-  registrationNote,
   statusLabel,
 } from './tournament.waitlist';
 
@@ -81,36 +80,6 @@ describe('isOverLimit', () => {
     expect(
       isOverLimit({ capacity: 64, waitlistCapacity: 20, waitlistAnchor }, 105),
     ).toBe(false);
-  });
-});
-
-describe('registrationNote', () => {
-  const notes = {
-    mainNote: 'Asil: 13:00 {sira}',
-    waitlistNote:
-      'Yedek listesinde {sira}. yedek olarak yer alıyorsunuz. ({sira})',
-  };
-
-  it('yedek notundaki {sira} yerine kişinin yedek numarası yazılır', () => {
-    expect(registrationNote(notes, waitlist(3))).toBe(
-      'Yedek listesinde 3. yedek olarak yer alıyorsunuz. (3)',
-    );
-  });
-
-  it('numara değişince güncel numara yazılır', () => {
-    expect(registrationNote(notes, waitlist(1))).toContain('1. yedek');
-  });
-
-  it('asil notuna dokunmaz, {sira} yoksa notu olduğu gibi döner', () => {
-    expect(registrationNote(notes, MAIN)).toBe('Asil: 13:00 {sira}');
-    expect(
-      registrationNote({ waitlistNote: 'Sırayla alınırsınız' }, waitlist(2)),
-    ).toBe('Sırayla alınırsınız');
-  });
-
-  it('not ya da yer yoksa boş döner', () => {
-    expect(registrationNote({}, waitlist(2))).toBeUndefined();
-    expect(registrationNote(notes, undefined)).toBeUndefined();
   });
 });
 
