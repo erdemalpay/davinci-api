@@ -1,3 +1,4 @@
+import * as Handlebars from 'handlebars';
 import {
   ConfirmationStatus,
   ListStatus,
@@ -78,6 +79,23 @@ export const registrationNote = (
     return tournament.waitlistNote;
   return undefined;
 };
+
+// Notta {iptal} yazılan yere kaydı iptal etme bağlantısı konur (mailde ve kayıt sonrası kutuda)
+export const CANCEL_LINK_TOKEN = '{iptal}';
+const CANCEL_LINK_TEXT = 'buradan kaydınızı iptal edebilirsiniz';
+
+// Mailde gösterilen not: HTML kaçışlanır, {iptal} yerine iptal bağlantısı konur
+export const registrationNoteHtml = (note?: string, cancelUrl?: string) =>
+  note &&
+  Handlebars.escapeExpression(note)
+    .split(CANCEL_LINK_TOKEN)
+    .join(
+      cancelUrl
+        ? `<a href="${Handlebars.escapeExpression(
+            cancelUrl,
+          )}" style="color: #a80000;">${CANCEL_LINK_TEXT}</a>`
+        : CANCEL_LINK_TEXT,
+    );
 
 export const isSamePosition = (a?: ListPosition, b?: ListPosition) =>
   a?.listStatus === b?.listStatus && a?.waitlist === b?.waitlist;
