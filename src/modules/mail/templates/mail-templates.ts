@@ -627,6 +627,9 @@ export const tournamentRegistrationTemplate = `
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
                             {{#if registrationNote}}
                             <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{registrationNote}}</p>
+                            {{#if waitlistNumber}}
+                            <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Yedek listesindeki sıranız: <strong style="color: #a80000;">{{waitlistNumber}}. yedek</strong></p>
+                            {{/if}}
                             {{else}}
                             <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{#if isPromoted}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Asil listede kontenjan açılması ile kaydınızı yedek listeden asil listeye taşıdık.{{else if isWaitlistUpdate}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz. Yedek listesindeki sıranız güncellendi.{{else if registrationStatus}}<strong style="color: #1c1917;">{{tournamentName}}</strong> ön kaydınız için teşekkür ederiz.{{else}}<strong style="color: #1c1917;">{{tournamentName}}</strong> için başvurunuz bize ulaştı. Masada görüşmek üzere.{{/if}}</p>
                             {{#if registrationStatus}}{{#unless isPromoted}}
