@@ -373,6 +373,15 @@ export const isMiddlemanHours = (hour: string) =>
   cafeDaySeconds(hour) >= cafeDaySeconds(MIDDLEMAN_FROM) &&
   !isPastMiddlemanHours(hour);
 
+// Someone who ended their middleman role (or whose role a manager ended)
+// isn't made the middleman or a stand-in by the system for this long, so
+// they can take a break or another busy state; they can take the role
+// themselves any time.
+export const MIDDLEMAN_REST_SECONDS = 10 * 60;
+
+export const isRestingAfterMiddleman = (finishHour: string, hour: string) =>
+  cafeDaySeconds(hour) - cafeDaySeconds(finishHour) < MIDDLEMAN_REST_SECONDS;
+
 // The system starts the middleman role only with at least this many game
 // masters in the cafe, and ends it when fewer are left.
 export const MIDDLEMAN_MIN_GAME_MASTERS = 2;
