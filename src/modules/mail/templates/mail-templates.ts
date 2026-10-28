@@ -626,7 +626,7 @@ export const tournamentRegistrationTemplate = `
                         <td style="padding: 20px 40px 0; text-align: left;">
                             <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{fullName}},</p>
                             {{#if registrationNote}}
-                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{registrationNote}}</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7;">{{{registrationNoteHtml}}}</p>
                             {{#if waitlistNumber}}
                             <p style="margin: 16px 0 0; color: #44403c; font-size: 16px; line-height: 1.7;">Yedek listesindeki sıranız: <strong style="color: #a80000;">{{waitlistNumber}}. yedek</strong></p>
                             {{/if}}
