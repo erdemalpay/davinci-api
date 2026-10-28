@@ -50,6 +50,7 @@ import {
   findShiftEnds,
   hourToSeconds,
   isMiddlemanHours,
+  isRestingAfterMiddleman,
   isUpstairsTableName,
   leavingTooSoonFor,
   MIDDLEMAN_AFTER_WAITING_SECONDS,
@@ -677,6 +678,12 @@ export class ButtonCallAssignmentService {
         continue;
       }
       if (await this.isBusyWithCalls(middlemanId, date)) continue;
+      if (
+        isStandIn &&
+        (await this.findRestingMiddlemen(location, date)).has(middlemanId)
+      ) {
+        continue;
+      }
       if (!isStandIn) {
         await this.middlemanModel.updateOne(
           { _id: record._id, finishHour: { $exists: false } },
@@ -850,6 +857,22 @@ export class ButtonCallAssignmentService {
     }
   }
 
+  // People whose middleman role was ended by hand in the last 10 minutes.
+  private async findRestingMiddlemen(location: number, date: string) {
+    const ended = await this.middlemanModel
+      .find({ location, date, endedManually: true })
+      .select('user finishHour')
+      .lean();
+    const hour = cafeHour(false);
+    return new Set(
+      ended
+        .filter(
+          (r) => r.finishHour && isRestingAfterMiddleman(r.finishHour, hour),
+        )
+        .map((r) => String(r.user)),
+    );
+  }
+
   private async startPlannedMiddleman(location: number, date: string) {
     const open = await this.middlemanModel.exists({
       location,
@@ -861,13 +884,15 @@ export class ButtonCallAssignmentService {
     if (gameMasters.length < MIDDLEMAN_MIN_GAME_MASTERS) return;
     const planned = await this.ensureMiddlemanPlan(location, date, gameMasters);
     if (!planned) return;
-    const [free, duty] = await Promise.all([
+    const [candidates, duty, resting] = await Promise.all([
       this.findCandidates(location, date, nowHour(), []),
       this.upstairsDutyModel
         .findOne({ location, date, finishHour: { $exists: false } })
         .select('user')
         .lean(),
+      this.findRestingMiddlemen(location, date),
     ]);
+    const free = candidates.filter((c) => !resting.has(c.userId));
     const hour = cafeHour(false);
     const plannedIsFree =
       free.some((c) => c.userId === planned) &&
