@@ -41,6 +41,11 @@ export class Middleman extends Document {
   // goes to whoever becomes free first.
   @Prop({ type: Number })
   awayOnCall?: number;
+
+  // Ended by the middleman or a manager (not by the system): the system
+  // doesn't make them the middleman again for a while.
+  @Prop()
+  endedManually?: boolean;
 }
 
 export const MiddlemanSchema = SchemaFactory.createForClass(Middleman);

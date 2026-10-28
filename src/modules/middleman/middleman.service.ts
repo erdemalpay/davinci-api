@@ -226,7 +226,9 @@ export class MiddlemanService {
     return wrapHttpException(async () => {
       const updated = await this.middlemanModel.findByIdAndUpdate(
         id,
-        updateDto,
+        updateDto.finishHour
+          ? { ...updateDto, endedManually: true }
+          : updateDto,
         { new: true },
       );
       assertFound(updated, 'Middleman record not found');
