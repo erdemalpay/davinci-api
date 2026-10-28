@@ -137,6 +137,10 @@ export class Tournament extends Document {
   @Prop({ required: false, type: String })
   waitlistNote?: string;
 
+  // Canlı turnuva ekranında Da Vinci logosunun yanında gösterilen ikinci (ortak) logo
+  @Prop({ required: false, type: String })
+  secondaryLogoUrl?: string;
+
   // Başvuru sıra numaralarının sayacı; $inc ile atomik artırılır
   @Prop({ required: true, type: Number, default: 0 })
   registrationCount: number;
