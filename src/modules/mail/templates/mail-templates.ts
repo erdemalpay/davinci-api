@@ -331,14 +331,6 @@ export const mailTemplateParameterDefinitions: Record<
       '3',
     ),
     definition(
-      'registrationNoteHtml',
-      'Registration note (HTML)',
-      'multiline',
-      false,
-      'registrationNote with HTML escaped and {iptal} turned into the cancel link; the template prints this.',
-      "Kesin kayıt için turnuva günü en geç 13:00'da kafede olmanız gerekir.",
-    ),
-    definition(
       'registrationNote',
       'Registration note',
       'multiline',
