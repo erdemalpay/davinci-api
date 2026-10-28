@@ -6,6 +6,7 @@ const render = (variables: Record<string, unknown>) =>
     fullName: 'Ali',
     tournamentName: 'Catan',
     tournamentDate: '1 Kasım 2026',
+    registrationNoteHtml: variables.registrationNote,
     ...variables,
   });
 
@@ -46,5 +47,19 @@ describe('tournamentRegistrationTemplate (yedek sırası)', () => {
     const html = render({ registrationStatus: 'Yedek 2', waitlistNumber: 2 });
     expect(html).toContain('2. yedek');
     expect(html).not.toContain('Yedek listesindeki sıranız');
+  });
+});
+
+describe('tournamentRegistrationTemplate (iptal bağlantısı)', () => {
+  it('notun içindeki iptal bağlantısı tıklanabilir bağlantı olarak çıkar', () => {
+    const html = render({
+      registrationStatus: 'Asil',
+      registrationNote: 'Değişirse',
+      registrationNoteHtml:
+        'Değişirse <a href="https://x/iptal">buradan kaydınızı iptal edebilirsiniz</a>.',
+    });
+    expect(html).toContain(
+      'Değişirse <a href="https://x/iptal">buradan kaydınızı iptal edebilirsiniz</a>.',
+    );
   });
 });
