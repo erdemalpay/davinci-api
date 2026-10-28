@@ -9,6 +9,7 @@ import {
   pickAdvancers,
   planTableSizes,
   rankTable,
+  roundResults,
   seedEliminationTables,
   selectByes,
   Tiebreaker,
@@ -711,5 +712,38 @@ describe('applyTieBreak', () => {
     ]);
     expect(result.find((p) => p.participantId === 3)?.wonTieBreak).toBe(true);
     expect(pickAdvancers([result], 2)).toEqual([1, 3]);
+  });
+});
+
+describe('roundResults (tur payı)', () => {
+  const options = { tiebreaker: Tiebreaker.SCORE, scoreCap: 10, tableSize: 4 };
+
+  it('tur paylarının toplamı puan tablosundaki % ile aynıdır', () => {
+    const matches = [
+      { round: 1, ...game([1, 10, 1], [2, 5, 3], [3, 6, 2]) },
+      { round: 2, ...game([1, 9, 2], [2, 10, 1], [3, 4, 3], [4, 8, 4]) },
+      { round: 3, ...game([1, 10, 1], [2, 7, 2], [3, 7, 3], [4, 6, 4]) },
+    ];
+    const rounds = roundResults(matches, options).get(1);
+    // 1. tur 3 kişilik masa: ortalama 7 → toplam 28 → 10/28
+    expect(rounds?.map((r) => r.share)).toEqual([35.71, 29.03, 33.33]);
+    const [row] = computeStandings([1], matches, options);
+    const sum = rounds?.reduce((total, r) => total + (r.share ?? 0), 0) ?? 0;
+    expect(Math.abs(sum - row.scoreShare)).toBeLessThan(0.02);
+  });
+
+  it('varsayılan eşitlik bozmada pay eklenmez', () => {
+    const rounds = roundResults([
+      { round: 1, ...game([1, 10, 1], [2, 5, 2]) },
+    ]).get(1);
+    expect(rounds?.[0]).not.toHaveProperty('share');
+  });
+
+  it('bay geçilen turda pay yoktur', () => {
+    const rounds = roundResults(
+      [{ round: 1, isBye: true, players: [{ participantId: 1, points: 1 }] }],
+      options,
+    ).get(1);
+    expect(rounds?.[0]).not.toHaveProperty('share');
   });
 });
