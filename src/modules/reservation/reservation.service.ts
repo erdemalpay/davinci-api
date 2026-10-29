@@ -11,6 +11,8 @@ import { Reservation } from './reservation.schema';
 
 type ReservationUpdatePayload = UpdateQuery<Reservation> & {
   comingDurationInMinutes?: number;
+  // "Will come later": back to the end of the waiting list.
+  moveToEnd?: boolean;
 };
 
 @Injectable()
@@ -79,8 +81,11 @@ export class ReservationService {
     const oldReservation = await this.reservationModel.findById(id);
     const reservationUpdates = updates as ReservationUpdatePayload;
     const duration = reservationUpdates.comingDurationInMinutes ?? 30;
-    const { comingDurationInMinutes, ...updateWithoutDuration } =
+    const { comingDurationInMinutes, moveToEnd, ...updateWithoutDuration } =
       reservationUpdates;
+    const lastReservation = moveToEnd
+      ? await this.reservationModel.findOne({}).sort({ order: 'desc' })
+      : null;
     const reservation = await this.reservationModel.findByIdAndUpdate(
       id,
       {
@@ -96,6 +101,10 @@ export class ReservationService {
         ...(updateWithoutDuration.status !== 'Coming' && {
           comingExpiresAt: null,
         }),
+        ...(lastReservation &&
+          lastReservation._id !== oldReservation?._id && {
+            order: lastReservation.order + 1,
+          }),
         $inc: { callCount: 1 },
       },
       { new: true },
