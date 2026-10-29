@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ReservationDto {
   @IsOptional()
@@ -56,6 +56,10 @@ export class ReservationDto {
   @IsOptional()
   @IsNumber()
   comingDurationInMinutes?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  moveToEnd?: boolean;
 }
 
 export class ReservationResponse {
