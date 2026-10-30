@@ -37,6 +37,12 @@ import {
   UpdateParticipantDto,
 } from './tournament.dto';
 import {
+  assignDrawNumbers,
+  CATAN_PLAN_MAX_PLAYERS,
+  CATAN_PLAN_ROUNDS,
+  catanSchedule,
+} from './tournament.catan-plan';
+import {
   applyTieBreak,
   computeFinalRanking,
   computeStandings,
@@ -45,11 +51,13 @@ import {
   pointsForRank,
   rankTable,
   roundResults,
+  Tiebreaker,
 } from './tournament.fixture';
 import {
   FixtureError,
   FixtureErrorCode,
   MatchStage,
+  PairingMode,
   eliminationTableSize,
   planNextRound,
   standingOptions,
@@ -93,11 +101,35 @@ const isAtLeast = (value: number | undefined | null, min: number) =>
 const placementPointsFor = (tournament: Tournament, tableSize: number) =>
   tournament.placementPointsBySize?.[tableSize] ?? tournament.placementPoints;
 
+// Katılımcı → çekiliş numarası (numarası olmayanlar yok); eşitlikte kura ve Catan planı için
+const drawNumbersOf = (participants: TournamentParticipant[]) => {
+  const numbers = new Map<number, number>();
+  participants.forEach((p) => p.drawNumber && numbers.set(p._id, p.drawNumber));
+  return numbers;
+};
+
+// Skor girilince maçtaki oyuncu satırları yeniden yazılır; Catan eşleşme planındaki başlangıç
+// sırası (seat) bu sırada kaybolmasın diye satırlara geri eklenir
+const keepSeats = <T extends { participantId: number }>(
+  match: TournamentMatch,
+  players: T[],
+): (T & { seat?: number })[] => {
+  const seats = new Map(match.players.map((p) => [p.participantId, p.seat]));
+  return players.map((p) =>
+    seats.get(p.participantId) === undefined
+      ? p
+      : { ...p, seat: seats.get(p.participantId) },
+  );
+};
+
 const FIXTURE_ERROR_MESSAGES: Record<FixtureErrorCode, string> = {
   INCOMPLETE_ROUND: 'Skoru girilmemiş maçlar var, önce onları tamamlayın',
   NOT_ENOUGH_PARTICIPANTS: 'Masa kurmaya yetecek katılımcı yok',
   NO_PROGRESS:
     'Masadan çıkacak kişi sayısı oyuncu sayısını azaltmıyor, ayarları kontrol edin',
+  PLAN_PLAYER_COUNT:
+    'Catan eşleşme planı 49-64 oyuncu için; bu turnuvada rastgele eşleşmeyi seçin',
+  PLAN_NUMBERS_MISSING: 'Oyunculara numara atanamadı',
 };
 
 @Injectable()
@@ -218,10 +250,12 @@ export class TournamentService {
     ]);
     return {
       tournament,
-      participants: participants.map(({ _id, name, isActive }) => ({
+      participants: participants.map(({ _id, name, isActive, drawNumber }) => ({
         _id,
         name,
         isActive,
+        drawNumber,
+        schedule: drawNumber ? catanSchedule(drawNumber) : undefined,
       })),
       matches,
       standings: this.rankParticipants(
@@ -555,6 +589,15 @@ export class TournamentService {
     return this.participantModel.find({ tournamentId }).sort({ _id: 1 }).exec();
   }
 
+  // Panelin katılımcı listesi: Catan eşleşme planında numaranın 3 turluk masası ve sırası
+  async findParticipantsWithSchedule(tournamentId: number) {
+    const participants = await this.findParticipants(tournamentId);
+    return participants.map((p) => ({
+      ...p.toObject(),
+      schedule: p.drawNumber ? catanSchedule(p.drawNumber) : undefined,
+    }));
+  }
+
   // Sadece gönderilen başvurular katılımcı olur; daha önce eklenen tekrar eklenmez.
   async promoteRegistrations(tournamentId: number, registrationIds: number[]) {
     await this.assertCanAddParticipants(tournamentId);
@@ -700,8 +743,9 @@ export class TournamentService {
           'Yer değiştirilecek oyuncu bu masada değil',
         );
       const swap = (match: TournamentMatch, from: number, to: number) =>
-        match.players.map(({ participantId }) => ({
+        match.players.map(({ participantId, seat }) => ({
           participantId: participantId === from ? to : participantId,
+          ...(seat !== undefined && { seat }),
         }));
       await Promise.all([
         this.saveSeats(source, swap(source, participantId, dto.swapWithId)),
@@ -716,9 +760,19 @@ export class TournamentService {
         throw new BadRequestException(
           'Masa dolu; masadaki bir oyuncuyla yer değiştirin',
         );
+      const isCatanPlan = tournament.pairingMode === PairingMode.CATAN_PLAN;
       await Promise.all([
-        this.saveSeats(source, this.seatsWithout(source, participantId)),
-        this.saveSeats(target, [...target.players, { participantId }]),
+        this.saveSeats(
+          source,
+          this.seatsWithout(source, participantId, isCatanPlan),
+        ),
+        this.saveSeats(target, [
+          ...target.players,
+          {
+            participantId,
+            ...(isCatanPlan && { seat: this.freeSeat(target.players) }),
+          },
+        ]),
       ]);
     }
     this.websocketGateway.emitTournamentChanged();
@@ -747,12 +801,20 @@ export class TournamentService {
         'Berabere kalan masada karar verilmeden sonraki tur oluşturulamaz',
       );
 
+    const drawNumbers = await this.catanDrawNumbers(
+      tournament,
+      participants,
+      matches,
+    );
+
     let next: ReturnType<typeof planNextRound>;
     try {
       next = planNextRound(
         tournament,
         participants.map((p) => p._id),
         matches,
+        undefined,
+        drawNumbers.all,
       );
     } catch (err) {
       if (err instanceof FixtureError)
@@ -766,6 +828,13 @@ export class TournamentService {
       return [];
     }
 
+    if (drawNumbers.created.size)
+      await this.participantModel.bulkWrite(
+        [...drawNumbers.created].map(([id, drawNumber]) => ({
+          updateOne: { filter: { _id: id }, update: { drawNumber } },
+        })),
+      );
+
     const { stage, round } = next;
     const created = await this.matchModel.create([
       ...next.tables.map((table) => ({
@@ -775,8 +844,9 @@ export class TournamentService {
         tableNo: table.tableNo,
         isBye: false,
         isCompleted: false,
-        players: table.participantIds.map((participantId) => ({
+        players: table.participantIds.map((participantId, i) => ({
           participantId,
+          ...(table.seats && { seat: table.seats[i] }),
         })),
       })),
       ...(next.thirdPlace
@@ -879,7 +949,7 @@ export class TournamentService {
       );
 
     const placementPoints = placementPointsFor(tournament, dto.scores.length);
-    const players = rankTable(dto.scores, placementPoints);
+    const players = keepSeats(match, rankTable(dto.scores, placementPoints));
     // Elemede masadan çıkanlar (finalde şampiyon, 3.'lük masasında 3.) eşit skorla
     // belirsiz kalırsa, puan turlarında da eşitlik puanı değiştiriyorsa karar beklenir
     const cut = isFinal ? 1 : tournament.advancePerTable;
@@ -936,18 +1006,21 @@ export class TournamentService {
     const tiedRank = current.find(
       (p) => p.participantId === tie.participantIds[0],
     )?.rank;
-    const players = tournament
-      ? ranked.map((p) => ({
-          ...p,
-          points:
-            hasCustomPoints && tie.participantIds.includes(p.participantId)
-              ? dto.points
-              : pointsForRank(
-                  placementPointsFor(tournament, ranked.length),
-                  p.rank,
-                ),
-        }))
-      : ranked;
+    const players = keepSeats(
+      match,
+      tournament
+        ? ranked.map((p) => ({
+            ...p,
+            points:
+              hasCustomPoints && tie.participantIds.includes(p.participantId)
+                ? dto.points
+                : pointsForRank(
+                    placementPointsFor(tournament, ranked.length),
+                    p.rank,
+                  ),
+          }))
+        : ranked,
+    );
     const pendingTie = tournament
       ? findTieAfter(
           players,
@@ -982,6 +1055,9 @@ export class TournamentService {
     afterRound?: number,
   ) {
     const names = new Map(participants.map((p) => [p._id, p.name]));
+    // Hiçbir ölçüt ayırmazsa çekiliş numarası kura yerine geçer (numarası olmayanlar kimliğe göre)
+    const options = standingOptions(tournament, drawNumbersOf(participants));
+    const participantIds = participants.map((p) => p._id);
     const leagueMatches = matches.filter(
       (m) =>
         m.stage === MatchStage.LEAGUE &&
@@ -989,21 +1065,32 @@ export class TournamentService {
         (!afterRound || m.round <= afterRound),
     );
     const leagueStandings = computeStandings(
-      participants.map((p) => p._id),
+      participantIds,
       leagueMatches,
-      standingOptions(tournament),
+      options,
     );
-    const rounds = roundResults(leagueMatches, standingOptions(tournament));
-    return computeFinalRanking(
-      leagueStandings,
-      afterRound
-        ? []
-        : matches.filter((m) => m.stage === MatchStage.ELIMINATION),
-      {
-        shareTies: tournament.format === TournamentFormat.ELIMINATION,
-        advancePerTable: tournament.advancePerTable,
-      },
-    ).map((row) => ({
+    const rounds = roundResults(leagueMatches, options);
+    const eliminationMatches = afterRound
+      ? []
+      : matches.filter((m) => m.stage === MatchStage.ELIMINATION);
+    // Catan (oyun skoru) kuralı: eleme turlarından sonra elenenlerin sırası, eleme sonuçları
+    // eklenmiş güncel puan tablosuna göre güncellenir
+    const playedElimination = eliminationMatches.filter((m) => m.isCompleted);
+    const eliminationOrder =
+      tournament.tiebreaker === Tiebreaker.SCORE && playedElimination.length
+        ? new Map(
+            computeStandings(
+              participantIds,
+              [...leagueMatches, ...playedElimination],
+              options,
+            ).map((row) => [row.participantId, row.rank]),
+          )
+        : undefined;
+    return computeFinalRanking(leagueStandings, eliminationMatches, {
+      shareTies: tournament.format === TournamentFormat.ELIMINATION,
+      advancePerTable: tournament.advancePerTable,
+      eliminationOrder,
+    }).map((row) => ({
       ...row,
       name: names.get(row.participantId),
       rounds: rounds.get(row.participantId) ?? [],
@@ -1086,22 +1173,37 @@ export class TournamentService {
       .exec();
   }
 
-  // Masadan kalkan oyuncudan sonra masada tek kişi kalmamalı; boşalan masa silinir
-  private seatsWithout(match: TournamentMatch, participantId: number) {
+  // Masadan kalkan oyuncudan sonra masada tek kişi kalmamalı; boşalan masa silinir.
+  // Catan eşleşme planında 3'ten az kişiye düşmüş masa istisnadır: görevli o masayı
+  // oyuncuları tek tek taşıyarak boşaltır.
+  private seatsWithout(
+    match: TournamentMatch,
+    participantId: number,
+    canShrinkSmallTable = false,
+  ) {
     const players = match.players.filter(
       (p) => p.participantId !== participantId,
     );
-    if (players.length === 1)
+    if (
+      players.length === 1 &&
+      !(canShrinkSmallTable && match.players.length < 3)
+    )
       throw new BadRequestException(
         'Masada tek kişi kalıyor; önce masaya başka bir oyuncu taşıyın',
       );
     return players;
   }
 
-  // Skoru girilmemiş masada oyuncuların sadece kimliği vardır
+  // Masada kimsenin oturmadığı en küçük başlangıç sırası
+  private freeSeat(players: { seat?: number }[]) {
+    const used = new Set(players.map((p) => p.seat));
+    return [1, 2, 3, 4].find((seat) => !used.has(seat));
+  }
+
+  // Skoru girilmemiş masada oyuncuların kimliği (Catan eşleşme planında başlangıç sırası da) vardır
   private saveSeats(
     match: TournamentMatch,
-    players: { participantId: number }[],
+    players: { participantId: number; seat?: number }[],
   ) {
     return players.length
       ? this.matchModel.findByIdAndUpdate(match._id, { players }).exec()
@@ -1129,6 +1231,48 @@ export class TournamentService {
       throw new BadRequestException(
         'Eleme başladıktan sonra katılımcı eklenemez',
       );
+  }
+
+  // Catan eşleşme planında lig turları numaraya göre kurulur. Numarası olmayan aktif katılımcılar
+  // (ilk çekiliş ya da geç gelenler) rastgele boş numara alır; numaralar tur başarıyla kurulunca
+  // yazılır. Pasif katılımcıların numarası da dolu sayılır, geri dönenin yeri başkasına verilmez.
+  private async catanDrawNumbers(
+    tournament: Tournament,
+    participants: TournamentParticipant[],
+    matches: TournamentMatch[],
+  ) {
+    const all = drawNumbersOf(participants);
+    const created = new Map<number, number>();
+    // Numaralar eleme aşamasında da kura (son eşitlik) ve final dizilişi için gerekir
+    const usesPlan =
+      tournament.pairingMode === PairingMode.CATAN_PLAN &&
+      !matches.some((m) => m.stage === MatchStage.ELIMINATION);
+    if (!usesPlan) return { all, created };
+
+    if (participants.length > CATAN_PLAN_MAX_PLAYERS)
+      throw new BadRequestException(
+        'Catan eşleşme planı en fazla 64 oyuncu için',
+      );
+    const pending = participants.filter((p) => !p.drawNumber).map((p) => p._id);
+    if (!pending.length) return { all, created };
+
+    const numbered = await this.participantModel
+      .find({ tournamentId: tournament._id, drawNumber: { $exists: true } })
+      .exec();
+    try {
+      assignDrawNumbers(
+        numbered.map((p) => p.drawNumber),
+        pending,
+      ).forEach((number, id) => {
+        all.set(id, number);
+        created.set(id, number);
+      });
+    } catch (err) {
+      if (err instanceof RangeError)
+        throw new BadRequestException('Oyunculara verilecek numara kalmadı');
+      throw err;
+    }
+    return { all, created };
   }
 
   private finishTournament(tournamentId: number) {
@@ -1182,6 +1326,20 @@ export class TournamentService {
         );
       if (rules.byePoints === undefined || rules.byePoints === null)
         throw new BadRequestException('Bay puanı girilmeli');
+    }
+    if (rules.pairingMode === PairingMode.CATAN_PLAN) {
+      if (!hasLeague)
+        throw new BadRequestException(
+          'Catan eşleşme planı puan turu olan biçimlerde kullanılır',
+        );
+      if (
+        rules.tableSize !== 4 ||
+        rules.minTableSize !== 3 ||
+        !(rules.leagueRounds >= 1 && rules.leagueRounds <= CATAN_PLAN_ROUNDS)
+      )
+        throw new BadRequestException(
+          'Catan eşleşme planı için masa başına 4 kişi, en küçük masa 3 ve en fazla 3 tur olmalı',
+        );
     }
     if (
       hasElimination &&

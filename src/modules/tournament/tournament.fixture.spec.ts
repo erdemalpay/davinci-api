@@ -317,6 +317,35 @@ describe('computeStandings (oyun skoruyla eşitlik bozma)', () => {
     expect(order(result)).toEqual([3, 6]);
   });
 
+  it('her ölçüt eşitse kura numarasına bakar; numara yoksa kimliğe', () => {
+    const games = [
+      game([1, 10, 1], [3, 5, 2], [4, 5, 3], [5, 5, 4]),
+      game([2, 10, 1], [6, 5, 2], [7, 5, 3], [8, 5, 4]),
+    ];
+    expect(order(computeStandings([1, 2], games, options))).toEqual([1, 2]);
+    const lotNumbers = new Map([
+      [1, 9],
+      [2, 3],
+    ]);
+    expect(
+      order(computeStandings([1, 2], games, { ...options, lotNumbers })),
+    ).toEqual([2, 1]);
+  });
+
+  it('kura numarası ölçütlerden önce gelmez, sadece son eşitliği bozar', () => {
+    const lotNumbers = new Map([
+      [1, 1],
+      [2, 2],
+    ]);
+    const result = computeStandings(
+      [1, 2],
+      [game([2, 10, 1], [3, 5, 2]), game([1, 4, 1], [4, 3, 2])],
+      { ...options, lotNumbers },
+    );
+    // 2: 10 skor, 1: 4 skor; numaraya değil skora bakılır
+    expect(order(result)).toEqual([2, 1]);
+  });
+
   it('bay geçen sınır kadar skor alır, payı yoktur', () => {
     const result = computeStandings(
       [1],
@@ -630,6 +659,90 @@ describe('computeFinalRanking', () => {
       isFinal: true,
       tableRank: undefined,
     });
+  });
+});
+
+describe('computeFinalRanking (yarı final sonrası güncel sıralama)', () => {
+  const league = (ids: number[]) =>
+    ids.map((participantId, i) => ({
+      participantId,
+      rank: i + 1,
+      points: 0,
+      matchesPlayed: 0,
+      byeCount: 0,
+      avgOpponentPoints: 0,
+    }));
+  const table = (round: number, players: [number, number][]) => ({
+    round,
+    isCompleted: true,
+    players: players.map(([participantId, rank]) => ({ participantId, rank })),
+  });
+  const semifinals = [
+    table(1, [
+      [1, 1],
+      [3, 2],
+      [5, 3],
+    ]),
+    table(1, [
+      [2, 1],
+      [4, 2],
+      [6, 3],
+    ]),
+  ];
+  // yarı final sonuçları eklenmiş güncel sıralama (resmi kural 1.3.4)
+  const updated = new Map([
+    [1, 1],
+    [2, 2],
+    [6, 3],
+    [3, 4],
+    [4, 5],
+    [5, 6],
+  ]);
+
+  it('güncel sıralama verilmezse masadaki sıraya, sonra lig sırasına göre dizer', () => {
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5, 6]), semifinals, {
+      advancePerTable: 1,
+    });
+    expect(result.map((r) => r.participantId)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('elenenleri güncel sıralamaya göre dizer, yarı final kazananları üstte kalır', () => {
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5, 6]), semifinals, {
+      advancePerTable: 1,
+      eliminationOrder: updated,
+    });
+    expect(result.map((r) => r.participantId)).toEqual([1, 2, 6, 3, 4, 5]);
+  });
+
+  it('güncel sıralamada daha geride olan kazanan, elenenlerin üstünde kalır', () => {
+    const lowWinner = new Map([
+      [1, 6],
+      [2, 1],
+      [3, 2],
+      [4, 3],
+      [5, 4],
+      [6, 5],
+    ]);
+    const result = computeFinalRanking(league([1, 2, 3, 4, 5, 6]), semifinals, {
+      advancePerTable: 1,
+      eliminationOrder: lowWinner,
+    });
+    expect(result.slice(0, 2).map((r) => r.participantId)).toEqual([2, 1]);
+  });
+
+  it('final oynandıysa ilk dörtte final masasındaki sıra, sonra güncel sıralama gelir', () => {
+    const result = computeFinalRanking(
+      league([1, 2, 3, 4, 5, 6]),
+      [
+        ...semifinals,
+        table(2, [
+          [1, 2],
+          [2, 1],
+        ]),
+      ],
+      { advancePerTable: 1, eliminationOrder: updated },
+    );
+    expect(result.map((r) => r.participantId)).toEqual([2, 1, 6, 3, 4, 5]);
   });
 });
 
