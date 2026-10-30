@@ -1,4 +1,9 @@
 import {
+  CATAN_PLAN_MAX_PLAYERS,
+  CATAN_PLAN_MIN_PLAYERS,
+  planCatanRound,
+} from './tournament.catan-plan';
+import {
   computeStandings,
   pairRound,
   pickAdvancers,
@@ -20,6 +25,7 @@ export enum TournamentFormat {
 export enum PairingMode {
   SWISS = 'swiss',
   RANDOM = 'random',
+  CATAN_PLAN = 'catan_plan', // önceden hazırlanmış Catan oturma planı (numara çekilişi)
 }
 
 export enum MatchStage {
@@ -41,10 +47,14 @@ export interface TournamentRules {
   scoreCap?: number;
 }
 
-export const standingOptions = (rules: TournamentRules): StandingOptions => ({
+export const standingOptions = (
+  rules: TournamentRules,
+  lotNumbers?: Map<number, number>,
+): StandingOptions => ({
   tiebreaker: rules.tiebreaker,
   scoreCap: rules.scoreCap,
   tableSize: rules.tableSize,
+  lotNumbers,
 });
 
 export interface MatchState {
@@ -73,7 +83,9 @@ export interface NextRound {
 export type FixtureErrorCode =
   | 'INCOMPLETE_ROUND'
   | 'NOT_ENOUGH_PARTICIPANTS'
-  | 'NO_PROGRESS';
+  | 'NO_PROGRESS'
+  | 'PLAN_PLAYER_COUNT'
+  | 'PLAN_NUMBERS_MISSING';
 
 export class FixtureError extends Error {
   constructor(readonly code: FixtureErrorCode) {
@@ -95,15 +107,45 @@ const toPlayed = (matches: MatchState[]): PlayedMatch[] =>
     })),
   }));
 
+// Plan numaralara yazıldığı için oyuncu sayısı sadece numaraların çekildiği ilk turda denetlenir;
+// sonraki turlarda ayrılanların koltuğu boş kalır (masa küçülür).
+function nextCatanPlanRound(
+  participantIds: number[],
+  round: number,
+  drawNumbers: Map<number, number>,
+): NextRound {
+  if (
+    round === 1 &&
+    (participantIds.length < CATAN_PLAN_MIN_PLAYERS ||
+      participantIds.length > CATAN_PLAN_MAX_PLAYERS)
+  )
+    throw new FixtureError('PLAN_PLAYER_COUNT');
+  const participantByNumber = new Map<number, number>();
+  for (const id of participantIds) {
+    const number = drawNumbers.get(id);
+    if (number === undefined) throw new FixtureError('PLAN_NUMBERS_MISSING');
+    participantByNumber.set(number, id);
+  }
+  return {
+    stage: MatchStage.LEAGUE,
+    round,
+    tables: planCatanRound(round, participantByNumber),
+    byes: [],
+  };
+}
+
 function nextLeagueRound(
   rules: TournamentRules,
   participantIds: number[],
   league: MatchState[],
   round: number,
   random: () => number,
+  drawNumbers: Map<number, number>,
 ): NextRound {
   if (participantIds.length < rules.minTableSize)
     throw new FixtureError('NOT_ENOUGH_PARTICIPANTS');
+  if (rules.pairingMode === PairingMode.CATAN_PLAN)
+    return nextCatanPlanRound(participantIds, round, drawNumbers);
 
   const previousOpponents = new Map<number, Set<number>>();
   const previousByes = new Set<number>();
@@ -128,7 +170,7 @@ function nextLeagueRound(
       : computeStandings(
           participantIds,
           toPlayed(league),
-          standingOptions(rules),
+          standingOptions(rules, drawNumbers),
         ).map((row) => row.participantId);
 
   const { tables, byes } = pairRound({
@@ -177,10 +219,33 @@ function thirdPlacePlayers(
 
 // Son eleme turu tek masaysa (3.'lük masası sayılmaz) final oynanmıştır → null.
 // Bay geçenler (tek oyunculu, sırası olmayan maç) masa birincisi gibi üst tura çıkar.
+// Catan: finalde sandalye, renk ve başlangıç sırası ön eleme sıralamasına göre seçilir (CWC 1.1.6);
+// bu yüzden üst tura çıkanlar masa sırasına değil ön eleme sıralarına göre dizilir
+function orderByLeagueRank(
+  rules: TournamentRules,
+  participantIds: number[],
+  league: MatchState[],
+  drawNumbers: Map<number, number>,
+  advancers: number[],
+) {
+  const rank = new Map(
+    computeStandings(
+      participantIds,
+      toPlayed(league),
+      standingOptions(rules, drawNumbers),
+    ).map((row) => [row.participantId, row.rank]),
+  );
+  return [...advancers].sort(
+    (a, b) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity),
+  );
+}
+
 function nextEliminationRound(
   rules: TournamentRules,
   participantIds: number[],
   elimination: MatchState[],
+  league: MatchState[],
+  drawNumbers: Map<number, number>,
 ): NextRound | null {
   const round = lastRound(elimination);
   const lastTables = elimination
@@ -212,8 +277,12 @@ function nextEliminationRound(
       .filter((m) => m.isBye)
       .flatMap((m) => m.players.map((p) => p.participantId)),
   );
+  const seeds =
+    rules.tiebreaker === Tiebreaker.SCORE
+      ? orderByLeagueRank(rules, participantIds, league, drawNumbers, advancers)
+      : advancers;
   const pairing = seedEliminationTables(
-    advancers,
+    seeds,
     eliminationTableSize(rules),
     previousByes,
   );
@@ -235,6 +304,7 @@ export function planNextRound(
   participantIds: number[],
   matches: MatchState[],
   random: () => number = Math.random,
+  drawNumbers: Map<number, number> = new Map(),
 ): NextRound | null {
   if (matches.some((m) => !m.isCompleted))
     throw new FixtureError('INCOMPLETE_ROUND');
@@ -242,7 +312,13 @@ export function planNextRound(
   const league = matches.filter((m) => m.stage === MatchStage.LEAGUE);
   const elimination = matches.filter((m) => m.stage === MatchStage.ELIMINATION);
   if (elimination.length)
-    return nextEliminationRound(rules, participantIds, elimination);
+    return nextEliminationRound(
+      rules,
+      participantIds,
+      elimination,
+      league,
+      drawNumbers,
+    );
 
   if (rules.format === TournamentFormat.ELIMINATION)
     return firstEliminationRound(rules, shuffle(participantIds, random));
@@ -255,13 +331,14 @@ export function planNextRound(
       league,
       playedRounds + 1,
       random,
+      drawNumbers,
     );
   if (rules.format === TournamentFormat.LEAGUE) return null;
 
   const standings = computeStandings(
     participantIds,
     toPlayed(league),
-    standingOptions(rules),
+    standingOptions(rules, drawNumbers),
   );
   return firstEliminationRound(
     rules,

@@ -151,7 +151,7 @@ export class TournamentController {
 
   @Get('/:id/participants')
   findParticipants(@Param('id') id: number) {
-    return this.tournamentService.findParticipants(id);
+    return this.tournamentService.findParticipantsWithSchedule(id);
   }
 
   @Post('/:id/participants')

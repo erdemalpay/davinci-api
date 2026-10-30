@@ -17,6 +17,10 @@ export class TournamentMatchPlayer {
   @Prop({ required: false, type: Number })
   points: number;
 
+  // Masadaki başlangıç sırası (1-4); sadece Catan eşleşme planında dolu
+  @Prop({ required: false, type: Number })
+  seat: number;
+
   // Eşit skorda organizatörün üst tura çıkardığı oyuncu
   @Prop({ required: false, type: Boolean })
   wonTieBreak: boolean;

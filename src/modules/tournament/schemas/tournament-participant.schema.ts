@@ -17,6 +17,10 @@ export class TournamentParticipant extends Document {
   @Prop({ required: false, type: Number })
   registrationId: number;
 
+  // Catan eşleşme planında turnuva başında çekilen numara (1-64); diğer modlarda boş
+  @Prop({ required: false, type: Number })
+  drawNumber: number;
+
   // Maç oynamış biri çıkarılırsa silinmez, pasife alınır (geçmiş maçlar bozulmasın)
   @Prop({ required: true, type: Boolean, default: true })
   isActive: boolean;
