@@ -32,7 +32,7 @@ import {
   NegativeStock,
   orderDiscount,
 } from './anomaly.checks';
-import { AnomalyQueryDto, UpdateAnomalyDto } from './anomaly.dto';
+import { AnomalyQueryDto, AnomalyType, UpdateAnomalyDto } from './anomaly.dto';
 import { Anomaly } from './anomaly.schema';
 
 // The activities the checks look at.
@@ -88,6 +88,8 @@ function perDay<K>(rows: { key: K; date: string; value: number }[]) {
   return new Map([...byKey].map(([key, days]) => [key, [...days.values()]]));
 }
 
+const RETIRED_TYPES = ['LONG_OPEN_TABLE', 'MANY_BREAKS'];
+
 @Injectable()
 export class AnomalyService {
   private readonly logger = new Logger(AnomalyService.name);
@@ -121,6 +123,15 @@ export class AnomalyService {
       };
     }
     if (query.location) filter.location = query.location;
+    // Checks that were dropped, and breaks at once from before only a short
+    // staff counted (no people in their details).
+    filter.type = { $nin: RETIRED_TYPES };
+    filter.$nor = [
+      {
+        type: AnomalyType.CONCURRENT_BREAKS,
+        'details.people': { $exists: false },
+      },
+    ];
     return this.anomalyModel.find(filter).sort({ date: -1, _id: 1 }).lean();
   }
 

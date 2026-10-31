@@ -169,12 +169,13 @@ export interface AnomalyDraft {
   details: Record<string, string | number | boolean | undefined>;
 }
 
-export const LONG_OPEN_TABLE_MINUTES = 6 * 60;
 export const EMPTY_TABLE_MINUTES = 60;
 export const LONG_BREAK_MINUTES = 45;
 export const LONG_BUSY_MINUTES = 60;
-export const MANY_BREAKS = 4;
 export const CONCURRENT_BREAK_MINUTES = 5;
+// Breaks at once are fine unless this many or fewer of the people in are
+// left working.
+export const CONCURRENT_BREAK_MAX_WORKING = 1;
 export const LATE_CHECK_OUT_MINUTES = 90;
 export const LONG_WAITING_CALL_MINUTES = 10;
 export const MANY_DECLINES = 5;
@@ -394,20 +395,6 @@ function checkTables(data: DayData): AnomalyDraft[] {
       continue;
     }
     const minutes = minutesBetween(t.startHour, t.finishHour);
-    if (minutes >= LONG_OPEN_TABLE_MINUTES) {
-      found.push({
-        type: AnomalyType.LONG_OPEN_TABLE,
-        severity: AnomalySeverity.LOW,
-        location: t.location,
-        key: `${t._id}`,
-        details: {
-          table: t.name,
-          startHour: t.startHour,
-          finishHour: t.finishHour,
-          minutes,
-        },
-      });
-    }
     const hasOrders = (ordersByTable.get(t._id) ?? []).some(
       (o) => !NOT_COUNTED_ORDER.includes(o.status),
     );
@@ -537,9 +524,7 @@ function checkStaff(data: DayData): AnomalyDraft[] {
     }
   }
 
-  const breaksByUser = new Map<string, DayBreak[]>();
   for (const b of data.breaks) {
-    breaksByUser.set(b.user, [...(breaksByUser.get(b.user) ?? []), b]);
     if (!b.finishHour) continue;
     const minutes = minutesBetween(b.startHour, b.finishHour);
     const isBreak = (b.type ?? BreakTypeEnum.BREAK) === BreakTypeEnum.BREAK;
@@ -557,57 +542,7 @@ function checkStaff(data: DayData): AnomalyDraft[] {
       },
     });
   }
-  for (const [user, breaks] of breaksByUser) {
-    const count = breaks.filter(
-      (b) => (b.type ?? BreakTypeEnum.BREAK) === BreakTypeEnum.BREAK,
-    ).length;
-    if (count < MANY_BREAKS) continue;
-    found.push({
-      type: AnomalyType.MANY_BREAKS,
-      severity: AnomalySeverity.LOW,
-      location: breaks[0].location,
-      user,
-      key: user,
-      details: { count },
-    });
-  }
-
-  // Two people on a break at once.
-  const realBreaks = data.breaks.filter(
-    (b) =>
-      b.finishHour && (b.type ?? BreakTypeEnum.BREAK) === BreakTypeEnum.BREAK,
-  );
-  for (let i = 0; i < realBreaks.length; i++) {
-    for (let j = i + 1; j < realBreaks.length; j++) {
-      const [a, b] = [realBreaks[i], realBreaks[j]];
-      if (a.location !== b.location || a.user === b.user) continue;
-      const from = Math.max(
-        cafeDaySeconds(a.startHour),
-        cafeDaySeconds(b.startHour),
-      );
-      const to = Math.min(
-        cafeDaySeconds(a.finishHour),
-        cafeDaySeconds(b.finishHour),
-      );
-      const minutes = Math.round((to - from) / 60);
-      if (minutes < CONCURRENT_BREAK_MINUTES) continue;
-      const [first, second] = [a.user, b.user].sort((x, y) =>
-        x.localeCompare(y),
-      );
-      found.push({
-        type: AnomalyType.CONCURRENT_BREAKS,
-        severity: AnomalySeverity.LOW,
-        location: a.location,
-        key: `${first}-${second}-${a.startHour}-${b.startHour}`,
-        details: {
-          first,
-          second,
-          from: a.startHour > b.startHour ? a.startHour : b.startHour,
-          minutes,
-        },
-      });
-    }
-  }
+  found.push(...findConcurrentBreaks(data));
 
   for (const a of data.activities) {
     if (a.type !== ActivityType.DELETE_VISIT) continue;
@@ -821,4 +756,87 @@ export function findAnomalies(data: DayData): AnomalyDraft[] {
     ...checkCalls(data),
     ...checkStock(data),
   ];
+}
+
+// Two or more people on a break at once while at most
+// CONCURRENT_BREAK_MAX_WORKING of the people in are left working.
+export function findConcurrentBreaks(data: DayData): AnomalyDraft[] {
+  const found: AnomalyDraft[] = [];
+  const breaks = data.breaks.filter(
+    (b) =>
+      b.finishHour && (b.type ?? BreakTypeEnum.BREAK) === BreakTypeEnum.BREAK,
+  );
+  for (const location of new Set(breaks.map((b) => b.location))) {
+    const here = breaks.filter((b) => b.location === location);
+    const visits = data.visits.filter((v) => v.location === location);
+    // Each moment something changes, with its hour as written.
+    const hours = new Map<number, string>();
+    for (const x of [...here, ...visits]) {
+      hours.set(cafeDaySeconds(x.startHour), x.startHour);
+      if (x.finishHour) hours.set(cafeDaySeconds(x.finishHour), x.finishHour);
+    }
+    const points = [...hours.keys()].sort((x, y) => x - y);
+    const covers = (
+      x: { startHour: string; finishHour?: string },
+      at: number,
+    ) =>
+      cafeDaySeconds(x.startHour) <= at &&
+      (!x.finishHour || at < cafeDaySeconds(x.finishHour));
+
+    let open:
+      | {
+          people: string;
+          from: number;
+          to: number;
+          present: number;
+          working: number;
+        }
+      | undefined;
+    const close = () => {
+      if (!open) return;
+      const minutes = Math.round((open.to - open.from) / 60);
+      if (minutes >= CONCURRENT_BREAK_MINUTES) {
+        found.push({
+          type: AnomalyType.CONCURRENT_BREAKS,
+          severity: AnomalySeverity.MEDIUM,
+          location,
+          key: `${open.people}-${hours.get(open.from)}`,
+          details: {
+            people: open.people,
+            from: hours.get(open.from),
+            to: hours.get(open.to),
+            minutes,
+            present: open.present,
+            working: open.working,
+          },
+        });
+      }
+      open = undefined;
+    };
+    for (let i = 0; i < points.length - 1; i++) {
+      const at = points[i];
+      const onBreak = new Set(
+        here.filter((b) => covers(b, at)).map((b) => b.user),
+      );
+      const present = new Set([
+        ...visits.filter((v) => covers(v, at)).map((v) => v.user),
+        ...onBreak,
+      ]);
+      const working = present.size - onBreak.size;
+      const people = [...onBreak].sort((x, y) => x.localeCompare(y)).join(',');
+      if (onBreak.size < 2 || working > CONCURRENT_BREAK_MAX_WORKING) {
+        close();
+        continue;
+      }
+      if (open?.people !== people) {
+        close();
+        open = { people, from: at, to: at, present: present.size, working };
+      }
+      open.to = points[i + 1];
+      open.present = Math.max(open.present, present.size);
+      open.working = Math.min(open.working, working);
+    }
+    close();
+  }
+  return found;
 }
