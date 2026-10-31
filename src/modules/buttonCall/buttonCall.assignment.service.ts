@@ -102,10 +102,11 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // they're back. As a last resort, when nobody else can take it, the
 // middleman also gets a downstairs service call right away and a game
 // master call that has waited 3 minutes. A middleman who goes to a call
-// (assigned or taken over) leaves the role free: the first game master
-// left free with no call to take (not the upstairs duty) stands in until
-// they're back. There
-// is no middleman from 22:00.
+// (assigned or taken over) or becomes busy (a break, a payment, ...) is
+// away: the first game master left free with no call to take (not the
+// upstairs duty) stands in until they're back. Someone who ends the role
+// by hand gets calls like anyone else while a stand-in keeps it for them.
+// There is no middleman from 22:00.
 //
 // The upstairs duty ("Üstçü") gets the upstairs tables' game master and
 // service calls first. While at most 10 upstairs tables are open, they
@@ -217,6 +218,17 @@ type MiddlemanRecord = {
   location: unknown;
   date: string;
 };
+
+// A middleman record that is there, not away on a call or busy.
+const NOT_AWAY = {
+  awayOnCall: { $exists: false },
+  awayOnBreak: { $exists: false },
+};
+const AWAY = {
+  $or: [{ awayOnCall: { $exists: true } }, { awayOnBreak: { $exists: true } }],
+};
+const isAway = (record: { awayOnCall?: number; awayOnBreak?: number }) =>
+  record.awayOnCall !== undefined || record.awayOnBreak !== undefined;
 
 const today = cafeToday;
 const nowHour = () => cafeHour();
@@ -372,7 +384,7 @@ export class ButtonCallAssignmentService {
         : null,
       middlemanTakesIt
         ? this.middlemanModel
-            .find({ ...open, awayOnCall: { $exists: false } })
+            .find({ ...open, ...NOT_AWAY })
             .select('user')
             .lean()
         : [],
@@ -444,7 +456,7 @@ export class ButtonCallAssignmentService {
         finishHour: { $exists: false },
         // A stand-in doesn't hand over again.
         coveringFor: { $exists: false },
-        awayOnCall: { $exists: false },
+        ...NOT_AWAY,
       })
       .lean();
     const middlemanId = middleman && String(middleman.user);
@@ -538,7 +550,7 @@ export class ButtonCallAssignmentService {
         location: call.location,
         date: call.date,
         finishHour: { $exists: false },
-        awayOnCall: { $exists: false },
+        ...NOT_AWAY,
       },
       { $set: { awayOnCall: call._id } },
     );
@@ -549,15 +561,43 @@ export class ButtonCallAssignmentService {
     }
   }
 
+  // A middleman who becomes busy (a break, recommending a game, taking a
+  // payment, ...) keeps the role but is away until the busy state ends, like
+  // a middleman away on a call.
+  private async markBusyMiddlemenAway(date: string) {
+    const records = await this.middlemanModel
+      .find({ date, finishHour: { $exists: false }, ...NOT_AWAY })
+      .select('user')
+      .lean();
+    for (const record of records) {
+      const busy = await this.breakModel
+        .findOne({
+          user: String(record.user),
+          date,
+          finishHour: { $exists: false },
+        })
+        .select('_id')
+        .lean();
+      if (!busy) continue;
+      const marked = await this.middlemanModel.updateOne(
+        { _id: record._id, finishHour: { $exists: false }, ...NOT_AWAY },
+        { $set: { awayOnBreak: busy._id } },
+      );
+      if (marked.modifiedCount > 0) {
+        this.websocketGateway.emitMiddlemanChanged();
+      }
+    }
+  }
+
   // The first game master left free once the waiting calls are assigned
-  // stands in for a middleman away on a call; the one who waited longest
-  // when several are. Not the upstairs duty.
+  // stands in for a middleman away on a call or busy; the one who waited
+  // longest when several are. Not the upstairs duty.
   private async fillFreeMiddlemanRoles(date: string) {
     const away = await this.middlemanModel
       .find({
         date,
         finishHour: { $exists: false },
-        awayOnCall: { $exists: true },
+        ...AWAY,
       })
       .lean();
     for (const record of away) {
@@ -644,10 +684,7 @@ export class ButtonCallAssignmentService {
       .find({
         date,
         finishHour: { $exists: false },
-        $or: [
-          { coveringFor: { $exists: true } },
-          { awayOnCall: { $exists: true } },
-        ],
+        $or: [{ coveringFor: { $exists: true } }, ...AWAY.$or],
       })
       .lean();
     for (const record of records) {
@@ -693,17 +730,29 @@ export class ButtonCallAssignmentService {
         this.websocketGateway.emitMiddlemanChanged();
         continue;
       }
-      if (await this.isBusyWithCalls(middlemanId, date)) continue;
-      if (
-        isStandIn &&
-        (await this.findRestingMiddlemen(location, date)).has(middlemanId)
-      ) {
+      const keepsStandingIn =
+        (await this.isBusyWithCalls(middlemanId, date)) ||
+        (isStandIn &&
+          (await this.findRestingMiddlemen(location, date)).has(middlemanId));
+      if (keepsStandingIn) {
+        // A stand-in back from a call or a busy state is there again.
+        if (
+          isStandIn &&
+          isAway(record) &&
+          !(await this.isBusyWithCalls(String(record.user), date))
+        ) {
+          await this.middlemanModel.updateOne(
+            { _id: record._id, finishHour: { $exists: false } },
+            { $unset: { awayOnCall: '', awayOnBreak: '' } },
+          );
+          this.websocketGateway.emitMiddlemanChanged();
+        }
         continue;
       }
       if (!isStandIn) {
         await this.middlemanModel.updateOne(
           { _id: record._id, finishHour: { $exists: false } },
-          { $unset: { awayOnCall: '' } },
+          { $unset: { awayOnCall: '', awayOnBreak: '' } },
         );
         this.websocketGateway.emitMiddlemanChanged();
         continue;
@@ -1401,6 +1450,7 @@ export class ButtonCallAssignmentService {
   async assignPendingCalls() {
     try {
       await this.endMiddlemenWithoutGameMasters(today());
+      await this.markBusyMiddlemenAway(today());
       await this.handBackMiddlemen(today());
       await this.updateUpstairsDuties(today());
       await this.releaseCallsOfExplainers(today());
@@ -1868,14 +1918,31 @@ export class ButtonCallAssignmentService {
     };
   }
 
-  // The middlemen, and a middleman away on a call while someone stands in.
+  // The middlemen, and a middleman away while someone stands in. Someone
+  // who ended the role by hand gets calls like anyone else meanwhile.
   private async findMiddlemanIds(date: string) {
     const records = await this.middlemanModel
       .find({ date, finishHour: { $exists: false } })
-      .select('user coveringFor')
+      .select('user coveringFor location')
       .lean();
+    const resting = new Set<string>();
+    const locations = new Set(
+      records.filter((r) => r.coveringFor).map((r) => Number(r.location)),
+    );
+    for (const location of locations) {
+      for (const id of await this.findRestingMiddlemen(location, date)) {
+        resting.add(id);
+      }
+    }
     return records.flatMap((r) =>
-      [r.user, r.coveringFor].filter(Boolean).map(String),
+      [
+        r.user,
+        r.coveringFor && !resting.has(String(r.coveringFor))
+          ? r.coveringFor
+          : undefined,
+      ]
+        .filter(Boolean)
+        .map(String),
     );
   }
 
