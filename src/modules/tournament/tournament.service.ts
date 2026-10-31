@@ -1259,7 +1259,7 @@ export class TournamentService {
   ) {
     const all = drawNumbersOf(participants);
     const created = new Map<number, number>();
-    let planSize = CATAN_PLAN_MAX_PLAYERS;
+    const planSize = CATAN_PLAN_MAX_PLAYERS;
     // Numaralar eleme aşamasında da kura (son eşitlik) ve final dizilişi için gerekir
     const usesPlan =
       tournament.pairingMode === PairingMode.CATAN_PLAN &&
