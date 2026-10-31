@@ -77,12 +77,14 @@ export class MiddlemanService {
       });
 
       // Taking the role yourself makes you the day's middleman. Only a
-      // middleman who is there (not away on a call, not just standing in)
-      // keeps it.
+      // middleman who is there (not away on a call or busy, not just
+      // standing in) keeps it.
       const replaces =
         !!existingActive &&
         String(extractRefId(existingActive.user)) !== createMiddlemanDto.user &&
-        (!!existingActive.awayOnCall || !!existingActive.coveringFor);
+        (!!existingActive.awayOnCall ||
+          !!existingActive.awayOnBreak ||
+          !!existingActive.coveringFor);
       if (existingActive && !replaces) {
         throw new HttpException(
           'There is already an active middleman for this location',

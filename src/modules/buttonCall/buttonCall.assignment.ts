@@ -412,7 +412,8 @@ export function findMiddlemanHoursStaff(
 }
 
 // A day counts for one middleman only: whoever was the middleman (not a
-// stand-in) the longest that day, at least this long.
+// stand-in) the longest that day, at least this long. Time away on a call
+// or busy while keeping the role counts too.
 export const MIDDLEMAN_DAY_MIN_MINUTES = 2 * 60;
 
 export interface MiddlemanRecord {
@@ -431,7 +432,7 @@ export function findMainMiddlemen(
 ): { date: string; location: number; user: string }[] {
   const minutesByDay = new Map<string, Map<string, number>>();
   for (const r of records) {
-    if (r.coveringFor || r.awayOnCall || !r.finishHour) continue;
+    if (r.coveringFor || !r.finishHour) continue;
     const minutes =
       (cafeDaySeconds(r.finishHour) - cafeDaySeconds(r.startHour)) / 60;
     const key = `${r.date}|${r.location}`;
