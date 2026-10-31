@@ -55,6 +55,8 @@ export interface DayCollection {
   createdBy?: string;
   cancelledBy?: string;
   cancelledAt?: Date;
+  createdAt?: Date;
+  orders?: { order: number; paidQuantity: number }[];
 }
 
 export interface DayActivity {
@@ -71,6 +73,7 @@ export interface DayActivity {
     date?: string;
   };
   hour: string;
+  at?: Date;
 }
 
 export interface DayVisit {
@@ -233,16 +236,27 @@ function checkMoney(data: DayData): AnomalyDraft[] {
   const tableById = new Map(data.tables.map((t) => [t._id, t]));
   const orderById = new Map(data.orders.map((o) => [o._id, o]));
 
-  // Orders cancelled or discounted after they were (partly) paid.
+  // Orders cancelled or discounted after they were (partly) paid: taken in a
+  // payment that wasn't cancelled by then. An order's own paidQuantity can't
+  // tell: a 100% discount (a treat) marks it paid, any other one resets it.
+  const wasPaidBefore = (order: number, at?: Date) =>
+    !!at &&
+    data.collections.some(
+      (c) =>
+        c.createdAt &&
+        new Date(c.createdAt) < at &&
+        (c.status !== OrderCollectionStatus.CANCELLED ||
+          (!!c.cancelledAt && new Date(c.cancelledAt) > at)) &&
+        c.orders?.some((o) => o.order === order && o.paidQuantity > 0),
+    );
   for (const a of data.activities) {
-    if (!(a.payload?.paidQuantity > 0)) continue;
     const type =
       a.type === ActivityType.CANCEL_ORDER
         ? AnomalyType.CANCELLED_AFTER_PAYMENT
         : a.type === ActivityType.ORDER_DISCOUNT
         ? AnomalyType.DISCOUNTED_AFTER_PAYMENT
         : undefined;
-    if (!type) continue;
+    if (!type || !wasPaidBefore(a.payload?._id, a.at)) continue;
     const order = orderById.get(a.payload._id);
     found.push({
       type,
