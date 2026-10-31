@@ -42,6 +42,11 @@ export class Middleman extends Document {
   @Prop({ type: Number })
   awayOnCall?: number;
 
+  // The middleman became busy (this break record: a break, a payment, ...)
+  // and keeps the role: like awayOnCall until the busy state ends.
+  @Prop({ type: Number })
+  awayOnBreak?: number;
+
   // Ended by the middleman or a manager (not by the system): the system
   // doesn't make them the middleman again for a while.
   @Prop()
