@@ -2060,43 +2060,35 @@ export class AccountingService {
 
   async findQueryStocks(user: User, query: StockQueryDto) {
     const { after, location } = query;
-    const filterQuery: Record<string, unknown> = {};
-    if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
-    }
-    const stocks = await this.stockModel.find();
+    const stocks = await this.findAllStocks();
     if (!after) {
       return stocks;
     }
+    const filterQuery: Record<string, unknown> = {
+      createdAt: { $gte: new Date(after) },
+    };
     if (location) {
       filterQuery['location'] = Number(location);
     }
     try {
-      const filteredStocks = [];
-      const stockHistory = await this.productStockHistoryModel.find(
-        filterQuery,
-      );
-      for (const stock of stocks) {
-        const productStockHistory = stockHistory.filter(
-          (history) =>
-            history.product.toString() === stock.product.toString() &&
-            history.location === stock.location,
-        );
-        const changeSum = productStockHistory.reduce(
-          (acc, history) => acc + history.change * -1,
-          0,
-        );
-        if (productStockHistory.length > 0) {
-          stock.quantity += changeSum;
-        }
-        filteredStocks.push({
-          _id: stock._id,
-          product: stock.product,
-          location: Number(stock.location),
-          quantity: stock.quantity,
-        });
+      const stockHistory = await this.productStockHistoryModel
+        .find(filterQuery)
+        .select('product location change')
+        .lean();
+      // Geçmiş her stok için baştan taranmasın: ürün|konum → geri alınacak miktar
+      const reverted = new Map<string, number>();
+      for (const history of stockHistory) {
+        const key = `${history.product}|${history.location}`;
+        reverted.set(key, (reverted.get(key) ?? 0) - history.change);
       }
-      return filteredStocks;
+      return stocks.map((stock) => ({
+        _id: stock._id,
+        product: stock.product,
+        location: Number(stock.location),
+        quantity:
+          stock.quantity +
+          (reverted.get(`${stock.product}|${stock.location}`) ?? 0),
+      }));
     } catch (error) {
       throw new HttpException(
         'Failed to fetch and process stocks due to an internal error',
