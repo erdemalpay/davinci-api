@@ -232,6 +232,12 @@ describe('VisitService.notifyUnfinishedVisits', () => {
     expect(
       notificationService.createNotification.mock.calls[1][0].selectedUsers,
     ).toEqual(['ceren']);
+    // Personel bildirimi şablondaki yönetici rollerine gitmesin
+    expect(
+      notificationService.createNotification.mock.calls.map(
+        (call) => call[0].isPersonal,
+      ),
+    ).toEqual([undefined, true]);
   });
 
   it.each([
