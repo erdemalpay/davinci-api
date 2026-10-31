@@ -216,7 +216,7 @@ export class AnomalyService {
       this.collectionModel
         .find({ table: { $in: tableIds } })
         .select(
-          'table location amount status createdBy cancelledBy cancelledAt',
+          'table location amount status createdBy cancelledBy cancelledAt createdAt orders',
         )
         .lean(),
       this.activityModel
@@ -294,6 +294,7 @@ export class AnomalyService {
           type: a.type,
           payload: a.payload as DayActivity['payload'],
           hour: toCafeDay((a as unknown as { createdAt: Date }).createdAt).hour,
+          at: (a as unknown as { createdAt: Date }).createdAt,
         })),
       visits: visits.map((v) => ({
         user: String(v.user),
