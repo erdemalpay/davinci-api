@@ -837,15 +837,48 @@ describe('TournamentService.generateNextRound (Catan eşleşme planı)', () => {
     );
   });
 
-  it('49 kişiden azını Türkçe hatayla reddeder, numara yazmaz', async () => {
+  it('29 kişiden azını Türkçe hatayla reddeder, numara yazmaz', async () => {
     const { service, participantModel } = createService({
       tournament: catanTournament,
-      participants: people(40),
+      participants: people(28),
     });
     await expect(service.generateNextRound(1)).rejects.toThrow(
-      'Catan eşleşme planı 49-64 oyuncu için',
+      'Catan eşleşme planı 29-64 oyuncu için',
     );
     expect(participantModel.bulkWrite).not.toHaveBeenCalled();
+  });
+
+  it('41 kişiye 1-41 numarası çeker, resmi 41-44 planıyla 3 masayı 3 kişilik kurar', async () => {
+    const { service, participantModel, matchModel } = createService({
+      tournament: catanTournament,
+      participants: people(41),
+    });
+    await service.generateNextRound(1);
+
+    const drawn = participantModel.bulkWrite.mock.calls[0][0].map(
+      (u) => u.updateOne.update.drawNumber,
+    );
+    expect([...drawn].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 41 }, (_, i) => i + 1),
+    );
+    const docs = matchModel.create.mock.calls[0][0];
+    expect(docs).toHaveLength(11);
+    expect(docs.filter((d) => d.players.length === 3)).toHaveLength(3);
+    expect(docs.filter((d) => d.players.length === 4)).toHaveLength(8);
+  });
+
+  it('44 kişilik planda geç gelene numara kalmadığında Türkçe hata verir', async () => {
+    const participants = [
+      ...people(44).map((p) => ({ ...p, drawNumber: p._id })),
+      { _id: 99 },
+    ];
+    const { service } = createService({
+      tournament: catanTournament,
+      participants,
+    });
+    await expect(service.generateNextRound(1)).rejects.toThrow(
+      'Oyunculara verilecek numara kalmadı',
+    );
   });
 
   it('tur 2 numaraları korur ve planın ikinci turunu kurar', async () => {
@@ -1230,7 +1263,10 @@ describe('TournamentService.findLiveBySlug', () => {
     const { service, participantModel, matchModel } = createService();
     const sorted = (value: unknown) => ({ sort: () => query(value) });
     participantModel.find.mockReturnValue(
-      sorted([{ _id: 4, name: 'Ayşe', isActive: true, drawNumber: 1 }]),
+      sorted([
+        { _id: 4, name: 'Ayşe', isActive: true, drawNumber: 1 },
+        { _id: 5, name: 'Can', isActive: true, drawNumber: 62 },
+      ]),
     );
     matchModel.find.mockReturnValue(sorted([]));
     const live = await service.findLiveBySlug('catan');
