@@ -403,10 +403,26 @@ describe('planNextRound (Catan eşleşme planı)', () => {
     expect(round.tables[0].seats).toEqual([1, 2, 3, 4]);
   });
 
-  it('48 kişiyle ilk turu kurmaz', () => {
+  it('28 kişiyle ilk turu kurmaz', () => {
     expect(() =>
-      planNextRound(catanRules(), ids(48), [], undefined, numbersFor(48)),
+      planNextRound(catanRules(), ids(28), [], undefined, numbersFor(28), 32),
     ).toThrow(new FixtureError('PLAN_PLAYER_COUNT'));
+  });
+
+  it('48 kişiyle resmi 45-48 planından 12 masayı 4er kişilik kurar', () => {
+    const round = planNextRound(
+      catanRules(),
+      ids(48),
+      [],
+      undefined,
+      numbersFor(48),
+      48,
+    );
+    expect(round.tables).toHaveLength(12);
+    round.tables.forEach((t) => {
+      expect(t.participantIds).toHaveLength(4);
+      expect(t.seats).toHaveLength(4);
+    });
   });
 
   it('65 kişiyle ilk turu kurmaz', () => {

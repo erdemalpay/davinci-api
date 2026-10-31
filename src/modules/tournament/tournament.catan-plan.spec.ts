@@ -1,6 +1,8 @@
 import {
   assignDrawNumbers,
   CATAN_PLAN_64,
+  catanPlanFor,
+  catanPlanSize,
   catanSchedule,
   planCatanRound,
 } from './tournament.catan-plan';
@@ -117,7 +119,7 @@ describe('assignDrawNumbers', () => {
 
 describe('planCatanRound', () => {
   it('64 kişide 16 masa, hepsi 4 kişilik; masa ve sıra planla aynı', () => {
-    const tables = planCatanRound(1, byNumber(64));
+    const tables = planCatanRound(1, byNumber(64), CATAN_PLAN_64);
     expect(tables).toHaveLength(16);
     tables.forEach((t) => expect(t.participantIds).toHaveLength(4));
     expect(tables[0]).toEqual({
@@ -129,7 +131,7 @@ describe('planCatanRound', () => {
 
   it('62 kişide (63, 64 boş) 3 kişilik masalar planın söylediği yerlerde', () => {
     const smallTables = (round: number) =>
-      planCatanRound(round, byNumber(62))
+      planCatanRound(round, byNumber(62), CATAN_PLAN_64)
         .filter((t) => t.participantIds.length === 3)
         .map((t) => t.tableNo);
     expect(smallTables(1)).toEqual([6, 9]);
@@ -138,7 +140,7 @@ describe('planCatanRound', () => {
   });
 
   it('gelmeyen numaranın koltuğunu atlar, diğerlerinin sırası değişmez', () => {
-    const tables = planCatanRound(1, byNumber(62));
+    const tables = planCatanRound(1, byNumber(62), CATAN_PLAN_64);
     expect(tables.find((t) => t.tableNo === 6)).toEqual({
       tableNo: 6,
       participantIds: [1011, 1027, 1043],
@@ -149,7 +151,7 @@ describe('planCatanRound', () => {
   it('49-64 arası her katılımcı sayısında hiçbir masa 3 kişiden az olmaz', () => {
     for (let count = 49; count <= 64; count++)
       [1, 2, 3].forEach((round) =>
-        planCatanRound(round, byNumber(count)).forEach((t) =>
+        planCatanRound(round, byNumber(count), CATAN_PLAN_64).forEach((t) =>
           expect(t.participantIds.length).toBeGreaterThanOrEqual(3),
         ),
       );
@@ -157,8 +159,117 @@ describe('planCatanRound', () => {
 
   it('tamamen boş kalan masa yazılmaz', () => {
     const only = new Map([[1, 1001]]);
-    expect(planCatanRound(1, only)).toEqual([
+    expect(planCatanRound(1, only, CATAN_PLAN_64)).toEqual([
       { tableNo: 16, participantIds: [1001], seats: [1] },
     ]);
   });
+});
+
+describe('29-48 kişi için resmi planlar', () => {
+  const SIZES = [32, 36, 40, 44, 48];
+
+  it('plan büyüklüğü 4ün katına yuvarlanır, 49dan sonra 61-64 planı gelir', () => {
+    expect(catanPlanSize(29)).toBe(32);
+    expect(catanPlanSize(41)).toBe(44);
+    expect(catanPlanSize(48)).toBe(48);
+    expect(catanPlanSize(49)).toBe(64);
+    expect(catanPlanSize(62)).toBe(64);
+    expect(catanPlanFor(64)).toBe(CATAN_PLAN_64);
+  });
+
+  it.each(SIZES)(
+    '%i kişilik plan: 3 tur, her çift en çok bir kez karşılaşır, herkes 3 farklı sıra alır, son 3 numara ayrı masada',
+    (size) => {
+      const plan = catanPlanFor(size);
+      expect(plan).toHaveLength(3);
+      const met = new Set<string>();
+      const seats = new Map<number, Set<number>>();
+      plan.forEach((tables) => {
+        expect(tables).toHaveLength(size / 4);
+        expect(tables.flat().sort((a, b) => a - b)).toEqual(numbers(size));
+        tables.forEach((table) => {
+          expect(table.filter((n) => n > size - 3).length).toBeLessThanOrEqual(
+            1,
+          );
+          table.forEach((a, i) => {
+            const set = seats.get(a) ?? new Set<number>();
+            seats.set(a, set.add(i));
+            table.slice(i + 1).forEach((b) => {
+              const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+              expect(met.has(key)).toBe(false);
+              met.add(key);
+            });
+          });
+        });
+      });
+      seats.forEach((set) => expect(set.size).toBe(3));
+    },
+  );
+
+  it('41 kişide numaralar 1..41 çekilir, her turda 3 masa 3, kalanı 4 kişilik olur', () => {
+    const ids = numbers(41).map((n) => n + 1000);
+    const drawn = assignDrawNumbers([], ids, seeded(3));
+    expect([...drawn.values()].sort((a, b) => a - b)).toEqual(numbers(41));
+
+    const byDrawn = new Map([...drawn].map(([id, n]) => [n, id]));
+    for (const round of [1, 2, 3]) {
+      const sizes = planCatanRound(round, byDrawn, catanPlanFor(44))
+        .map((t) => t.participantIds.length)
+        .sort();
+      expect(sizes).toEqual([3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4]);
+    }
+  });
+
+  it('geç gelen planın boş numarasını alır, plan dolunca numara verilmez', () => {
+    expect(assignDrawNumbers(numbers(41), [9000], seeded(1)).get(9000)).toBe(
+      42,
+    );
+    expect(() => assignDrawNumbers(numbers(44), [9000], seeded(1))).toThrow(
+      RangeError,
+    );
+  });
+
+  it('numaranın programı resmi plandan okunur', () => {
+    const plan = catanPlanFor(44);
+    const schedule = catanSchedule(5, plan);
+    expect(schedule).toHaveLength(3);
+    schedule.forEach(({ round, tableNo, seat }) =>
+      expect(plan[round - 1][tableNo - 1][seat - 1]).toBe(5),
+    );
+    expect(catanSchedule(45, plan)).toEqual([]);
+  });
+});
+
+describe('29-64 arası her katılımcı sayısı', () => {
+  it.each(numbers(36).map((i) => i + 28))(
+    '%i kişi: herkes her turda oturur, masalar 3-4 kişi, kimse iki kez karşılaşmaz, 3 farklı sıra',
+    (count) => {
+      const ids = numbers(count).map((n) => n + 1000);
+      const drawn = assignDrawNumbers([], ids, seeded(count));
+      const byDrawn = new Map([...drawn].map(([id, n]) => [n, id]));
+      const plan = catanPlanFor(catanPlanSize(count));
+
+      const met = new Set<string>();
+      const seats = new Map<number, Set<number>>();
+      for (const round of [1, 2, 3]) {
+        const tables = planCatanRound(round, byDrawn, plan);
+        expect(tables.flatMap((t) => t.participantIds).sort()).toEqual(
+          [...ids].sort(),
+        );
+        tables.forEach((t) => {
+          expect([3, 4]).toContain(t.participantIds.length);
+          t.participantIds.forEach((a, i) => {
+            const set = seats.get(a) ?? new Set<number>();
+            seats.set(a, set.add(t.seats[i]));
+            t.participantIds.slice(i + 1).forEach((b) => {
+              const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+              expect(met.has(key)).toBe(false);
+              met.add(key);
+            });
+          });
+        });
+      }
+      seats.forEach((set) => expect(set.size).toBe(3));
+    },
+  );
 });
