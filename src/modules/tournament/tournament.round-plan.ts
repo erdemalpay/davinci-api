@@ -1,6 +1,7 @@
 import {
   CATAN_PLAN_MAX_PLAYERS,
   CATAN_PLAN_MIN_PLAYERS,
+  catanPlanFor,
   planCatanRound,
 } from './tournament.catan-plan';
 import {
@@ -113,6 +114,7 @@ function nextCatanPlanRound(
   participantIds: number[],
   round: number,
   drawNumbers: Map<number, number>,
+  planSize: number,
 ): NextRound {
   if (
     round === 1 &&
@@ -129,7 +131,7 @@ function nextCatanPlanRound(
   return {
     stage: MatchStage.LEAGUE,
     round,
-    tables: planCatanRound(round, participantByNumber),
+    tables: planCatanRound(round, participantByNumber, catanPlanFor(planSize)),
     byes: [],
   };
 }
@@ -141,11 +143,12 @@ function nextLeagueRound(
   round: number,
   random: () => number,
   drawNumbers: Map<number, number>,
+  planSize: number,
 ): NextRound {
   if (participantIds.length < rules.minTableSize)
     throw new FixtureError('NOT_ENOUGH_PARTICIPANTS');
   if (rules.pairingMode === PairingMode.CATAN_PLAN)
-    return nextCatanPlanRound(participantIds, round, drawNumbers);
+    return nextCatanPlanRound(participantIds, round, drawNumbers, planSize);
 
   const previousOpponents = new Map<number, Set<number>>();
   const previousByes = new Set<number>();
@@ -305,6 +308,7 @@ export function planNextRound(
   matches: MatchState[],
   random: () => number = Math.random,
   drawNumbers: Map<number, number> = new Map(),
+  planSize: number = CATAN_PLAN_MAX_PLAYERS,
 ): NextRound | null {
   if (matches.some((m) => !m.isCompleted))
     throw new FixtureError('INCOMPLETE_ROUND');
@@ -332,6 +336,7 @@ export function planNextRound(
       playedRounds + 1,
       random,
       drawNumbers,
+      planSize,
     );
   if (rules.format === TournamentFormat.LEAGUE) return null;
 

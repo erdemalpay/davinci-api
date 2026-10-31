@@ -40,6 +40,8 @@ import {
   assignDrawNumbers,
   CATAN_PLAN_MAX_PLAYERS,
   CATAN_PLAN_ROUNDS,
+  catanPlanFor,
+  catanPlanSize,
   catanSchedule,
 } from './tournament.catan-plan';
 import {
@@ -108,6 +110,17 @@ const drawNumbersOf = (participants: TournamentParticipant[]) => {
   return numbers;
 };
 
+// Katılımcının çekiliş numarasına göre 3 turluk masası ve sırası; plan, verilmiş en büyük numaradan
+// seçilir (pasif katılımcılar dahil, böylece plan tur ortasında değişmez)
+const scheduleOf = (participants: TournamentParticipant[]) => {
+  const numbers = participants.map((p) => p.drawNumber).filter(Boolean);
+  const plan = numbers.length
+    ? catanPlanFor(catanPlanSize(Math.max(...numbers)))
+    : undefined;
+  return (drawNumber?: number) =>
+    drawNumber && plan ? catanSchedule(drawNumber, plan) : undefined;
+};
+
 // Skor girilince maçtaki oyuncu satırları yeniden yazılır; Catan eşleşme planındaki başlangıç
 // sırası (seat) bu sırada kaybolmasın diye satırlara geri eklenir
 const keepSeats = <T extends { participantId: number }>(
@@ -128,7 +141,7 @@ const FIXTURE_ERROR_MESSAGES: Record<FixtureErrorCode, string> = {
   NO_PROGRESS:
     'Masadan çıkacak kişi sayısı oyuncu sayısını azaltmıyor, ayarları kontrol edin',
   PLAN_PLAYER_COUNT:
-    'Catan eşleşme planı 49-64 oyuncu için; bu turnuvada rastgele eşleşmeyi seçin',
+    'Catan eşleşme planı 29-64 oyuncu için; bu turnuvada rastgele eşleşmeyi seçin',
   PLAN_NUMBERS_MISSING: 'Oyunculara numara atanamadı',
 };
 
@@ -248,6 +261,7 @@ export class TournamentService {
       this.findParticipants(tournament._id),
       this.findMatches(tournament._id),
     ]);
+    const schedule = scheduleOf(participants);
     return {
       tournament,
       participants: participants.map(({ _id, name, isActive, drawNumber }) => ({
@@ -255,7 +269,7 @@ export class TournamentService {
         name,
         isActive,
         drawNumber,
-        schedule: drawNumber ? catanSchedule(drawNumber) : undefined,
+        schedule: schedule(drawNumber),
       })),
       matches,
       standings: this.rankParticipants(
@@ -592,9 +606,10 @@ export class TournamentService {
   // Panelin katılımcı listesi: Catan eşleşme planında numaranın 3 turluk masası ve sırası
   async findParticipantsWithSchedule(tournamentId: number) {
     const participants = await this.findParticipants(tournamentId);
+    const schedule = scheduleOf(participants);
     return participants.map((p) => ({
       ...p.toObject(),
-      schedule: p.drawNumber ? catanSchedule(p.drawNumber) : undefined,
+      schedule: schedule(p.drawNumber),
     }));
   }
 
@@ -815,6 +830,7 @@ export class TournamentService {
         matches,
         undefined,
         drawNumbers.all,
+        drawNumbers.planSize,
       );
     } catch (err) {
       if (err instanceof FixtureError)
@@ -1243,22 +1259,31 @@ export class TournamentService {
   ) {
     const all = drawNumbersOf(participants);
     const created = new Map<number, number>();
+    const planSize = CATAN_PLAN_MAX_PLAYERS;
     // Numaralar eleme aşamasında da kura (son eşitlik) ve final dizilişi için gerekir
     const usesPlan =
       tournament.pairingMode === PairingMode.CATAN_PLAN &&
       !matches.some((m) => m.stage === MatchStage.ELIMINATION);
-    if (!usesPlan) return { all, created };
+    if (!usesPlan) return { all, created, planSize };
 
     if (participants.length > CATAN_PLAN_MAX_PLAYERS)
       throw new BadRequestException(
         'Catan eşleşme planı en fazla 64 oyuncu için',
       );
     const pending = participants.filter((p) => !p.drawNumber).map((p) => p._id);
-    if (!pending.length) return { all, created };
 
-    const numbered = await this.participantModel
-      .find({ tournamentId: tournament._id, drawNumber: { $exists: true } })
-      .exec();
+    const numbered = (
+      await this.participantModel
+        .find({ tournamentId: tournament._id, drawNumber: { $exists: true } })
+        .exec()
+    ).filter((p) => p.drawNumber);
+    // Plan büyüklüğü ilk çekilişte belli olur; pasif katılımcıların numarası da sayılır ki
+    // oyuncu ayrılınca plan değişmesin
+    const planSizeOf = () =>
+      catanPlanSize(
+        Math.max(...numbered.map((p) => p.drawNumber), ...created.values()),
+      );
+    if (!pending.length) return { all, created, planSize: planSizeOf() };
     try {
       assignDrawNumbers(
         numbered.map((p) => p.drawNumber),
@@ -1272,7 +1297,7 @@ export class TournamentService {
         throw new BadRequestException('Oyunculara verilecek numara kalmadı');
       throw err;
     }
-    return { all, created };
+    return { all, created, planSize: planSizeOf() };
   }
 
   private finishTournament(tournamentId: number) {

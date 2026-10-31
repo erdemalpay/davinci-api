@@ -1,7 +1,8 @@
+import { CATAN_OFFICIAL_PLANS } from './tournament.catan-official-plans';
 import { shuffle, TableAssignment } from './tournament.fixture';
 
 export const CATAN_PLAN_ROUNDS = 3;
-export const CATAN_PLAN_MIN_PLAYERS = 49;
+export const CATAN_PLAN_MIN_PLAYERS = 29;
 export const CATAN_PLAN_MAX_PLAYERS = 64;
 
 // Alman Catan şampiyonası "Spielplan 61-64 Spieler*innen" (2024). [tur][masa][sıra] = oyuncu numarası.
@@ -29,6 +30,18 @@ export const CATAN_PLAN_64: number[][][] = [
   ],
 ];
 
+// Plan, katılımcı sayısına göre seçilir: Alman şampiyonasının resmi planları 4'er kişilik
+// aralıklarla hazırdır (29-32, 33-36, ... 61-64) ve aralığın en büyük sayısı için yazılmıştır;
+// gelmeyen en büyük numaraların koltuğu boş kalır. Sayı olarak ilk çekilişteki oyuncu sayısı ya
+// da verilmiş en büyük numara verilir.
+export const catanPlanSize = (players: number) =>
+  players > 48
+    ? CATAN_PLAN_MAX_PLAYERS
+    : Math.max(32, Math.ceil(players / 4) * 4);
+
+export const catanPlanFor = (size: number): number[][][] =>
+  size === CATAN_PLAN_MAX_PLAYERS ? CATAN_PLAN_64 : CATAN_OFFICIAL_PLANS[size];
+
 export interface CatanPlanSlot {
   round: number;
   tableNo: number;
@@ -36,9 +49,12 @@ export interface CatanPlanSlot {
 }
 
 // Bir numaranın 3 turdaki masası ve başlangıç sırası
-export const catanSchedule = (drawNumber: number): CatanPlanSlot[] => {
-  if (drawNumber < 1 || drawNumber > CATAN_PLAN_MAX_PLAYERS) return [];
-  return CATAN_PLAN_64.map((tables, roundIndex) => {
+export const catanSchedule = (
+  drawNumber: number,
+  plan: number[][][] = CATAN_PLAN_64,
+): CatanPlanSlot[] => {
+  if (drawNumber < 1 || drawNumber > plan[0].flat().length) return [];
+  return plan.map((tables, roundIndex) => {
     const tableIndex = tables.findIndex((numbers) =>
       numbers.includes(drawNumber),
     );
@@ -52,16 +68,19 @@ export const catanSchedule = (drawNumber: number): CatanPlanSlot[] => {
 
 // Numarası olmayanlar karıştırılıp boş numaraların küçüğünden başlayarak dağıtılır:
 // ilk çekilişte 1..N alınır (boş kalanlar en büyükler), geç gelen en küçük boş numarayı alır.
+// Numaralar planın büyüklüğünü aşamaz; plan ilk çekilişte seçilir ve sonradan değişmez.
 export function assignDrawNumbers(
   takenNumbers: Iterable<number>,
   participantIds: number[],
   random: () => number = Math.random,
 ): Map<number, number> {
   const taken = new Set(takenNumbers);
-  const free = Array.from(
-    { length: CATAN_PLAN_MAX_PLAYERS },
-    (_, i) => i + 1,
-  ).filter((number) => !taken.has(number));
+  const size = catanPlanSize(
+    taken.size ? Math.max(...taken) : participantIds.length,
+  );
+  const free = Array.from({ length: size }, (_, i) => i + 1).filter(
+    (number) => !taken.has(number),
+  );
   if (participantIds.length > free.length)
     throw new RangeError('Boş numara kalmadı');
   return new Map(shuffle(participantIds, random).map((id, i) => [id, free[i]]));
@@ -72,8 +91,9 @@ export function assignDrawNumbers(
 export function planCatanRound(
   round: number,
   participantByNumber: Map<number, number>,
+  plan: number[][][],
 ): TableAssignment[] {
-  const tables = CATAN_PLAN_64[round - 1] ?? [];
+  const tables = plan[round - 1] ?? [];
   return tables.flatMap((numbers, tableIndex) => {
     const seated = numbers.flatMap((number, seatIndex) => {
       const participantId = participantByNumber.get(number);
