@@ -119,7 +119,9 @@ import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 // A barista helps only when no order is being prepared, nobody is at a
 // table for a service call (they'll likely bring an order) and the table is
 // downstairs. The bar chef runs the bar only on days they are marked
-// outside operation; any other day they work as a barista.
+// outside operation; any other day they work as a barista. The bar chef
+// running the bar gets a call only once it has waited 2 minutes and still
+// nobody else can take it.
 //
 // Nobody else marked outside operation for the day gets any call.
 const SERVICE_CALL_ROLES = [
@@ -162,6 +164,10 @@ function gmCallTier(role: number, isLastResort: boolean) {
   return 0;
 }
 
+// The bar chef running the bar (marked outside operation for the day).
+const BAR_CHEF_RUNNING_BAR_TIER = 4;
+const BAR_CHEF_AFTER_WAITING_SECONDS = 2 * 60;
+
 function serviceCallTier(
   role: number,
   isServiceStaff: boolean,
@@ -175,9 +181,12 @@ function serviceCallTier(
     case RoleEnum.GAMEMANAGER:
       return 2;
     default:
-      return 4;
+      return BAR_CHEF_RUNNING_BAR_TIER;
   }
 }
+
+const waitedSeconds = (createdAt?: Date) =>
+  createdAt ? (Date.now() - new Date(createdAt).getTime()) / 1000 : 0;
 
 const isAssignedCallType = (type?: string) =>
   ASSIGNED_CALL_TYPES.includes(type as ButtonCallTypeEnum);
@@ -279,7 +288,17 @@ export class ButtonCallAssignmentService {
     const request = isServiceCallType(call.type)
       ? {}
       : await this.buildRequest(call);
-    let userId = pickAssigneeByTier(candidates, request);
+    // The bar chef running the bar waits until the call has waited 2
+    // minutes; the cron retries it meanwhile.
+    const barChefMayTakeIt =
+      waitedSeconds((call as { createdAt?: Date }).createdAt) >=
+      BAR_CHEF_AFTER_WAITING_SECONDS;
+    let userId = pickAssigneeByTier(
+      barChefMayTakeIt
+        ? candidates
+        : candidates.filter((c) => c.tier !== BAR_CHEF_RUNNING_BAR_TIER),
+      request,
+    );
     let standIn: { middleman: MiddlemanRecord; user: string } | undefined;
     if (!userId) {
       standIn = await this.findMiddlemanStandIn(call, request, candidates);
@@ -339,12 +358,9 @@ export class ButtonCallAssignmentService {
     const downstairs =
       !!call.tableName &&
       !(await this.isUpstairs(call.location, call.date, call.tableName));
-    const waitedSeconds = call.createdAt
-      ? (Date.now() - new Date(call.createdAt).getTime()) / 1000
-      : 0;
     const middlemanTakesIt = isServiceCall
       ? downstairs
-      : waitedSeconds >= MIDDLEMAN_AFTER_WAITING_SECONDS;
+      : waitedSeconds(call.createdAt) >= MIDDLEMAN_AFTER_WAITING_SECONDS;
     const open = {
       location: call.location,
       date: call.date,
