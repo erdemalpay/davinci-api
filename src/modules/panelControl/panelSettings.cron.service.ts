@@ -10,9 +10,10 @@ export class PanelSettingsCronService {
 
   constructor(private readonly panelControlService: PanelControlService) {}
 
-  // "Today is holiday" is for one cafe day (until 06:00): left on, the next
-  // day's tables would get the holiday entry.
-  @Cron('0 0 6 * * *', { timeZone: CAFE_TIME_ZONE })
+  // "Today is holiday" is for one day: turned off at 02:00, after the
+  // night's tables are open, so the next day's tables don't get the holiday
+  // entry.
+  @Cron('0 0 2 * * *', { timeZone: CAFE_TIME_ZONE })
   async endHoliday() {
     try {
       const settings = await this.panelControlService.findPanelSettings();
