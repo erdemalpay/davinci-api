@@ -403,17 +403,26 @@ export class AnomalyService {
         value: discountOf.get(id),
       });
     }
+    // Each order once a day: a cancel is logged twice.
+    const cancelRows: { key: string; date: string; value: number }[] = [];
+    const cancelled = new Set<string>();
+    for (const a of inCafe) {
+      if (a.type !== ActivityType.CANCEL_ORDER) continue;
+      const row = {
+        key: String(a.user),
+        date: toCafeDay(createdAt(a)).date,
+        value: 1,
+      };
+      const id = `${row.key}-${row.date}-${
+        (a.payload as { _id: number })?._id
+      }`;
+      if (cancelled.has(id)) continue;
+      cancelled.add(id);
+      cancelRows.push(row);
+    }
     return {
       discountHistory: perDay(discountRows),
-      cancelHistory: perDay(
-        inCafe
-          .filter((a) => a.type === ActivityType.CANCEL_ORDER)
-          .map((a) => ({
-            key: String(a.user),
-            date: toCafeDay(createdAt(a)).date,
-            value: 1,
-          })),
-      ),
+      cancelHistory: perDay(cancelRows),
       wasteHistory: perDay(
         losses.map((l) => ({
           key: Number(l.location),

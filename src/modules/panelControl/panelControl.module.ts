@@ -13,6 +13,7 @@ import {
 import { Page, PageSchema } from './page.schema';
 import { PanelControlController } from './panelControl.controller';
 import { PanelControlService } from './panelControl.service';
+import { PanelSettingsCronService } from './panelSettings.cron.service';
 import { PanelSettings, PanelSettingsSchema } from './panelSettings.schema';
 import { ReleaseNote, ReleaseNoteSchema } from './releaseNote.schema';
 import { TaskTrack, TaskTrackSchema } from './taskTrack.schema';
@@ -35,7 +36,7 @@ const mongooseModule = MongooseModule.forFeatureAsync([
     HttpModule,
     forwardRef(() => AuthorizationModule),
   ],
-  providers: [PanelControlService],
+  providers: [PanelControlService, PanelSettingsCronService],
   controllers: [PanelControlController],
   exports: [
     mongooseModule,
