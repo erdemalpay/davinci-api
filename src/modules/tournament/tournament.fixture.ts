@@ -1,6 +1,7 @@
 export interface TableAssignment {
   tableNo: number;
   participantIds: number[];
+  seats?: number[]; // participantIds ile aynı sırada başlangıç sırası (1-4); Catan eşleşme planında dolu
 }
 
 export interface RoundPairing {
@@ -39,6 +40,9 @@ export interface StandingOptions {
   tiebreaker?: Tiebreaker;
   scoreCap?: number; // oyun başına sayılacak en fazla skor; boşsa sınır yok
   tableSize?: number; // eksik masada paya eklenecek sanal oyuncular için
+  // Katılımcı → çekiliş numarası. Hiçbir ölçüt ayırmazsa kura yerine bu numara kullanılır
+  // (Catan resmi kuralı: eşitlik kura ile bozulur); numara yoksa kimliğe bakılır.
+  lotNumbers?: Map<number, number>;
 }
 
 export interface StandingRow {
@@ -454,6 +458,7 @@ export function computeStandings(
     tiebreaker = Tiebreaker.OPPONENTS,
     scoreCap,
     tableSize,
+    lotNumbers,
   }: StandingOptions = {},
 ): StandingRow[] {
   const capped = (score?: number) => cappedScore(score, scoreCap);
@@ -498,6 +503,7 @@ export function computeStandings(
   }
 
   const byScore = tiebreaker === Tiebreaker.SCORE;
+  const lot = (id: number) => lotNumbers?.get(id) ?? id;
   const avgOpponentPoints = (opponents: number[]) =>
     opponents.length
       ? round2(
@@ -515,7 +521,7 @@ export function computeStandings(
             b.scoreShare - a.scoreShare ||
             comparePlaces(a.places, b.places)
           : b.avg - a.avg) ||
-        a.participantId - b.participantId,
+        lot(a.participantId) - lot(b.participantId),
     );
   return ranked.map((row, i) => ({
     participantId: row.participantId,
@@ -618,7 +624,14 @@ export function computeFinalRanking(
   {
     shareTies = false,
     advancePerTable = 0,
-  }: { shareTies?: boolean; advancePerTable?: number } = {},
+    eliminationOrder,
+  }: {
+    shareTies?: boolean;
+    advancePerTable?: number;
+    // Eleme sonuçları da eklenmiş güncel lig sırası (Catan resmi kuralı 1.3.4): verilirse
+    // finale kalamayanlar masadaki sıraya değil buna göre dizilir; üst tura çıkanlar üstte kalır
+    eliminationOrder?: Map<number, number>;
+  } = {},
 ): FinalRankingRow[] {
   if (!eliminationTables.length) return leagueStandings;
 
@@ -650,6 +663,14 @@ export function computeFinalRanking(
 
   const place = (result: EliminationResult) =>
     result.tableRank ?? advancePerTable + 0.5;
+  // Güncel sıralama verilince finalde sıra final masasından gelir; diğer turlarda sadece
+  // çıkanlar (üstte) ile çıkamayanlar ayrılır, çıkamayanlar kendi aralarında güncel sıraya göre dizilir
+  const stagePlace = (result: EliminationResult) =>
+    eliminationOrder && !result.isFinal
+      ? Math.min(place(result), advancePerTable + 0.5)
+      : place(result);
+  const updatedRank = (row: StandingRow) =>
+    eliminationOrder?.get(row.participantId) ?? row.rank;
   const inElimination = leagueStandings
     .filter((row) => reached.has(row.participantId))
     .sort((a, b) => {
@@ -658,7 +679,8 @@ export function computeFinalRanking(
       return (
         rb.round - ra.round ||
         Number(!!ra.isThirdPlace) - Number(!!rb.isThirdPlace) ||
-        place(ra) - place(rb) ||
+        stagePlace(ra) - stagePlace(rb) ||
+        updatedRank(a) - updatedRank(b) ||
         a.rank - b.rank
       );
     });

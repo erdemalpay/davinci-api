@@ -73,6 +73,7 @@ const createService = ({
     findByIdAndDelete: jest.fn().mockReturnValue(query({})),
     exists: jest.fn().mockReturnValue(query(null)),
     countDocuments: jest.fn().mockReturnValue(query(0)),
+    bulkWrite: jest.fn().mockResolvedValue({}),
     create: jest.fn(),
   };
   const matchModel = {
@@ -438,6 +439,50 @@ describe('TournamentService.update', () => {
       'Masadan çıkacak kişi sayısı 1 ile eleme masası büyüklüğü arasında olmalı',
     );
   });
+
+  it('Catan eşleşme planı 4 kişilik masa ve en çok 3 tur ister', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, { pairingMode: PairingMode.CATAN_PLAN }),
+    ).rejects.toThrow('Catan eşleşme planı için masa başına 4 kişi');
+  });
+
+  it('Catan eşleşme planı geçerli ayarlarla kaydedilir', async () => {
+    const { service, tournamentModel } = createService();
+    await service.update(1, {
+      pairingMode: PairingMode.CATAN_PLAN,
+      tableSize: 4,
+      minTableSize: 3,
+      leagueRounds: 3,
+      placementPoints: [1, 0, 0, 0],
+    });
+    expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalled();
+  });
+
+  it('Catan eşleşme planı puan turu olmayan biçimde kullanılamaz', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, {
+        pairingMode: PairingMode.CATAN_PLAN,
+        format: TournamentFormat.ELIMINATION,
+        tableSize: 4,
+        advancePerTable: 1,
+      }),
+    ).rejects.toThrow('puan turu olan biçimlerde');
+  });
+
+  it('Catan eşleşme planı 3 turdan fazlasını reddeder', async () => {
+    const { service } = createService();
+    await expect(
+      service.update(1, {
+        pairingMode: PairingMode.CATAN_PLAN,
+        tableSize: 4,
+        minTableSize: 3,
+        leagueRounds: 4,
+        placementPoints: [1, 0, 0, 0],
+      }),
+    ).rejects.toThrow('en fazla 3 tur olmalı');
+  });
 });
 
 describe('TournamentService.update (kontenjan değişince)', () => {
@@ -731,6 +776,181 @@ describe('TournamentService.generateNextRound', () => {
   });
 });
 
+describe('TournamentService.generateNextRound (Catan eşleşme planı)', () => {
+  const catanTournament = {
+    ...baseTournament,
+    pairingMode: PairingMode.CATAN_PLAN,
+    tableSize: 4,
+    minTableSize: 3,
+    leagueRounds: 3,
+    placementPoints: [1, 0, 0, 0],
+    byePoints: 1,
+  };
+  const people = (count: number, extra = {}) =>
+    Array.from({ length: count }, (_, i) => ({ _id: i + 1, ...extra }));
+
+  it('62 kişiye 1-62 numarası çeker ve masaları sıralarıyla yazar', async () => {
+    const { service, participantModel, matchModel } = createService({
+      tournament: catanTournament,
+      participants: people(62),
+    });
+    await service.generateNextRound(1);
+
+    const updates = participantModel.bulkWrite.mock.calls[0][0];
+    const drawn = updates.map((u) => u.updateOne.update.drawNumber);
+    expect([...drawn].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 62 }, (_, i) => i + 1),
+    );
+
+    const docs = matchModel.create.mock.calls[0][0];
+    expect(docs).toHaveLength(16);
+    expect(docs.filter((d) => d.players.length === 3)).toHaveLength(2);
+    docs.forEach((d) =>
+      d.players.forEach((p) => expect([1, 2, 3, 4]).toContain(p.seat)),
+    );
+    expect(docs.some((d) => d.isBye)).toBe(false);
+  });
+
+  it('numarası olanın numarasını değiştirmez, yeni gelene en küçük boş numarayı verir', async () => {
+    const participants = [
+      ...people(61).map((p) => ({ ...p, drawNumber: p._id })),
+      { _id: 99 },
+    ];
+    const { service, participantModel } = createService({
+      tournament: catanTournament,
+      participants,
+    });
+    await service.generateNextRound(1);
+    const updates = participantModel.bulkWrite.mock.calls[0][0];
+    expect(updates).toEqual([
+      { updateOne: { filter: { _id: 99 }, update: { drawNumber: 62 } } },
+    ]);
+  });
+
+  it('64 kişiden fazlasını reddeder', async () => {
+    const { service } = createService({
+      tournament: catanTournament,
+      participants: people(65),
+    });
+    await expect(service.generateNextRound(1)).rejects.toThrow(
+      'Catan eşleşme planı en fazla 64 oyuncu için',
+    );
+  });
+
+  it('29 kişiden azını Türkçe hatayla reddeder, numara yazmaz', async () => {
+    const { service, participantModel } = createService({
+      tournament: catanTournament,
+      participants: people(28),
+    });
+    await expect(service.generateNextRound(1)).rejects.toThrow(
+      'Catan eşleşme planı 29-64 oyuncu için',
+    );
+    expect(participantModel.bulkWrite).not.toHaveBeenCalled();
+  });
+
+  it('41 kişiye 1-41 numarası çeker, resmi 41-44 planıyla 3 masayı 3 kişilik kurar', async () => {
+    const { service, participantModel, matchModel } = createService({
+      tournament: catanTournament,
+      participants: people(41),
+    });
+    await service.generateNextRound(1);
+
+    const drawn = participantModel.bulkWrite.mock.calls[0][0].map(
+      (u) => u.updateOne.update.drawNumber,
+    );
+    expect([...drawn].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 41 }, (_, i) => i + 1),
+    );
+    const docs = matchModel.create.mock.calls[0][0];
+    expect(docs).toHaveLength(11);
+    expect(docs.filter((d) => d.players.length === 3)).toHaveLength(3);
+    expect(docs.filter((d) => d.players.length === 4)).toHaveLength(8);
+  });
+
+  it('44 kişilik planda geç gelene numara kalmadığında Türkçe hata verir', async () => {
+    const participants = [
+      ...people(44).map((p) => ({ ...p, drawNumber: p._id })),
+      { _id: 99 },
+    ];
+    const { service } = createService({
+      tournament: catanTournament,
+      participants,
+    });
+    await expect(service.generateNextRound(1)).rejects.toThrow(
+      'Oyunculara verilecek numara kalmadı',
+    );
+  });
+
+  it('tur 2 numaraları korur ve planın ikinci turunu kurar', async () => {
+    const participants = people(64).map((p) => ({ ...p, drawNumber: p._id }));
+    const { service, participantModel, matchModel } = createService({
+      tournament: { ...catanTournament, status: TournamentStatus.ONGOING },
+      participants,
+      matches: [
+        {
+          stage: MatchStage.LEAGUE,
+          round: 1,
+          tableNo: 1,
+          isBye: false,
+          isCompleted: true,
+          players: [{ participantId: 16, points: 1 }],
+        },
+      ],
+    });
+    await service.generateNextRound(1);
+    expect(participantModel.bulkWrite).not.toHaveBeenCalled();
+    const docs = matchModel.create.mock.calls[0][0];
+    expect(docs[0]).toMatchObject({
+      round: 2,
+      tableNo: 1,
+      players: [
+        { participantId: 49, seat: 1 },
+        { participantId: 16, seat: 2 },
+        { participantId: 17, seat: 3 },
+        { participantId: 34, seat: 4 },
+      ],
+    });
+  });
+
+  it('tur 2de ayrılan oyuncunun koltuğu boş kalır, numaralar yeniden dağıtılmaz', async () => {
+    const participants = people(64)
+      .map((p) => ({ ...p, drawNumber: p._id }))
+      .filter((p) => p._id !== 16);
+    const { service, matchModel } = createService({
+      tournament: { ...catanTournament, status: TournamentStatus.ONGOING },
+      participants,
+      matches: [
+        {
+          stage: MatchStage.LEAGUE,
+          round: 1,
+          tableNo: 1,
+          isBye: false,
+          isCompleted: true,
+          players: [{ participantId: 1, points: 1 }],
+        },
+      ],
+    });
+    await service.generateNextRound(1);
+    const docs = matchModel.create.mock.calls[0][0];
+    expect(docs[0].players).toEqual([
+      { participantId: 49, seat: 1 },
+      { participantId: 17, seat: 3 },
+      { participantId: 34, seat: 4 },
+    ]);
+  });
+
+  it('diğer modlarda numara çekmez ve seat yazmaz', async () => {
+    const { service, participantModel, matchModel } = createService({
+      participants: [1, 2, 3, 4, 5, 6].map((_id) => ({ _id })),
+    });
+    await service.generateNextRound(1);
+    expect(participantModel.bulkWrite).not.toHaveBeenCalled();
+    matchModel.create.mock.calls[0][0].forEach((d) =>
+      d.players.forEach((p) => expect(p).not.toHaveProperty('seat')),
+    );
+  });
+});
+
 describe('TournamentService.submitScores', () => {
   const tableMatch = {
     _id: 9,
@@ -1000,6 +1220,31 @@ describe('TournamentService.addParticipant', () => {
   });
 });
 
+describe('TournamentService.findParticipantsWithSchedule', () => {
+  const sorted = (value: unknown) => ({ sort: () => query(value) });
+  const participant = (fields: Record<string, unknown>) => ({
+    ...fields,
+    toObject: () => fields,
+  });
+
+  it('numarası olanın 3 turluk programını ekler', async () => {
+    const { service, participantModel } = createService();
+    participantModel.find.mockReturnValue(
+      sorted([
+        participant({ _id: 4, name: 'Ayşe', drawNumber: 64 }),
+        participant({ _id: 5, name: 'Can' }),
+      ]),
+    );
+    const result = await service.findParticipantsWithSchedule(1);
+    expect(result[0].schedule).toEqual([
+      { round: 1, tableNo: 6, seat: 4 },
+      { round: 2, tableNo: 15, seat: 1 },
+      { round: 3, tableNo: 3, seat: 2 },
+    ]);
+    expect(result[1].schedule).toBeUndefined();
+  });
+});
+
 describe('TournamentService.findLiveBySlug', () => {
   it('katılımcıların sadece adını ve durumunu döner', async () => {
     const { service, participantModel, matchModel } = createService();
@@ -1012,6 +1257,27 @@ describe('TournamentService.findLiveBySlug', () => {
     expect(live.participants).toEqual([
       { _id: 4, name: 'Ayşe', isActive: true },
     ]);
+  });
+
+  it('numarası ve programı da döner', async () => {
+    const { service, participantModel, matchModel } = createService();
+    const sorted = (value: unknown) => ({ sort: () => query(value) });
+    participantModel.find.mockReturnValue(
+      sorted([
+        { _id: 4, name: 'Ayşe', isActive: true, drawNumber: 1 },
+        { _id: 5, name: 'Can', isActive: true, drawNumber: 62 },
+      ]),
+    );
+    matchModel.find.mockReturnValue(sorted([]));
+    const live = await service.findLiveBySlug('catan');
+    expect(live.participants[0]).toMatchObject({
+      drawNumber: 1,
+      schedule: [
+        { round: 1, tableNo: 16, seat: 1 },
+        { round: 2, tableNo: 16, seat: 2 },
+        { round: 3, tableNo: 16, seat: 3 },
+      ],
+    });
   });
 });
 
@@ -1300,6 +1566,138 @@ describe('TournamentService.moveParticipant', () => {
   });
 });
 
+describe('TournamentService.moveParticipant (Catan eşleşme planı)', () => {
+  const catan = {
+    ...baseTournament,
+    pairingMode: PairingMode.CATAN_PLAN,
+    tableSize: 4,
+  };
+  const seated = (_id: number, seats: [number, number][]) => ({
+    _id,
+    tournamentId: 1,
+    stage: MatchStage.LEAGUE,
+    round: 1,
+    isCompleted: false,
+    players: seats.map(([participantId, seat]) => ({ participantId, seat })),
+  });
+
+  it('2 kişiye düşen masayı boşaltmak için oyuncuyu başka masaya taşır, boş sırayı verir', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      participants: [{ _id: 1, tournamentId: 1 }],
+      blockingMatch: seated(10, [
+        [1, 2],
+        [2, 3],
+      ]),
+      match: seated(11, [
+        [4, 1],
+        [5, 3],
+        [6, 4],
+      ]),
+    });
+    await service.moveParticipant(1, { matchId: 11 });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(10, {
+      players: [{ participantId: 2, seat: 3 }],
+    });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(11, {
+      players: [
+        { participantId: 4, seat: 1 },
+        { participantId: 5, seat: 3 },
+        { participantId: 6, seat: 4 },
+        { participantId: 1, seat: 2 },
+      ],
+    });
+  });
+
+  it('son oyuncu da taşınınca boş masa silinir', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      participants: [{ _id: 2, tournamentId: 1 }],
+      blockingMatch: seated(10, [[2, 3]]),
+      match: seated(11, [
+        [4, 1],
+        [5, 3],
+        [6, 4],
+      ]),
+    });
+    await service.moveParticipant(2, { matchId: 11 });
+    expect(matchModel.findByIdAndDelete).toHaveBeenCalledWith(10);
+  });
+
+  it('yer değiştirirken sıra numarası masada kalır', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      participants: [{ _id: 1, tournamentId: 1 }],
+      blockingMatch: seated(10, [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]),
+      match: seated(11, [
+        [4, 1],
+        [5, 2],
+        [6, 3],
+      ]),
+    });
+    await service.moveParticipant(1, { matchId: 11, swapWithId: 5 });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(10, {
+      players: [
+        { participantId: 5, seat: 1 },
+        { participantId: 2, seat: 2 },
+        { participantId: 3, seat: 3 },
+      ],
+    });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(11, {
+      players: [
+        { participantId: 4, seat: 1 },
+        { participantId: 1, seat: 2 },
+        { participantId: 6, seat: 3 },
+      ],
+    });
+  });
+
+  it('Catan planında 3 kişili masadan taşıyınca geriye 2 kişi kalabilir', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      participants: [{ _id: 1, tournamentId: 1 }],
+      blockingMatch: seated(10, [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]),
+      match: seated(11, [
+        [4, 1],
+        [5, 2],
+        [6, 3],
+      ]),
+    });
+    await service.moveParticipant(1, { matchId: 11 });
+    expect(matchModel.findByIdAndUpdate).toHaveBeenCalledWith(10, {
+      players: [
+        { participantId: 2, seat: 2 },
+        { participantId: 3, seat: 3 },
+      ],
+    });
+  });
+
+  it('Swiss turnuvasında 2 kişili masadan taşımayı yine reddeder', async () => {
+    const { service } = createService({
+      participants: [{ _id: 1, tournamentId: 1 }],
+      blockingMatch: seated(10, [
+        [1, 1],
+        [2, 2],
+      ]),
+      match: seated(11, [
+        [4, 1],
+        [5, 2],
+      ]),
+    });
+    await expect(service.moveParticipant(1, { matchId: 11 })).rejects.toThrow(
+      'Masada tek kişi kalıyor',
+    );
+  });
+});
+
 describe('TournamentService.regenerateRound', () => {
   const leagueMatch = (round: number, extra = {}) => ({
     _id: round * 10,
@@ -1492,6 +1890,177 @@ describe('TournamentService.getStandings (puan turları)', () => {
       ['Veli', 2, 1],
     ]);
     expect(result.some((r) => r.elimination)).toBe(false);
+  });
+});
+
+describe('TournamentService başlangıç sırası skor girilince korunur', () => {
+  const catan = {
+    ...baseTournament,
+    pairingMode: PairingMode.CATAN_PLAN,
+    tableSize: 4,
+    placementPoints: [1, 0, 0, 0],
+  };
+  const seatedMatch = (extra = {}) => ({
+    _id: 9,
+    tournamentId: 1,
+    stage: MatchStage.LEAGUE,
+    round: 1,
+    tableNo: 1,
+    isBye: false,
+    players: [
+      { participantId: 1, seat: 1 },
+      { participantId: 2, seat: 2 },
+      { participantId: 3, seat: 3 },
+      { participantId: 4, seat: 4 },
+    ],
+    ...extra,
+  });
+  const saved = (matchModel: { findByIdAndUpdate: jest.Mock }) =>
+    matchModel.findByIdAndUpdate.mock.calls[0][1].players;
+
+  it('skor girilince her oyuncunun sırası kalır', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      match: seatedMatch(),
+    });
+    await service.submitScores(9, {
+      scores: [
+        { participantId: 1, score: 4 },
+        { participantId: 2, score: 10 },
+        { participantId: 3, score: 6 },
+        { participantId: 4, score: 5 },
+      ],
+    });
+    expect(
+      saved(matchModel).map((p) => [p.participantId, p.rank, p.seat]),
+    ).toEqual([
+      [2, 1, 2],
+      [3, 2, 3],
+      [4, 3, 4],
+      [1, 4, 1],
+    ]);
+  });
+
+  it('skor güncellenince de sıralar kalır', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      match: seatedMatch({ isCompleted: true }),
+    });
+    await service.submitScores(9, {
+      scores: [1, 2, 3, 4].map((participantId) => ({
+        participantId,
+        score: participantId,
+      })),
+    });
+    expect(saved(matchModel).every((p) => p.seat !== undefined)).toBe(true);
+  });
+
+  it('beraberlik kararı verilince de sıralar kalır', async () => {
+    const { service, matchModel } = createService({
+      tournament: catan,
+      match: seatedMatch({
+        pendingTie: { participantIds: [1, 2], slots: 1 },
+        players: [
+          { participantId: 1, seat: 1, score: 10, rank: 1, points: 1 },
+          { participantId: 2, seat: 2, score: 10, rank: 1, points: 1 },
+          { participantId: 3, seat: 3, score: 4, rank: 3, points: 0 },
+          { participantId: 4, seat: 4, score: 3, rank: 4, points: 0 },
+        ],
+      }),
+    });
+    await service.resolveTie(9, { winnerIds: [2] });
+    expect(
+      saved(matchModel)
+        .map((p) => [p.participantId, p.seat])
+        .sort(),
+    ).toEqual([
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [4, 4],
+    ]);
+  });
+});
+
+describe('TournamentService.getStandings (Catan)', () => {
+  const catan = {
+    ...baseTournament,
+    format: TournamentFormat.LEAGUE_THEN_ELIMINATION,
+    pairingMode: PairingMode.CATAN_PLAN,
+    tiebreaker: Tiebreaker.SCORE,
+    scoreCap: 10,
+    tableSize: 4,
+    advancePerTable: 1,
+  };
+  const game = (
+    stage: MatchStage,
+    round: number,
+    tableNo: number,
+    players: [number, number, number][], // [participantId, score, rank]
+  ) => ({
+    stage,
+    round,
+    tableNo,
+    isBye: false,
+    isCompleted: true,
+    players: players.map(([participantId, score, rank]) => ({
+      participantId,
+      score,
+      rank,
+      points: rank === 1 ? 1 : 0,
+    })),
+  });
+
+  it('her ölçüt eşitse çekiliş numarası küçük olan öne geçer', async () => {
+    const { service } = createService({
+      tournament: catan,
+      participants: [
+        { _id: 1, name: 'Ali', drawNumber: 9 },
+        { _id: 2, name: 'Veli', drawNumber: 3 },
+      ],
+    });
+    const result = await service.getStandings(1);
+    expect(result.map((r) => r.participantId)).toEqual([2, 1]);
+  });
+
+  it('yarı final sonrası elenenleri eleme sonuçları eklenmiş güncel sıraya göre dizer', async () => {
+    // 5. oyuncu ligde 3. sırada ama yarı finalde 10 skor yaptı; 3. ve 4. oyuncu 5 skor
+    const participants = [1, 2, 3, 4, 5, 6].map((_id) => ({
+      _id,
+      name: `O${_id}`,
+    }));
+    const matches = [
+      game(MatchStage.LEAGUE, 1, 1, [
+        [1, 10, 1],
+        [2, 9, 2],
+        [3, 6, 3],
+      ]),
+      game(MatchStage.LEAGUE, 1, 2, [
+        [4, 10, 1],
+        [5, 5, 2],
+        [6, 4, 3],
+      ]),
+      game(MatchStage.ELIMINATION, 1, 1, [
+        [1, 10, 1],
+        [3, 5, 2],
+        [4, 4, 3],
+      ]),
+      game(MatchStage.ELIMINATION, 1, 2, [
+        [2, 10, 1],
+        [5, 9, 2],
+        [6, 3, 3],
+      ]),
+    ];
+    const { service } = createService({
+      tournament: catan,
+      participants,
+      matches,
+    });
+    const result = await service.getStandings(1);
+    // kazananlar (1, 2) üstte; elenenlerde yarı final skoru eklenmiş toplam skor belirler
+    expect(result.map((r) => r.participantId).slice(0, 2)).toEqual([1, 2]);
+    const eliminated = result.slice(2).map((r) => r.participantId);
+    expect(eliminated).toEqual([4, 5, 3, 6]);
   });
 });
 

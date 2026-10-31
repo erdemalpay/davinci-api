@@ -1,3 +1,4 @@
+import { Tiebreaker } from './tournament.fixture';
 import {
   FixtureError,
   MatchStage,
@@ -351,5 +352,177 @@ describe('planNextRound', () => {
     expect(() => planNextRound(rules(), ids(2), [], noShuffle)).toThrow(
       new FixtureError('NOT_ENOUGH_PARTICIPANTS'),
     );
+  });
+});
+
+describe('planNextRound (Catan eşleşme planı)', () => {
+  const catanRules = (overrides: Partial<TournamentRules> = {}) =>
+    rules({
+      pairingMode: PairingMode.CATAN_PLAN,
+      tableSize: 4,
+      minTableSize: 3,
+      leagueRounds: 3,
+      ...overrides,
+    });
+  const numbersFor = (count: number) =>
+    new Map(ids(count).map((id) => [id, id]));
+  const finished = (round: number) => [
+    table(MatchStage.LEAGUE, round, 1, [[1, 1, 1]]),
+  ];
+
+  it('62 kişiyle tur 1 planı kurar: 14 masa 4 kişilik, 2 masa 3 kişilik, bay yok', () => {
+    const round = planNextRound(
+      catanRules(),
+      ids(62),
+      [],
+      undefined,
+      numbersFor(62),
+    );
+    expect(round.stage).toBe(MatchStage.LEAGUE);
+    expect(round.round).toBe(1);
+    expect(round.byes).toEqual([]);
+    expect(round.tables).toHaveLength(16);
+    expect(
+      round.tables.filter((t) => t.participantIds.length === 3),
+    ).toHaveLength(2);
+    round.tables.forEach((t) =>
+      expect(t.seats).toHaveLength(t.participantIds.length),
+    );
+  });
+
+  it('tur 2 planın ikinci turunu kurar', () => {
+    const round = planNextRound(
+      catanRules(),
+      ids(64),
+      finished(1),
+      undefined,
+      numbersFor(64),
+    );
+    expect(round.round).toBe(2);
+    expect(round.tables[0].participantIds).toEqual([49, 16, 17, 34]);
+    expect(round.tables[0].seats).toEqual([1, 2, 3, 4]);
+  });
+
+  it('28 kişiyle ilk turu kurmaz', () => {
+    expect(() =>
+      planNextRound(catanRules(), ids(28), [], undefined, numbersFor(28), 32),
+    ).toThrow(new FixtureError('PLAN_PLAYER_COUNT'));
+  });
+
+  it('48 kişiyle resmi 45-48 planından 12 masayı 4er kişilik kurar', () => {
+    const round = planNextRound(
+      catanRules(),
+      ids(48),
+      [],
+      undefined,
+      numbersFor(48),
+      48,
+    );
+    expect(round.tables).toHaveLength(12);
+    round.tables.forEach((t) => {
+      expect(t.participantIds).toHaveLength(4);
+      expect(t.seats).toHaveLength(4);
+    });
+  });
+
+  it('65 kişiyle ilk turu kurmaz', () => {
+    expect(() =>
+      planNextRound(catanRules(), ids(65), [], undefined, numbersFor(65)),
+    ).toThrow(new FixtureError('PLAN_PLAYER_COUNT'));
+  });
+
+  it('turnuva sürerken katılımcı sayısı 49un altına inse de sonraki turu kurar', () => {
+    const round = planNextRound(
+      catanRules(),
+      ids(45),
+      finished(1),
+      undefined,
+      numbersFor(64),
+    );
+    expect(round.round).toBe(2);
+  });
+
+  it('numarası olmayan katılımcı için hata verir', () => {
+    expect(() =>
+      planNextRound(catanRules(), ids(62), [], undefined, numbersFor(61)),
+    ).toThrow(new FixtureError('PLAN_NUMBERS_MISSING'));
+  });
+
+  it('3 turdan sonra lig biter, eleme ilk 16 ile kurulur', () => {
+    const matches = [1, 2, 3].flatMap((round) =>
+      [1, 2, 3, 4].map((tableNo) =>
+        table(MatchStage.LEAGUE, round, tableNo, [
+          [tableNo * 4 - 3, 1, 1],
+          [tableNo * 4 - 2, 2, 0],
+          [tableNo * 4 - 1, 3, 0],
+        ]),
+      ),
+    );
+    const next = planNextRound(
+      catanRules({
+        eliminationTableSize: 4,
+        advanceCount: 16,
+        advancePerTable: 1,
+      }),
+      ids(62),
+      matches,
+      undefined,
+      numbersFor(62),
+    );
+    expect(next.stage).toBe(MatchStage.ELIMINATION);
+    expect(next.tables).toHaveLength(4);
+    next.tables.forEach((t) => expect(t.participantIds).toHaveLength(4));
+  });
+});
+
+describe('planNextRound (Catan finali: ön eleme sırasına göre dizilir)', () => {
+  const leagueByRank = [
+    table(MatchStage.LEAGUE, 1, 1, [
+      [1, 1, 4],
+      [2, 2, 3],
+      [3, 3, 2],
+    ]),
+    table(MatchStage.LEAGUE, 1, 2, [
+      [4, 1, 1],
+      [5, 2, 0],
+      [6, 3, 0],
+    ]),
+  ];
+  // 4 kişi 2'lik eleme masalarına yılan dağıtımıyla oturur: [1, 4] ve [2, 3]
+  const elimination = (winners: [number, number]) => [
+    table(MatchStage.ELIMINATION, 1, 1, [
+      [winners[0], 1, 1],
+      [winners[0] === 4 ? 1 : 4, 2, 0],
+    ]),
+    table(MatchStage.ELIMINATION, 1, 2, [
+      [winners[1], 1, 1],
+      [winners[1] === 2 ? 3 : 2, 2, 0],
+    ]),
+  ];
+  const eliminationRules = (overrides: Partial<TournamentRules> = {}) =>
+    rules({
+      eliminationTableSize: 2,
+      advanceCount: 4,
+      advancePerTable: 1,
+      leagueRounds: 1,
+      ...overrides,
+    });
+
+  it('oyun skorunda finalistler masa sırasına değil ön eleme sırasına göre dizilir', () => {
+    // masa 1'in kazananı 4 (ön eleme 4.), masa 2'nin kazananı 2 (ön eleme 2.)
+    const next = planNextRound(
+      eliminationRules({ tiebreaker: Tiebreaker.SCORE }),
+      ids(6),
+      [...leagueByRank, ...elimination([4, 2])],
+    );
+    expect(next.tables[0].participantIds).toEqual([2, 4]);
+  });
+
+  it('varsayılan eşitlik bozmada kazananlar masa sırasıyla kalır', () => {
+    const next = planNextRound(eliminationRules(), ids(6), [
+      ...leagueByRank,
+      ...elimination([4, 2]),
+    ]);
+    expect(next.tables[0].participantIds).toEqual([4, 2]);
   });
 });
