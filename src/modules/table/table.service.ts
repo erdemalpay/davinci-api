@@ -546,8 +546,14 @@ export class TableService {
         table: table._id,
       });
     }
+    // Saved before the entry order, so a failing order can't leave the game
+    // without a table.
     table.gameplays.push(gameplay);
+    await table.save();
+    // Activity tables take entries per table and player by hand (their
+    // orders need an activityPlayer), so no automatic entry there.
     if (
+      table.type !== TableTypes.ACTIVITY &&
       gameplayDto?.isAutoEntry &&
       gameplayDto?.playerCount > table.playerCount
     ) {
@@ -572,8 +578,8 @@ export class TableService {
         tableDate: new Date(table.date),
       });
       table.playerCount = gameplayDto.playerCount;
+      await table.save();
     }
-    await table.save();
     return gameplay;
   }
 
