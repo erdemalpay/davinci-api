@@ -2,6 +2,15 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ActivityModule } from '../activity/activity.module';
+import { Break, BreakSchema } from '../break/break.schema';
+import {
+  ButtonCall,
+  ButtonCallSchema,
+} from '../buttonCall/schemas/buttonCall.schema';
+import {
+  GameplayTime,
+  GameplayTimeSchema,
+} from '../gameplaytime/gameplaytime.schema';
 import { LocationModule } from '../location/location.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
@@ -18,9 +27,13 @@ import { MiddlemanPlan, MiddlemanPlanSchema } from './middlemanPlan.schema';
     MongooseModule.forFeatureAsync([
       createAutoIncrementConfig(Middleman.name, MiddlemanSchema),
       createAutoIncrementConfig(MiddlemanPlan.name, MiddlemanPlanSchema),
-      // Read-only: the days worked in the middleman hours.
+      // Read-only, for the shares: the time worked in the middleman hours,
+      // and the time on a call, explaining or busy.
       createAutoIncrementConfig(Shift.name, ShiftSchema),
       createAutoIncrementConfig(Location.name, LocationSchema),
+      createAutoIncrementConfig(ButtonCall.name, ButtonCallSchema),
+      createAutoIncrementConfig(Break.name, BreakSchema),
+      createAutoIncrementConfig(GameplayTime.name, GameplayTimeSchema),
     ]),
     WebSocketModule,
     LocationModule,

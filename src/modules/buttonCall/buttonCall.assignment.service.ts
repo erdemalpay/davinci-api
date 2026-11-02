@@ -55,6 +55,7 @@ import {
   leavingTooSoonFor,
   MIDDLEMAN_AFTER_WAITING_SECONDS,
   MIDDLEMAN_MIN_GAME_MASTERS,
+  MIDDLEMAN_SHARE_DAYS,
   pickAssignee,
   pickAssigneeByTier,
   pickPlannedMiddleman,
@@ -866,7 +867,7 @@ export class ButtonCallAssignmentService {
       .filter((id) => working(id));
     const picked = pickPlannedMiddleman(
       candidates,
-      await this.findMiddlemanSharesThisMonth(date),
+      await this.findRecentMiddlemanShares(date),
     );
     if (!picked) return undefined;
     await setMiddlemanPlan(this.middlemanPlanModel, {
@@ -892,20 +893,21 @@ export class ButtonCallAssignmentService {
     );
   }
 
-  // Middleman days and worked days this month before today.
-  private async findMiddlemanSharesThisMonth(date: string) {
-    const yesterday = format(
-      subDays(new Date(`${date}T00:00:00`), 1),
-      'yyyy-MM-dd',
-    );
+  // Middleman time and time worked in the middleman hours over the last
+  // days before today.
+  private async findRecentMiddlemanShares(date: string) {
+    const day = new Date(`${date}T00:00:00`);
     return findMiddlemanShares(
       {
         middleman: this.middlemanModel,
         shift: this.shiftModel,
         location: this.locationModel,
+        buttonCall: this.buttonCallModel,
+        break: this.breakModel,
+        gameplayTime: this.gameplayTimeModel,
       },
-      `${date.slice(0, 7)}-01`,
-      yesterday,
+      format(subDays(day, MIDDLEMAN_SHARE_DAYS), 'yyyy-MM-dd'),
+      format(subDays(day, 1), 'yyyy-MM-dd'),
     );
   }
 
