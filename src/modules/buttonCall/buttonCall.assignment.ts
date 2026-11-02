@@ -411,8 +411,8 @@ export function findMiddlemanHoursStaff(
   return [...staff];
 }
 
-// A day counts for one middleman only: whoever was the middleman (not a
-// stand-in) the longest that day, at least this long. Time away on a call
+// The day's main middleman (anomaly report): whoever was the middleman (not
+// a stand-in) the longest that day, at least this long. Time away on a call
 // or busy while keeping the role counts too.
 export const MIDDLEMAN_DAY_MIN_MINUTES = 2 * 60;
 
@@ -450,15 +450,97 @@ export function findMainMiddlemen(
   return main;
 }
 
-export interface MiddlemanShare {
-  // The days they were the middleman.
-  dates: string[];
-  // The days they worked in the middleman hours.
-  workedDays: number;
+// A time range in cafe-day seconds (past midnight is later).
+type Range = [number, number];
+
+const toRange = (startHour: string, finishHour: string): Range => {
+  const start = cafeDaySeconds(startHour);
+  let finish = cafeDaySeconds(finishHour);
+  if (finish < start) finish += 24 * 3600;
+  return [start, finish];
+};
+
+// Seconds of `range` not covered by any of `cuts`.
+function uncoveredSeconds(range: Range, cuts: Range[]): number {
+  let total = 0;
+  let from = range[0];
+  for (const [start, end] of [...cuts].sort((a, b) => a[0] - b[0])) {
+    if (end <= from) continue;
+    if (start >= range[1]) break;
+    if (start > from) total += start - from;
+    from = Math.max(from, end);
+    if (from >= range[1]) return total;
+  }
+  return total + Math.max(0, range[1] - from);
 }
 
-// Each person's middleman days against the days they worked between 14:00
-// and 22:00 (service staff and outside operation days left out).
+// Seconds covered by the union of `ranges`.
+function unionSeconds(ranges: Range[]): number {
+  let total = 0;
+  let reached = -Infinity;
+  for (const [start, end] of [...ranges].sort((a, b) => a[0] - b[0])) {
+    const from = Math.max(start, reached);
+    if (end > from) total += end - from;
+    reached = Math.max(reached, end);
+  }
+  return total;
+}
+
+// Seconds each person is scheduled within the middleman hours that day
+// (overlapping slots counted once); only people who take game master calls
+// that day, like findMiddlemanHoursStaff.
+export function findMiddlemanHoursSeconds(
+  slots: ShiftSlot[],
+  locationShifts: LocationShiftHours[] = [],
+): Map<string, number> {
+  const from = cafeDaySeconds(MIDDLEMAN_FROM);
+  const until = cafeDaySeconds(MIDDLEMAN_UNTIL);
+  const excluded = new Set([
+    ...findServiceStaff(slots),
+    ...findOutsideOperationStaff(slots),
+  ]);
+  const rangesByUser = new Map<string, Range[]>();
+  for (const { slot, start, end } of withBounds(slots, locationShifts)) {
+    const slotStart = toCafeDaySeconds(start);
+    let slotEnd = toCafeDaySeconds(end);
+    if (slotEnd <= slotStart) slotEnd += 24 * 3600;
+    const range: Range = [Math.max(slotStart, from), Math.min(slotEnd, until)];
+    if (range[1] <= range[0]) continue;
+    for (const userId of slot.user ?? []) {
+      if (excluded.has(userId)) continue;
+      rangesByUser.set(userId, [...(rangesByUser.get(userId) ?? []), range]);
+    }
+  }
+  return new Map(
+    [...rangesByUser].map(([user, ranges]) => [user, unionSeconds(ranges)]),
+  );
+}
+
+// When someone was busy elsewhere: on a call, explaining a game, or in a
+// busy state (break, payment, ...).
+export interface BusyRecord {
+  user: string;
+  date: string;
+  startHour: string;
+  finishHour: string;
+}
+
+// The day's middleman is picked by the shares of the last this many days
+// before the day.
+export const MIDDLEMAN_SHARE_DAYS = 30;
+
+export interface MiddlemanShare {
+  // Seconds they were the middleman, as the day's middleman or standing in
+  // for them, without the time on a call or busy.
+  seconds: number;
+  // Seconds they were scheduled within the middleman hours.
+  workedSeconds: number;
+  // The days they were the day's main middleman (findMainMiddlemen); shown
+  // only, not used for the pick.
+  dates: string[];
+}
+
+// Middleman time and time worked in the middleman hours, per person.
 export function countMiddlemanShares(
   records: MiddlemanRecord[],
   shifts: {
@@ -466,19 +548,40 @@ export function countMiddlemanShares(
     slots: ShiftSlot[];
     locationShifts: LocationShiftHours[];
   }[],
+  busy: BusyRecord[],
 ): Map<string, MiddlemanShare> {
   const shares = new Map<string, MiddlemanShare>();
   const share = (user: string) => {
-    if (!shares.has(user)) shares.set(user, { dates: [], workedDays: 0 });
+    if (!shares.has(user)) {
+      shares.set(user, { seconds: 0, workedSeconds: 0, dates: [] });
+    }
     return shares.get(user);
   };
-  const worked = new Map<string, Set<string>>();
-  for (const { day, slots, locationShifts } of shifts) {
-    for (const user of findMiddlemanHoursStaff(slots, locationShifts)) {
-      worked.set(user, (worked.get(user) ?? new Set()).add(day));
+  for (const { slots, locationShifts } of shifts) {
+    for (const [user, seconds] of findMiddlemanHoursSeconds(
+      slots,
+      locationShifts,
+    )) {
+      share(user).workedSeconds += seconds;
     }
   }
-  for (const [user, days] of worked) share(user).workedDays = days.size;
+  const busyByUserDay = new Map<string, Range[]>();
+  for (const b of busy) {
+    if (!b.startHour || !b.finishHour) continue;
+    const key = `${b.user}|${b.date}`;
+    busyByUserDay.set(key, [
+      ...(busyByUserDay.get(key) ?? []),
+      toRange(b.startHour, b.finishHour),
+    ]);
+  }
+  for (const r of records) {
+    if (!r.startHour || !r.finishHour) continue;
+    const user = String(r.user);
+    share(user).seconds += uncoveredSeconds(
+      toRange(r.startHour, r.finishHour),
+      busyByUserDay.get(`${user}|${r.date}`) ?? [],
+    );
+  }
   for (const { date, user } of findMainMiddlemen(records)) {
     const dates = share(user).dates;
     if (!dates.includes(date)) dates.push(date);
@@ -487,13 +590,13 @@ export function countMiddlemanShares(
   return shares;
 }
 
-// Middleman days per worked day; nobody who never worked counts as 0.
+// Middleman time per hour worked in the middleman hours.
 export const middlemanRatio = (share?: MiddlemanShare) =>
-  share && share.workedDays > 0 ? share.dates.length / share.workedDays : 0;
+  share && share.workedSeconds > 0 ? share.seconds / share.workedSeconds : 0;
 
-// The day's middleman: whoever was the middleman on the smallest share of
-// the days they worked this month; then the fewest days; a random one of
-// them on a tie.
+// The day's middleman: whoever was the middleman for the smallest share of
+// their time worked in the middleman hours lately; then the least middleman
+// time; a random one of them on a tie.
 export function pickPlannedMiddleman(
   candidates: string[],
   shares: Map<string, MiddlemanShare>,
@@ -501,11 +604,11 @@ export function pickPlannedMiddleman(
 ): string | undefined {
   if (candidates.length === 0) return undefined;
   const ratio = (id: string) => middlemanRatio(shares.get(id));
-  const days = (id: string) => shares.get(id)?.dates.length ?? 0;
+  const seconds = (id: string) => shares.get(id)?.seconds ?? 0;
   const lowest = Math.min(...candidates.map(ratio));
   const byRatio = candidates.filter((id) => ratio(id) === lowest);
-  const fewest = Math.min(...byRatio.map(days));
-  const tied = byRatio.filter((id) => days(id) === fewest);
+  const least = Math.min(...byRatio.map(seconds));
+  const tied = byRatio.filter((id) => seconds(id) === least);
   return tied[Math.floor(random() * tied.length)];
 }
 
