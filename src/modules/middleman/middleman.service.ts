@@ -32,6 +32,9 @@ import {
   MiddlemanQueryDto,
   UpdateMiddlemanDto,
 } from './middleman.dto';
+import { Break } from '../break/break.schema';
+import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
+import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Location } from '../location/location.schema';
 import { Shift } from '../shift/shift.schema';
 import { Middleman } from './middleman.schema';
@@ -50,6 +53,10 @@ export class MiddlemanService {
     private middlemanPlanModel: Model<MiddlemanPlan>,
     @InjectModel(Shift.name) private shiftModel: Model<Shift>,
     @InjectModel(Location.name) private locationModel: Model<Location>,
+    @InjectModel(ButtonCall.name) private buttonCallModel: Model<ButtonCall>,
+    @InjectModel(Break.name) private breakModel: Model<Break>,
+    @InjectModel(GameplayTime.name)
+    private gameplayTimeModel: Model<GameplayTime>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
@@ -195,7 +202,7 @@ export class MiddlemanService {
       .exec() as Promise<Middleman[]>;
   }
 
-  // Each person's middleman days and days worked in the middleman hours,
+  // Each person's middleman time and time worked in the middleman hours,
   // up to today.
   async findShares(after: string, before: string) {
     const today = cafeToday();
@@ -204,6 +211,9 @@ export class MiddlemanService {
         middleman: this.middlemanModel,
         shift: this.shiftModel,
         location: this.locationModel,
+        buttonCall: this.buttonCallModel,
+        break: this.breakModel,
+        gameplayTime: this.gameplayTimeModel,
       },
       after,
       before && before < today ? before : today,
