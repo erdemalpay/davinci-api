@@ -11,7 +11,7 @@ jest.mock('./unmetExplanationRequest.service', () => ({
   UnmetExplanationRequestService: class UnmetExplanationRequestService {},
 }));
 
-import { ButtonCallService } from './buttonCall.service';
+import { ButtonCallService, callSeconds } from './buttonCall.service';
 import { ButtonCallTypeEnum } from './dto/create-buttonCall.dto';
 
 describe('ButtonCallService frees the assignee', () => {
@@ -475,5 +475,79 @@ describe('ButtonCallService order calls', () => {
       expect(calls['13'].set).not.toHaveBeenCalled();
       expect(calls.Etkinlik.set).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('ButtonCallService call hours', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // 21:00:30 in Istanbul.
+    jest.setSystemTime(new Date('2026-11-03T18:00:30Z'));
+  });
+  afterEach(() => jest.useRealTimers());
+
+  function build(open: Record<string, unknown> | null) {
+    const doc = open && {
+      ...open,
+      set: jest.fn(),
+      save: jest.fn(async () => undefined),
+    };
+    const buttonCallModel = {
+      findOne: jest.fn(async () => doc),
+      create: jest.fn(async (fields: Record<string, unknown>) => fields),
+    };
+    const service = new ButtonCallService(
+      buttonCallModel as never,
+      {} as never,
+      { emitButtonCallChanged: jest.fn() } as never,
+      { addActivity: jest.fn(async () => undefined) } as never,
+      {} as never,
+      { handleStaffAvailabilityChanged: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, buttonCallModel, doc };
+  }
+
+  it("starts a call at the server's hour, not the device's", async () => {
+    const { service, buttonCallModel } = build(null);
+
+    await service.create({
+      tableName: '5',
+      location: 1,
+      type: ButtonCallTypeEnum.TABLECALL,
+      hour: '21:11:00',
+    });
+
+    expect(buttonCallModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ startHour: '21:00:30' }),
+    );
+  });
+
+  it("closes a call at the server's hour, not the device's", async () => {
+    const { service, doc } = build({
+      _id: 1,
+      type: ButtonCallTypeEnum.TABLECALL,
+      startHour: '20:58:00',
+    });
+
+    await service.close(null, {
+      tableName: '5',
+      location: 1,
+      hour: '20:50:00',
+    });
+
+    expect(doc.set).toHaveBeenCalledWith({
+      finishHour: '21:00:30',
+      duration: '00:02:30',
+    });
+  });
+
+  it('counts a call open past midnight into the next day', () => {
+    expect(callSeconds('23:33:15', '00:01:15')).toBe(28 * 60);
+    expect(callSeconds('12:00:00', '12:00:05')).toBe(5);
   });
 });
