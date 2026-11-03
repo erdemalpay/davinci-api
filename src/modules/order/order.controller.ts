@@ -533,6 +533,11 @@ export class OrderController {
   }
 
   @Patch('/:id')
+  @UseInterceptors(LockInterceptor)
+  @RaceConditionLockDecorator({
+    key: (req) => `${RedisKeys.OrderLock}:${req.params.id}`,
+    ttlSeconds: 10,
+  })
   updateOrder(
     @ReqUser() user: User,
     @Param('id') id: number,
