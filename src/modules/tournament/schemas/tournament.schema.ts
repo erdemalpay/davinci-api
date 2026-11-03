@@ -153,6 +153,11 @@ export class Tournament extends Document {
   @Prop({ required: false, type: Number })
   roundDuration?: number;
 
+  // Turun süresinin elle başlatıldığı an. Yeni tur kurulunca null olur (süre başlamadı);
+  // bu alan hiç yazılmamış eski turlarda süre maçların oluştuğu andan sayılır
+  @Prop({ required: false, type: Date })
+  roundStartedAt?: Date | null;
+
   // O anki tura verilen ek süre (dk) ve sayacın elle bitirilmesi; her yeni turda sıfırlanır
   @Prop({ required: false, type: Number, default: 0 })
   roundExtraMinutes: number;
