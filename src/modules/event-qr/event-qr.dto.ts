@@ -1,19 +1,21 @@
 import { IsOptional, IsString, Matches } from 'class-validator';
 
+// Hem oluşturma hem güncelleme için; alanlar isteğe bağlı, boş kayıt herkese açık sayfada görünmez
 export class SaveEventQrDto {
-  @IsString()
-  title: string;
-
-  // Panelden girilen linkin herkese açık sayfada güvenli olması için sadece https
-  @IsString()
-  @Matches(/^$|^https:\/\//, { message: 'url must start with https://' })
-  url: string;
-
-  // "YYYY-MM-DD" ya da ISO tarih; boş olabilir
   @IsOptional()
   @IsString()
-  @Matches(/^$|^\d{4}-\d{2}-\d{2}/, {
-    message: 'date must start with YYYY-MM-DD or be empty',
+  title?: string;
+
+  // Panelden girilen linkin herkese açık sayfada güvenli olması için sadece https
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^https:\/\//, { message: 'url must start with https://' })
+  url?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date must be in YYYY-MM-DD format or empty',
   })
   date?: string;
 }
