@@ -1,0 +1,34 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+import { purifySchema } from 'src/lib/purifySchema';
+
+// Kasadaki QR'ın ek butonu için tek kayıtlık ayar
+export const EVENT_QR_ID = 1;
+
+@Schema({ _id: false, timestamps: true })
+export class EventQr extends Document {
+  @Prop({ type: Number })
+  _id: number;
+
+  @Prop({ type: String, default: '' })
+  title: string;
+
+  @Prop({ type: String, default: '' })
+  url: string;
+
+  // Etkinlik günü "YYYY-MM-DD" (İstanbul); o günün 00:00'ında gizlenir, boşsa süresiz
+  @Prop({ type: String, default: '' })
+  date: string;
+}
+
+export const EventQrSchema = SchemaFactory.createForClass(EventQr);
+purifySchema(EventQrSchema);
+
+export const isEventQrVisible = (
+  setting: Pick<EventQr, 'title' | 'url' | 'date'> | null,
+  today: string,
+) =>
+  !!setting &&
+  !!setting.title &&
+  !!setting.url &&
+  (!setting.date || setting.date > today);
