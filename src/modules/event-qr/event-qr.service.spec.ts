@@ -4,19 +4,21 @@ import { SaveEventQrDto } from './event-qr.dto';
 import { isEventQrVisible } from './event-qr.schema';
 import { EventQrService } from './event-qr.service';
 
+jest.mock('../websocket/websocket.gateway', () => ({
+  AppWebSocketGateway: class AppWebSocketGateway {},
+}));
+
 describe('SaveEventQrDto', () => {
   const errorsFor = (body: object) =>
     validate(plainToInstance(SaveEventQrDto, body));
   const valid = { title: 'Tasarım Günü', url: 'https://example.com/kayit' };
 
-  it('accepts https links, empty links and optional dates', async () => {
+  it('accepts https links, empty links, a plain day and partial bodies', async () => {
     expect(await errorsFor(valid)).toHaveLength(0);
     expect(await errorsFor({ ...valid, url: '' })).toHaveLength(0);
     expect(await errorsFor({ ...valid, date: '2026-11-20' })).toHaveLength(0);
-    expect(
-      await errorsFor({ ...valid, date: '2026-11-20T00:00:00.000Z' }),
-    ).toHaveLength(0);
     expect(await errorsFor({ ...valid, date: '' })).toHaveLength(0);
+    expect(await errorsFor({ date: '2026-11-20' })).toHaveLength(0);
   });
 
   it('rejects links that are not https', async () => {
@@ -30,9 +32,11 @@ describe('SaveEventQrDto', () => {
     }
   });
 
-  it('rejects malformed dates', async () => {
-    const errors = await errorsFor({ ...valid, date: '20.11.2026' });
-    expect(errors.map((error) => error.property)).toEqual(['date']);
+  it('rejects anything but YYYY-MM-DD as the day', async () => {
+    for (const date of ['20.11.2026', '2026-11-20T00:00:00.000Z']) {
+      const errors = await errorsFor({ ...valid, date });
+      expect(errors.map((error) => error.property)).toEqual(['date']);
+    }
   });
 });
 
@@ -67,51 +71,88 @@ describe('isEventQrVisible', () => {
 });
 
 describe('EventQrService', () => {
-  const setup = (stored: object | null) => {
-    const exec = jest.fn().mockResolvedValue(stored);
+  const setup = (latest: object | null = null) => {
+    const exec = jest.fn().mockResolvedValue(latest);
+    const sort = jest.fn().mockReturnValue({
+      lean: () => ({ exec }),
+      exec,
+    });
     const eventQrModel = {
-      findById: jest.fn().mockReturnValue({ lean: () => ({ exec }) }),
-      findByIdAndUpdate: jest.fn().mockReturnValue({ lean: () => ({ exec }) }),
+      find: jest.fn().mockReturnValue({ sort }),
+      findOne: jest.fn().mockReturnValue({ sort }),
+      create: jest.fn().mockResolvedValue({}),
+      findByIdAndUpdate: jest.fn().mockReturnValue({ exec }),
     };
-    return { service: new EventQrService(eventQrModel as never), eventQrModel };
+    const websocketGateway = { emitEventQrChanged: jest.fn() };
+    return {
+      service: new EventQrService(
+        eventQrModel as never,
+        websocketGateway as never,
+      ),
+      eventQrModel,
+      websocketGateway,
+      sort,
+    };
   };
 
-  it('returns only title and url publicly', async () => {
-    const { service } = setup({
+  it('lists newest first', async () => {
+    const { service, sort } = setup();
+    await service.findAll();
+    expect(sort).toHaveBeenCalledWith({ _id: -1 });
+  });
+
+  it('returns only title and url publicly, from the latest record', async () => {
+    const { service, sort } = setup({
       title: 'Tasarım Günü',
       url: 'https://example.com',
       date: '',
     });
-    await expect(service.findPublic()).resolves.toEqual({
+    await expect(service.findLatest()).resolves.toEqual({
       title: 'Tasarım Günü',
       url: 'https://example.com',
     });
+    expect(sort).toHaveBeenCalledWith({ _id: -1 });
   });
 
-  it('returns null publicly when the setting is hidden', async () => {
-    const { service } = setup({
+  it('returns null publicly when the latest record is hidden or missing', async () => {
+    const expired = setup({
       title: 'Tasarım Günü',
       url: 'https://example.com',
       date: '2000-01-01',
     });
-    await expect(service.findPublic()).resolves.toBeNull();
+    await expect(expired.service.findLatest()).resolves.toBeNull();
+    const none = setup(null);
+    await expect(none.service.findLatest()).resolves.toBeNull();
   });
 
-  it('upserts the single record and keeps only the day of the date', async () => {
+  it('saves exactly what the panel sent on create and update', async () => {
     const { service, eventQrModel } = setup({});
-    await service.save({
+    const body = {
       title: 'Tasarım Günü',
       url: 'https://example.com',
-      date: '2026-11-20T00:00:00.000Z',
-    });
+      date: '2026-11-20',
+    };
+    await service.create(body);
+    expect(eventQrModel.create).toHaveBeenCalledWith(body);
+
+    await service.update(3, { title: 'Yeni başlık' });
     expect(eventQrModel.findByIdAndUpdate).toHaveBeenCalledWith(
-      1,
-      {
-        title: 'Tasarım Günü',
-        url: 'https://example.com',
-        date: '2026-11-20',
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      3,
+      { title: 'Yeni başlık' },
+      { new: true },
     );
+  });
+
+  it('tells the panels after every write, not after reads', async () => {
+    const { service, websocketGateway } = setup({});
+    await service.findAll();
+    await service.findLatest();
+    expect(websocketGateway.emitEventQrChanged).not.toHaveBeenCalled();
+
+    await service.create({ title: 'Tasarım Günü', url: 'https://example.com' });
+    expect(websocketGateway.emitEventQrChanged).toHaveBeenCalledTimes(1);
+
+    await service.update(3, { title: 'Yeni başlık' });
+    expect(websocketGateway.emitEventQrChanged).toHaveBeenCalledTimes(2);
   });
 });

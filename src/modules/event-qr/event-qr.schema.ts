@@ -2,9 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { purifySchema } from 'src/lib/purifySchema';
 
-// Kasadaki QR'ın ek butonu için tek kayıtlık ayar
-export const EVENT_QR_ID = 1;
-
+// Kasadaki QR sayfasının ek butonu; en son kayıt (en büyük _id) geçerlidir
 @Schema({ _id: false, timestamps: true })
 export class EventQr extends Document {
   @Prop({ type: Number })

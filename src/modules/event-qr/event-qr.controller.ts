@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { SaveEventQrDto } from './event-qr.dto';
 import { EventQrService } from './event-qr.service';
@@ -7,19 +7,26 @@ import { EventQrService } from './event-qr.service';
 export class EventQrController {
   constructor(private readonly eventQrService: EventQrService) {}
 
-  @Public()
-  @Get('/public')
-  findPublic() {
-    return this.eventQrService.findPublic();
-  }
-
+  //bu endpointi panel kullanıyor.
   @Get()
-  find() {
-    return this.eventQrService.find();
+  findAll() {
+    return this.eventQrService.findAll();
   }
 
-  @Patch()
-  save(@Body() dto: SaveEventQrDto) {
-    return this.eventQrService.save(dto);
+  //bu endpointi kasadaki QR'ın açtığı /etkinlikler sayfası kullanıyor.
+  @Public()
+  @Get('/latest')
+  findLatest() {
+    return this.eventQrService.findLatest();
+  }
+
+  @Post()
+  create(@Body() dto: SaveEventQrDto) {
+    return this.eventQrService.create(dto);
+  }
+
+  @Patch('/:id')
+  update(@Param('id') id: number, @Body() dto: SaveEventQrDto) {
+    return this.eventQrService.update(id, dto);
   }
 }
