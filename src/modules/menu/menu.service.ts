@@ -1223,8 +1223,14 @@ export class MenuService {
         }
       }
     }
-    // if matched product removed from an item
-    if (item?.matchedProduct && !updates.matchedProduct) {
+    // if matched product removed from an item. Only when the request
+    // actually sends matchedProduct (empty/null): a partial update that
+    // leaves the field out (e.g. only images) must keep the match.
+    if (
+      item?.matchedProduct &&
+      Object.prototype.hasOwnProperty.call(updates, 'matchedProduct') &&
+      !updates.matchedProduct
+    ) {
       updates.itemProduction = [
         ...item.itemProduction.filter(
           (itemProductionItem) =>
@@ -1583,8 +1589,14 @@ export class MenuService {
         ];
       }
     }
-    // if matched product removed from an item
-    if (item?.matchedProduct && !updates.matchedProduct) {
+    // if matched product removed from an item. Only when the request
+    // actually sends matchedProduct (empty/null): a partial update that
+    // leaves the field out (e.g. only images) must keep the match.
+    if (
+      item?.matchedProduct &&
+      Object.prototype.hasOwnProperty.call(updates, 'matchedProduct') &&
+      !updates.matchedProduct
+    ) {
       updates.itemProduction = [
         ...item.itemProduction.filter(
           (itemProductionItem) =>
