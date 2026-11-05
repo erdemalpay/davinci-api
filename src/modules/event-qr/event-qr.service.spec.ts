@@ -1,24 +1,24 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { SaveEventQrDto } from './event-qr.dto';
-import { isEventQrVisible } from './event-qr.schema';
+import { CreateEventQrDto, UpdateEventQrDto } from './event-qr.dto';
 import { EventQrService } from './event-qr.service';
 
 jest.mock('../websocket/websocket.gateway', () => ({
   AppWebSocketGateway: class AppWebSocketGateway {},
 }));
 
-describe('SaveEventQrDto', () => {
-  const errorsFor = (body: object) =>
-    validate(plainToInstance(SaveEventQrDto, body));
+describe.each([
+  ['CreateEventQrDto', CreateEventQrDto],
+  ['UpdateEventQrDto', UpdateEventQrDto],
+])('%s', (_name, Dto) => {
+  const errorsFor = (body: object) => validate(plainToInstance(Dto, body));
   const valid = { title: 'Tasarım Günü', url: 'https://example.com/kayit' };
 
-  it('accepts https links, empty links, a plain day and partial bodies', async () => {
+  it('accepts https links, empty links and a plain day', async () => {
     expect(await errorsFor(valid)).toHaveLength(0);
     expect(await errorsFor({ ...valid, url: '' })).toHaveLength(0);
     expect(await errorsFor({ ...valid, date: '2026-11-20' })).toHaveLength(0);
     expect(await errorsFor({ ...valid, date: '' })).toHaveLength(0);
-    expect(await errorsFor({ date: '2026-11-20' })).toHaveLength(0);
   });
 
   it('rejects links that are not https', async () => {
@@ -37,36 +37,6 @@ describe('SaveEventQrDto', () => {
       const errors = await errorsFor({ ...valid, date });
       expect(errors.map((error) => error.property)).toEqual(['date']);
     }
-  });
-});
-
-describe('isEventQrVisible', () => {
-  const setting = {
-    title: 'Kutu Oyunu Tasarım Günü',
-    url: 'https://example.com/kayit',
-    date: '2026-11-20',
-  };
-
-  it('shows the button until the day before the event', () => {
-    expect(isEventQrVisible(setting, '2026-11-04')).toBe(true);
-    expect(isEventQrVisible(setting, '2026-11-19')).toBe(true);
-  });
-
-  it('hides it from the morning of the event day', () => {
-    expect(isEventQrVisible(setting, '2026-11-20')).toBe(false);
-    expect(isEventQrVisible(setting, '2026-11-21')).toBe(false);
-  });
-
-  it('shows it without a date until it is cleared', () => {
-    expect(isEventQrVisible({ ...setting, date: '' }, '2030-01-01')).toBe(true);
-  });
-
-  it('hides it when empty or missing', () => {
-    expect(isEventQrVisible({ ...setting, title: '' }, '2026-11-04')).toBe(
-      false,
-    );
-    expect(isEventQrVisible({ ...setting, url: '' }, '2026-11-04')).toBe(false);
-    expect(isEventQrVisible(null, '2026-11-04')).toBe(false);
   });
 });
 
@@ -114,15 +84,45 @@ describe('EventQrService', () => {
     expect(sort).toHaveBeenCalledWith({ _id: -1 });
   });
 
-  it('returns null publicly when the latest record is hidden or missing', async () => {
-    const expired = setup({
-      title: 'Tasarım Günü',
-      url: 'https://example.com',
-      date: '2000-01-01',
+  describe('public visibility of the latest record', () => {
+    const record = {
+      title: 'Kutu Oyunu Tasarım Günü',
+      url: 'https://example.com/kayit',
+      date: '2026-11-20',
+    };
+    const visibleAt = async (now: string, latest: object | null = record) => {
+      jest.useFakeTimers().setSystemTime(new Date(now));
+      return (await setup(latest).service.findLatest()) !== null;
+    };
+    afterEach(() => jest.useRealTimers());
+
+    it('shows the button until the day before the event', async () => {
+      expect(await visibleAt('2026-11-04T09:00:00Z')).toBe(true);
+      // 19 Kasım 23:59:59 İstanbul
+      expect(await visibleAt('2026-11-19T20:59:59Z')).toBe(true);
     });
-    await expect(expired.service.findLatest()).resolves.toBeNull();
-    const none = setup(null);
-    await expect(none.service.findLatest()).resolves.toBeNull();
+
+    it('hides it from Istanbul midnight of the event day', async () => {
+      // 20 Kasım 00:00:00 İstanbul
+      expect(await visibleAt('2026-11-19T21:00:00Z')).toBe(false);
+      expect(await visibleAt('2026-11-21T10:00:00Z')).toBe(false);
+    });
+
+    it('shows it without a day until the day is set', async () => {
+      expect(
+        await visibleAt('2030-01-01T00:00:00Z', { ...record, date: '' }),
+      ).toBe(true);
+    });
+
+    it('hides it when the title or link is empty or nothing is saved', async () => {
+      expect(
+        await visibleAt('2026-11-04T09:00:00Z', { ...record, title: '' }),
+      ).toBe(false);
+      expect(
+        await visibleAt('2026-11-04T09:00:00Z', { ...record, url: '' }),
+      ).toBe(false);
+      expect(await visibleAt('2026-11-04T09:00:00Z', null)).toBe(false);
+    });
   });
 
   it('saves exactly what the panel sent on create and update', async () => {
