@@ -3,8 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as moment from 'moment-timezone';
 import { Model } from 'mongoose';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { SaveEventQrDto } from './event-qr.dto';
-import { EventQr, isEventQrVisible } from './event-qr.schema';
+import { CreateEventQrDto, UpdateEventQrDto } from './event-qr.dto';
+import { EventQr } from './event-qr.schema';
 
 @Injectable()
 export class EventQrService {
@@ -24,18 +24,19 @@ export class EventQrService {
       .sort({ _id: -1 })
       .lean()
       .exec();
+    if (!latest?.title || !latest.url) return null;
     const today = moment.tz('Europe/Istanbul').format('YYYY-MM-DD');
-    if (!latest || !isEventQrVisible(latest, today)) return null;
+    if (latest.date && latest.date <= today) return null;
     return { title: latest.title, url: latest.url };
   }
 
-  async create(dto: SaveEventQrDto) {
+  async create(dto: CreateEventQrDto) {
     const eventQr = await this.eventQrModel.create(dto);
     this.websocketGateway.emitEventQrChanged();
     return eventQr;
   }
 
-  async update(id: number, dto: SaveEventQrDto) {
+  async update(id: number, dto: UpdateEventQrDto) {
     const eventQr = await this.eventQrModel
       .findByIdAndUpdate(id, dto, { new: true })
       .exec();

@@ -21,12 +21,3 @@ export class EventQr extends Document {
 
 export const EventQrSchema = SchemaFactory.createForClass(EventQr);
 purifySchema(EventQrSchema);
-
-export const isEventQrVisible = (
-  setting: Pick<EventQr, 'title' | 'url' | 'date'> | null,
-  today: string,
-) =>
-  !!setting &&
-  !!setting.title &&
-  !!setting.url &&
-  (!setting.date || setting.date > today);

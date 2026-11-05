@@ -1,16 +1,14 @@
+import { PartialType } from '@nestjs/swagger';
 import { IsOptional, IsString, Matches } from 'class-validator';
 
-// Hem oluşturma hem güncelleme için; alanlar isteğe bağlı, boş kayıt herkese açık sayfada görünmez
-export class SaveEventQrDto {
-  @IsOptional()
+export class CreateEventQrDto {
   @IsString()
-  title?: string;
+  title: string;
 
   // Panelden girilen linkin herkese açık sayfada güvenli olması için sadece https
-  @IsOptional()
   @IsString()
   @Matches(/^$|^https:\/\//, { message: 'url must start with https://' })
-  url?: string;
+  url: string;
 
   @IsOptional()
   @IsString()
@@ -19,3 +17,5 @@ export class SaveEventQrDto {
   })
   date?: string;
 }
+
+export class UpdateEventQrDto extends PartialType(CreateEventQrDto) {}
