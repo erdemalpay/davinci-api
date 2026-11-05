@@ -261,6 +261,10 @@ export class AppWebSocketGateway {
     this.server.emit('eventQrChanged');
   }
 
+  emitEventCalendarChanged() {
+    this.server.emit('eventCalendarChanged');
+  }
+
   async emitKitchenChanged() {
     await this.redisService.reset(RedisKeys.Kitchens);
     this.server.emit('kitchenChanged');
