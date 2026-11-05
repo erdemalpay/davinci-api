@@ -20,6 +20,8 @@ import { ConcurrencyLogModule } from './modules/concurrency-log/concurrency-log.
 import { IntegrationRequestLogModule } from './modules/integration-request-log/integration-request-log.module';
 import { ConsumerModule } from './modules/consumer/consumer.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
+import { EventCalendarModule } from './modules/event-calendar/event-calendar.module';
+import { EventQrModule } from './modules/event-qr/event-qr.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
@@ -110,6 +112,8 @@ const modules = [
   AccountingModule,
   CheckoutModule,
   CustomerPopupModule,
+  EventQrModule,
+  EventCalendarModule,
   MonthlyActivityModule,
   EventSurveyModule,
   TournamentModule,
