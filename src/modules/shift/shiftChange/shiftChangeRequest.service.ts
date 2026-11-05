@@ -4,7 +4,10 @@ import { Model } from 'mongoose';
 import { ActivityType } from '../../activity/activity.dto';
 import { ActivityService } from '../../activity/activity.service';
 import { LocationService } from '../../location/location.service';
-import { NotificationEventType } from '../../notification/notification.dto';
+import {
+  NotificationEventType,
+  personalRecipients,
+} from '../../notification/notification.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { UserService } from '../../user/user.service';
 import { AppWebSocketGateway } from '../../websocket/websocket.gateway';
@@ -293,9 +296,7 @@ export class ShiftChangeRequestService {
         },
         type: shiftChangeRequestedEvent.type,
         createdBy: shiftChangeRequestedEvent.createdBy,
-        selectedUsers: [createDto.targetUserId],
-        selectedRoles: shiftChangeRequestedEvent.selectedRoles,
-        selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+        ...personalRecipients(createDto.targetUserId),
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREQUESTED,
       });
@@ -498,9 +499,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeApprovedEvent.type,
           createdBy: shiftChangeApprovedEvent.createdBy,
-          selectedUsers: [request.requesterId],
-          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          ...personalRecipients(request.requesterId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
@@ -516,9 +515,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeApprovedEvent.type,
           createdBy: shiftChangeApprovedEvent.createdBy,
-          selectedUsers: [request.targetUserId],
-          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          ...personalRecipients(request.targetUserId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
@@ -534,9 +531,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeApprovedEvent.type,
           createdBy: shiftChangeApprovedEvent.createdBy,
-          selectedUsers: [managerId],
-          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          ...personalRecipients(managerId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
@@ -600,9 +595,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeRequestedEvent.type,
           createdBy: shiftChangeRequestedEvent.createdBy,
-          selectedUsers: [request.targetUserId],
-          selectedRoles: shiftChangeRequestedEvent.selectedRoles,
-          selectedLocations: shiftChangeRequestedEvent.selectedLocations,
+          ...personalRecipients(request.targetUserId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEREQUESTED,
         });
@@ -687,9 +680,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeApprovedEvent.type,
           createdBy: shiftChangeApprovedEvent.createdBy,
-          selectedUsers: [request.requesterId],
-          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          ...personalRecipients(request.requesterId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
@@ -705,9 +696,7 @@ export class ShiftChangeRequestService {
           },
           type: shiftChangeApprovedEvent.type,
           createdBy: shiftChangeApprovedEvent.createdBy,
-          selectedUsers: [request.targetUserId],
-          selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-          selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+          ...personalRecipients(request.targetUserId),
           seenBy: [],
           event: NotificationEventType.SHIFTCHANGEAPPROVED,
         });
@@ -724,9 +713,7 @@ export class ShiftChangeRequestService {
             },
             type: shiftChangeApprovedEvent.type,
             createdBy: shiftChangeApprovedEvent.createdBy,
-            selectedUsers: [request.managerApprovedBy],
-            selectedRoles: shiftChangeApprovedEvent.selectedRoles,
-            selectedLocations: shiftChangeApprovedEvent.selectedLocations,
+            ...personalRecipients(request.managerApprovedBy),
             seenBy: [],
             event: NotificationEventType.SHIFTCHANGEAPPROVED,
           });
@@ -863,9 +850,7 @@ export class ShiftChangeRequestService {
         },
         type: shiftChangeRejectedEvent.type,
         createdBy: shiftChangeRejectedEvent.createdBy,
-        selectedUsers: [request.requesterId],
-        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
-        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        ...personalRecipients(request.requesterId),
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREJECTED,
       });
@@ -881,9 +866,7 @@ export class ShiftChangeRequestService {
         },
         type: shiftChangeRejectedEvent.type,
         createdBy: shiftChangeRejectedEvent.createdBy,
-        selectedUsers: [request.targetUserId],
-        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
-        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        ...personalRecipients(request.targetUserId),
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREJECTED,
       });
@@ -958,9 +941,7 @@ export class ShiftChangeRequestService {
         },
         type: shiftChangeRejectedEvent.type,
         createdBy: shiftChangeRejectedEvent.createdBy,
-        selectedUsers: [request.requesterId],
-        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
-        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        ...personalRecipients(request.requesterId),
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREJECTED,
       });
@@ -1035,9 +1016,7 @@ export class ShiftChangeRequestService {
         },
         type: shiftChangeRejectedEvent.type,
         createdBy: shiftChangeRejectedEvent.createdBy,
-        selectedUsers: [request.targetUserId],
-        selectedRoles: shiftChangeRejectedEvent.selectedRoles,
-        selectedLocations: shiftChangeRejectedEvent.selectedLocations,
+        ...personalRecipients(request.targetUserId),
         seenBy: [],
         event: NotificationEventType.SHIFTCHANGEREJECTED,
       });

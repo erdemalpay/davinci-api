@@ -19,6 +19,7 @@ import { ActivityService } from '../activity/activity.service';
 import {
   CreateNotificationDto,
   NotificationEventType,
+  personalRecipients,
 } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { ShiftService } from '../shift/shift.service';
@@ -775,16 +776,16 @@ export class VisitService {
     const { location, date, startHour } = visit;
     const user = visit.user as User;
     const notify = (
-      selectedUsers: string[],
-      selectedRoles: number[],
+      recipients: Pick<
+        CreateNotificationDto,
+        'selectedUsers' | 'selectedRoles' | 'selectedLocations' | 'isPersonal'
+      >,
       message: CreateNotificationDto['message'],
     ) =>
       this.notificationService.createNotification({
         type: unfinishedVisitEvent.type,
         createdBy: unfinishedVisitEvent.createdBy,
-        selectedUsers,
-        selectedRoles,
-        selectedLocations: unfinishedVisitEvent.selectedLocations,
+        ...recipients,
         seenBy: [],
         event: NotificationEventType.UNFINISHEDVISIT,
         message,
@@ -792,14 +793,17 @@ export class VisitService {
 
     try {
       await notify(
-        unfinishedVisitEvent.selectedUsers,
-        unfinishedVisitEvent.selectedRoles,
+        {
+          selectedUsers: unfinishedVisitEvent.selectedUsers,
+          selectedRoles: unfinishedVisitEvent.selectedRoles,
+          selectedLocations: unfinishedVisitEvent.selectedLocations,
+        },
         {
           key: 'UnfinishedVisit',
           params: { user: user.name, location: location.name, date, startHour },
         },
       );
-      await notify([user._id], [], {
+      await notify(personalRecipients(user._id), {
         key: 'UnfinishedVisitEmployee',
         params: { location: location.name, date, startHour },
       });
