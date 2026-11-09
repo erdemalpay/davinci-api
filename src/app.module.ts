@@ -39,6 +39,7 @@ import { MenuModule } from './modules/menu/menu.module';
 import { MiddlemanModule } from './modules/middleman/middleman.module';
 import { UpstairsDutyModule } from './modules/upstairsDuty/upstairsDuty.module';
 import { StaffLeaveModule } from './modules/staffLeave/staffLeave.module';
+import { GiftTrackingModule } from './modules/giftTracking/giftTracking.module';
 import { AnomalyModule } from './modules/anomaly/anomaly.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
@@ -140,6 +141,7 @@ const modules = [
   IntegrationRequestLogModule,
   InventoryModule,
   StaffLeaveModule,
+  GiftTrackingModule,
   AnomalyModule,
 ];
 
