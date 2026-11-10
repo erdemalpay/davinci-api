@@ -17,6 +17,11 @@ export class Stock extends Document {
 
   @Prop({ required: true, type: Number })
   quantity: number;
+
+  // Increased together with quantity on every order, so panels can tell
+  // the latest value when stock events arrive out of order.
+  @Prop({ type: Number, default: 0 })
+  revision: number;
 }
 
 export const StockSchema = SchemaFactory.createForClass(Stock);

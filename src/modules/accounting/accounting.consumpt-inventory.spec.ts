@@ -40,7 +40,7 @@ describe('consumptStock', () => {
     expect(await service.consumptStock(user, dto)).toBe(stock);
     expect(service.stockModel.findByIdAndUpdate).toHaveBeenCalledWith(
       's1',
-      { $inc: { quantity: -2 } },
+      { $inc: { quantity: -2, revision: 1 } },
       { new: true },
     );
     expect(service.createProductStockHistory).toHaveBeenCalledWith(user, {
@@ -54,6 +54,14 @@ describe('consumptStock', () => {
     expect(service.updateShopifyStock).toHaveBeenCalledWith('catan', 1, 3);
     expect(service.updateTrendyolStock).toHaveBeenCalledWith('catan', 1, 3);
     expect(service.updateHepsiburadaStock).toHaveBeenCalledWith('catan', 1, 3);
+  });
+
+  it('güncellenen stok kaydını olayla gönderir', async () => {
+    const service = build();
+    await service.consumptStock(user, dto);
+    expect(service.websocketGateway.emitStockChanged).toHaveBeenCalledWith([
+      { ...stock, quantity: 3 },
+    ]);
   });
 
   it("geri-çağırmaya oluşan geçmiş kaydının id'sini verir", async () => {
