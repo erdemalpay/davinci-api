@@ -16,6 +16,7 @@ import {
 } from './trendyol.dto';
 import { TrendyolCronService } from './trendyol.cron.service';
 import { TrendyolService } from './trendyol.service';
+import { TrendyolWebhook } from './trendyol-webhook.guard';
 
 @Controller('trendy')
 export class TrendyolController {
@@ -74,7 +75,7 @@ export class TrendyolController {
     return this.trendyolService.deleteWebhook(id);
   }
 
-  @Public()
+  @TrendyolWebhook()
   @Post('/order-status-webhook')
   orderStatusWebhook(@Body() data?: any) {
     return this.trendyolService.orderStatusWebhook(data);

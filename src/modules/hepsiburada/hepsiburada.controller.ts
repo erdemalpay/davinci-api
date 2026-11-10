@@ -8,7 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Public } from '../auth/public.decorator';
+import { HepsiburadaWebhook } from './hepsiburada-webhook.guard';
 import { HepsiburadaCronService } from './hepsiburada.cron.service';
 import { HepsiburadaService } from './hepsiburada.service';
 
@@ -118,7 +118,7 @@ export class HepsiburadaController {
     return this.hepsiburadaService.matchItemsByBarcode(payload.itemIds);
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Post('/order-webhook')
   async orderWebhook(@Body() data?: any) {
     this.logger.log('Received Hepsiburada order webhook');
