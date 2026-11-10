@@ -85,43 +85,27 @@ describe('HepsiburadaWebhookGuard', () => {
     });
   });
 
-  // Real orders must keep flowing until the credentials Hepsiburada sends are
-  // known to match the configured ones, so nothing is rejected by default.
-  describe('when not enforced (default)', () => {
-    it('lets an unverified request through and logs why', () => {
-      const { guard, warn } = guardWith({
-        HEPSIBURADA_STAGING_WEBHOOK_USERNAME: username,
-        HEPSIBURADA_STAGING_WEBHOOK_PASSWORD: password,
-      });
-      const context = contextWith({ authorization: basic(username, 'wrong') });
+  describe('rejection reason', () => {
+    const reasonFor = (
+      config: Record<string, string>,
+      headers: Record<string, string>,
+    ) => guardWith(config).guard['rejectionReason'](headers);
+    const configured = {
+      HEPSIBURADA_STAGING_WEBHOOK_USERNAME: username,
+      HEPSIBURADA_STAGING_WEBHOOK_PASSWORD: password,
+    };
 
-      expect(guard.canActivate(context)).toBe(true);
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('basic credentials do not match'),
-      );
-    });
-
-    it('lets requests through when no credentials are configured yet', () => {
-      const { guard, warn } = guardWith({});
-
-      expect(guard.canActivate(contextWith({}))).toBe(true);
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('no credentials configured'),
-      );
-    });
-
-    it('does not log the credentials it received', () => {
-      const { guard, warn } = guardWith({
-        HEPSIBURADA_STAGING_WEBHOOK_USERNAME: username,
-        HEPSIBURADA_STAGING_WEBHOOK_PASSWORD: password,
-      });
+    it('says the credentials do not match, without the credentials', () => {
       const header = basic('leaked-user', 'leaked-pass');
+      const reason = reasonFor(configured, { authorization: header });
 
-      guard.canActivate(contextWith({ authorization: header }));
+      expect(reason).toContain('basic credentials do not match');
+      expect(reason).not.toContain('leaked');
+      expect(reason).not.toContain(header.split(' ')[1]);
+    });
 
-      const logged = JSON.stringify(warn.mock.calls);
-      expect(logged).not.toContain('leaked');
-      expect(logged).not.toContain(header.split(' ')[1]);
+    it('says when no credentials are configured', () => {
+      expect(reasonFor({}, {})).toBe('no credentials configured');
     });
   });
 

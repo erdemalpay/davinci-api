@@ -73,38 +73,26 @@ describe('TrendyolWebhookGuard', () => {
     });
   });
 
-  // Real orders must keep flowing until the key Trendyol sends is known to
-  // match the configured one, so nothing is rejected by default.
-  describe('when not enforced (default)', () => {
-    it('lets an unverified request through and logs why', () => {
-      const { guard, warn } = guardWith({
-        TRENDYOL_STAGING_WEBHOOK_API_KEY: apiKey,
-      });
-      const context = contextWith({ [TRENDYOL_API_KEY_HEADER]: 'wrong-key' });
+  // What gets logged for an unverified request; whether it is rejected is
+  // decided by the base guard (see webhook-sender.guard.spec.ts).
+  describe('rejection reason', () => {
+    const reasonFor = (
+      config: Record<string, string>,
+      headers: Record<string, string>,
+    ) => guardWith(config).guard['rejectionReason'](headers);
 
-      expect(guard.canActivate(context)).toBe(true);
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('x-api-key does not match'),
+    it('says the key does not match, without the key itself', () => {
+      const reason = reasonFor(
+        { TRENDYOL_STAGING_WEBHOOK_API_KEY: apiKey },
+        { [TRENDYOL_API_KEY_HEADER]: 'leaked' },
       );
+
+      expect(reason).toContain('x-api-key does not match');
+      expect(reason).not.toContain('leaked');
     });
 
-    it('lets requests through when no api key is configured yet', () => {
-      const { guard, warn } = guardWith({});
-
-      expect(guard.canActivate(contextWith({}))).toBe(true);
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('no api key configured'),
-      );
-    });
-
-    it('does not log the api key it received', () => {
-      const { guard, warn } = guardWith({
-        TRENDYOL_STAGING_WEBHOOK_API_KEY: apiKey,
-      });
-
-      guard.canActivate(contextWith({ [TRENDYOL_API_KEY_HEADER]: 'leaked' }));
-
-      expect(JSON.stringify(warn.mock.calls)).not.toContain('leaked');
+    it('says when no api key is configured', () => {
+      expect(reasonFor({}, {})).toBe('no api key configured');
     });
   });
 
