@@ -2548,7 +2548,7 @@ export class AccountingService {
       changedStock = newStock;
 
       if (isEmit) {
-        this.websocketGateway.emitStockChanged([changedStock]);
+        await this.websocketGateway.emitStockChanged([changedStock]);
       }
 
       if (createStockDto.quantity !== 0) {
@@ -2758,7 +2758,7 @@ export class AccountingService {
         stockData.quantity > 0,
       );
 
-      this.websocketGateway.emitStockChanged([changedStock]);
+      await this.websocketGateway.emitStockChanged([changedStock]);
 
       await this.activityService.addActivity(
         user,
@@ -2868,7 +2868,7 @@ export class AccountingService {
       );
     }
     if (isEmit) {
-      this.websocketGateway.emitStockChanged([changedStock]);
+      await this.websocketGateway.emitStockChanged([changedStock]);
     }
   }
 
@@ -3234,7 +3234,7 @@ export class AccountingService {
         });
         onHistoryCreated?.(history._id);
       }
-      this.websocketGateway.emitStockChanged([newStock]);
+      await this.websocketGateway.emitStockChanged([newStock]);
       // Activity logging - fire and forget (non-blocking)
       this.activityService
         .addUpdateActivity(user, ActivityType.UPDATE_STOCK, stock, newStock)
