@@ -75,5 +75,13 @@ describe('AppWebSocketGateway', () => {
 
       expect(emit).toHaveBeenCalledWith('stockChanged');
     });
+  it('sends shopifyProductPriceChanged for Shopify price updates', () => {
+    const gateway = new AppWebSocketGateway({} as never);
+    const emit = jest.fn();
+    gateway.server = { emit } as never;
+
+    gateway.emitShopifyProductPriceChanged();
+
+    expect(emit).toHaveBeenCalledWith('shopifyProductPriceChanged');
   });
 });

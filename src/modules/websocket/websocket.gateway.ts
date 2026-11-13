@@ -234,6 +234,10 @@ export class AppWebSocketGateway {
     this.server.emit('shopifyProductStockChanged');
   }
 
+  emitShopifyProductPriceChanged() {
+    this.server.emit('shopifyProductPriceChanged');
+  }
+
   emitIncomeChanged() {
     this.server.emit('incomeChanged');
   }

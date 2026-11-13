@@ -4766,6 +4766,13 @@ export class AccountingService {
     const lookups = await this.getBulkProductLookups();
     const findIds = (names: string[], map: Map<string, any>) =>
       names.filter((item) => map.has(item)).map((item) => map.get(item));
+    // Yazmalar satır başına değil, döngüden sonra toplu yapılır
+    const rowsToWrite: {
+      updateDto: UpdateMultipleProduct;
+      update: UpdateQuery<Product>;
+      countListIds?: string[];
+      locationIds: number[];
+    }[] = [];
     for (const updateDto of updateMultipleProductDto) {
       try {
         const {
@@ -4852,47 +4859,149 @@ export class AccountingService {
           locationIds = [...new Set(findIds(locationNames, lookups.locations))];
         }
 
-        const updatedProduct = await this.productModel.findOneAndUpdate(
-          { name: name, deleted: false },
-          {
+        const hasCountList = countList !== undefined && countList !== null;
+        rowsToWrite.push({
+          updateDto,
+          update: {
             ...(newExpenseTypes.length > 0 && { expenseType: newExpenseTypes }),
             ...(newVendor.length > 0 && { vendor: newVendor }),
             ...(newBrand.length > 0 && { brand: newBrand }),
-            ...(countList !== undefined &&
-              countList !== null && { countList: countListIds }),
+            ...(hasCountList && { countList: countListIds }),
           },
-          { new: true },
-        );
-
-        if (updatedProduct && countList !== undefined && countList !== null) {
-          await this.countListModel.updateMany(
-            {},
-            { $pull: { products: { product: updatedProduct._id } } },
-          );
-
-          if (countListIds.length > 0) {
-            await this.countListModel.updateMany(
-              { _id: { $in: countListIds } },
-              {
-                $push: {
-                  products: {
-                    product: updatedProduct._id,
-                    locations: locationIds,
-                  },
-                },
-              },
-            );
-          }
-
-          this.websocketGateway.emitCountListChanged();
-        }
+          countListIds: hasCountList ? countListIds : undefined,
+          locationIds,
+        });
       } catch (e) {
         this.logger.error('Error updating product:', e);
         errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
       }
     }
+
+    // Ürün, eskisi gibi adıyla birebir (boşluk kırpılmadan) bulunur
+    const productIds = new Map<string, string>();
+    const products = await this.productModel
+      .find({
+        deleted: false,
+        name: { $in: rowsToWrite.map((row) => row.updateDto.name) },
+      })
+      .select('_id name')
+      .lean();
+    for (const product of products) {
+      if (!productIds.has(product.name)) {
+        productIds.set(product.name, product._id);
+      }
+    }
+    const productRows = rowsToWrite.filter((row) =>
+      productIds.has(row.updateDto.name),
+    );
+    const failedRows = new Set<number>();
+    const markFailed = (rowIndex: number, error: unknown) => {
+      this.logger.error('Error updating product:', error);
+      failedRows.add(rowIndex);
+      errorDatas.push({
+        ...productRows[rowIndex].updateDto,
+        errorNote: 'Error occured',
+      });
+    };
+
+    await this.bulkWriteRows(
+      this.productModel,
+      productRows.map((row, index) => ({
+        index,
+        ops: [
+          {
+            updateOne: {
+              filter: { _id: productIds.get(row.updateDto.name) },
+              update: row.update,
+            },
+          },
+        ],
+      })),
+      markFailed,
+    );
+
+    const countListRows = productRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row, index }) => row.countListIds && !failedRows.has(index))
+      .map(({ row, index }) => {
+        const product = productIds.get(row.updateDto.name);
+        return {
+          index,
+          ops: [
+            {
+              updateMany: {
+                filter: { 'products.product': product },
+                update: { $pull: { products: { product } } },
+              },
+            },
+            ...(row.countListIds.length > 0
+              ? [
+                  {
+                    updateMany: {
+                      filter: { _id: { $in: row.countListIds } },
+                      update: {
+                        $push: {
+                          products: { product, locations: row.locationIds },
+                        },
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
+        };
+      });
+    await this.bulkWriteRows(this.countListModel, countListRows, markFailed);
+
+    if (countListRows.some(({ index }) => !failedRows.has(index))) {
+      this.websocketGateway.emitCountListChanged();
+    }
     this.websocketGateway.emitProductChanged();
     return errorDatas;
+  }
+
+  // Satırların yazmalarını sırasıyla tek seferde gönderir. Bir satırın yazması
+  // hata verirse o satır hatalı sayılır ve sonraki satırlardan devam edilir.
+  private async bulkWriteRows<T>(
+    model: Model<T>,
+    rows: {
+      index: number;
+      ops: Parameters<Model<T>['bulkWrite']>[0];
+    }[],
+    onRowError: (rowIndex: number, error: unknown) => void,
+  ) {
+    let start = 0;
+    while (start < rows.length) {
+      const remaining = rows.slice(start);
+      const opRows = remaining.flatMap((row, i) =>
+        row.ops.map(() => start + i),
+      );
+      try {
+        await model.bulkWrite(
+          remaining.flatMap((row) => row.ops),
+          { ordered: true },
+        );
+        return;
+      } catch (error) {
+        const writeErrors = (
+          error as { writeErrors?: { index: number } | { index: number }[] }
+        ).writeErrors;
+        const failedOp = [writeErrors].flat()[0]?.index;
+        if (failedOp === undefined) {
+          // Hatanın hangi satırda olduğu bilinmiyorsa kalanlar tek tek yazılır
+          for (const row of remaining) {
+            try {
+              await model.bulkWrite(row.ops, { ordered: true });
+            } catch (rowError) {
+              onRowError(row.index, rowError);
+            }
+          }
+          return;
+        }
+        onRowError(rows[opRows[failedOp]].index, error);
+        start = opRows[failedOp] + 1;
+      }
+    }
   }
   private async getBulkProductLookups() {
     const toNameMap = (docs: any[]) => {
