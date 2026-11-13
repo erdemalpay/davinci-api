@@ -50,6 +50,7 @@ Swagger arayüzü `/docs` adresinde.
 - `@Public()` iki guard'ı da atlar; sadece gerçekten herkese açık uçlarda kullan.
 - `@ApiTokenProtected('CONFIG_KEY')` sunucudan sunucuya uçlar içindir (bearer veya `x-api-token`).
 - `@ShopifyWebhook()` Shopify webhook'ları içindir (ham body üzerinden HMAC doğrulaması, `src/modules/shopify/shopify-webhook.guard.ts`). Secret: `SHOPIFY_WEBHOOK_SECRET` / `SHOPIFY_STAGING_WEBHOOK_SECRET`, yoksa app secret.
+- `@TrendyolWebhook()` ve `@HepsiburadaWebhook()` pazaryeri sipariş webhook'ları içindir (`src/modules/auth/webhook-sender.guard.ts`). Trendyol `x-api-key` başlığını (`TRENDYOL_PRODUCTION_WEBHOOK_API_KEY` / `TRENDYOL_STAGING_WEBHOOK_API_KEY`), Hepsiburada basic auth'u (`HEPSIBURADA_PRODUCTION_WEBHOOK_USERNAME` + `_PASSWORD` / `HEPSIBURADA_STAGING_...`) doğrular. Bunlar tanımlı değilse Trendyol için `TRENDYOL_<ORTAM>_API_KEY`, Hepsiburada için `DEFAULT_FROM_EMAIL` + `HEPSIBURADA_<ORTAM>_SECRET_KEY` kullanılır. Varsayılan olarak yalnızca uyarı loglar; istekleri reddetmesi için `TRENDYOL_WEBHOOK_ENFORCE=true` / `HEPSIBURADA_WEBHOOK_ENFORCE=true` gerekir.
 - `RolesGuard`, `authorization` koleksiyonundaki path+method → roller kayıtlarını okur (Redis'te cache'lenir) ve route pattern'i ile eşleştirir (`req.route.path`, ör. `/order/:id`). **Kaydı olmayan route'lara giriş yapmış her kullanıcı erişebilir.** Rol ID'leri sayıdır (`user.role._id`).
 
 ## Testler

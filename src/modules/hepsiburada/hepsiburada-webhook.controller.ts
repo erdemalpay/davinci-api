@@ -1,5 +1,5 @@
 import { Body, Controller, Logger, Post, Put, Param } from '@nestjs/common';
-import { Public } from '../auth/public.decorator';
+import { HepsiburadaWebhook } from './hepsiburada-webhook.guard';
 import { HepsiburadaService } from './hepsiburada.service';
 
 @Controller() // Root seviyede controller - prefix yok
@@ -11,7 +11,7 @@ export class HepsiburadaWebhookController {
   // Hepsiburada'nın beklediği "/orders" endpoint'i
   // Base URL: api-staging.davinboardgame.com
   // Full URL: https://api-staging.davinboardgame.com/orders
-  @Public()
+  @HepsiburadaWebhook()
   @Post('/orders')
   async orders(@Body() data?: any) {
     this.logger.log('Received Hepsiburada order webhook via /orders');
@@ -22,7 +22,7 @@ export class HepsiburadaWebhookController {
   // Hepsiburada'nın beklediği "/lineitems/{lineitemid}/cancel" endpoint'i
   // Base URL: api-staging.davinboardgame.com
   // Full URL: https://api-staging.davinboardgame.com/lineitems/{lineitemid}/cancel
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/lineitems/:lineitemid/cancel')
   async cancelLineItem(
     @Param('lineitemid') lineitemid: string,
@@ -35,7 +35,7 @@ export class HepsiburadaWebhookController {
     return await this.hepsiburadaService.handleCancelOrder(data, lineitemid);
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Post('/packages')
   async createPackages(@Body() data?: any) {
     this.logger.log('Received Hepsiburada create packages webhook via /packages');
@@ -46,7 +46,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/packages/:packagenumber/unpack')
   async unpackPackage(
     @Param('packagenumber') packagenumber: string,
@@ -60,7 +60,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/packages/:packagenumber/intransit')
   async intransitPackage(
     @Param('packagenumber') packagenumber: string,
@@ -74,7 +74,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/packages/:packagenumber/deliver')
   async deliverPackage(
     @Param('packagenumber') packagenumber: string,
@@ -98,7 +98,7 @@ export class HepsiburadaWebhookController {
     }
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/packages/:packagenumber/undeliver')
   undeliverPackage(
     @Param('packagenumber') packagenumber: string,
@@ -109,7 +109,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/orders/:ordersnumber/shippingaddress')
   changeShippingAddress(
     @Param('ordersnumber') ordersnumber: string,
@@ -120,7 +120,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/claims/awaitingaction')
   claimsAwaitingAction(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims awaiting action webhook via /claims/awaitingaction');
@@ -128,7 +128,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/claims/accept')
   claimsAccept(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims accept webhook via /claims/accept');
@@ -136,7 +136,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Put('/claims/reject')
   claimsReject(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims reject webhook via /claims/reject');
@@ -144,7 +144,7 @@ export class HepsiburadaWebhookController {
     return { success: true };
   }
 
-  @Public()
+  @HepsiburadaWebhook()
   @Post('/claims/packages')
   claimsPackages(@Body() data?: any) {
     this.logger.log('Received Hepsiburada claims packages webhook via /claims/packages');
