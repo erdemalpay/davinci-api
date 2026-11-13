@@ -347,20 +347,16 @@ const isLongGmCall = (call: OpenCallInfo) =>
   call.type === ButtonCallTypeEnum.GAMEMASTERCALL &&
   call.gmCallReason !== GmCallReasonEnum.QUESTION;
 
-// The upstairs duty may hold several calls: service calls on top of
-// service calls, and a rule question together with service calls. Never
-// two game master calls, and nothing with a recommendation or an
-// explanation.
+// The upstairs duty may hold any number of service calls and questions
+// about a game at once, but nothing together with a recommendation or an
+// explanation. Once they start explaining, their calls for other tables go
+// to someone else (see releaseCallsOfExplainers).
 export function upstairsDutyCanTake(
   openCalls: OpenCallInfo[],
   call: OpenCallInfo,
 ): boolean {
   if (openCalls.length === 0) return true;
-  if (isLongGmCall(call) || openCalls.some(isLongGmCall)) return false;
-  if (call.type === ButtonCallTypeEnum.GAMEMASTERCALL) {
-    return !openCalls.some((c) => c.type === ButtonCallTypeEnum.GAMEMASTERCALL);
-  }
-  return true;
+  return !isLongGmCall(call) && !openCalls.some(isLongGmCall);
 }
 
 // The middleman role runs from 14:00 to 22:00: it ends for the night at
