@@ -420,6 +420,16 @@ export class ButtonCallAssignmentService {
     return undefined;
   }
 
+  // Whoever is on the upstairs duty now. They never take the middleman
+  // role, and the middleman never gets the duty.
+  private async findUpstairsDutyUserId(location: number, date: string) {
+    const duty = await this.upstairsDutyModel
+      .findOne({ location, date, finishHour: { $exists: false } })
+      .select('user')
+      .lean();
+    return duty ? String(duty.user) : undefined;
+  }
+
   // Upstairs tables open now, an event table counting its tables.
   private async countUpstairsTables(location: number, date: string) {
     const tables = await this.tableModel
@@ -435,8 +445,9 @@ export class ButtonCallAssignmentService {
   }
 
   // An explanation or a question about a game only the middleman knows:
-  // the middleman goes when a free game master can stand in for them.
-  // Someone else in the cafe who knows the game, even busy, is waited for.
+  // the middleman goes when a free game master (not the upstairs duty) can
+  // stand in for them. Someone else in the cafe who knows the game, even
+  // busy, is waited for.
   private async findMiddlemanStandIn(
     call: CallInfo,
     request: AssignmentRequest,
@@ -464,8 +475,14 @@ export class ButtonCallAssignmentService {
     if (!middleman || (call.declinedBy ?? []).includes(middlemanId)) {
       return undefined;
     }
+    const dutyId = await this.findUpstairsDutyUserId(
+      call.location,
+      call.date,
+    );
     const standIns = candidates.filter(
-      (c) => c.role === RoleEnum.GAMEMASTER || c.role === RoleEnum.GAMEMANAGER,
+      (c) =>
+        (c.role === RoleEnum.GAMEMASTER || c.role === RoleEnum.GAMEMANAGER) &&
+        c.userId !== dutyId,
     );
     if (standIns.length === 0) {
       return undefined;
@@ -731,10 +748,16 @@ export class ButtonCallAssignmentService {
         this.websocketGateway.emitMiddlemanChanged();
         continue;
       }
+      // A stand-in also keeps standing in while the middleman is on the
+      // upstairs duty.
       const keepsStandingIn =
         (await this.isBusyWithCalls(middlemanId, date)) ||
         (isStandIn &&
-          (await this.findRestingMiddlemen(location, date)).has(middlemanId));
+          ((await this.findRestingMiddlemen(location, date)).has(
+            middlemanId,
+          ) ||
+            (await this.findUpstairsDutyUserId(location, date)) ===
+              middlemanId));
       if (keepsStandingIn) {
         // A stand-in back from a call or a busy state is there again.
         if (
@@ -912,8 +935,9 @@ export class ButtonCallAssignmentService {
   }
 
   // From 14:00, with no middleman and at least two game masters in the
-  // cafe: the day's middleman takes the role if they're free, else the
-  // first one left free (not the upstairs duty) stands in for them.
+  // cafe: the day's middleman takes the role if they're free and not on the
+  // upstairs duty, else the first one left free (not the upstairs duty)
+  // stands in for them.
   private async startPlannedMiddlemen(date: string) {
     if (!isMiddlemanHours(cafeHour(false))) return;
     const locations: number[] = await this.shiftModel.distinct('location', {
@@ -963,6 +987,7 @@ export class ButtonCallAssignmentService {
     const hour = cafeHour(false);
     const plannedIsFree =
       free.some((c) => c.userId === planned) &&
+      (!duty || String(duty.user) !== planned) &&
       !(await this.isBusyWithCalls(planned, date));
     if (plannedIsFree) {
       await this.middlemanModel.create({
