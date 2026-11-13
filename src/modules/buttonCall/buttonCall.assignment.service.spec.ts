@@ -1089,10 +1089,11 @@ describe('ButtonCallAssignmentService upstairs duty and middleman', () => {
 
   function build({
     middleman = null as unknown,
+    middlemen = [] as unknown[],
     duty = null as unknown,
   }) {
     const middlemanModel = {
-      ...model([], middleman),
+      ...model(middlemen, middleman),
       create: jest.fn(async (doc: unknown) => doc),
       exists: jest.fn(async () => null),
     };
@@ -1178,5 +1179,73 @@ describe('ButtonCallAssignmentService upstairs duty and middleman', () => {
     expect(middlemanModel.create).toHaveBeenCalledWith(
       expect.objectContaining({ user: 'ceren', coveringFor: 'kemal' }),
     );
+  });
+
+  describe('last resort', () => {
+    const waited = (seconds: number) => new Date(Date.now() - seconds * 1000);
+    const explanation = (createdAt: Date, tableName = '5') => ({
+      tableName,
+      location,
+      date,
+      declinedBy: [],
+      type: 'GAMEMASTERCALL',
+      gmCallReason: 'EXPLANATION',
+      createdAt,
+    });
+
+    function setUp(upstairsTables: number, candidates: string[]) {
+      const { service } = build({
+        duty: { user: 'kemal' },
+        middlemen: [{ user: 'kadir' }],
+      });
+      const s = service as any;
+      jest
+        .spyOn(s, 'isUpstairs')
+        .mockImplementation(
+          async (...args: unknown[]) => Number(args[2]) >= 20,
+        );
+      jest.spyOn(s, 'countUpstairsTables').mockResolvedValue(upstairsTables);
+      jest
+        .spyOn(s, 'findCandidates')
+        .mockResolvedValue(candidates.map((id) => candidate(id, 0)));
+      return s;
+    }
+
+    it('gives a downstairs call to the free upstairs duty after 2 minutes, before the middleman', async () => {
+      const s = setUp(14, ['kemal', 'kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(60)), {}, '20:00:00'),
+      ).toBeUndefined();
+      expect(
+        await s.pickLastResort(explanation(waited(125)), {}, '20:00:00'),
+      ).toBe('kemal');
+    });
+
+    it('gives it to the middleman when the upstairs duty is not free', async () => {
+      const s = setUp(14, ['kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(125)), {}, '20:00:00'),
+      ).toBe('kadir');
+    });
+
+    it('gives it to the upstairs duty right away while upstairs is quiet', async () => {
+      const s = setUp(6, ['kemal', 'kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(10)), {}, '20:00:00'),
+      ).toBe('kemal');
+    });
+
+    it('sends the middleman to a waiting upstairs call after 2 minutes', async () => {
+      const s = setUp(14, ['kadir']);
+      const call = explanation(waited(125), '24');
+      expect(await s.pickLastResort(call, {}, '20:00:00')).toBe('kadir');
+      expect(
+        await s.pickLastResort(
+          { ...call, createdAt: waited(90) },
+          {},
+          '20:00:00',
+        ),
+      ).toBeUndefined();
+    });
   });
 });

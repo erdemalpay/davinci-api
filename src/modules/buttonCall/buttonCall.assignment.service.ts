@@ -53,7 +53,7 @@ import {
   isRestingAfterMiddleman,
   isUpstairsTableName,
   leavingTooSoonFor,
-  MIDDLEMAN_AFTER_WAITING_SECONDS,
+  LAST_RESORT_AFTER_WAITING_SECONDS,
   MIDDLEMAN_MIN_GAME_MASTERS,
   MIDDLEMAN_SHARE_DAYS,
   pickAssignee,
@@ -358,9 +358,10 @@ export class ButtonCallAssignmentService {
   }
 
   // Nobody else could take the call. A downstairs call goes to the upstairs
-  // duty while upstairs is quiet, then to the middleman: a downstairs
-  // service call right away, a game master call once it has waited 3
-  // minutes. The usual rules still hold (e.g. knowing the game to explain).
+  // duty if they are free: right away while upstairs is quiet, otherwise
+  // once it has waited 2 minutes. Then the middleman: a downstairs service
+  // call right away, a game master call once it has waited 2 minutes. The
+  // usual rules still hold (e.g. knowing the game to explain).
   private async pickLastResort(
     call: CallInfo &
       Pick<ButtonCall, 'type' | 'declinedBy'> & { createdAt?: Date },
@@ -371,9 +372,9 @@ export class ButtonCallAssignmentService {
     const downstairs =
       !!call.tableName &&
       !(await this.isUpstairs(call.location, call.date, call.tableName));
-    const middlemanTakesIt = isServiceCall
-      ? downstairs
-      : waitedSeconds(call.createdAt) >= MIDDLEMAN_AFTER_WAITING_SECONDS;
+    const waitedLong =
+      waitedSeconds(call.createdAt) >= LAST_RESORT_AFTER_WAITING_SECONDS;
+    const middlemanTakesIt = isServiceCall ? downstairs : waitedLong;
     const open = {
       location: call.location,
       date: call.date,
@@ -390,11 +391,13 @@ export class ButtonCallAssignmentService {
             .lean()
         : [],
     ]);
+    // The upstairs duty first, then the middleman.
     const lastResorts: string[] = [];
     if (
       duty &&
-      (await this.countUpstairsTables(call.location, call.date)) <=
-        DUTY_HELPS_DOWNSTAIRS_UP_TO
+      (waitedLong ||
+        (await this.countUpstairsTables(call.location, call.date)) <=
+          DUTY_HELPS_DOWNSTAIRS_UP_TO)
     ) {
       lastResorts.push(String(duty.user));
     }
@@ -475,10 +478,7 @@ export class ButtonCallAssignmentService {
     if (!middleman || (call.declinedBy ?? []).includes(middlemanId)) {
       return undefined;
     }
-    const dutyId = await this.findUpstairsDutyUserId(
-      call.location,
-      call.date,
-    );
+    const dutyId = await this.findUpstairsDutyUserId(call.location, call.date);
     const standIns = candidates.filter(
       (c) =>
         (c.role === RoleEnum.GAMEMASTER || c.role === RoleEnum.GAMEMANAGER) &&
@@ -753,9 +753,7 @@ export class ButtonCallAssignmentService {
       const keepsStandingIn =
         (await this.isBusyWithCalls(middlemanId, date)) ||
         (isStandIn &&
-          ((await this.findRestingMiddlemen(location, date)).has(
-            middlemanId,
-          ) ||
+          ((await this.findRestingMiddlemen(location, date)).has(middlemanId) ||
             (await this.findUpstairsDutyUserId(location, date)) ===
               middlemanId));
       if (keepsStandingIn) {
