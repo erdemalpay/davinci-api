@@ -357,10 +357,14 @@ describe('upstairsDutyCanTake', () => {
     gmCallReason: GmCallReasonEnum.RECOMMENDATION,
   };
 
-  it('takes any number of order calls and questions at once', () => {
-    expect(upstairsDutyCanTake([order, order, order, order], order)).toBe(
-      true,
-    );
+  it('takes up to 5 order calls and questions at once', () => {
+    expect(upstairsDutyCanTake([order, order, order, order], order)).toBe(true);
+    expect(
+      upstairsDutyCanTake([order, question, order, question, order], order),
+    ).toBe(false);
+    expect(
+      upstairsDutyCanTake([order, order, order, order, order], question),
+    ).toBe(false);
     expect(upstairsDutyCanTake([order, question, question], question)).toBe(
       true,
     );

@@ -347,8 +347,11 @@ const isLongGmCall = (call: OpenCallInfo) =>
   call.type === ButtonCallTypeEnum.GAMEMASTERCALL &&
   call.gmCallReason !== GmCallReasonEnum.QUESTION;
 
-// The upstairs duty may hold any number of service calls and questions
-// about a game at once, but nothing together with a recommendation or an
+// The most calls the upstairs duty holds at once.
+export const UPSTAIRS_DUTY_MAX_CALLS = 5;
+
+// The upstairs duty may hold up to 5 service calls and questions about a
+// game at once, but nothing together with a recommendation or an
 // explanation. Once they start explaining, their calls for other tables go
 // to someone else (see releaseCallsOfExplainers).
 export function upstairsDutyCanTake(
@@ -356,6 +359,7 @@ export function upstairsDutyCanTake(
   call: OpenCallInfo,
 ): boolean {
   if (openCalls.length === 0) return true;
+  if (openCalls.length >= UPSTAIRS_DUTY_MAX_CALLS) return false;
   return !isLongGmCall(call) && !openCalls.some(isLongGmCall);
 }
 
@@ -608,9 +612,10 @@ export function pickPlannedMiddleman(
   return tied[Math.floor(random() * tied.length)];
 }
 
-// A game master call nobody could take for 3 minutes goes to the middleman.
-export const MIDDLEMAN_AFTER_WAITING_SECONDS = 3 * 60;
+// A call nobody could take for 2 minutes goes to the upstairs duty if they
+// are free, otherwise (a game master call) to the middleman.
+export const LAST_RESORT_AFTER_WAITING_SECONDS = 2 * 60;
 
-// With at most 10 upstairs tables the upstairs duty helps downstairs when
-// nobody else can.
+// With at most 10 upstairs tables the upstairs duty helps downstairs right
+// away when nobody else can; with more, once the call has waited.
 export const DUTY_HELPS_DOWNSTAIRS_UP_TO = 10;
