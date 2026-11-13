@@ -250,6 +250,10 @@ export class AppWebSocketGateway {
     this.server.emit('staffLeaveChanged');
   }
 
+  emitGiftTrackingChanged() {
+    this.server.emit('giftTrackingChanged');
+  }
+
   async emitItemChanged() {
     await this.redisService.reset(RedisKeys.MenuItems);
     await this.redisService.reset(RedisKeys.AccountingAllProducts);
