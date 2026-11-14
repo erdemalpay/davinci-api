@@ -1082,3 +1082,187 @@ describe('ButtonCallAssignmentService calls of someone who starts explaining', (
     expect(buttonCallModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe('ButtonCallAssignmentService upstairs duty and middleman', () => {
+  const date = '2026-11-13';
+  const location = 2;
+
+  function build({
+    middleman = null as unknown,
+    middlemen = [] as unknown[],
+    duty = null as unknown,
+  }) {
+    const middlemanModel = {
+      ...model(middlemen, middleman),
+      create: jest.fn(async (doc: unknown) => doc),
+      exists: jest.fn(async () => null),
+    };
+    const userModel = {
+      ...model([]),
+      exists: jest.fn(async () => ({ _id: 'kadir' })),
+    };
+    const service = new ButtonCallAssignmentService(
+      model([]) as never,
+      model([]) as never,
+      userModel as never,
+      model([]) as never,
+      middlemanModel as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      model([]) as never,
+      {
+        emitButtonCallChanged: jest.fn(),
+        emitMiddlemanChanged: jest.fn(),
+      } as never,
+      model([], null) as never,
+      model([]) as never,
+      model([], duty) as never,
+      { emit: jest.fn() } as never,
+      { findOne: () => ({ lean: async () => null }) } as never,
+    );
+    return { service, middlemanModel };
+  }
+
+  const candidate = (userId: string, lastActivity: number) => ({
+    userId,
+    role: RoleEnum.GAMEMASTER,
+    knownGames: new Set<number>(),
+    lastActivity,
+    gameplayCountToday: 0,
+    recentRate: 0,
+    isServiceStaff: false,
+    tier: 0,
+  });
+
+  it("doesn't make the upstairs duty stand in for the middleman", async () => {
+    const { service } = build({
+      middleman: { _id: 1, user: 'kadir', location, date },
+      duty: { user: 'kemal' },
+    });
+    jest
+      .spyOn(service as never, 'someoneElseKnows' as never)
+      .mockResolvedValue(false as never);
+    const call = { tableName: '24', location, date, declinedBy: [] };
+    const request = { game: 148228, reason: 'QUESTION' };
+
+    const onlyDuty = await (service as any).findMiddlemanStandIn(
+      call,
+      request,
+      [candidate('kemal', 0)],
+    );
+    expect(onlyDuty).toBeUndefined();
+
+    const withOther = await (service as any).findMiddlemanStandIn(
+      call,
+      request,
+      [candidate('kemal', 0), candidate('ceren', 100)],
+    );
+    expect(withOther.user).toBe('ceren');
+  });
+
+  it('has someone stand in when the planned middleman is on the upstairs duty', async () => {
+    const { service, middlemanModel } = build({ duty: { user: 'kemal' } });
+    const s = service as any;
+    jest
+      .spyOn(s, 'findGameMastersInCafe')
+      .mockResolvedValue(['kemal', 'ceren', 'sarp']);
+    jest.spyOn(s, 'ensureMiddlemanPlan').mockResolvedValue('kemal');
+    jest
+      .spyOn(s, 'findCandidates')
+      .mockResolvedValue([candidate('kemal', 0), candidate('ceren', 100)]);
+    jest.spyOn(s, 'findRestingMiddlemen').mockResolvedValue(new Set());
+    jest.spyOn(s, 'isBusyWithCalls').mockResolvedValue(false);
+
+    await s.startPlannedMiddleman(location, date);
+
+    expect(middlemanModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ user: 'ceren', coveringFor: 'kemal' }),
+    );
+  });
+
+  describe('last resort', () => {
+    const waited = (seconds: number) => new Date(Date.now() - seconds * 1000);
+    const explanation = (createdAt: Date, tableName = '5') => ({
+      tableName,
+      location,
+      date,
+      declinedBy: [],
+      type: 'GAMEMASTERCALL',
+      gmCallReason: 'EXPLANATION',
+      createdAt,
+    });
+
+    function setUp(upstairsTables: number, candidates: string[]) {
+      const { service } = build({
+        duty: { user: 'kemal' },
+        middlemen: [{ user: 'kadir' }],
+      });
+      const s = service as any;
+      jest
+        .spyOn(s, 'isUpstairs')
+        .mockImplementation(
+          async (...args: unknown[]) => Number(args[2]) >= 20,
+        );
+      jest.spyOn(s, 'countUpstairsTables').mockResolvedValue(upstairsTables);
+      jest
+        .spyOn(s, 'findCandidates')
+        .mockResolvedValue(candidates.map((id) => candidate(id, 0)));
+      return s;
+    }
+
+    it('gives a downstairs call to the free upstairs duty after 2 minutes, before the middleman', async () => {
+      const s = setUp(14, ['kemal', 'kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(60)), {}, '20:00:00'),
+      ).toBeUndefined();
+      expect(
+        await s.pickLastResort(explanation(waited(125)), {}, '20:00:00'),
+      ).toBe('kemal');
+    });
+
+    it('gives it to the middleman when the upstairs duty is not free', async () => {
+      const s = setUp(14, ['kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(125)), {}, '20:00:00'),
+      ).toBe('kadir');
+    });
+
+    it('gives it to the upstairs duty right away while upstairs is quiet', async () => {
+      const s = setUp(6, ['kemal', 'kadir']);
+      expect(
+        await s.pickLastResort(explanation(waited(10)), {}, '20:00:00'),
+      ).toBe('kemal');
+    });
+
+    it('sends the middleman to a waiting upstairs call after 2 minutes', async () => {
+      const s = setUp(14, ['kadir']);
+      const call = explanation(waited(125), '24');
+      expect(await s.pickLastResort(call, {}, '20:00:00')).toBe('kadir');
+      expect(
+        await s.pickLastResort(
+          { ...call, createdAt: waited(90) },
+          {},
+          '20:00:00',
+        ),
+      ).toBeUndefined();
+    });
+
+    it('gives a downstairs service call to the middleman only after 2 minutes', async () => {
+      const s = setUp(14, ['kadir']);
+      const call = {
+        ...explanation(waited(60)),
+        type: 'ORDERCALL',
+        gmCallReason: undefined,
+      };
+      expect(await s.pickLastResort(call, {}, '20:00:00')).toBeUndefined();
+      expect(
+        await s.pickLastResort(
+          { ...call, createdAt: waited(125) },
+          {},
+          '20:00:00',
+        ),
+      ).toBe('kadir');
+    });
+  });
+});

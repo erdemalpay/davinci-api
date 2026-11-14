@@ -14,6 +14,10 @@ import {
 import { LocationModule } from '../location/location.module';
 import { Location, LocationSchema } from '../location/location.schema';
 import { Shift, ShiftSchema } from '../shift/shift.schema';
+import {
+  UpstairsDuty,
+  UpstairsDutySchema,
+} from '../upstairsDuty/upstairsDuty.schema';
 import { UserModule } from '../user/user.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { MiddlemanController } from './middleman.controller';
@@ -34,6 +38,8 @@ import { MiddlemanPlan, MiddlemanPlanSchema } from './middlemanPlan.schema';
       createAutoIncrementConfig(ButtonCall.name, ButtonCallSchema),
       createAutoIncrementConfig(Break.name, BreakSchema),
       createAutoIncrementConfig(GameplayTime.name, GameplayTimeSchema),
+      // Read-only: the upstairs duty can't take the middleman role.
+      createAutoIncrementConfig(UpstairsDuty.name, UpstairsDutySchema),
     ]),
     WebSocketModule,
     LocationModule,
