@@ -356,6 +356,10 @@ export class AppWebSocketGateway {
     this.server.emit('pointHistoryChanged');
   }
 
+  emitLoyaltyChanged() {
+    this.server.emit('loyaltyChanged');
+  }
+
   emitPopularChanged() {
     this.server.emit('popularChanged');
   }
