@@ -51,6 +51,7 @@ import { MigrationModule } from './modules/oldDbModules/migration/migration.modu
 import { OrderModule } from './modules/order/order.module';
 import { PanelControlModule } from './modules/panelControl/panelControl.module';
 import { PointModule } from './modules/point/point.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { PriceCompareLogModule } from './modules/price-compare-log/price-compare-log.module';
 import { PriceCompareModule } from './modules/price-compare/price-compare.module';
 import { RedisModule } from './modules/redis/redis.module';
@@ -123,6 +124,7 @@ const modules = [
   AssignmentReminderModule,
   PanelControlModule,
   PointModule,
+  LoyaltyModule,
   PriceCompareModule,
   PriceCompareLogModule,
   OrderModule,

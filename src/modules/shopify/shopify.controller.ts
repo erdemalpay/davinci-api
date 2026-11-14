@@ -1,4 +1,11 @@
 import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  SHOPIFY_ORDER_CREATED,
+  SHOPIFY_ORDER_FULFILLED,
+  SHOPIFY_ORDER_REFUNDED_OR_CANCELLED,
+  ShopifyWebhookEvent,
+} from '../loyalty/loyalty.events';
 import { Public } from '../auth/public.decorator';
 import { CreateAutomaticBxgyDiscountDto, CreateAutomaticOrderDiscountDto, CreateAutomaticProductDiscountDto, CreateBxgyDiscountDto, CreateFreeShippingDiscountDto, CreateOrderDiscountDto, CreateProductDiscountDto, UpdateAutomaticBxgyDiscountDto, UpdateAutomaticOrderDiscountDto, UpdateAutomaticProductDiscountDto, UpdateBxgyDiscountDto, UpdateFreeShippingDiscountDto, UpdateOrderDiscountDto, UpdateProductDiscountDto } from './shopify.dto';
 import { ShopifyWebhook } from './shopify-webhook.guard';
@@ -8,7 +15,18 @@ import { ShopifyService } from './shopify.service';
 export class ShopifyController {
   private readonly logger = new Logger(ShopifyController.name);
 
-  constructor(private readonly shopifyService: ShopifyService) {}
+  constructor(
+    private readonly shopifyService: ShopifyService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  // Other modules (online loyalty points) react to the order webhooks on
+  // their own, so they never slow down or break the order processing.
+  private emitWebhookEvent(event: string, data: any) {
+    if (!data) return;
+    const payload: ShopifyWebhookEvent = { data };
+    this.eventEmitter.emit(event, payload);
+  }
 
   @Public()
   @Get('/games')
@@ -139,18 +157,21 @@ export class ShopifyController {
     this.shopifyService.orderCreateWebHook(data).catch((error) => {
       this.logger.error('Error in order-create-webhook background processing:', error);
     });
+    this.emitWebhookEvent(SHOPIFY_ORDER_CREATED, data);
     return { received: true };
   }
 
   @ShopifyWebhook()
   @Post('/order-cancel-webhook')
   orderCancelWebHook(@Body() data?: any) {
+    this.emitWebhookEvent(SHOPIFY_ORDER_REFUNDED_OR_CANCELLED, data);
     return this.shopifyService.orderCancelWebHook(data);
   }
 
   @ShopifyWebhook()
   @Post('/order-fulfilled-webhook')
   orderFulfilledWebHook(@Body() data?: any) {
+    this.emitWebhookEvent(SHOPIFY_ORDER_FULFILLED, data);
     return this.shopifyService.orderFulfilledWebHook(data);
   }
 
