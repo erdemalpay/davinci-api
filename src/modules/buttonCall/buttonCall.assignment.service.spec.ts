@@ -1247,5 +1247,22 @@ describe('ButtonCallAssignmentService upstairs duty and middleman', () => {
         ),
       ).toBeUndefined();
     });
+
+    it('gives a downstairs service call to the middleman only after 2 minutes', async () => {
+      const s = setUp(14, ['kadir']);
+      const call = {
+        ...explanation(waited(60)),
+        type: 'ORDERCALL',
+        gmCallReason: undefined,
+      };
+      expect(await s.pickLastResort(call, {}, '20:00:00')).toBeUndefined();
+      expect(
+        await s.pickLastResort(
+          { ...call, createdAt: waited(125) },
+          {},
+          '20:00:00',
+        ),
+      ).toBe('kadir');
+    });
   });
 });

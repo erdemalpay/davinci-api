@@ -359,9 +359,9 @@ export class ButtonCallAssignmentService {
 
   // Nobody else could take the call. A downstairs call goes to the upstairs
   // duty if they are free: right away while upstairs is quiet, otherwise
-  // once it has waited 2 minutes. Then the middleman: a downstairs service
-  // call right away, a game master call once it has waited 2 minutes. The
-  // usual rules still hold (e.g. knowing the game to explain).
+  // once it has waited 2 minutes. Then the middleman, once the call has
+  // waited 2 minutes (a service call only downstairs). The usual rules
+  // still hold (e.g. knowing the game to explain).
   private async pickLastResort(
     call: CallInfo &
       Pick<ButtonCall, 'type' | 'declinedBy'> & { createdAt?: Date },
@@ -374,7 +374,7 @@ export class ButtonCallAssignmentService {
       !(await this.isUpstairs(call.location, call.date, call.tableName));
     const waitedLong =
       waitedSeconds(call.createdAt) >= LAST_RESORT_AFTER_WAITING_SECONDS;
-    const middlemanTakesIt = isServiceCall ? downstairs : waitedLong;
+    const middlemanTakesIt = waitedLong && (!isServiceCall || downstairs);
     const open = {
       location: call.location,
       date: call.date,
