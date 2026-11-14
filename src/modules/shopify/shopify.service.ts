@@ -362,6 +362,23 @@ export class ShopifyService {
   }
 
   /**
+   * Runs an Admin GraphQL request for other modules (token refresh and
+   * throttling retries included) and throws on GraphQL or user errors.
+   */
+  async adminGraphQL<T = any>(
+    query: string,
+    variables?: Record<string, any>,
+    userErrorsPath?: string,
+  ): Promise<T> {
+    const response: any = await this.executeGraphQLRequest(async () => {
+      const client = await this.getGraphQLClient();
+      return await client.request(query, { variables: variables ?? {} });
+    });
+    this.handleGraphQLErrors(response, userErrorsPath);
+    return response.data as T;
+  }
+
+  /**
    * Format Shopify ID to GID format if not already formatted
    */
   private formatShopifyId(
