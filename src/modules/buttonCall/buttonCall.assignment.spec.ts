@@ -7,8 +7,12 @@ import {
   pickAssignee,
   pickAssigneeByTier,
   toAssignmentEvents,
+  upstairsDutyCanTake,
 } from './buttonCall.assignment';
-import { GmCallReasonEnum } from './dto/create-buttonCall.dto';
+import {
+  ButtonCallTypeEnum,
+  GmCallReasonEnum,
+} from './dto/create-buttonCall.dto';
 
 const candidate = (
   userId: string,
@@ -335,5 +339,43 @@ describe('service staff and outside operation are for the whole day', () => {
 
     expect(scheduled.has('kemal')).toBe(false);
     expect(scheduled.get('ceren')).toBe('10:00');
+  });
+});
+
+describe('upstairsDutyCanTake', () => {
+  const order = { type: ButtonCallTypeEnum.ORDERCALL };
+  const question = {
+    type: ButtonCallTypeEnum.GAMEMASTERCALL,
+    gmCallReason: GmCallReasonEnum.QUESTION,
+  };
+  const explanation = {
+    type: ButtonCallTypeEnum.GAMEMASTERCALL,
+    gmCallReason: GmCallReasonEnum.EXPLANATION,
+  };
+  const recommendation = {
+    type: ButtonCallTypeEnum.GAMEMASTERCALL,
+    gmCallReason: GmCallReasonEnum.RECOMMENDATION,
+  };
+
+  it('takes up to 5 order calls and questions at once', () => {
+    expect(upstairsDutyCanTake([order, order, order, order], order)).toBe(true);
+    expect(
+      upstairsDutyCanTake([order, question, order, question, order], order),
+    ).toBe(false);
+    expect(
+      upstairsDutyCanTake([order, order, order, order, order], question),
+    ).toBe(false);
+    expect(upstairsDutyCanTake([order, question, question], question)).toBe(
+      true,
+    );
+    expect(upstairsDutyCanTake([question, question], order)).toBe(true);
+  });
+
+  it('takes nothing together with an explanation or a recommendation', () => {
+    expect(upstairsDutyCanTake([], explanation)).toBe(true);
+    expect(upstairsDutyCanTake([order], explanation)).toBe(false);
+    expect(upstairsDutyCanTake([question], recommendation)).toBe(false);
+    expect(upstairsDutyCanTake([explanation], order)).toBe(false);
+    expect(upstairsDutyCanTake([recommendation], question)).toBe(false);
   });
 });

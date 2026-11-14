@@ -37,6 +37,7 @@ import { ButtonCall } from '../buttonCall/schemas/buttonCall.schema';
 import { GameplayTime } from '../gameplaytime/gameplaytime.schema';
 import { Location } from '../location/location.schema';
 import { Shift } from '../shift/shift.schema';
+import { UpstairsDuty } from '../upstairsDuty/upstairsDuty.schema';
 import { Middleman } from './middleman.schema';
 import { findMiddlemanShares } from './middlemanShare';
 import {
@@ -57,6 +58,8 @@ export class MiddlemanService {
     @InjectModel(Break.name) private breakModel: Model<Break>,
     @InjectModel(GameplayTime.name)
     private gameplayTimeModel: Model<GameplayTime>,
+    @InjectModel(UpstairsDuty.name)
+    private upstairsDutyModel: Model<UpstairsDuty>,
     private readonly websocketGateway: AppWebSocketGateway,
     private readonly userService: UserService,
     private readonly activityService: ActivityService,
@@ -75,6 +78,19 @@ export class MiddlemanService {
       if (!isMiddlemanHours(hour)) {
         throw new HttpException(
           'No middleman before 14:00',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      // The upstairs duty never takes the middleman role.
+      const onUpstairsDuty = await this.upstairsDutyModel.exists({
+        user: createMiddlemanDto.user,
+        location: createMiddlemanDto.location,
+        date: createMiddlemanDto.date,
+        finishHour: { $exists: false },
+      });
+      if (onUpstairsDuty) {
+        throw new HttpException(
+          'The upstairs duty cannot be the middleman',
           HttpStatus.BAD_REQUEST,
         );
       }
