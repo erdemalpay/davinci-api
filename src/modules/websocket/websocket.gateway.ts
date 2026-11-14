@@ -408,9 +408,23 @@ export class AppWebSocketGateway {
     this.server.emit('singleTableChanged', { table });
   }
 
-  async emitStockChanged() {
+  // With stocks, panels update those rows instead of reloading every stock.
+  async emitStockChanged(stocks?: Stock[]) {
     await this.redisService.reset(RedisKeys.AccountingStocks);
-    this.server.emit('stockChanged');
+    const changed = stocks?.filter(Boolean) ?? [];
+    if (!changed.length) {
+      this.server.emit('stockChanged');
+      return;
+    }
+    this.server.emit('stockChanged', {
+      stocks: changed.map((stock) => ({
+        _id: stock._id,
+        product: extractRefId(stock.product),
+        location: stock.location,
+        quantity: stock.quantity,
+        revision: stock.revision ?? 0,
+      })),
+    });
   }
   async emitStockAdded(stock: Stock) {
     await this.redisService.reset(RedisKeys.AccountingStocks);

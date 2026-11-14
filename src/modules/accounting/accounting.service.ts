@@ -2537,16 +2537,18 @@ export class AccountingService {
     );
     const { status, ...stockData } = createStockDto;
     const existingStock = await this.stockModel.findById(stockId);
+    let changedStock: Stock;
     if (existingStock) {
       const oldQuantity = existingStock.quantity;
       const newStock = await this.stockModel.findByIdAndUpdate(
         stockId,
-        { $inc: { quantity: Number(createStockDto.quantity) } },
+        { $inc: { quantity: Number(createStockDto.quantity), revision: 1 } },
         { new: true },
       );
+      changedStock = newStock;
 
       if (isEmit) {
-        this.websocketGateway.emitStockChanged();
+        await this.websocketGateway.emitStockChanged([changedStock]);
       }
 
       if (createStockDto.quantity !== 0) {
@@ -2748,6 +2750,7 @@ export class AccountingService {
       const stock = new this.stockModel(stockData);
       stock._id = stockId;
       await stock.save();
+      changedStock = stock;
 
       await this.menuService.updateProductVisibilityAfterStockChange(
         createStockDto.product,
@@ -2755,7 +2758,7 @@ export class AccountingService {
         stockData.quantity > 0,
       );
 
-      this.websocketGateway.emitStockChanged();
+      await this.websocketGateway.emitStockChanged([changedStock]);
 
       await this.activityService.addActivity(
         user,
@@ -2865,7 +2868,7 @@ export class AccountingService {
       );
     }
     if (isEmit) {
-      this.websocketGateway.emitStockChanged();
+      await this.websocketGateway.emitStockChanged([changedStock]);
     }
   }
 
@@ -3110,7 +3113,7 @@ export class AccountingService {
     if (stock) {
       const newStock = await this.stockModel.findByIdAndUpdate(
         stock._id,
-        { $inc: { quantity: -consumptStockDto.quantity } },
+        { $inc: { quantity: -consumptStockDto.quantity, revision: 1 } },
         { new: true },
       );
       const newQuantity = stock.quantity - consumptStockDto.quantity;
@@ -3231,7 +3234,7 @@ export class AccountingService {
         });
         onHistoryCreated?.(history._id);
       }
-      this.websocketGateway.emitStockChanged();
+      await this.websocketGateway.emitStockChanged([newStock]);
       // Activity logging - fire and forget (non-blocking)
       this.activityService
         .addUpdateActivity(user, ActivityType.UPDATE_STOCK, stock, newStock)
