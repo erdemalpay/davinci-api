@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Public } from '../auth/public.decorator';
 
 // Requests that reach us through the Shopify app proxy (kutuoyunual.com/apps/puan)
@@ -72,7 +72,8 @@ export function isValidAppProxySignature(
       const value = query[key];
       return `${key}=${Array.isArray(value) ? value.join(',') : value ?? ''}`;
     })
-    .sort()
+    // Byte order, like Shopify's own reference (not locale order).
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .join('');
 
   const expected = createHmac('sha256', secret).update(message).digest('hex');

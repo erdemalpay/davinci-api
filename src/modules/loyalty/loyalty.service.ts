@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { randomInt } from 'crypto';
+import { randomInt } from 'node:crypto';
 import { ClientSession, Connection, Model } from 'mongoose';
 import { withSession } from 'src/utils/withSession';
 import { ShopifyService } from '../shopify/shopify.service';
@@ -531,6 +531,26 @@ export class LoyaltyService {
     return code;
   }
 
+  private async deleteShopifyDiscount(id: string, code: string) {
+    try {
+      await this.shopifyService.adminGraphQL(
+        `mutation LoyaltyCouponDelete($id: ID!) {
+          discountCodeDelete(id: $id) {
+            deletedCodeDiscountId
+            userErrors { field message }
+          }
+        }`,
+        { id },
+        'discountCodeDelete.userErrors',
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not delete Shopify discount ${code} (${id}), delete it by hand`,
+        error?.stack ?? error,
+      );
+    }
+  }
+
   /** Turns points into a single-use fixed amount coupon only this customer can use. */
   async redeem(shopifyCustomerId: string, rawAmount: any) {
     const settings = await this.getSettings();
@@ -623,30 +643,53 @@ export class LoyaltyService {
       );
     }
 
-    const coupon = await new this.couponModel({
-      account: account._id,
-      shopifyCustomerId,
-      code,
-      value: amount,
-      status: LoyaltyCouponStatus.ACTIVE,
-      shopifyDiscountId,
-      expiresAt,
-      createdAt: now,
-    }).save();
-    await this.accountModel.updateOne(
-      { _id: account._id },
-      { $inc: { totalRedeemed: amount } },
-    );
-    await new this.transactionModel({
-      account: account._id,
-      shopifyCustomerId,
-      type: LoyaltyTransactionType.REDEEM,
-      change: -amount,
-      balanceAfter: reserved.balance,
-      couponCode: code,
-      createdBy: CUSTOMER_CREATED_BY,
-      createdAt: now,
-    }).save();
+    let coupon: LoyaltyCoupon;
+    try {
+      coupon = await this.inTransaction(async (session) => {
+        const saved = await new this.couponModel({
+          account: account._id,
+          shopifyCustomerId,
+          code,
+          value: amount,
+          status: LoyaltyCouponStatus.ACTIVE,
+          shopifyDiscountId,
+          expiresAt,
+          createdAt: now,
+        }).save(withSession({}, session));
+        await this.accountModel.updateOne(
+          { _id: account._id },
+          { $inc: { totalRedeemed: amount } },
+          withSession({}, session),
+        );
+        await new this.transactionModel({
+          account: account._id,
+          shopifyCustomerId,
+          type: LoyaltyTransactionType.REDEEM,
+          change: -amount,
+          balanceAfter: reserved.balance,
+          couponCode: code,
+          createdBy: CUSTOMER_CREATED_BY,
+          createdAt: now,
+        }).save(withSession({}, session));
+        return saved;
+      });
+    } catch (error) {
+      // The coupon exists in Shopify but not here: remove it and give the
+      // points back so the customer can't end up with both.
+      this.logger.error(
+        `Could not save loyalty coupon ${code}, removing it from Shopify`,
+        error?.stack ?? error,
+      );
+      await this.deleteShopifyDiscount(shopifyDiscountId, code);
+      await this.accountModel.updateOne(
+        { _id: account._id },
+        { $inc: { balance: amount } },
+      );
+      throw new HttpException(
+        'Kupon oluşturulamadı, lütfen tekrar deneyin',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
 
     this.websocketGateway.emitLoyaltyChanged();
     return {
@@ -712,7 +755,7 @@ export class LoyaltyService {
     const search = filter.search?.trim();
     if (search) {
       const regex = new RegExp(
-        search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        search.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`),
         'i',
       );
       query.$or = [
