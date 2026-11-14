@@ -317,6 +317,41 @@ describe('LoyaltyService.redeem', () => {
   });
 });
 
+describe('LoyaltyService.redeem when saving fails', () => {
+  it('removes the Shopify coupon and gives the points back', async () => {
+    const graphql = jest
+      .fn()
+      .mockResolvedValueOnce({
+        discountCodeBasicCreate: {
+          codeDiscountNode: { id: 'gid://shopify/DiscountCodeNode/1' },
+        },
+      })
+      .mockResolvedValueOnce({});
+    const { service, accountModel, couponModel } = setup({
+      account: { _id: 1, shopifyCustomerId: '777', balance: 120 },
+      graphql,
+    });
+    couponModel.mockImplementation((doc) => ({
+      ...doc,
+      save: jest.fn().mockRejectedValue(new Error('db down')),
+    }));
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+    await expect(service.redeem('777', 100)).rejects.toThrow(
+      'Kupon oluşturulamadı',
+    );
+    expect(graphql).toHaveBeenLastCalledWith(
+      expect.stringContaining('discountCodeDelete'),
+      { id: 'gid://shopify/DiscountCodeNode/1' },
+      'discountCodeDelete.userErrors',
+    );
+    expect(accountModel.updateOne).toHaveBeenCalledWith(
+      { _id: 1 },
+      { $inc: { balance: 100 } },
+    );
+  });
+});
+
 describe('LoyaltyService.markCouponsUsed', () => {
   it('marks only loyalty coupons of the order used', async () => {
     const { service, couponModel } = setup();
