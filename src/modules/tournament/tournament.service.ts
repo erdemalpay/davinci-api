@@ -892,11 +892,12 @@ export class TournamentService {
       })),
     ]);
 
-    // İlk tur oluşunca kayıt kendiliğinden kapanır; tur sayacı yeni tur için sıfırlanır
+    // İlk tur oluşunca kayıt kendiliğinden kapanır; tur sayacı yeni tur için sıfırlanır ve süre elle başlatılana kadar bekler
     await this.tournamentModel
       .findByIdAndUpdate(tournamentId, {
         status: TournamentStatus.ONGOING,
         isRegistrationOpen: false,
+        roundStartedAt: null,
         roundExtraMinutes: 0,
         isRoundTimerStopped: false,
         roundPausedAt: null,

@@ -696,6 +696,7 @@ describe('TournamentService.generateNextRound', () => {
     expect(tournamentModel.findByIdAndUpdate).toHaveBeenCalledWith(1, {
       status: TournamentStatus.ONGOING,
       isRegistrationOpen: false,
+      roundStartedAt: null,
       roundExtraMinutes: 0,
       isRoundTimerStopped: false,
       roundPausedAt: null,
