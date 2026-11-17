@@ -751,6 +751,14 @@ export class MenuService {
     return item;
   }
 
+  async findByAmazonSku(amazonSku: string) {
+    const item = await this.itemModel.findOne({
+      amazonSku,
+      deleted: { $ne: true },
+    });
+    return item;
+  }
+
   async findByIdefixBarcode(idefixBarcode: string) {
     const item = await this.itemModel.findOne({
       idefixBarcode,
@@ -1066,6 +1074,7 @@ export class MenuService {
       delete objectItem.hepsiBuradaSku;
       delete objectItem.n11StockCode;
       delete objectItem.idefixBarcode;
+      delete objectItem.amazonSku;
       // Check if a damaged MenuItem with this name already exists
       const existingDamagedItem = await this.itemModel.findOne({ name });
 

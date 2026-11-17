@@ -84,6 +84,9 @@ jobs:
           N11_APP_SECRET: ${{ secrets.N11_APP_SECRET }}
           IDEFIX_TOKEN: ${{ secrets.IDEFIX_TOKEN }}
           IDEFIX_SECRET: ${{ secrets.IDEFIX_SECRET }}
+          AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID }}
+          AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET }}
+          AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -135,6 +138,9 @@ jobs:
           echo N11_APP_SECRET="$N11_APP_SECRET" >> .env
           echo IDEFIX_TOKEN="$IDEFIX_TOKEN" >> .env
           echo IDEFIX_SECRET="$IDEFIX_SECRET" >> .env
+          echo AMAZON_CLIENT_ID="$AMAZON_CLIENT_ID" >> .env
+          echo AMAZON_CLIENT_SECRET="$AMAZON_CLIENT_SECRET" >> .env
+          echo AMAZON_REFRESH_TOKEN="$AMAZON_REFRESH_TOKEN" >> .env
           echo AWS_REGION="$AWS_REGION" >> .env
           echo AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" >> .env
           echo AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" >> .env
