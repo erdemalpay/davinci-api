@@ -8,6 +8,7 @@ export enum IntegrationSource {
   HEPSIBURADA = 'hepsiburada',
   N11 = 'n11',
   IDEFIX = 'idefix',
+  AMAZON = 'amazon',
 }
 
 export enum IntegrationRequestStatus {

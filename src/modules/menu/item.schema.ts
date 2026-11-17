@@ -131,6 +131,10 @@ export class MenuItem extends Document {
   @Prop({ required: false, type: String })
   idefixBarcode: string;
 
+  // Amazon satıcı SKU'su (FBA ürünlerinde Amazon üretir, barkod değildir).
+  @Prop({ required: false, type: String })
+  amazonSku: string;
+
   @Prop({ required: false, type: String })
   sku: string;
 

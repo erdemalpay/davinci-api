@@ -111,6 +111,9 @@ export class Collection extends Document {
   @Prop({ required: false, type: String })
   idefixShipmentId: string;
 
+  @Prop({ required: false, type: String })
+  amazonOrderNumber: string;
+
   @Prop({ required: false, type: Date })
   tableDate: Date;
 
@@ -154,6 +157,11 @@ CollectionSchema.index(
 CollectionSchema.index(
   { idefixShipmentId: 1 },
   { partialFilterExpression: { idefixShipmentId: { $type: 'string' } } },
+);
+// For amazon order queries
+CollectionSchema.index(
+  { amazonOrderNumber: 1 },
+  { partialFilterExpression: { amazonOrderNumber: { $type: 'string' } } },
 );
 
 purifySchema(CollectionSchema);
