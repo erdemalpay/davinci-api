@@ -44,6 +44,7 @@ import { AnomalyModule } from './modules/anomaly/anomaly.module';
 import { StaffPerformanceModule } from './modules/staffPerformance/staffPerformance.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
 import { MonthlyActivityModule } from './modules/monthly-activity/monthly-activity.module';
+import { AmazonModule } from './modules/amazon/amazon.module';
 import { IdefixModule } from './modules/idefix/idefix.module';
 import { N11Module } from './modules/n11/n11.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -96,6 +97,7 @@ const modules = [
   HepsiburadaModule,
   N11Module,
   IdefixModule,
+  AmazonModule,
   DbModule,
   ChecklistModule,
   GameModule,

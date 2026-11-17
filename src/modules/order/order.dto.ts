@@ -283,6 +283,14 @@ export class CreateOrderDto {
   idefixLineItemId?: string;
 
   @IsOptional()
+  @IsString()
+  amazonOrderNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  amazonLineItemId?: string;
+
+  @IsOptional()
   trendyolCustomer?: TrendyolCustomer;
 
   @IsOptional()
@@ -388,6 +396,10 @@ export class CreateCollectionDto {
   @IsOptional()
   @IsString()
   idefixShipmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  amazonOrderNumber?: string;
 
   @IsOptional()
   @IsString()
@@ -813,6 +825,14 @@ export class CancelN11OrderDto {
 export class CancelIdefixOrderDto {
   @IsString()
   idefixLineItemId: string;
+
+  @IsNumber()
+  quantity: number;
+}
+
+export class CancelAmazonOrderDto {
+  @IsString()
+  amazonLineItemId: string;
 
   @IsNumber()
   quantity: number;

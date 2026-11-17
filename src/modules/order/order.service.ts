@@ -141,7 +141,8 @@ type MarketplaceCancelConfig = {
     | 'trendyolLineItemId'
     | 'hepsiburadaLineItemId'
     | 'n11LineItemId'
-    | 'idefixLineItemId';
+    | 'idefixLineItemId'
+    | 'amazonLineItemId';
   lineItemId: string;
   collectionFilter: (order: Order) => FilterQuery<Collection>;
   fullCancelUnset?: Record<string, ''>;
@@ -3101,6 +3102,23 @@ export class OrderService {
       }),
       stockStatus: StockHistoryStatusEnum.IDEFIXORDERCANCEL,
       label: 'idefix',
+    });
+  }
+
+  async cancelAmazonOrder(
+    user: User,
+    amazonLineItemId: string,
+    quantity: number,
+  ) {
+    return this.cancelMarketplaceOrder(user, quantity, {
+      lineItemField: 'amazonLineItemId',
+      lineItemId: amazonLineItemId,
+      collectionFilter: (order) => ({
+        'orders.order': order._id,
+        amazonOrderNumber: order.amazonOrderNumber,
+      }),
+      stockStatus: StockHistoryStatusEnum.AMAZONORDERCANCEL,
+      label: 'amazon',
     });
   }
 
@@ -6573,6 +6591,25 @@ export class OrderService {
 
   findByIdefixLineItemId(idefixLineItemId: string) {
     return this.orderModel.findOne({ idefixLineItemId }).exec();
+  }
+
+  findByAmazonLineItemId(amazonLineItemId: string) {
+    return this.orderModel.findOne({ amazonLineItemId }).exec();
+  }
+
+  findActiveAmazonOrdersByOrderNumberAndItem(
+    amazonOrderNumber: string,
+    item: number,
+  ) {
+    return this.orderModel
+      .find({
+        amazonOrderNumber,
+        item,
+        amazonLineItemId: { $type: 'string' },
+        status: { $ne: OrderStatus.CANCELLED },
+      })
+      .sort({ _id: 1 })
+      .exec();
   }
 
   findByIdefixLineItemIds(idefixLineItemIds: string[]) {

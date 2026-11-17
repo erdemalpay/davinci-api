@@ -322,6 +322,13 @@ export class Order extends Document {
   @Prop({ required: false, type: String })
   idefixLineItemId: string;
 
+  @Prop({ required: false, type: String })
+  amazonOrderNumber: string;
+
+  // Amazon sipariş kalemi id'si (orderItemId); tekrar oluşturmayı bu engeller.
+  @Prop({ required: false, type: String })
+  amazonLineItemId: string;
+
   @Prop({ required: false, type: Number, ref: 'Retailer' })
   retailer?: number;
 
@@ -406,6 +413,17 @@ OrderSchema.index(
 OrderSchema.index(
   { idefixShipmentId: 1 },
   { partialFilterExpression: { idefixShipmentId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { amazonLineItemId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { amazonLineItemId: { $type: 'string' } },
+  },
+);
+OrderSchema.index(
+  { amazonOrderNumber: 1 },
+  { partialFilterExpression: { amazonOrderNumber: { $type: 'string' } } },
 );
 OrderSchema.index({ retailer: 1, tableDate: -1, createdAt: -1 });
 

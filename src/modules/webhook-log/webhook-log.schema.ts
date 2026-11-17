@@ -8,6 +8,7 @@ export enum WebhookSource {
   HEPSIBURADA = 'hepsiburada',
   N11 = 'n11',
   IDEFIX = 'idefix',
+  AMAZON = 'amazon',
 }
 
 export enum WebhookStatus {
