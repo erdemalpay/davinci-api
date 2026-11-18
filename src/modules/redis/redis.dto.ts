@@ -35,4 +35,5 @@ export enum RedisKeys {
   MarketplaceReservedStocksInvalidatedAt = 'marketplace-reserved-stocks-invalidated-at',
   N11OrderSyncCursor = 'n11-order-sync-cursor',
   IdefixOrderSyncCursor = 'idefix-order-sync-cursor',
+  AmazonOrderSyncCursor = 'amazon-order-sync-cursor',
 }
