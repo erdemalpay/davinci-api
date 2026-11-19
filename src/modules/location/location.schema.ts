@@ -67,6 +67,9 @@ export class Location extends Document {
   @Prop({ required: false, type: Boolean, default: false })
   seenInOrdersSummaryPage: boolean;
 
+  @Prop({ required: false, type: Boolean, default: true })
+  isVisibleInOrder: boolean;
+
   @Prop([LocationShift])
   shifts: LocationShift[];
 
