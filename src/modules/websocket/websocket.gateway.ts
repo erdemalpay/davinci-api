@@ -360,6 +360,10 @@ export class AppWebSocketGateway {
     this.server.emit('loyaltyChanged');
   }
 
+  emitFavoritesChanged() {
+    this.server.emit('favoritesChanged');
+  }
+
   emitPopularChanged() {
     this.server.emit('popularChanged');
   }
