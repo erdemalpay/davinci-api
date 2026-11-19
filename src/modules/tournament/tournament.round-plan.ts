@@ -280,8 +280,10 @@ function nextEliminationRound(
       .filter((m) => m.isBye)
       .flatMap((m) => m.players.map((p) => p.participantId)),
   );
+  // 2 kişilik masalarda klasik sabit ağaç: kazananlar masa sırasıyla yılan dağıtımına girer
+  // (1-8, 2-7, 3-6, 4-5 → yarı finalde 1-8 kazananı 4-5 kazananıyla oynar)
   const seeds =
-    rules.tiebreaker === Tiebreaker.SCORE
+    rules.tiebreaker === Tiebreaker.SCORE && eliminationTableSize(rules) > 2
       ? orderByLeagueRank(rules, participantIds, league, drawNumbers, advancers)
       : advancers;
   const pairing = seedEliminationTables(
