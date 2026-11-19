@@ -331,8 +331,12 @@ export class AssetService {
   ) => {
     const uploadResults = await Promise.all(
       files.map(async (file) => {
+        // multer dosya adını latin1 okuyor; Türkçe karakterler bozulmasın diye UTF-8'e çeviriyoruz
+        const fileName = Buffer.from(file.originalname, 'latin1').toString(
+          'utf8',
+        );
         const options = {
-          public_id: `${file.originalname}`,
+          public_id: `${fileName}`,
           use_filename: true,
           unique_filename: false,
           overwrite: true,
@@ -361,7 +365,7 @@ export class AssetService {
           });
 
           await this.uploadLogModel.create({
-            fileName: file.originalname,
+            fileName,
             status: 'success',
             message: '',
             uploadedBy: user?.name ?? '',
@@ -371,7 +375,7 @@ export class AssetService {
           return url;
         } catch (error) {
           await this.uploadLogModel.create({
-            fileName: file.originalname,
+            fileName,
             status: 'error',
             message: error instanceof Error ? error.message : String(error),
             uploadedBy: user?.name ?? '',
