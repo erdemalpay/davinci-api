@@ -11,8 +11,9 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Public } from '../auth/public.decorator';
 
-// Requests that reach us through the Shopify app proxy (kutuoyunual.com/apps/puan)
-// carry no JWT. Shopify signs the query string with the app secret and adds the
+// Requests that reach us through the Shopify app proxy carry no JWT.
+// kutuoyunual.com/apps/dv/* is forwarded to <api>/storefront/* (one proxy per app,
+// shared by every storefront feature: loyalty, favorites, ...). Shopify signs the query string with the app secret and adds the
 // logged-in customer's id, which is the only identity we trust here.
 export const ShopifyAppProxy = () =>
   applyDecorators(Public(), UseGuards(ShopifyAppProxyGuard));

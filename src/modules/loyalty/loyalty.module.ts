@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { createAutoIncrementConfig } from 'src/lib/autoIncrement';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { WebSocketModule } from '../websocket/websocket.module';
-import { LoyaltyController } from './loyalty.controller';
+import {
+  LoyaltyController,
+  LoyaltyStorefrontController,
+} from './loyalty.controller';
 import { LoyaltyCronService } from './loyalty.cron.service';
 import {
   LoyaltyAccount,
@@ -16,7 +19,7 @@ import {
   LoyaltyTransactionSchema,
 } from './loyalty.schema';
 import { LoyaltyService } from './loyalty.service';
-import { ShopifyAppProxyGuard } from './shopify-app-proxy.guard';
+import { ShopifyAppProxyGuard } from '../shopify/shopify-app-proxy.guard';
 
 @Module({
   imports: [
@@ -33,7 +36,7 @@ import { ShopifyAppProxyGuard } from './shopify-app-proxy.guard';
     ]),
   ],
   providers: [LoyaltyService, LoyaltyCronService, ShopifyAppProxyGuard],
-  controllers: [LoyaltyController],
+  controllers: [LoyaltyController, LoyaltyStorefrontController],
   exports: [LoyaltyService],
 })
 export class LoyaltyModule {}
