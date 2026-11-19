@@ -41,7 +41,7 @@ export class FavoriteController {
   getCustomerFavorites(@Param('customerId') customerId: string) {
     const id = numericShopifyId(customerId);
     if (!id) {
-      throw new HttpException('Invalid customer id', HttpStatus.BAD_REQUEST);
+      throw new HttpException('Geçersiz müşteri', HttpStatus.BAD_REQUEST);
     }
     return this.favoriteService.getCustomerFavorites(id);
   }
