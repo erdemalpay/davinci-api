@@ -56,19 +56,16 @@ export class TrendyolController {
     return await this.trendyolService.updatePriceOnly(body?.items);
   }
 
-  @Public()
   @Get('/webhook')
   getWebhooks() {
     return this.trendyolService.getWebhooks();
   }
 
-  @Public()
   @Post('/webhook')
   createWebhook(@Body() webhookData: CreateTrendyolWebhookDto) {
     return this.trendyolService.createWebhook(webhookData);
   }
 
-  @Public()
   @Delete('/webhook/:id')
   deleteWebhook(@Param('id') id: string) {
     return this.trendyolService.deleteWebhook(id);
