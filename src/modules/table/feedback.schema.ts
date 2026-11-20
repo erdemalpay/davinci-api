@@ -23,6 +23,12 @@ export class Feedback extends Document {
 
   @Prop({ required: false, type: String })
   comment: string;
+
+  @Prop({ required: false, type: String })
+  fullName: string;
+
+  @Prop({ required: false, type: String })
+  phone: string;
 }
 
 export const FeedbackSchema = SchemaFactory.createForClass(Feedback);
