@@ -13,7 +13,10 @@ import { format, subDays } from 'date-fns';
 import * as moment from 'moment-timezone';
 import { Model, UpdateQuery } from 'mongoose';
 import { STAFF_AVAILABILITY_CHANGED } from '../../lib/events';
-import { computeDurationMinutes } from '../../utils/timeUtils';
+import {
+  computeDurationMinutes,
+  exceedsShiftNoticeTolerance,
+} from '../../utils/timeUtils';
 import { ActivityType } from '../activity/activity.dto';
 import { ActivityService } from '../activity/activity.service';
 import {
@@ -93,7 +96,11 @@ export class VisitService {
     const foundShift = shifts[0]?.shifts?.find((shift) => {
       return shift.user.includes(user._id);
     });
-    if (foundShift && createVisitDto.startHour > foundShift.shift) {
+    if (
+      foundShift &&
+      createVisitDto.startHour > foundShift.shift &&
+      exceedsShiftNoticeTolerance(foundShift.shift, createVisitDto.startHour)
+    ) {
       const notificationEvents =
         await this.notificationService.findAllEventNotifications();
       const lateshiftstartEvent = notificationEvents.find(
@@ -188,7 +195,10 @@ export class VisitService {
           isEarlyExit = finishHour < foundShift.shiftEndHour;
         }
 
-        if (isEarlyExit) {
+        if (
+          isEarlyExit &&
+          exceedsShiftNoticeTolerance(finishHour, foundShift.shiftEndHour)
+        ) {
           const notificationEvents =
             await this.notificationService.findAllEventNotifications();
           const earlyShiftEndEvent = notificationEvents.find(
@@ -379,7 +389,11 @@ export class VisitService {
       const foundShift = shifts[0]?.shifts?.find((shift) => {
         return shift.user.includes(user._id);
       });
-      if (foundShift && cafeVisitDto.hour > foundShift.shift) {
+      if (
+        foundShift &&
+        cafeVisitDto.hour > foundShift.shift &&
+        exceedsShiftNoticeTolerance(foundShift.shift, cafeVisitDto.hour)
+      ) {
         const notificationEvents =
           await this.notificationService.findAllEventNotifications();
         const lateshiftstartEvent = notificationEvents.find(
@@ -462,7 +476,13 @@ export class VisitService {
               isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
             }
 
-            if (isEarlyExit) {
+            if (
+              isEarlyExit &&
+              exceedsShiftNoticeTolerance(
+                cafeVisitDto.hour,
+                foundShift.shiftEndHour,
+              )
+            ) {
               const notificationEvents =
                 await this.notificationService.findAllEventNotifications();
               const earlyShiftEndEvent = notificationEvents.find(
@@ -543,7 +563,13 @@ export class VisitService {
           isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
         }
 
-        if (isEarlyExit) {
+        if (
+          isEarlyExit &&
+          exceedsShiftNoticeTolerance(
+            cafeVisitDto.hour,
+            foundShift.shiftEndHour,
+          )
+        ) {
           const notificationEvents =
             await this.notificationService.findAllEventNotifications();
           const earlyShiftEndEvent = notificationEvents.find(
