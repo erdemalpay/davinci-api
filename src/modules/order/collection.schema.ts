@@ -5,12 +5,13 @@ import { Location } from '../location/location.schema';
 import { User } from '../user/user.schema';
 import { PaymentMethod } from './../accounting/paymentMethod.schema';
 import { Order } from './order.schema';
+import { roundQuantity } from 'src/lib/quantity';
 
 export class OrderCollectionItem {
   @Prop({ required: true, type: Number, ref: Order.name })
   order: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, set: roundQuantity })
   paidQuantity: number;
 }
 @Schema({ _id: false })
