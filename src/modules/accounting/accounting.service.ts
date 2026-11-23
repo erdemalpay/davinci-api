@@ -84,6 +84,12 @@ import { ProductStockHistory } from './productStockHistory.schema';
 import { Service } from './service.schema';
 import { Stock } from './stock.schema';
 import { Vendor } from './vendor.schema';
+import {
+  computeGameBatches,
+  GameBatch,
+  GAME_BATCH_DEPOT_LOCATION,
+  GameStockEvent,
+} from './gameBatches';
 
 type RoleId = number;
 
@@ -3806,185 +3812,100 @@ export class AccountingService {
     return productStockHistory;
   }
   async getGameBatchesWithFIFO(location?: string) {
-    const locationIds = location
-      .split(',')
-      .map((value) => Number(value.trim()))
-      .filter((value) => !Number.isNaN(value));
+    const depot = Number(location) || GAME_BATCH_DEPOT_LOCATION;
 
     const gameProducts = await this.productModel
-      .find({
-        expenseType: GameExpenseType,
-      })
+      .find({ expenseType: GameExpenseType })
       .select('_id')
+      .lean()
       .exec();
-
     if (!gameProducts?.length) return [];
-
     const productIds = gameProducts.map((p) => p._id);
 
-    // Single query to get all stock history
-    const allStockHistory = await this.productStockHistoryModel
-      .find({
-        product: { $in: productIds },
-        ...(locationIds.length > 0 && { location: { $in: locationIds } }),
-      })
-      .sort({ createdAt: 1, _id: 1 })
-      .exec();
-
-    if (!allStockHistory?.length) return [];
-
-    // Group by product and determine batch starts based on running stock
-    const batchStartsByProduct = new Map<string, any[]>();
-    const stockHistoryByProduct = new Map<string, any[]>();
-    const runningStockByProduct = new Map<string, number>();
-
-    for (const sh of allStockHistory) {
-      const productId = sh.product;
-
-      // Add to stockHistoryByProduct
-      if (!stockHistoryByProduct.has(productId)) {
-        stockHistoryByProduct.set(productId, []);
-        runningStockByProduct.set(productId, 0);
-      }
-      stockHistoryByProduct.get(productId)!.push(sh);
-
-      const currentStock = runningStockByProduct.get(productId)!;
-
-      // Check if this is a batch start
-      if (sh.change > 0) {
-        // EXPENSEENTRY always creates a new batch
-        if (sh.status === StockHistoryStatusEnum.EXPENSEENTRY) {
-          if (!batchStartsByProduct.has(productId)) {
-            batchStartsByProduct.set(productId, []);
-          }
-          batchStartsByProduct.get(productId)!.push(sh);
-        }
-        // Any other positive increase: only create batch if stock <= 0
-        else if (currentStock <= 0) {
-          if (!batchStartsByProduct.has(productId)) {
-            batchStartsByProduct.set(productId, []);
-          }
-          batchStartsByProduct.get(productId)!.push(sh);
-        }
-      }
-
-      // Update running stock
-      runningStockByProduct.set(productId, currentStock + sh.change);
-    }
-
-    if (batchStartsByProduct.size === 0) return [];
-
-    const batches: any[] = [];
-    const today = new Date();
-
-    for (const [
-      productId,
-      batchStartEntries,
-    ] of batchStartsByProduct.entries()) {
-      const stockHistory = stockHistoryByProduct.get(productId) || [];
-
-      // Create a Set of batch start IDs for fast lookup
-      const batchStartIds = new Set(
-        batchStartEntries.map((batch) => batch._id.toString()),
-      );
-
-      const stockMovements = stockHistory
-        .filter((sh) => {
-          // Exclude entries that are batch starts
-          return !batchStartIds.has(sh._id.toString());
+    const [depotHistory, transfersIn] = await Promise.all([
+      this.productStockHistoryModel
+        .find({ product: { $in: productIds }, location: depot })
+        .select('_id product change status createdAt')
+        .sort({ createdAt: 1, _id: 1 })
+        .lean()
+        .exec(),
+      // The other half of each transfer out of the depot, to know where the
+      // games went.
+      this.productStockHistoryModel
+        .find({
+          product: { $in: productIds },
+          location: { $ne: depot },
+          status: {
+            $in: [
+              StockHistoryStatusEnum.STOCKTRANSFER,
+              StockHistoryStatusEnum.PICKUPSTOCKTRANSFER,
+            ],
+          },
+          change: { $gt: 0 },
         })
-        .map((sh) => ({
-          date: new Date(sh.createdAt),
-          change: sh.change,
-          isIncrease: sh.change > 0,
-        }))
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
+        .select('product location change createdAt')
+        .lean()
+        .exec(),
+    ]);
+    if (!depotHistory?.length) return [];
 
-      let movementIndex = 0;
-      let carriedOverReduction = 0;
-      let carriedOverReductionDate: Date | null = null;
-
-      for (let i = 0; i < batchStartEntries.length; i++) {
-        const batchStart = batchStartEntries[i];
-
-        const purchasedQty = Math.abs(batchStart.change);
-        const purchaseDate = new Date(batchStart.createdAt);
-        let batchRemaining = purchasedQty;
-        let batchEndDate: Date | null = null;
-
-        if (carriedOverReduction > 0 && carriedOverReductionDate) {
-          const consumedFromCarryOver = Math.min(
-            batchRemaining,
-            carriedOverReduction,
-          );
-          batchRemaining -= consumedFromCarryOver;
-          carriedOverReduction -= consumedFromCarryOver;
-
-          batchEndDate = new Date(carriedOverReductionDate);
-
-          if (carriedOverReduction === 0) {
-            carriedOverReductionDate = null;
-            movementIndex++;
-          }
+    const transferTargets = new Map<
+      string,
+      { at: number; location: number }[]
+    >();
+    for (const t of transfersIn) {
+      const key = `${t.product}|${t.change}`;
+      if (!transferTargets.has(key)) transferTargets.set(key, []);
+      transferTargets
+        .get(key)!
+        .push({ at: new Date(t.createdAt).getTime(), location: t.location });
+    }
+    const findTransferTarget = (
+      product: string,
+      quantity: number,
+      at: Date,
+    ) => {
+      const candidates = transferTargets.get(`${product}|${quantity}`);
+      if (!candidates?.length) return undefined;
+      let best = -1;
+      let bestGap = 60 * 1000;
+      candidates.forEach((c, i) => {
+        const gap = Math.abs(c.at - at.getTime());
+        if (gap <= bestGap) {
+          best = i;
+          bestGap = gap;
         }
+      });
+      if (best < 0) return undefined;
+      return candidates.splice(best, 1)[0].location;
+    };
 
-        while (
-          movementIndex < stockMovements.length &&
-          stockMovements[movementIndex].date < purchaseDate
-        ) {
-          movementIndex++;
-        }
-
-        while (movementIndex < stockMovements.length && batchRemaining > 0) {
-          const movement = stockMovements[movementIndex];
-
-          if (movement.isIncrease) {
-            batchRemaining += movement.change;
-            batchEndDate = new Date(movement.date);
-            movementIndex++;
-          } else {
-            const reductionQty = Math.abs(movement.change);
-
-            if (reductionQty <= batchRemaining) {
-              batchRemaining -= reductionQty;
-              batchEndDate = new Date(movement.date);
-              movementIndex++;
-            } else {
-              const consumed = batchRemaining;
-              batchRemaining = 0;
-              batchEndDate = new Date(movement.date);
-              carriedOverReduction = reductionQty - consumed;
-              carriedOverReductionDate = new Date(movement.date);
-            }
-          }
-        }
-
-        const displayEndDate =
-          batchRemaining === 0 && batchEndDate ? batchEndDate : today;
-
-        const durationMs = displayEndDate.getTime() - purchaseDate.getTime();
-        const durationDays = Math.max(
-          1,
-          Math.ceil(durationMs / (1000 * 60 * 60 * 24)),
-        );
-
-        const consumed = purchasedQty - batchRemaining;
-        const avgSalesPerDay = consumed > 0 ? consumed / durationDays : 0;
-
-        batches.push({
-          productId,
-          purchasedQuantity: purchasedQty,
-          startDate: format(purchaseDate, 'yyyy-MM-dd'),
-          endDate: format(displayEndDate, 'yyyy-MM-dd'),
-          duration: durationDays,
-          averageSalesPerDay: parseFloat(avgSalesPerDay.toFixed(2)),
-          remainingQuantity: batchRemaining,
-          purchaseDate: format(purchaseDate, 'yyyy-MM-dd'),
-          stockHistoryId: batchStart._id,
-        });
+    const eventsByProduct = new Map<string, GameStockEvent[]>();
+    for (const sh of depotHistory) {
+      const createdAt = new Date(sh.createdAt);
+      const isTransferOut =
+        sh.change < 0 &&
+        (sh.status === StockHistoryStatusEnum.STOCKTRANSFER ||
+          sh.status === StockHistoryStatusEnum.PICKUPSTOCKTRANSFER);
+      if (!eventsByProduct.has(sh.product)) {
+        eventsByProduct.set(sh.product, []);
       }
+      eventsByProduct.get(sh.product)!.push({
+        _id: sh._id,
+        change: sh.change,
+        status: sh.status,
+        createdAt,
+        transferLocation: isTransferOut
+          ? findTransferTarget(sh.product, -sh.change, createdAt)
+          : undefined,
+      });
     }
 
+    const now = new Date();
+    const batches: GameBatch[] = [];
+    for (const [productId, events] of eventsByProduct.entries()) {
+      batches.push(...computeGameBatches(productId, events, now));
+    }
     return batches;
   }
 
