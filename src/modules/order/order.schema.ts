@@ -7,6 +7,7 @@ import { MenuItem } from '../menu/item.schema';
 import { User } from '../user/user.schema';
 import { Kitchen } from './../menu/kitchen.schema';
 import { Discount } from './discount.schema';
+import { roundQuantity } from 'src/lib/quantity';
 
 export class IkasCustomer {
   @Prop({ required: true, type: String })
@@ -114,7 +115,7 @@ export class Order extends Document {
   @Prop({ required: false, type: Number, ref: 'Table' })
   table: number;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, set: roundQuantity })
   quantity: number;
 
   @Prop({ required: true, type: String })
@@ -166,7 +167,7 @@ export class Order extends Document {
   @Prop({ required: false, type: String, ref: User.name })
   cancelledBy: string;
 
-  @Prop({ required: true, type: Number })
+  @Prop({ required: true, type: Number, set: roundQuantity })
   paidQuantity: number;
 
   @Prop({ required: false, type: Boolean })
