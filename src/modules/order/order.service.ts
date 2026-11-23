@@ -70,6 +70,11 @@ import { OrderGroup } from './orderGroup.schema';
 import { OrderNotes } from './orderNotes.schema';
 import { RetailerOrderRequest } from './retailer-order-request.schema';
 import { Retailer } from './retailer.schema';
+import {
+  QUANTITY_DECIMALS,
+  QUANTITY_PAYMENT_TOLERANCE,
+  roundQuantity,
+} from 'src/lib/quantity';
 interface SeenUsers {
   [key: string]: boolean;
 }
@@ -1737,12 +1742,17 @@ export class OrderService {
 
       if (isPartialReturn) {
         // Partial quantity return: split order into returned + remaining
-        const remainingQuantity = order.quantity - returnQuantity;
+        const remainingQuantity = roundQuantity(
+          order.quantity - returnQuantity,
+        );
         const { _id: _omitted, ...orderWithoutId } = order;
         const newOrder = await this.orderModel.create({
           ...orderWithoutId,
           quantity: remainingQuantity,
-          paidQuantity: Math.max(0, (order.paidQuantity ?? 0) - returnQuantity),
+          paidQuantity: Math.max(
+            0,
+            roundQuantity((order.paidQuantity ?? 0) - returnQuantity),
+          ),
         });
 
         if (collection) {
@@ -2490,7 +2500,7 @@ export class OrderService {
         );
       }
       if (order?.quantity !== quantity) {
-        const newQuantity = order.quantity - quantity;
+        const newQuantity = roundQuantity(order.quantity - quantity);
         const orderWithoutId = order.toObject();
         delete orderWithoutId._id;
         const newOrderData = {
@@ -2674,7 +2684,7 @@ export class OrderService {
 
         if (isPartialCancel) {
           // Partial cancellation: split → cancelled part + remaining active part
-          const remainingQuantity = order.quantity - quantity;
+          const remainingQuantity = roundQuantity(order.quantity - quantity);
           const orderWithoutId = order.toObject();
           delete orderWithoutId._id;
           delete orderWithoutId.shopifyOrderLineItemId;
@@ -3188,7 +3198,7 @@ export class OrderService {
         let cancelledOrder: Order;
 
         if (isPartialCancel) {
-          const remainingQuantity = order.quantity - quantity;
+          const remainingQuantity = roundQuantity(order.quantity - quantity);
           const orderWithoutId = order.toObject();
           delete orderWithoutId._id;
           delete orderWithoutId[config.lineItemField];
@@ -4314,7 +4324,9 @@ export class OrderService {
           }
           paidByOrder.set(
             item.order,
-            (paidByOrder.get(item.order) ?? 0) + item.paidQuantity,
+            roundQuantity(
+              (paidByOrder.get(item.order) ?? 0) + item.paidQuantity,
+            ),
           );
         }
 
@@ -4330,14 +4342,31 @@ export class OrderService {
                   OrderStatus.WASTED,
                 ],
               },
+              // Tolerance: fractional splits (e.g. 1/7) are rounded to 3 decimals
               $expr: {
                 $gte: [
                   { $subtract: ['$quantity', '$paidQuantity'] },
-                  requestedPaidQuantity,
+                  requestedPaidQuantity - QUANTITY_PAYMENT_TOLERANCE,
                 ],
               },
             },
-            { $inc: { paidQuantity: requestedPaidQuantity } },
+            [
+              {
+                $set: {
+                  paidQuantity: {
+                    $min: [
+                      '$quantity',
+                      {
+                        $round: [
+                          { $add: ['$paidQuantity', requestedPaidQuantity] },
+                          QUANTITY_DECIMALS,
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
             { session },
           );
 
@@ -5669,7 +5698,9 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
       // Update the old order
-      oldOrder.quantity = orderItem.totalQuantity - orderItem.selectedQuantity;
+      oldOrder.quantity = roundQuantity(
+        orderItem.totalQuantity - orderItem.selectedQuantity,
+      );
 
       try {
         if (oldOrder?.quantity === 0) {
@@ -5940,7 +5971,9 @@ export class OrderService {
           throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
         }
         // Update the old order
-        const newQuantity = sourceQuantity - orderItem.selectedQuantity;
+        const newQuantity = roundQuantity(
+          sourceQuantity - orderItem.selectedQuantity,
+        );
 
         if (newQuantity < 0) {
           throw new HttpException(
@@ -6059,7 +6092,7 @@ export class OrderService {
         throw new HttpException('Table not found', HttpStatus.BAD_REQUEST);
       }
       // Update the old order
-      const newQuantity = order.quantity - cancelQuantity;
+      const newQuantity = roundQuantity(order.quantity - cancelQuantity);
 
       if (newQuantity < 0) {
         throw new HttpException(
@@ -6096,6 +6129,9 @@ export class OrderService {
     transferredTableId: number,
   ) {
     for (const orderItem of orders) {
+      // Float residue (e.g. 1 - 7 × 1/7 = 2.2e-16) must not create a phantom order
+      orderItem.selectedQuantity = roundQuantity(orderItem.selectedQuantity);
+      orderItem.totalQuantity = roundQuantity(orderItem.totalQuantity);
       if (orderItem.selectedQuantity <= 0) {
         continue;
       }
@@ -6106,7 +6142,8 @@ export class OrderService {
       }
       if (
         oldOrder.paidQuantity > 0 &&
-        oldOrder.paidQuantity + orderItem.selectedQuantity > oldOrder.quantity
+        roundQuantity(oldOrder.paidQuantity + orderItem.selectedQuantity) >
+          oldOrder.quantity
       ) {
         throw new HttpException(
           'Cannot transfer more than unpaid quantity',
@@ -6152,7 +6189,9 @@ export class OrderService {
       // order partially transferred
       else {
         if (oldOrder.paidQuantity > 0) {
-          oldOrder.quantity = oldOrder.quantity - orderItem.selectedQuantity;
+          oldOrder.quantity = roundQuantity(
+            oldOrder.quantity - orderItem.selectedQuantity,
+          );
           const newOrder = new this.orderModel({
             ...oldOrder.toObject(),
             paidQuantity: 0,
@@ -6201,8 +6240,9 @@ export class OrderService {
         }
         await newOrder.save();
         newTable.orders.push(newOrder._id);
-        oldOrder.quantity =
-          orderItem.totalQuantity - orderItem.selectedQuantity;
+        oldOrder.quantity = roundQuantity(
+          orderItem.totalQuantity - orderItem.selectedQuantity,
+        );
         oldOrder.table = transferredTableId;
         try {
           await Promise.all([newTable.save(), oldOrder.save()]);
