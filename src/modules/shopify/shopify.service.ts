@@ -1891,7 +1891,7 @@ export class ShopifyService {
       }
 
       this.logger.log(`Shopify ${productId} price updated successfully.`);
-      await this.websocketGateway.emitShopifyProductStockChanged();
+      await this.websocketGateway.emitShopifyProductPriceChanged();
       return true;
     } catch (error) {
       this.logError('Error updating price', error);
@@ -2094,8 +2094,7 @@ export class ShopifyService {
         // Don't throw, just log the error - price updates were successful
       }
     }
-    // TODO maybe we should emit price changed event instead of stock changed event
-    await this.websocketGateway.emitShopifyProductStockChanged();
+    await this.websocketGateway.emitShopifyProductPriceChanged();
   }
 
   async createProductImages(productId: string, imageArray: string[]) {

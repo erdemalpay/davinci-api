@@ -42,6 +42,15 @@ import { ButtonCall } from './schemas/buttonCall.schema';
 import { UnmetExplanationRequestService } from './unmetExplanationRequest.service';
 import { cafeHour, cafeStartOfToday, cafeToday } from 'src/utils/cafeTime';
 
+const ONE_DAY_SECONDS = 24 * 3600;
+
+// Seconds from start to finish ("HH:mm:ss"); a finish earlier than the
+// start is on the next day.
+export function callSeconds(startHour: string, finishHour: string) {
+  const seconds = convertToSeconds(finishHour) - convertToSeconds(startHour);
+  return seconds < 0 ? seconds + ONE_DAY_SECONDS : seconds;
+}
+
 // Kitchen ids are made from their names (usernamify).
 const BAR_KITCHEN_ID = 'bar';
 
@@ -96,7 +105,8 @@ export class ButtonCallService {
         ...createButtonCallDto,
         date: cafeToday(),
         type: createButtonCallDto?.type ?? ButtonCallTypeEnum.TABLECALL,
-        startHour: createButtonCallDto.hour,
+        // The server's clock: a device's clock can run ahead or behind.
+        startHour: cafeHour(),
         ...(user && { createdBy: user._id }),
       });
       this.websocketGateway.emitButtonCallChanged(
@@ -151,11 +161,7 @@ export class ButtonCallService {
       throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
     }
 
-    await this.finishButtonCall(
-      closedButtonCall,
-      user,
-      closeButtonCallDto.hour,
-    );
+    await this.finishButtonCall(closedButtonCall, user, cafeHour());
     this.freeAssignee(closedButtonCall);
 
     if (notifyCafe) {
@@ -239,9 +245,7 @@ export class ButtonCallService {
   ) {
     const obj: { duration: string; finishHour: string; cancelledBy?: string } =
       {
-        duration: convertToHMS(
-          convertToSeconds(finishHour) - convertToSeconds(buttonCall.startHour),
-        ),
+        duration: convertToHMS(callSeconds(buttonCall.startHour, finishHour)),
         finishHour,
       };
 

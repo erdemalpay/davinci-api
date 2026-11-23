@@ -12,10 +12,11 @@ export class CloseButtonCallDto {
   @IsNumber()
   readonly location: number;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  // Sent by older clients; the stored hour is the server's.
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  readonly hour: string;
+  readonly hour?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

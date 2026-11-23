@@ -13,7 +13,16 @@ export class CreateNotificationDto {
   event?: string;
   isAssigned?: boolean;
   isActive?: boolean;
+  // Kişiye özel bildirim: alıcılar olay şablonundan alınmaz, kaydedilmez
+  isPersonal?: boolean;
 }
+
+export const personalRecipients = (userId: string) => ({
+  selectedUsers: [userId],
+  selectedRoles: [],
+  selectedLocations: [],
+  isPersonal: true,
+});
 
 export enum NotificationType {
   INFORMATION = 'INFORMATION',

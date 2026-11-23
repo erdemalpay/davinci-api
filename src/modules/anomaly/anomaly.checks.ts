@@ -342,7 +342,7 @@ function checkMoney(data: DayData): AnomalyDraft[] {
 
   // Someone's discounts or cancelled orders far above their usual day.
   const discountByUser = new Map<string, number>();
-  const cancelsByUser = new Map<string, number>();
+  const cancelsByUser = new Map<string, Set<number>>();
   const discounted = new Set<string>();
   for (const a of data.activities) {
     if (a.type === ActivityType.ORDER_DISCOUNT) {
@@ -355,8 +355,11 @@ function checkMoney(data: DayData): AnomalyDraft[] {
         (discountByUser.get(a.user) ?? 0) + orderDiscount(order),
       );
     }
-    if (a.type === ActivityType.CANCEL_ORDER) {
-      cancelsByUser.set(a.user, (cancelsByUser.get(a.user) ?? 0) + 1);
+    // Each order once: a cancel is logged twice.
+    if (a.type === ActivityType.CANCEL_ORDER && a.payload?._id) {
+      const orders = cancelsByUser.get(a.user) ?? new Set<number>();
+      orders.add(a.payload._id);
+      cancelsByUser.set(a.user, orders);
     }
   }
   for (const [user, amount] of discountByUser) {
@@ -370,7 +373,8 @@ function checkMoney(data: DayData): AnomalyDraft[] {
       details: { amount: money(amount), usual: money(average(history)) },
     });
   }
-  for (const [user, count] of cancelsByUser) {
+  for (const [user, orders] of cancelsByUser) {
+    const count = orders.size;
     const history = data.cancelHistory.get(user) ?? [];
     if (!isUnusual(count, history, UNUSUAL_CANCELS_MIN)) continue;
     found.push({

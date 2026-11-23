@@ -2060,43 +2060,35 @@ export class AccountingService {
 
   async findQueryStocks(user: User, query: StockQueryDto) {
     const { after, location } = query;
-    const filterQuery: Record<string, unknown> = {};
-    if (after) {
-      filterQuery['createdAt'] = { $gte: new Date(after) };
-    }
-    const stocks = await this.stockModel.find();
+    const stocks = await this.findAllStocks();
     if (!after) {
       return stocks;
     }
+    const filterQuery: Record<string, unknown> = {
+      createdAt: { $gte: new Date(after) },
+    };
     if (location) {
       filterQuery['location'] = Number(location);
     }
     try {
-      const filteredStocks = [];
-      const stockHistory = await this.productStockHistoryModel.find(
-        filterQuery,
-      );
-      for (const stock of stocks) {
-        const productStockHistory = stockHistory.filter(
-          (history) =>
-            history.product.toString() === stock.product.toString() &&
-            history.location === stock.location,
-        );
-        const changeSum = productStockHistory.reduce(
-          (acc, history) => acc + history.change * -1,
-          0,
-        );
-        if (productStockHistory.length > 0) {
-          stock.quantity += changeSum;
-        }
-        filteredStocks.push({
-          _id: stock._id,
-          product: stock.product,
-          location: Number(stock.location),
-          quantity: stock.quantity,
-        });
+      const stockHistory = await this.productStockHistoryModel
+        .find(filterQuery)
+        .select('product location change')
+        .lean();
+      // Geçmiş her stok için baştan taranmasın: ürün|konum → geri alınacak miktar
+      const reverted = new Map<string, number>();
+      for (const history of stockHistory) {
+        const key = `${history.product}|${history.location}`;
+        reverted.set(key, (reverted.get(key) ?? 0) - history.change);
       }
-      return filteredStocks;
+      return stocks.map((stock) => ({
+        _id: stock._id,
+        product: stock.product,
+        location: Number(stock.location),
+        quantity:
+          stock.quantity +
+          (reverted.get(`${stock.product}|${stock.location}`) ?? 0),
+      }));
     } catch (error) {
       throw new HttpException(
         'Failed to fetch and process stocks due to an internal error',
@@ -4767,6 +4759,17 @@ export class AccountingService {
     updateMultipleProductDto: UpdateMultipleProduct[],
   ) {
     const errorDatas = [];
+    // Adlar satır başına sorgulanmasın; bulunamayan ad atlanır
+    const lookups = await this.getBulkProductLookups();
+    const findIds = (names: string[], map: Map<string, any>) =>
+      names.filter((item) => map.has(item)).map((item) => map.get(item));
+    // Yazmalar satır başına değil, döngüden sonra toplu yapılır
+    const rowsToWrite: {
+      updateDto: UpdateMultipleProduct;
+      update: UpdateQuery<Product>;
+      countListIds?: string[];
+      locationIds: number[];
+    }[] = [];
     for (const updateDto of updateMultipleProductDto) {
       try {
         const {
@@ -4804,34 +4807,9 @@ export class AccountingService {
               .map((item) => item.trim())
               .filter(Boolean)
           : [];
-        const newExpenseTypes = [];
-        const newVendor = [];
-        const newBrand = [];
-        // find the ids of the expenseType, vendor and brand
-        for (const expTypeName of expenseTypeArray) {
-          const foundExpenseType = await this.expenseTypeModel.find({
-            name: expTypeName,
-          });
-          if (foundExpenseType.length > 0) {
-            newExpenseTypes.push(foundExpenseType[0]._id);
-          }
-        }
-        for (const vendorName of vendorArray) {
-          const foundVendor = await this.vendorModel.find({
-            name: vendorName,
-          });
-          if (foundVendor.length > 0) {
-            newVendor.push(foundVendor[0]._id);
-          }
-        }
-        for (const brandName of brandArray) {
-          const foundBrand = await this.brandModel.find({
-            name: brandName,
-          });
-          if (foundBrand.length > 0) {
-            newBrand.push(foundBrand[0]._id);
-          }
-        }
+        const newExpenseTypes = findIds(expenseTypeArray, lookups.expenseTypes);
+        const newVendor = findIds(vendorArray, lookups.vendors);
+        const newBrand = findIds(brandArray, lookups.brands);
         if (expenseTypeArray?.length > newExpenseTypes?.length) {
           errorDatas.push({
             ...updateDto,
@@ -4871,62 +4849,156 @@ export class AccountingService {
                 .filter(Boolean)
             : [];
 
-          if (countListNames.length > 0) {
-            const foundCountLists = await this.countListModel
-              .find({ name: { $in: countListNames } })
-              .select('_id')
-              .lean();
-            countListIds = foundCountLists.map((cl) => cl._id);
-          }
-          if (locationNames.length > 0) {
-            const foundLocations = await this.locationService.findManyByNames(
-              locationNames,
-            );
-            locationIds = foundLocations.map((loc) => loc._id);
-          }
+          // `$in` sorgusu gibi her kaydı bir kez döndür
+          countListIds = [
+            ...new Set(findIds(countListNames, lookups.countLists)),
+          ];
+          locationIds = [...new Set(findIds(locationNames, lookups.locations))];
         }
 
-        const updatedProduct = await this.productModel.findOneAndUpdate(
-          { name: name, deleted: false },
-          {
+        const hasCountList = countList !== undefined && countList !== null;
+        rowsToWrite.push({
+          updateDto,
+          update: {
             ...(newExpenseTypes.length > 0 && { expenseType: newExpenseTypes }),
             ...(newVendor.length > 0 && { vendor: newVendor }),
             ...(newBrand.length > 0 && { brand: newBrand }),
-            ...(countList !== undefined &&
-              countList !== null && { countList: countListIds }),
+            ...(hasCountList && { countList: countListIds }),
           },
-          { new: true },
-        );
-
-        if (updatedProduct && countList !== undefined && countList !== null) {
-          await this.countListModel.updateMany(
-            {},
-            { $pull: { products: { product: updatedProduct._id } } },
-          );
-
-          if (countListIds.length > 0) {
-            await this.countListModel.updateMany(
-              { _id: { $in: countListIds } },
-              {
-                $push: {
-                  products: {
-                    product: updatedProduct._id,
-                    locations: locationIds,
-                  },
-                },
-              },
-            );
-          }
-
-          this.websocketGateway.emitCountListChanged();
-        }
+          countListIds: hasCountList ? countListIds : undefined,
+          locationIds,
+        });
       } catch (e) {
         this.logger.error('Error updating product:', e);
         errorDatas.push({ ...updateDto, errorNote: 'Error occured' });
       }
     }
+
+    // Ürün, eskisi gibi adıyla birebir (boşluk kırpılmadan) bulunur
+    const productIds = new Map<string, string>();
+    const products = await this.productModel
+      .find({
+        deleted: false,
+        name: { $in: rowsToWrite.map((row) => row.updateDto.name) },
+      })
+      .select('_id name')
+      .lean();
+    for (const product of products) {
+      if (!productIds.has(product.name)) {
+        productIds.set(product.name, product._id);
+      }
+    }
+    const productRows = rowsToWrite.filter((row) =>
+      productIds.has(row.updateDto.name),
+    );
+    const failedRows = new Set<number>();
+    const markFailed = (rowIndex: number, error: unknown) => {
+      this.logger.error('Error updating product:', error);
+      failedRows.add(rowIndex);
+      errorDatas.push({
+        ...productRows[rowIndex].updateDto,
+        errorNote: 'Error occured',
+      });
+    };
+
+    await this.bulkWriteRows(
+      this.productModel,
+      productRows.map((row, index) => ({
+        index,
+        ops: [
+          {
+            updateOne: {
+              filter: { _id: productIds.get(row.updateDto.name) },
+              update: row.update,
+            },
+          },
+        ],
+      })),
+      markFailed,
+    );
+
+    const countListRows = productRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row, index }) => row.countListIds && !failedRows.has(index))
+      .map(({ row, index }) => {
+        const product = productIds.get(row.updateDto.name);
+        return {
+          index,
+          ops: [
+            {
+              updateMany: {
+                filter: { 'products.product': product },
+                update: { $pull: { products: { product } } },
+              },
+            },
+            ...(row.countListIds.length > 0
+              ? [
+                  {
+                    updateMany: {
+                      filter: { _id: { $in: row.countListIds } },
+                      update: {
+                        $push: {
+                          products: { product, locations: row.locationIds },
+                        },
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
+        };
+      });
+    await this.bulkWriteRows(this.countListModel, countListRows, markFailed);
+
+    if (countListRows.some(({ index }) => !failedRows.has(index))) {
+      this.websocketGateway.emitCountListChanged();
+    }
     this.websocketGateway.emitProductChanged();
     return errorDatas;
+  }
+
+  // Satırların yazmalarını sırasıyla tek seferde gönderir. Bir satırın yazması
+  // hata verirse o satır hatalı sayılır ve sonraki satırlardan devam edilir.
+  private async bulkWriteRows<T>(
+    model: Model<T>,
+    rows: {
+      index: number;
+      ops: Parameters<Model<T>['bulkWrite']>[0];
+    }[],
+    onRowError: (rowIndex: number, error: unknown) => void,
+  ) {
+    let start = 0;
+    while (start < rows.length) {
+      const remaining = rows.slice(start);
+      const opRows = remaining.flatMap((row, i) =>
+        row.ops.map(() => start + i),
+      );
+      try {
+        await model.bulkWrite(
+          remaining.flatMap((row) => row.ops),
+          { ordered: true },
+        );
+        return;
+      } catch (error) {
+        const writeErrors = (
+          error as { writeErrors?: { index: number } | { index: number }[] }
+        ).writeErrors;
+        const failedOp = [writeErrors].flat()[0]?.index;
+        if (failedOp === undefined) {
+          // Hatanın hangi satırda olduğu bilinmiyorsa kalanlar tek tek yazılır
+          for (const row of remaining) {
+            try {
+              await model.bulkWrite(row.ops, { ordered: true });
+            } catch (rowError) {
+              onRowError(row.index, rowError);
+            }
+          }
+          return;
+        }
+        onRowError(rows[opRows[failedOp]].index, error);
+        start = opRows[failedOp] + 1;
+      }
+    }
   }
   private async getBulkProductLookups() {
     const toNameMap = (docs: any[]) => {
