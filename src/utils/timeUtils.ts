@@ -37,7 +37,7 @@ export const SHIFT_NOTICE_TOLERANCE_MINUTES = 5;
 
 const hourToMinutes = (hour: string): number => {
   const [h, m] = (hour ?? '').split(':').map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return NaN;
+  if (Number.isNaN(h) || Number.isNaN(m)) return Number.NaN;
   return h * 60 + m;
 };
 

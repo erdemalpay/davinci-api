@@ -96,40 +96,7 @@ export class VisitService {
     const foundShift = shifts[0]?.shifts?.find((shift) => {
       return shift.user.includes(user._id);
     });
-    if (
-      foundShift &&
-      createVisitDto.startHour > foundShift.shift &&
-      exceedsShiftNoticeTolerance(foundShift.shift, createVisitDto.startHour)
-    ) {
-      const notificationEvents =
-        await this.notificationService.findAllEventNotifications();
-      const lateshiftstartEvent = notificationEvents.find(
-        (notification) =>
-          notification.event === NotificationEventType.LATESHIFTSTART,
-      );
-
-      if (lateshiftstartEvent) {
-        const message = {
-          key: 'ShiftLateNotice',
-          params: {
-            user: user.name,
-            shift: foundShift.shift,
-            enteredAt: createVisitDto.startHour,
-          },
-        };
-
-        await this.notificationService.createNotification({
-          type: lateshiftstartEvent.type,
-          createdBy: lateshiftstartEvent.createdBy,
-          selectedUsers: lateshiftstartEvent.selectedUsers,
-          selectedRoles: lateshiftstartEvent.selectedRoles,
-          selectedLocations: lateshiftstartEvent.selectedLocations,
-          seenBy: [],
-          event: NotificationEventType.LATESHIFTSTART,
-          message,
-        });
-      }
-    }
+    await this.notifyLateShiftStart(user, foundShift, createVisitDto.startHour);
 
     try {
       await this.activityService.addActivity(
@@ -144,6 +111,86 @@ export class VisitService {
     this.websocketGateway.emitVisitChanged();
     this.eventEmitter.emit(STAFF_AVAILABILITY_CHANGED);
     return visit;
+  }
+
+  private async notifyLateShiftStart(
+    user: User,
+    foundShift: { shift: string } | undefined,
+    enteredAt: string,
+  ) {
+    if (
+      !foundShift ||
+      enteredAt <= foundShift.shift ||
+      !exceedsShiftNoticeTolerance(foundShift.shift, enteredAt)
+    ) {
+      return;
+    }
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const lateshiftstartEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.LATESHIFTSTART,
+    );
+    if (!lateshiftstartEvent) return;
+    await this.notificationService.createNotification({
+      type: lateshiftstartEvent.type,
+      createdBy: lateshiftstartEvent.createdBy,
+      selectedUsers: lateshiftstartEvent.selectedUsers,
+      selectedRoles: lateshiftstartEvent.selectedRoles,
+      selectedLocations: lateshiftstartEvent.selectedLocations,
+      seenBy: [],
+      event: NotificationEventType.LATESHIFTSTART,
+      message: {
+        key: 'ShiftLateNotice',
+        params: { user: user.name, shift: foundShift.shift, enteredAt },
+      },
+    });
+  }
+
+  private async notifyEarlyShiftEnd(
+    user: User,
+    foundShift: { shift: string; shiftEndHour?: string } | undefined,
+    exitedAt: string,
+  ) {
+    if (!foundShift?.shiftEndHour) return;
+    const isNightShift = foundShift.shiftEndHour < foundShift.shift;
+    let isEarlyExit = false;
+    if (isNightShift) {
+      isEarlyExit =
+        exitedAt >= foundShift.shift || exitedAt < foundShift.shiftEndHour;
+    } else if (exitedAt >= foundShift.shift) {
+      isEarlyExit = exitedAt < foundShift.shiftEndHour;
+    }
+    if (
+      !isEarlyExit ||
+      !exceedsShiftNoticeTolerance(exitedAt, foundShift.shiftEndHour)
+    ) {
+      return;
+    }
+    const notificationEvents =
+      await this.notificationService.findAllEventNotifications();
+    const earlyShiftEndEvent = notificationEvents.find(
+      (notification) =>
+        notification.event === NotificationEventType.EARLYSHIFTEND,
+    );
+    if (!earlyShiftEndEvent) return;
+    await this.notificationService.createNotification({
+      type: earlyShiftEndEvent.type,
+      createdBy: earlyShiftEndEvent.createdBy,
+      selectedUsers: earlyShiftEndEvent.selectedUsers,
+      selectedRoles: earlyShiftEndEvent.selectedRoles,
+      selectedLocations: earlyShiftEndEvent.selectedLocations,
+      seenBy: [],
+      event: NotificationEventType.EARLYSHIFTEND,
+      message: {
+        key: 'ShiftEndEarlyNotice',
+        params: {
+          user: user.name,
+          shiftEnd: foundShift.shiftEndHour,
+          exitedAt,
+        },
+      },
+    });
   }
 
   createManually(visitDto: VisitDto) {
@@ -183,52 +230,7 @@ export class VisitService {
         return shift.user.includes(user._id);
       });
 
-      if (foundShift && foundShift.shiftEndHour) {
-        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
-        let isEarlyExit = false;
-
-        if (isNightShift) {
-          isEarlyExit =
-            finishHour >= foundShift.shift ||
-            finishHour < foundShift.shiftEndHour;
-        } else if (finishHour >= foundShift.shift) {
-          isEarlyExit = finishHour < foundShift.shiftEndHour;
-        }
-
-        if (
-          isEarlyExit &&
-          exceedsShiftNoticeTolerance(finishHour, foundShift.shiftEndHour)
-        ) {
-          const notificationEvents =
-            await this.notificationService.findAllEventNotifications();
-          const earlyShiftEndEvent = notificationEvents.find(
-            (notification) =>
-              notification.event === NotificationEventType.EARLYSHIFTEND,
-          );
-
-          if (earlyShiftEndEvent) {
-            const message = {
-              key: 'ShiftEndEarlyNotice',
-              params: {
-                user: user.name,
-                shiftEnd: foundShift.shiftEndHour,
-                exitedAt: finishHour,
-              },
-            };
-
-            await this.notificationService.createNotification({
-              type: earlyShiftEndEvent.type,
-              createdBy: earlyShiftEndEvent.createdBy,
-              selectedUsers: earlyShiftEndEvent.selectedUsers,
-              selectedRoles: earlyShiftEndEvent.selectedRoles,
-              selectedLocations: earlyShiftEndEvent.selectedLocations,
-              seenBy: [],
-              event: NotificationEventType.EARLYSHIFTEND,
-              message,
-            });
-          }
-        }
-      }
+      await this.notifyEarlyShiftEnd(user, foundShift, finishHour);
     }
 
     try {
@@ -389,40 +391,7 @@ export class VisitService {
       const foundShift = shifts[0]?.shifts?.find((shift) => {
         return shift.user.includes(user._id);
       });
-      if (
-        foundShift &&
-        cafeVisitDto.hour > foundShift.shift &&
-        exceedsShiftNoticeTolerance(foundShift.shift, cafeVisitDto.hour)
-      ) {
-        const notificationEvents =
-          await this.notificationService.findAllEventNotifications();
-        const lateshiftstartEvent = notificationEvents.find(
-          (notification) =>
-            notification.event === NotificationEventType.LATESHIFTSTART,
-        );
-
-        if (lateshiftstartEvent) {
-          const message = {
-            key: 'ShiftLateNotice',
-            params: {
-              user: user.name,
-              shift: foundShift.shift,
-              enteredAt: cafeVisitDto.hour,
-            },
-          };
-
-          await this.notificationService.createNotification({
-            type: lateshiftstartEvent.type,
-            createdBy: lateshiftstartEvent.createdBy,
-            selectedUsers: lateshiftstartEvent.selectedUsers,
-            selectedRoles: lateshiftstartEvent.selectedRoles,
-            selectedLocations: lateshiftstartEvent.selectedLocations,
-            seenBy: [],
-            event: NotificationEventType.LATESHIFTSTART,
-            message,
-          });
-        }
-      }
+      await this.notifyLateShiftStart(user, foundShift, cafeVisitDto.hour);
 
       try {
         await this.activityService.addActivity(
@@ -464,55 +433,7 @@ export class VisitService {
             return shift.user.includes(user._id);
           });
 
-          if (foundShift && foundShift.shiftEndHour) {
-            const isNightShift = foundShift.shiftEndHour < foundShift.shift;
-            let isEarlyExit = false;
-
-            if (isNightShift) {
-              isEarlyExit =
-                cafeVisitDto.hour >= foundShift.shift ||
-                cafeVisitDto.hour < foundShift.shiftEndHour;
-            } else if (cafeVisitDto.hour >= foundShift.shift) {
-              isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
-            }
-
-            if (
-              isEarlyExit &&
-              exceedsShiftNoticeTolerance(
-                cafeVisitDto.hour,
-                foundShift.shiftEndHour,
-              )
-            ) {
-              const notificationEvents =
-                await this.notificationService.findAllEventNotifications();
-              const earlyShiftEndEvent = notificationEvents.find(
-                (notification) =>
-                  notification.event === NotificationEventType.EARLYSHIFTEND,
-              );
-
-              if (earlyShiftEndEvent) {
-                const message = {
-                  key: 'ShiftEndEarlyNotice',
-                  params: {
-                    user: user.name,
-                    shiftEnd: foundShift.shiftEndHour,
-                    exitedAt: cafeVisitDto.hour,
-                  },
-                };
-
-                await this.notificationService.createNotification({
-                  type: earlyShiftEndEvent.type,
-                  createdBy: earlyShiftEndEvent.createdBy,
-                  selectedUsers: earlyShiftEndEvent.selectedUsers,
-                  selectedRoles: earlyShiftEndEvent.selectedRoles,
-                  selectedLocations: earlyShiftEndEvent.selectedLocations,
-                  seenBy: [],
-                  event: NotificationEventType.EARLYSHIFTEND,
-                  message,
-                });
-              }
-            }
-          }
+          await this.notifyEarlyShiftEnd(user, foundShift, cafeVisitDto.hour);
         }
 
         await lastVisit.updateOne({
@@ -551,55 +472,7 @@ export class VisitService {
       const foundShift = shifts[0]?.shifts?.find((shift) => {
         return shift.user.includes(user._id);
       });
-      if (foundShift && foundShift.shiftEndHour) {
-        const isNightShift = foundShift.shiftEndHour < foundShift.shift;
-        let isEarlyExit = false;
-
-        if (isNightShift) {
-          isEarlyExit =
-            cafeVisitDto.hour >= foundShift.shift ||
-            cafeVisitDto.hour < foundShift.shiftEndHour;
-        } else if (cafeVisitDto.hour >= foundShift.shift) {
-          isEarlyExit = cafeVisitDto.hour < foundShift.shiftEndHour;
-        }
-
-        if (
-          isEarlyExit &&
-          exceedsShiftNoticeTolerance(
-            cafeVisitDto.hour,
-            foundShift.shiftEndHour,
-          )
-        ) {
-          const notificationEvents =
-            await this.notificationService.findAllEventNotifications();
-          const earlyShiftEndEvent = notificationEvents.find(
-            (notification) =>
-              notification.event === NotificationEventType.EARLYSHIFTEND,
-          );
-
-          if (earlyShiftEndEvent) {
-            const message = {
-              key: 'ShiftEndEarlyNotice',
-              params: {
-                user: user.name,
-                shiftEnd: foundShift.shiftEndHour,
-                exitedAt: cafeVisitDto.hour,
-              },
-            };
-
-            await this.notificationService.createNotification({
-              type: earlyShiftEndEvent.type,
-              createdBy: earlyShiftEndEvent.createdBy,
-              selectedUsers: earlyShiftEndEvent.selectedUsers,
-              selectedRoles: earlyShiftEndEvent.selectedRoles,
-              selectedLocations: earlyShiftEndEvent.selectedLocations,
-              seenBy: [],
-              event: NotificationEventType.EARLYSHIFTEND,
-              message,
-            });
-          }
-        }
-      }
+      await this.notifyEarlyShiftEnd(user, foundShift, cafeVisitDto.hour);
 
       try {
         await this.activityService.addActivity(
