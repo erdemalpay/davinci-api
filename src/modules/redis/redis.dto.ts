@@ -36,4 +36,7 @@ export enum RedisKeys {
   N11OrderSyncCursor = 'n11-order-sync-cursor',
   IdefixOrderSyncCursor = 'idefix-order-sync-cursor',
   AmazonOrderSyncCursor = 'amazon-order-sync-cursor',
+  GameAssistantCatalog = 'game-assistant-catalog',
+  GameAssistantRate = 'game-assistant-rate',
+  GameAssistantSpend = 'game-assistant-spend',
 }

@@ -10,6 +10,8 @@ export class CreatePanelSettingsDto {
   _id: number;
   isHoliday: boolean;
   isVisitEntryDisabled: boolean;
+  isGameAssistantEnabled?: boolean;
+  gameAssistantDailyBudgetUsd?: number;
 }
 
 export class CreateDisabledConditionDto {

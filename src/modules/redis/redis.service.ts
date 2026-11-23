@@ -66,4 +66,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.flushall();
   }
 
+  // Sayaç: anahtar ilk kez oluşunca süre verilir, sonraki artışlar süreyi uzatmaz.
+  // Değer düz sayı olarak tutulur; get() JSON.parse ile sayıyı okur.
+  async increment(key: string, ttlSeconds: number, by = 1): Promise<number> {
+    const value = await this.client.incrby(key, by);
+    if (value === by) {
+      await this.client.expire(key, ttlSeconds);
+    }
+    return value;
+  }
+
 }

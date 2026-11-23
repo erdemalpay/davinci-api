@@ -13,6 +13,7 @@
     "baseUrl": "./",
     "incremental": true,
     "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
     "typeRoots": ["node_modules/@types", "src/types"]
   }
 }

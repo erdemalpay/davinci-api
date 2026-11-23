@@ -22,6 +22,7 @@ import { ConsumerModule } from './modules/consumer/consumer.module';
 import { CustomerPopupModule } from './modules/customer-popup/customer-popup.module';
 import { EventCalendarModule } from './modules/event-calendar/event-calendar.module';
 import { EventQrModule } from './modules/event-qr/event-qr.module';
+import { GameAssistantModule } from './modules/game-assistant/game-assistant.module';
 import { EducationModule } from './modules/education/education.module';
 import { EventSurveyModule } from './modules/event-survey/event-survey.module';
 import { ExpirationModule } from './modules/expiration/expiration.module';
@@ -118,6 +119,7 @@ const modules = [
   CheckoutModule,
   CustomerPopupModule,
   EventQrModule,
+  GameAssistantModule,
   EventCalendarModule,
   MonthlyActivityModule,
   EventSurveyModule,

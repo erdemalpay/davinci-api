@@ -12,6 +12,12 @@ export class PanelSettings extends Document {
 
   @Prop({ required: true, type: Boolean })
   isVisitEntryDisabled: boolean;
+
+  @Prop({ required: false, type: Boolean, default: false })
+  isGameAssistantEnabled: boolean;
+
+  @Prop({ required: false, type: Number, default: 5 })
+  gameAssistantDailyBudgetUsd: number;
 }
 
 export const PanelSettingsSchema = SchemaFactory.createForClass(PanelSettings);
