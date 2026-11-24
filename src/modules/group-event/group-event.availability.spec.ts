@@ -1,3 +1,5 @@
+import { MailType } from '../mail/mail.schema';
+import { getRequiredMailTemplateParameters } from '../mail/templates/mail-templates';
 import {
   bookableRange,
   BookedEvent,
@@ -113,5 +115,25 @@ describe('group event availability', () => {
       from: '2026-12-02',
       to: '2027-03-01',
     });
+  });
+});
+
+describe('group event email parameters', () => {
+  it('lists the required template variables', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {
+      getRequiredMailTemplateParameters,
+    } = require('../mail/templates/mail-templates');
+    expect(
+      getRequiredMailTemplateParameters(MailType.GROUP_EVENT_UPDATE),
+    ).toEqual([
+      'contactName',
+      'headline',
+      'message',
+      'organization',
+      'eventDate',
+      'eventTime',
+      'participantCount',
+    ]);
   });
 });

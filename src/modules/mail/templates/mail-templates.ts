@@ -34,6 +34,25 @@ const definition = (
   example,
 });
 
+// One parameter per line: key | label | type | required/optional | description | example
+const parseParameterTable = (table: string) =>
+  table
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const [key, label, type, required, description, example] = line
+        .split('|')
+        .map((part) => part.trim());
+      return definition(
+        key,
+        label,
+        type as MailTemplateParameterType,
+        required === 'required',
+        description,
+        example,
+      );
+    });
+
 export const mailTemplateParameterDefinitions: Record<
   MailType,
   MailTemplateParameterDefinition[]
@@ -363,80 +382,17 @@ export const mailTemplateParameterDefinitions: Record<
       'https://panel.davinciboardgame.com/tournament/registration/abc/cancel',
     ),
   ],
-  [MailType.GROUP_EVENT_UPDATE]: [
-    definition(
-      'contactName',
-      'Contact name',
-      'string',
-      true,
-      'Person who applied for the group event.',
-      'Ayse Yilmaz',
-    ),
-    definition(
-      'headline',
-      'Headline',
-      'string',
-      true,
-      'Title of the email (received / approved / not possible).',
-      'Etkinlik başvurunuz onaylandı',
-    ),
-    definition(
-      'message',
-      'Message',
-      'multiline',
-      true,
-      'Main paragraph of the email.',
-      'Sizi kafede ağırlamak için sabırsızlanıyoruz.',
-    ),
-    definition(
-      'organization',
-      'Group name',
-      'string',
-      true,
-      'Group or organization name.',
-      'ODTÜ Kutu Oyunları Kulübü',
-    ),
-    definition(
-      'eventDate',
-      'Event date',
-      'date',
-      true,
-      'Formatted event day.',
-      '12 Aralık 2026, Cumartesi',
-    ),
-    definition(
-      'eventTime',
-      'Event time',
-      'string',
-      true,
-      'Start-end time.',
-      '10:00 - 14:00',
-    ),
-    definition(
-      'participantCount',
-      'Participants',
-      'string',
-      true,
-      'Number of people.',
-      '40',
-    ),
-    definition(
-      'responseNote',
-      'Note from the cafe',
-      'multiline',
-      false,
-      'Optional note written in the panel.',
-      'Masalarınız üst katta hazırlanacak.',
-    ),
-    definition(
-      'logoUrl',
-      'Logo URL',
-      'url',
-      false,
-      'Logo shown at the top.',
-      'https://www.davinciboardgame.com/images/davinci-logo.png',
-    ),
-  ],
+  [MailType.GROUP_EVENT_UPDATE]: parseParameterTable(`
+contactName | Contact name | string | required | Person who applied for the group event. | Ayse Yilmaz
+headline | Headline | string | required | Title of the email (received / approved / not possible). | Etkinlik başvurunuz onaylandı
+message | Message | multiline | required | Main paragraph of the email. | Sizi kafede ağırlamak için sabırsızlanıyoruz.
+organization | Group name | string | required | Group or organization name. | ODTÜ Kutu Oyunları Kulübü
+eventDate | Event date | date | required | Formatted event day. | 12 Aralık 2026, Cumartesi
+eventTime | Event time | string | required | Start-end time. | 10:00 - 14:00
+participantCount | Participants | string | required | Number of people. | 40
+responseNote | Note from the cafe | multiline | optional | Optional note written in the panel. | Masalarınız üst katta hazırlanacak.
+logoUrl | Logo URL | url | optional | Logo shown at the top. | https://www.davinciboardgame.com/images/davinci-logo.png
+`),
 };
 
 export const getRequiredMailTemplateParameters = (
