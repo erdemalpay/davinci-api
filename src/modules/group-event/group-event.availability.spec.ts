@@ -120,10 +120,6 @@ describe('group event availability', () => {
 
 describe('group event email parameters', () => {
   it('lists the required template variables', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {
-      getRequiredMailTemplateParameters,
-    } = require('../mail/templates/mail-templates');
     expect(
       getRequiredMailTemplateParameters(MailType.GROUP_EVENT_UPDATE),
     ).toEqual([
