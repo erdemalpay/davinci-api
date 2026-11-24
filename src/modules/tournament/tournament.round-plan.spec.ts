@@ -488,21 +488,23 @@ describe('planNextRound (Catan finali: ön eleme sırasına göre dizilir)', () 
       [6, 3, 0],
     ]),
   ];
-  // 4 kişi 2'lik eleme masalarına yılan dağıtımıyla oturur: [1, 4] ve [2, 3]
+  // 6 kişi 3'lük eleme masalarında oynar; her masanın birincisi üst tura çıkar
   const elimination = (winners: [number, number]) => [
     table(MatchStage.ELIMINATION, 1, 1, [
       [winners[0], 1, 1],
       [winners[0] === 4 ? 1 : 4, 2, 0],
+      [3, 3, 0],
     ]),
     table(MatchStage.ELIMINATION, 1, 2, [
       [winners[1], 1, 1],
-      [winners[1] === 2 ? 3 : 2, 2, 0],
+      [winners[1] === 2 ? 5 : 2, 2, 0],
+      [6, 3, 0],
     ]),
   ];
   const eliminationRules = (overrides: Partial<TournamentRules> = {}) =>
     rules({
-      eliminationTableSize: 2,
-      advanceCount: 4,
+      eliminationTableSize: 3,
+      advanceCount: 6,
       advancePerTable: 1,
       leagueRounds: 1,
       ...overrides,
@@ -525,4 +527,55 @@ describe('planNextRound (Catan finali: ön eleme sırasına göre dizilir)', () 
     ]);
     expect(next.tables[0].participantIds).toEqual([4, 2]);
   });
+});
+
+describe('planNextRound (2 kişilik eleme: sabit ağaç)', () => {
+  // lig 1. turda 1-4 ve 5-8 iki masada; puan sırası 1 > 2 > 3 > 8
+  const league = [
+    table(MatchStage.LEAGUE, 1, 1, [
+      [1, 1, 4],
+      [2, 2, 2],
+      [3, 3, 1],
+      [4, 4, 0],
+    ]),
+    table(MatchStage.LEAGUE, 1, 2, [
+      [5, 1, 4],
+      [6, 2, 2],
+      [7, 3, 1],
+      [8, 4, 0],
+    ]),
+  ];
+  // çeyrek final kazananları masa sırasıyla 1, 8, 2, 3
+  const quarterFinal = [
+    [1, 4],
+    [8, 5],
+    [2, 7],
+    [3, 6],
+  ].map(([winner, loser], i) =>
+    table(MatchStage.ELIMINATION, 1, i + 1, [
+      [winner, 1, 4],
+      [loser, 2, 0],
+    ]),
+  );
+
+  it.each([Tiebreaker.SCORE, undefined])(
+    'eşitlik bozma %s iken 1. masanın kazananı 4. masanın kazananıyla oynar',
+    (tiebreaker) => {
+      const next = planNextRound(
+        rules({
+          eliminationTableSize: 2,
+          advanceCount: 8,
+          advancePerTable: 1,
+          leagueRounds: 1,
+          tiebreaker,
+        }),
+        ids(8),
+        [...league, ...quarterFinal],
+      );
+      expect(next.tables.map((t) => t.participantIds)).toEqual([
+        [1, 3],
+        [8, 2],
+      ]);
+    },
+  );
 });
