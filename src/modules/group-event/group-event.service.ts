@@ -121,18 +121,12 @@ export class GroupEventService {
     }
     await this.checkTime(dto);
 
+    // Full hours are still accepted (the form warns the group); the panel
+    // shows the seats taken and approving over capacity needs `force`.
     const events = await this.eventsBetween(dto.date, dto.date);
-    const remaining = remainingSeats(
-      dto.date,
-      dto.startTime,
-      dto.endTime,
-      events,
-    );
-    if (dto.participantCount > remaining) {
-      throw new ConflictException(
-        `Only ${remaining} seats are left at the selected time`,
-      );
-    }
+    const overCapacity =
+      dto.participantCount >
+      remainingSeats(dto.date, dto.startTime, dto.endTime, events);
 
     const event = await this.groupEventModel.create({
       ...fields,
@@ -145,7 +139,7 @@ export class GroupEventService {
     this.websocketGateway.emitGroupEventChanged();
     await this.notifyStaff(event);
     await this.mailService.send(event, 'received');
-    return { ok: true, id: event._id };
+    return { ok: true, id: event._id, overCapacity };
   }
 
   private async notifyStaff(event: GroupEvent) {
