@@ -4,6 +4,8 @@ export const GROUP_EVENT_CAPACITY = 100;
 export const GROUP_EVENT_LOCATION = 2; // Neorama
 export const BOOKING_HORIZON_DAYS = 90;
 export const WEEKEND_WINDOW = { open: '10:00', close: '14:00' };
+// Latest hour a weekday event may start (it can run on until closing)
+export const WEEKDAY_LAST_START = '22:00';
 
 const DAY_NAMES = [
   'Sunday',
@@ -22,7 +24,8 @@ export type DailyHoursLike = {
   isClosed?: boolean;
 };
 
-export type Window = { open: string; close: string };
+// lastStart: latest hour an event may start on that day
+export type Window = { open: string; close: string; lastStart: string };
 
 export type BookedEvent = {
   _id?: number;
@@ -43,6 +46,7 @@ export type DayAvailability = {
   date: string;
   open: string;
   close: string;
+  lastStart: string;
   hours: HourAvailability[];
 };
 
@@ -77,7 +81,12 @@ export function eventWindow(
   date: string,
   dailyHours: DailyHoursLike[] = [],
 ): Window | null {
-  if (isWeekend(date)) return WEEKEND_WINDOW;
+  if (isWeekend(date)) {
+    return {
+      ...WEEKEND_WINDOW,
+      lastStart: fromMinutes(toMinutes(WEEKEND_WINDOW.close) - 60),
+    };
+  }
   const hours = dailyHours.find((h) => h.day === DAY_NAMES[weekdayOf(date)]);
   if (!hours || hours.isClosed || !hours.openingTime || !hours.closingTime) {
     return null;
@@ -85,7 +94,13 @@ export function eventWindow(
   const open = toMinutes(hours.openingTime);
   const close = closingMinutes(hours.closingTime);
   if (close <= open) return null;
-  return { open: fromMinutes(open), close: fromMinutes(close) };
+  const lastStart = Math.min(toMinutes(WEEKDAY_LAST_START), close - 60);
+  if (lastStart < open) return null;
+  return {
+    open: fromMinutes(open),
+    close: fromMinutes(close),
+    lastStart: fromMinutes(lastStart),
+  };
 }
 
 export const addDays = (date: string, days: number) => {
@@ -135,7 +150,13 @@ export function dayAvailability(
       pending,
     });
   }
-  return { date, open: window.open, close: window.close, hours };
+  return {
+    date,
+    open: window.open,
+    close: window.close,
+    lastStart: window.lastStart,
+    hours,
+  };
 }
 
 /** Fewest seats left in any hour between start and end (approved events only). */
@@ -181,6 +202,9 @@ export function timeProblem(
   if (end <= start) return 'End time must be after start time';
   if (start < toMinutes(window.open) || end > closingMinutes(window.close)) {
     return `Events on this day must be between ${window.open} and ${window.close}`;
+  }
+  if (start > toMinutes(window.lastStart)) {
+    return `Events on this day must start by ${window.lastStart}`;
   }
   return null;
 }

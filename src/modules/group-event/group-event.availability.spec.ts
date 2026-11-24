@@ -34,6 +34,7 @@ describe('group event availability', () => {
     expect(eventWindow('2026-12-02', neoramaHours)).toEqual({
       open: '12:00',
       close: '24:00',
+      lastStart: '22:00',
     });
   });
 
@@ -41,10 +42,12 @@ describe('group event availability', () => {
     expect(eventWindow('2026-12-05', neoramaHours)).toEqual({
       open: '10:00',
       close: '14:00',
+      lastStart: '13:00',
     });
     expect(eventWindow('2026-12-06', neoramaHours)).toEqual({
       open: '10:00',
       close: '14:00',
+      lastStart: '13:00',
     });
   });
 
@@ -58,7 +61,7 @@ describe('group event availability', () => {
   it('counts approved seats per hour and lists pending separately', () => {
     const day = dayAvailability(
       '2026-12-02',
-      { open: '12:00', close: '18:00' },
+      { open: '12:00', close: '18:00', lastStart: '17:00' },
       [
         event({}),
         event({ startTime: '15:00', endTime: '16:00', participantCount: 30 }),
@@ -95,7 +98,7 @@ describe('group event availability', () => {
   });
 
   it('rejects times outside the window or not on the hour', () => {
-    const window = { open: '10:00', close: '14:00' };
+    const window = { open: '10:00', close: '14:00', lastStart: '13:00' };
     expect(timeProblem(window, '10:00', '14:00')).toBeNull();
     expect(timeProblem(window, '09:00', '12:00')).toMatch(/between/);
     expect(timeProblem(window, '12:00', '15:00')).toMatch(/between/);
@@ -103,8 +106,19 @@ describe('group event availability', () => {
     expect(timeProblem(window, '12:00', '12:00')).toMatch(/after/);
     expect(timeProblem(null, '12:00', '14:00')).toMatch(/does not take/);
     expect(
-      timeProblem({ open: '12:00', close: '24:00' }, '20:00', '24:00'),
+      timeProblem(
+        { open: '12:00', close: '24:00', lastStart: '22:00' },
+        '20:00',
+        '24:00',
+      ),
     ).toBeNull();
+  });
+
+  it('weekday events start at 22:00 at the latest', () => {
+    const window = eventWindow('2026-12-02', neoramaHours);
+    expect(timeProblem(window, '22:00', '24:00')).toBeNull();
+    expect(timeProblem(window, '23:00', '24:00')).toMatch(/start by 22:00/);
+    expect(timeProblem(window, '12:00', '24:00')).toBeNull();
   });
 
   it('books from tomorrow (Istanbul) up to 90 days', () => {
