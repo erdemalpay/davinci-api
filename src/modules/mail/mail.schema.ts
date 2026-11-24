@@ -8,6 +8,7 @@ export enum MailType {
   ORDER_UPDATE = 'order_update',
   CAMPAIGN_ANNOUNCEMENT = 'campaign_announcement',
   TOURNAMENT_REGISTRATION = 'tournament_registration',
+  GROUP_EVENT_UPDATE = 'group_event_update',
 }
 
 export enum SubscriptionStatus {

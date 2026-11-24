@@ -363,6 +363,80 @@ export const mailTemplateParameterDefinitions: Record<
       'https://panel.davinciboardgame.com/tournament/registration/abc/cancel',
     ),
   ],
+  [MailType.GROUP_EVENT_UPDATE]: [
+    definition(
+      'contactName',
+      'Contact name',
+      'string',
+      true,
+      'Person who applied for the group event.',
+      'Ayse Yilmaz',
+    ),
+    definition(
+      'headline',
+      'Headline',
+      'string',
+      true,
+      'Title of the email (received / approved / not possible).',
+      'Etkinlik başvurunuz onaylandı',
+    ),
+    definition(
+      'message',
+      'Message',
+      'multiline',
+      true,
+      'Main paragraph of the email.',
+      'Sizi kafede ağırlamak için sabırsızlanıyoruz.',
+    ),
+    definition(
+      'organization',
+      'Group name',
+      'string',
+      true,
+      'Group or organization name.',
+      'ODTÜ Kutu Oyunları Kulübü',
+    ),
+    definition(
+      'eventDate',
+      'Event date',
+      'date',
+      true,
+      'Formatted event day.',
+      '12 Aralık 2026, Cumartesi',
+    ),
+    definition(
+      'eventTime',
+      'Event time',
+      'string',
+      true,
+      'Start-end time.',
+      '10:00 - 14:00',
+    ),
+    definition(
+      'participantCount',
+      'Participants',
+      'string',
+      true,
+      'Number of people.',
+      '40',
+    ),
+    definition(
+      'responseNote',
+      'Note from the cafe',
+      'multiline',
+      false,
+      'Optional note written in the panel.',
+      'Masalarınız üst katta hazırlanacak.',
+    ),
+    definition(
+      'logoUrl',
+      'Logo URL',
+      'url',
+      false,
+      'Logo shown at the top.',
+      'https://www.davinciboardgame.com/images/davinci-logo.png',
+    ),
+  ],
 };
 
 export const getRequiredMailTemplateParameters = (
@@ -686,6 +760,83 @@ export const tournamentRegistrationTemplate = `
                     {{/if}}
                     <tr>
                         <td style="padding: 24px 40px 36px; text-align: left; color: #8b8579; font-size: 13px; line-height: 1.6;">Bu başvuruyu siz yapmadıysanız bu maili dikkate almayabilirsiniz.</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`;
+
+export const groupEventUpdateTemplate = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{headline}}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 40px 16px; text-align: center;">
+                <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e7e3dc;">
+                    <tr>
+                        <td style="height: 4px; line-height: 4px; font-size: 0; background-color: #a80000;">&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 34px 40px 0; text-align: left;">
+                            <table role="presentation" style="border-collapse: collapse;">
+                                <tr>
+                                    {{#if logoUrl}}
+                                    <td style="vertical-align: middle; padding-right: 16px;">
+                                        <img src="{{logoUrl}}" alt="Da Vinci" width="64" style="display: block; height: auto; border: 0;">
+                                    </td>
+                                    {{/if}}
+                                    <td style="vertical-align: middle; text-align: left;">
+                                        <span style="color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">DA VINCI </span>
+                                        <span style="color: #a80000; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">BOARD GAME</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; line-height: 1.2; font-weight: normal;">{{headline}}</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 0; text-align: left;">
+                            <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{contactName}},</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7; white-space: pre-line;">{{message}}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #faf8f5; border: 1px solid #e7e3dc; border-radius: 6px;">
+                                <tr><td style="padding: 14px 18px 4px; color: #78716c; font-size: 13px;">Grup</td></tr>
+                                <tr><td style="padding: 0 18px 10px; color: #1c1917; font-size: 16px; font-weight: bold;">{{organization}}</td></tr>
+                                <tr><td style="padding: 4px 18px 4px; color: #78716c; font-size: 13px;">Tarih ve saat</td></tr>
+                                <tr><td style="padding: 0 18px 10px; color: #1c1917; font-size: 16px; font-weight: bold;">{{eventDate}} · {{eventTime}}</td></tr>
+                                <tr><td style="padding: 4px 18px 4px; color: #78716c; font-size: 13px;">Kişi sayısı</td></tr>
+                                <tr><td style="padding: 0 18px 14px; color: #1c1917; font-size: 16px; font-weight: bold;">{{participantCount}}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                    {{#if responseNote}}
+                    <tr>
+                        <td style="padding: 20px 40px 0; text-align: left;">
+                            <div style="padding: 16px; background-color: #fff7ed; border-left: 4px solid #a80000; border-radius: 4px; color: #44403c; font-size: 15px; line-height: 1.6; white-space: pre-line;">{{responseNote}}</div>
+                        </td>
+                    </tr>
+                    {{/if}}
+                    <tr>
+                        <td style="padding: 28px 40px 34px; text-align: left; color: #78716c; font-size: 14px; line-height: 1.6;">
+                            Sorularınız için bu e-postayı yanıtlayabilir ya da 0312 286 78 60 numaralı telefondan bize ulaşabilirsiniz.<br>
+                            Da Vinci Board Game Cafe
+                        </td>
                     </tr>
                 </table>
             </td>
