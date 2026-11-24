@@ -658,15 +658,8 @@ export const backInStockTemplate = `
 </html>
 `;
 
-export const tournamentRegistrationTemplate = `
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kaydınız alınmıştır</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
+// Shared top of the Da Vinci branded emails (background, card, red bar, logo + name)
+const brandedEmailTop = `<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
             <td style="padding: 40px 16px; text-align: center;">
@@ -689,7 +682,17 @@ export const tournamentRegistrationTemplate = `
                                     </td>
                                 </tr>
                             </table>
-                        </td>
+`;
+
+export const tournamentRegistrationTemplate = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaydınız alınmıştır</title>
+</head>
+${brandedEmailTop}                        </td>
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
@@ -777,30 +780,7 @@ export const groupEventUpdateTemplate = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{headline}}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
-    <table role="presentation" style="width: 100%; border-collapse: collapse;">
-        <tr>
-            <td style="padding: 40px 16px; text-align: center;">
-                <table role="presentation" style="width: 100%; max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e7e3dc;">
-                    <tr>
-                        <td style="height: 4px; line-height: 4px; font-size: 0; background-color: #a80000;">&nbsp;</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 34px 40px 0; text-align: left;">
-                            <table role="presentation" style="border-collapse: collapse;">
-                                <tr>
-                                    {{#if logoUrl}}
-                                    <td style="vertical-align: middle; padding-right: 16px;">
-                                        <img src="{{logoUrl}}" alt="Da Vinci" width="64" style="display: block; height: auto; border: 0;">
-                                    </td>
-                                    {{/if}}
-                                    <td style="vertical-align: middle; text-align: left;">
-                                        <span style="color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">DA VINCI </span>
-                                        <span style="color: #a80000; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 1.2; font-weight: bold; letter-spacing: 1px;">BOARD GAME</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
+${brandedEmailTop}                        </td>
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
