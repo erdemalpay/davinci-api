@@ -113,6 +113,14 @@ export class CreateFeedbackDto {
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
 
 export enum TableStatus {
