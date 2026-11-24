@@ -1,3 +1,5 @@
+import * as cloudinary from 'cloudinary';
+import { PassThrough } from 'stream';
 import { AssetService } from './asset.service';
 
 jest.mock('../menu/menu.service', () => ({
@@ -78,5 +80,63 @@ describe('AssetService.getScreenImages', () => {
       publicId: { $nin: images.map(({ publicId }) => publicId) },
     });
     expect(saved).toEqual(images);
+  });
+});
+
+describe('AssetService.uploadImages', () => {
+  const setup = () => {
+    jest.spyOn(console, 'log').mockImplementation();
+    const uploadStream = jest
+      .spyOn(cloudinary.v2.uploader, 'upload_stream')
+      .mockImplementation(((
+        options: { public_id: string },
+        callback: (error: unknown, result: { secure_url: string }) => void,
+      ) => {
+        const stream = new PassThrough();
+        stream.on('finish', () =>
+          callback(undefined, {
+            secure_url: `https://cdn/${options.public_id}`,
+          }),
+        );
+        stream.resume();
+        return stream;
+      }) as never);
+    const uploadLogModel = { create: jest.fn().mockResolvedValue({}) };
+    const websocketGateway = { emitAssetChanged: jest.fn() };
+    const service = new AssetService(
+      { get: jest.fn() } as never,
+      websocketGateway as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      uploadLogModel as never,
+      {} as never,
+    );
+    return { service, uploadStream, uploadLogModel };
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps Turkish characters in the file name multer reads as latin1', async () => {
+    const { service, uploadStream, uploadLogModel } = setup();
+    const latin1Name = Buffer.from('perimasalları2.webp', 'utf8').toString(
+      'latin1',
+    );
+
+    await service.uploadImages(
+      { name: 'Hilmi' } as never,
+      [{ originalname: latin1Name, buffer: Buffer.from('x') } as never],
+      'menu',
+    );
+
+    expect(uploadStream.mock.calls[0][0]).toMatchObject({
+      public_id: 'perimasalları2.webp',
+    });
+    expect(uploadLogModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'perimasalları2.webp',
+        status: 'success',
+      }),
+    );
   });
 });
