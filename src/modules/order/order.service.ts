@@ -1254,16 +1254,22 @@ export class OrderService {
     orders: CreateOrderDto[],
     table: Table,
   ) {
+    // Panel masayı sunucudan cevap gelmeden (_id'siz) gösterebiliyor; o arada
+    // gelen sipariş masasız kaydedilmesin diye hiçbir şey yazmadan reddedilir.
+    if (!table?._id) {
+      throw new HttpException(
+        'Non-online orders require a table',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     // Check if table is closed (finishHour exists)
-    if (table) {
-      const foundTable = await this.tableService.findById(table._id);
-      if (foundTable && foundTable.finishHour) {
-        this.websocketGateway.emitSingleTableChanged(foundTable);
-        throw new HttpException(
-          'Cannot add orders to a closed table',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+    const foundTable = await this.tableService.findById(table._id);
+    if (foundTable && foundTable.finishHour) {
+      this.websocketGateway.emitSingleTableChanged(foundTable);
+      throw new HttpException(
+        'Cannot add orders to a closed table',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const createdOrders: number[] = [];
     const orderKitchenIds: string[] = [];
