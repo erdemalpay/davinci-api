@@ -8,8 +8,25 @@ import {
   customerMessageTemplate,
   getRequiredMailTemplateParameters,
   orderUpdateTemplate,
+  groupEventUpdateTemplate,
   tournamentRegistrationTemplate,
 } from './templates/mail-templates';
+
+// Also upserted by GroupEventMailService on start, so it exists without running the seed script
+export const groupEventUpdateTemplateSeed = {
+  _id: 6,
+  name: 'group-event-update-tr',
+  mailType: MailType.GROUP_EVENT_UPDATE,
+  subject: '{{headline}} - Da Vinci Board Game',
+  htmlContent: groupEventUpdateTemplate,
+  textContent:
+    'Merhaba {{contactName}}, {{message}} Grup: {{organization}}, {{eventDate}} {{eventTime}}, {{participantCount}} kişi.',
+  requiredVariables: getRequiredMailTemplateParameters(
+    MailType.GROUP_EVENT_UPDATE,
+  ),
+  locale: 'tr',
+  isActive: true,
+};
 
 @Injectable()
 export class MailSeeder {
@@ -93,6 +110,7 @@ export class MailSeeder {
         locale: 'tr',
         isActive: true,
       },
+      groupEventUpdateTemplateSeed,
     ];
 
     for (const template of templates) {

@@ -34,6 +34,25 @@ const definition = (
   example,
 });
 
+// One parameter per line: key | label | type | required/optional | description | example
+const parseParameterTable = (table: string) =>
+  table
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const [key, label, type, required, description, example] = line
+        .split('|')
+        .map((part) => part.trim());
+      return definition(
+        key,
+        label,
+        type as MailTemplateParameterType,
+        required === 'required',
+        description,
+        example,
+      );
+    });
+
 export const mailTemplateParameterDefinitions: Record<
   MailType,
   MailTemplateParameterDefinition[]
@@ -363,6 +382,17 @@ export const mailTemplateParameterDefinitions: Record<
       'https://panel.davinciboardgame.com/tournament/registration/abc/cancel',
     ),
   ],
+  [MailType.GROUP_EVENT_UPDATE]: parseParameterTable(`
+contactName | Contact name | string | required | Person who applied for the group event. | Ayse Yilmaz
+headline | Headline | string | required | Title of the email (received / approved / not possible). | Etkinlik başvurunuz onaylandı
+message | Message | multiline | required | Main paragraph of the email. | Sizi kafede ağırlamak için sabırsızlanıyoruz.
+organization | Group name | string | required | Group or organization name. | ODTÜ Kutu Oyunları Kulübü
+eventDate | Event date | date | required | Formatted event day. | 12 Aralık 2026, Cumartesi
+eventTime | Event time | string | required | Start-end time. | 10:00 - 14:00
+participantCount | Participants | string | required | Number of people. | 40
+responseNote | Note from the cafe | multiline | optional | Optional note written in the panel. | Masalarınız üst katta hazırlanacak.
+logoUrl | Logo URL | url | optional | Logo shown at the top. | https://www.davinciboardgame.com/images/davinci-logo.png
+`),
 };
 
 export const getRequiredMailTemplateParameters = (
@@ -584,15 +614,8 @@ export const backInStockTemplate = `
 </html>
 `;
 
-export const tournamentRegistrationTemplate = `
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kaydınız alınmıştır</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
+// Shared top of the Da Vinci branded emails (background, card, red bar, logo + name)
+const brandedEmailTop = `<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f2ee;">
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
             <td style="padding: 40px 16px; text-align: center;">
@@ -615,7 +638,17 @@ export const tournamentRegistrationTemplate = `
                                     </td>
                                 </tr>
                             </table>
-                        </td>
+`;
+
+export const tournamentRegistrationTemplate = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaydınız alınmıştır</title>
+</head>
+${brandedEmailTop}                        </td>
                     </tr>
                     <tr>
                         <td style="padding: 24px 40px 0; text-align: left;">
@@ -686,6 +719,60 @@ export const tournamentRegistrationTemplate = `
                     {{/if}}
                     <tr>
                         <td style="padding: 24px 40px 36px; text-align: left; color: #8b8579; font-size: 13px; line-height: 1.6;">Bu başvuruyu siz yapmadıysanız bu maili dikkate almayabilirsiniz.</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`;
+
+export const groupEventUpdateTemplate = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{headline}}</title>
+</head>
+${brandedEmailTop}                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <h1 style="margin: 0; color: #1c1917; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; line-height: 1.2; font-weight: normal;">{{headline}}</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 0; text-align: left;">
+                            <p style="margin: 0 0 12px; color: #44403c; font-size: 16px; line-height: 1.7;">Merhaba {{contactName}},</p>
+                            <p style="margin: 0; color: #44403c; font-size: 16px; line-height: 1.7; white-space: pre-line;">{{message}}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 40px 0; text-align: left;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #faf8f5; border: 1px solid #e7e3dc; border-radius: 6px;">
+                                <tr><td style="padding: 14px 18px 4px; color: #78716c; font-size: 13px;">Grup</td></tr>
+                                <tr><td style="padding: 0 18px 10px; color: #1c1917; font-size: 16px; font-weight: bold;">{{organization}}</td></tr>
+                                <tr><td style="padding: 4px 18px 4px; color: #78716c; font-size: 13px;">Tarih ve saat</td></tr>
+                                <tr><td style="padding: 0 18px 10px; color: #1c1917; font-size: 16px; font-weight: bold;">{{eventDate}} · {{eventTime}}</td></tr>
+                                <tr><td style="padding: 4px 18px 4px; color: #78716c; font-size: 13px;">Kişi sayısı</td></tr>
+                                <tr><td style="padding: 0 18px 14px; color: #1c1917; font-size: 16px; font-weight: bold;">{{participantCount}}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                    {{#if responseNote}}
+                    <tr>
+                        <td style="padding: 20px 40px 0; text-align: left;">
+                            <div style="padding: 16px; background-color: #fff7ed; border-left: 4px solid #a80000; border-radius: 4px; color: #44403c; font-size: 15px; line-height: 1.6; white-space: pre-line;">{{responseNote}}</div>
+                        </td>
+                    </tr>
+                    {{/if}}
+                    <tr>
+                        <td style="padding: 28px 40px 34px; text-align: left; color: #78716c; font-size: 14px; line-height: 1.6;">
+                            Sorularınız için bu e-postayı yanıtlayabilir ya da 0312 286 78 60 numaralı telefondan bize ulaşabilirsiniz.<br>
+                            Da Vinci Board Game Cafe
+                        </td>
                     </tr>
                 </table>
             </td>
