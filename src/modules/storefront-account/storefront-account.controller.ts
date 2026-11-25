@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Header,
   HttpCode,
   HttpException,
@@ -13,6 +14,7 @@ import { numericShopifyId } from '../favorites/favorite.service';
 import { ShopifyAppProxy } from '../shopify/shopify-app-proxy.guard';
 import { SaveAddressDto, UpdateProfileDto } from './storefront-account.dto';
 import { StorefrontAccountService } from './storefront-account.service';
+import { StorefrontReviewsService } from './storefront-reviews.service';
 
 // kutuoyunual.com/apps/dv/account/* → "Profilim" page edits.
 // The customer is whoever Shopify signed the request for (logged_in_customer_id);
@@ -20,7 +22,10 @@ import { StorefrontAccountService } from './storefront-account.service';
 // the login for Shopify customer accounts.
 @Controller('storefront/account')
 export class StorefrontAccountController {
-  constructor(private readonly accountService: StorefrontAccountService) {}
+  constructor(
+    private readonly accountService: StorefrontAccountService,
+    private readonly reviewsService: StorefrontReviewsService,
+  ) {}
 
   private customerId(value?: string) {
     const id = numericShopifyId(value);
@@ -102,5 +107,14 @@ export class StorefrontAccountController {
       this.customerId(customerId),
       addressId,
     );
+  }
+
+  // The customer's own Judge.me reviews ("Yorumlarım" on Profilim).
+  @ShopifyAppProxy()
+  @Get('/reviews')
+  @Header('Content-Type', 'application/json')
+  @Header('Cache-Control', 'no-store')
+  getMyReviews(@Query('logged_in_customer_id') customerId: string) {
+    return this.reviewsService.getMyReviews(this.customerId(customerId));
   }
 }
