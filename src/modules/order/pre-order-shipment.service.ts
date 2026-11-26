@@ -39,7 +39,7 @@ export class PreOrderShipmentService {
   private readonly logger = new Logger(PreOrderShipmentService.name);
 
   constructor(
-    @InjectModel(Order.name) private orderModel: Model<Order>,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @Inject(forwardRef(() => ShopifyService))
     private readonly shopifyService: ShopifyService,
     private readonly websocketGateway: AppWebSocketGateway,
@@ -57,6 +57,7 @@ export class PreOrderShipmentService {
 
     // Sırayla: biri hata verirse diğerleri devam eder.
     for (const [shopifyOrderId, groupOrders] of groups) {
+      let shipment: { id: string; name: string } | undefined;
       try {
         const source = await this.shopifyService.getPreOrderShipmentSource(
           shopifyOrderId,
@@ -68,9 +69,7 @@ export class PreOrderShipmentService {
             quantity: order.quantity,
           })),
         );
-        const shipment = await this.shopifyService.createPreOrderShipmentOrder(
-          input,
-        );
+        shipment = await this.shopifyService.createPreOrderShipmentOrder(input);
 
         await this.orderModel.updateMany(
           { _id: { $in: groupOrders.map((order) => order._id) } },
@@ -88,9 +87,14 @@ export class PreOrderShipmentService {
           `Pre-order shipment failed for Shopify order ${shopifyOrderId}:`,
           error,
         );
+        const message = error instanceof Error ? error.message : String(error);
+        // Kopya Shopify'da açıldıysa bir Mongo transaction'ı onu geri alamaz;
+        // numarasını bildiriyoruz ki tekrar denenip ikinci kopya açılmasın.
         result.failed.push({
           shopifyOrderId,
-          message: error instanceof Error ? error.message : String(error),
+          message: shipment
+            ? `Shipment order ${shipment.name} was created in Shopify but could not be linked in the panel: ${message}`
+            : message,
         });
       }
     }
@@ -100,7 +104,7 @@ export class PreOrderShipmentService {
         _id: { $in: orderIds },
         preOrderShipmentShopifyOrderId: { $exists: true },
       });
-      this.websocketGateway.emitOrderUpdated(updated);
+      void this.websocketGateway.emitOrderUpdated(updated);
     }
 
     return result;
@@ -194,7 +198,7 @@ export class PreOrderShipmentService {
       const updated = await this.orderModel.find({
         preOrderShipmentShopifyOrderId: shipmentOrderId,
       });
-      this.websocketGateway.emitOrderUpdated(updated);
+      void this.websocketGateway.emitOrderUpdated(updated);
       this.accountingService.invalidateReservedStocks();
     }
 

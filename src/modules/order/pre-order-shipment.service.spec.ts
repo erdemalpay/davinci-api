@@ -125,6 +125,24 @@ describe('PreOrderShipmentService.create', () => {
     ]);
   });
 
+  it('kopya acildi ama panele yazilamadiysa hata mesajinda kopya numarasi olur', async () => {
+    const { service, orderModel } = buildService([
+      { _id: 1, shopifyOrderId: '100', quantity: 1, item: { name: 'Flip7' } },
+    ]);
+    orderModel.updateMany.mockRejectedValueOnce(new Error('db down'));
+
+    const result = await service.create([1]);
+
+    expect(result.created).toEqual([]);
+    expect(result.failed).toEqual([
+      {
+        shopifyOrderId: '100',
+        message:
+          'Shipment order #8268 was created in Shopify but could not be linked in the panel: db down',
+      },
+    ]);
+  });
+
   it('#6803: iptal kalem skipped doner, Shopify a gidilmez', async () => {
     const { service, shopifyService } = buildService([
       {
