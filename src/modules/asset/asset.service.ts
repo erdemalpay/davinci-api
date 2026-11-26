@@ -261,10 +261,12 @@ export class AssetService {
     return this.getScreenImages();
   }
 
+  // width: resmin indirileceği en fazla genişlik (etkinlik takvimi arka planı 1080 ister)
   uploadPopupImage = async (
     buffer: Buffer,
     fileName: string,
     foldername: string,
+    width = 800,
   ) => {
     const options = {
       public_id: fileName,
@@ -274,7 +276,7 @@ export class AssetService {
       folder: foldername,
       transformation: {
         crop: 'limit',
-        width: 800,
+        width,
       },
     };
 

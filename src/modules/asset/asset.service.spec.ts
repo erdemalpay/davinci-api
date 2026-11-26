@@ -140,3 +140,54 @@ describe('AssetService.uploadImages', () => {
     );
   });
 });
+
+describe('AssetService.uploadPopupImage', () => {
+  const setup = () => {
+    const uploadStream = jest
+      .spyOn(cloudinary.v2.uploader, 'upload_stream')
+      .mockImplementation(((
+        _options: unknown,
+        callback: (error: unknown, result: { secure_url: string }) => void,
+      ) => {
+        const stream = new PassThrough();
+        stream.on('finish', () =>
+          callback(undefined, { secure_url: 'https://cdn/a.jpg' }),
+        );
+        stream.resume();
+        return stream;
+      }) as never);
+    const service = new AssetService(
+      { get: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, uploadStream };
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('limits the width to 800 pixels by default', async () => {
+    const { service, uploadStream } = setup();
+    await service.uploadPopupImage(Buffer.from('x'), 'a.jpg', 'menu');
+    expect(uploadStream.mock.calls[0][0]).toMatchObject({
+      transformation: { crop: 'limit', width: 800 },
+    });
+  });
+
+  it('uses the width the panel asked for', async () => {
+    const { service, uploadStream } = setup();
+    await service.uploadPopupImage(
+      Buffer.from('x'),
+      'a.jpg',
+      'event-calendar-backgrounds',
+      1080,
+    );
+    expect(uploadStream.mock.calls[0][0]).toMatchObject({
+      transformation: { crop: 'limit', width: 1080 },
+    });
+  });
+});

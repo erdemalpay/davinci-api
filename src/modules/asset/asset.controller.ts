@@ -77,8 +77,14 @@ export class AssetController {
     @UploadedFile() file: Express.Multer.File,
     @Body('filename') filename: string,
     @Body('foldername') foldername: string,
+    @Body('width') width?: string,
   ) {
-    return this.assetService.uploadPopupImage(file.buffer, filename, foldername);
+    return this.assetService.uploadPopupImage(
+      file.buffer,
+      filename,
+      foldername,
+      Number(width) || undefined,
+    );
   }
 
   @Post('uploads')

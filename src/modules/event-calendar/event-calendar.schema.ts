@@ -30,6 +30,10 @@ export class EventCalendar extends Document {
   // Afişte QR gösterilsin mi; eski kayıtlarda alan yoksa gösterilir
   @Prop({ type: Boolean, default: true })
   hasQr: boolean;
+
+  // Afişin arka planı: yüklenmiş görselin https adresi; boşsa paneldeki varsayılan resim
+  @Prop({ type: String, default: '' })
+  background: string;
 }
 
 export const EventCalendarSchema = SchemaFactory.createForClass(EventCalendar);

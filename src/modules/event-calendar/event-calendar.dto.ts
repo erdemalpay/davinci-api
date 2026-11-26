@@ -51,6 +51,12 @@ export class CreateEventCalendarDto {
   @IsOptional()
   @IsBoolean()
   hasQr?: boolean;
+
+  // Herkese açık sayfada güvenli olması için sadece https; boş = varsayılan arka plan
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^https:\/\//, { message: 'background must be an https url' })
+  background?: string;
 }
 
 export class UpdateEventCalendarDto extends PartialType(

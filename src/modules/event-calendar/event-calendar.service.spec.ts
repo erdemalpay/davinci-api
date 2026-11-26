@@ -64,6 +64,23 @@ describe.each([
     const errors = await errorsFor({ ...valid, items: Array(9).fill(item) });
     expect(errors.map((error) => error.property)).toEqual(['items']);
   });
+
+  it('accepts an https background or none', async () => {
+    expect(
+      await errorsFor({
+        ...valid,
+        background: 'https://res.cloudinary.com/dvbg/image/upload/a.jpg',
+      }),
+    ).toHaveLength(0);
+    expect(await errorsFor({ ...valid, background: '' })).toHaveLength(0);
+  });
+
+  it('rejects an unsafe background', async () => {
+    for (const background of ['http://x.com/a.jpg', 'javascript:alert(1)']) {
+      const errors = await errorsFor({ ...valid, background });
+      expect(errors.map((error) => error.property)).toEqual(['background']);
+    }
+  });
 });
 
 describe('EventCalendarService', () => {
@@ -103,6 +120,7 @@ describe('EventCalendarService', () => {
       title: 'KASIM',
       items: [item],
       hasQr: true,
+      background: '',
     });
     expect(sort).toHaveBeenCalledWith({ _id: -1 });
   });
@@ -112,6 +130,20 @@ describe('EventCalendarService', () => {
     expect((await off.service.findLatest())?.hasQr).toBe(false);
     const old = setup({ _id: 1, title: 'K', items: [item] });
     expect((await old.service.findLatest())?.hasQr).toBe(true);
+  });
+
+  it('returns the background, empty for old records', async () => {
+    const custom = setup({
+      _id: 2,
+      title: 'K',
+      items: [item],
+      background: 'https://x.com/a.jpg',
+    });
+    expect((await custom.service.findLatest())?.background).toBe(
+      'https://x.com/a.jpg',
+    );
+    const old = setup({ _id: 1, title: 'K', items: [item] });
+    expect((await old.service.findLatest())?.background).toBe('');
   });
 
   it('returns null without a record or without rows', async () => {

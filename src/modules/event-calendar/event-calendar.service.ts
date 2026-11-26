@@ -32,6 +32,7 @@ export class EventCalendarService {
       title: latest.title,
       items: latest.items,
       hasQr: latest.hasQr !== false,
+      background: latest.background ?? '',
     };
   }
 
