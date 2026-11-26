@@ -32,6 +32,7 @@ import { Order, OrderSchema } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderGroup, OrderGroupSchema } from './orderGroup.schema';
 import { OrderNotes, OrderNotesSchema } from './orderNotes.schema';
+import { PreOrderShipmentService } from './pre-order-shipment.service';
 import {
   RetailerOrderRequest,
   RetailerOrderRequestSchema,
@@ -98,7 +99,12 @@ const { host, port } = config.get<DBConfig>('redis');
     forwardRef(() => ShopifyModule),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderConfirmationProcessor, ApiTokenGuard],
-  exports: [OrderService, mongooseModule],
+  providers: [
+    OrderService,
+    PreOrderShipmentService,
+    OrderConfirmationProcessor,
+    ApiTokenGuard,
+  ],
+  exports: [OrderService, PreOrderShipmentService, mongooseModule],
 })
 export class OrderModule {}

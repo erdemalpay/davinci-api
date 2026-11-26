@@ -128,6 +128,7 @@ describe('ShopifyService.orderCancelWebHook — kargo iadesi', () => {
       } as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const logger = (service as any).logger;
     for (const level of ['log', 'debug', 'warn', 'error'] as const) {

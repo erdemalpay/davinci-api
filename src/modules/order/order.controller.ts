@@ -35,6 +35,7 @@ import {
   CreateDiscountDto,
   CreateOrderDto,
   CreateOrderNotesDto,
+  CreatePreOrderShipmentDto,
   CreateRetailerDto,
   CreateRetailerOrderRequestDto,
   ItemPlatformOrdersQueryDto,
@@ -48,11 +49,15 @@ import {
 import { Order } from './order.schema';
 import { OrderService } from './order.service';
 import { OrderNotes } from './orderNotes.schema';
+import { PreOrderShipmentService } from './pre-order-shipment.service';
 import { Retailer } from './retailer.schema';
 
 @Controller('order')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly preOrderShipmentService: PreOrderShipmentService,
+  ) {}
 
   // orders
   @Get()
@@ -293,6 +298,10 @@ export class OrderController {
       payload.shopifyOrderLineItemId,
       payload.quantity,
     );
+  }
+  @Post('/pre-order-shipment')
+  createPreOrderShipment(@Body() payload: CreatePreOrderShipmentDto) {
+    return this.preOrderShipmentService.create(payload.orderIds);
   }
   @Post('/cancel-trendyol-order')
   cancelTrendyolOrder(

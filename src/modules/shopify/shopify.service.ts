@@ -18,6 +18,12 @@ import { MenuItem } from '../menu/item.schema';
 import { NotificationEventType } from '../notification/notification.dto';
 import { NotificationService } from '../notification/notification.service';
 import { CreateOrderDto, OrderStatus } from '../order/order.dto';
+import {
+  PreOrderShipmentOrderInput,
+  ShipmentFulfillmentInput,
+  ShipmentSource,
+  ShipmentTracking,
+} from '../order/pre-order-shipment.plan';
 import { RedisKeys } from '../redis/redis.dto';
 import { RedisService } from '../redis/redis.service';
 import { User } from '../user/user.schema';
@@ -36,6 +42,7 @@ import { GameService } from './../game/game.service';
 import { MenuService } from './../menu/menu.service';
 import { OrderCollectionStatus } from './../order/order.dto';
 import { OrderService } from './../order/order.service';
+import { PreOrderShipmentService } from './../order/pre-order-shipment.service';
 import {
   ShopifyDiscount,
   ShopifyDiscountKind,
@@ -140,6 +147,8 @@ export class ShopifyService {
     private readonly gameService: GameService,
     @InjectModel(ShopifyDiscount.name)
     private readonly shopifyDiscountModel: Model<ShopifyDiscount>,
+    @Inject(forwardRef(() => PreOrderShipmentService))
+    private readonly preOrderShipmentService: PreOrderShipmentService,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -2627,6 +2636,166 @@ export class ShopifyService {
     }
   }
 
+  /** Ön sipariş kopyası için orijinal siparişten müşteri, e-posta ve kargo adresi. */
+  async getPreOrderShipmentSource(
+    shopifyOrderId: string,
+  ): Promise<ShipmentSource> {
+    const query = `
+      query GetPreOrderShipmentSource($id: ID!) {
+        order(id: $id) {
+          name
+          email
+          customer { id }
+          shippingAddress {
+            firstName
+            lastName
+            company
+            address1
+            address2
+            city
+            provinceCode
+            zip
+            countryCodeV2
+            phone
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(query, {
+          variables: { id: `gid://shopify/Order/${shopifyOrderId}` },
+        });
+      });
+
+      this.handleGraphQLErrors(response);
+
+      const order = response.data.order;
+      if (!order) {
+        throw new HttpException(
+          'Shopify order not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const address = order.shippingAddress;
+
+      return {
+        orderNumber: String(order.name).replace('#', ''),
+        customerId: order.customer?.id ?? undefined,
+        email: order.email ?? undefined,
+        shippingAddress: address
+          ? {
+              firstName: address.firstName ?? undefined,
+              lastName: address.lastName ?? undefined,
+              company: address.company ?? undefined,
+              address1: address.address1 ?? undefined,
+              address2: address.address2 ?? undefined,
+              city: address.city ?? undefined,
+              provinceCode: address.provinceCode ?? undefined,
+              zip: address.zip ?? undefined,
+              countryCode: address.countryCodeV2 ?? undefined,
+              phone: address.phone ?? undefined,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      this.logError('Error fetching pre-order shipment source', error);
+      throw new HttpException(
+        'Unable to fetch Shopify order.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** 0 TL kopya; müşteriye sipariş/kargo e-postası gitmez. */
+  async createPreOrderShipmentOrder(
+    input: PreOrderShipmentOrderInput,
+  ): Promise<{ id: string; name: string }> {
+    const mutation = `
+      mutation CreatePreOrderShipmentOrder($order: OrderCreateOrderInput!, $options: OrderCreateOptionsInput) {
+        orderCreate(order: $order, options: $options) {
+          order { id name }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            order: input,
+            options: { sendReceipt: false, sendFulfillmentReceipt: false },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.orderCreate.userErrors');
+
+      const order = response.data.orderCreate.order;
+      return { id: String(order.id).split('/').pop(), name: order.name };
+    } catch (error) {
+      this.logError('Error creating pre-order shipment order', error);
+      throw new HttpException(
+        'Unable to create pre-order shipment order in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** Orijinalde yalnızca verilen satırları takip numarasıyla kapatır; müşteriye bildirim yok. */
+  async createFulfillmentWithTracking(
+    input: ShipmentFulfillmentInput,
+    tracking: ShipmentTracking,
+  ): Promise<string> {
+    const mutation = `
+      mutation FulfillPreOrderShipment($fulfillment: FulfillmentInput!) {
+        fulfillmentCreate(fulfillment: $fulfillment) {
+          fulfillment { id }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.executeGraphQLRequest(async () => {
+        const client = await this.getGraphQLClient();
+        return await client.request(mutation, {
+          variables: {
+            fulfillment: {
+              notifyCustomer: false,
+              trackingInfo: {
+                number: tracking.number,
+                ...(tracking.company ? { company: tracking.company } : {}),
+              },
+              lineItemsByFulfillmentOrder: [
+                {
+                  fulfillmentOrderId: input.fulfillmentOrderId,
+                  fulfillmentOrderLineItems: input.fulfillmentOrderLineItems,
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      this.handleGraphQLErrors(response, 'data.fulfillmentCreate.userErrors');
+
+      return String(response.data.fulfillmentCreate.fulfillment.id)
+        .split('/')
+        .pop();
+    } catch (error) {
+      this.logError('Error creating pre-order shipment fulfillment', error);
+      throw new HttpException(
+        'Unable to create fulfillment in Shopify.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /**
    * Get fulfillment order IDs for a given Shopify order
    */
@@ -3743,6 +3912,11 @@ export class ShopifyService {
 
       this.logger.log('Received Shopify fulfillment webhook data:', data);
 
+      // 0 TL ön sipariş kopyası kargolandıysa orijinaldeki ilgili satırlar kapanır.
+      // Kopya değilse undefined döner; aşağıdaki akış değişmez.
+      const preOrderShipment =
+        await this.preOrderShipmentService.handleShipmentFulfilled(data);
+
       const lineItems: any[] = data?.line_items ?? [];
       // orders/fulfilled payload'ı bir Order objesidir (data.id = sipariş id'si,
       // gerçek fulfillment id'si data.fulfillments[] içinde yer alır).
@@ -3794,6 +3968,7 @@ export class ShopifyService {
         success: true,
         shippedCount,
         skippedPreOrderCount,
+        ...(preOrderShipment ? { preOrderShipment } : {}),
       };
 
       if (webhookLog) {

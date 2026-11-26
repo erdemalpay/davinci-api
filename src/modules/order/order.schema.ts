@@ -267,6 +267,14 @@ export class Order extends Document {
   @Prop({ required: false, type: Boolean })
   isPreOrder: boolean;
 
+  // Ön sipariş gönderimi için açılan 0 TL kopyanın Shopify sipariş id'si;
+  // kopya kargolanınca orijinaldeki bu satır kapatılır.
+  @Prop({ required: false, type: String })
+  preOrderShipmentShopifyOrderId: string;
+
+  @Prop({ required: false, type: String })
+  preOrderShipmentShopifyOrderNumber: string;
+
   @Prop({ required: false, type: String })
   trendyolOrderId: string;
 
@@ -351,6 +359,14 @@ OrderSchema.index(
 OrderSchema.index(
   { shopifyOrderId: 1 },
   { partialFilterExpression: { shopifyOrderId: { $type: 'string' } } },
+);
+OrderSchema.index(
+  { preOrderShipmentShopifyOrderId: 1 },
+  {
+    partialFilterExpression: {
+      preOrderShipmentShopifyOrderId: { $type: 'string' },
+    },
+  },
 );
 OrderSchema.index(
   { shopifyOrderLineItemId: 1 },
