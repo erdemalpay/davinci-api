@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/swagger';
 import {
+  ArrayNotEmpty,
   IsArray,
   IsBoolean,
   IsDate,
@@ -796,6 +797,13 @@ export class CancelShopifyOrderDto {
 
   @IsNumber()
   quantity: number;
+}
+
+export class CreatePreOrderShipmentDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsNumber({}, { each: true })
+  orderIds: number[];
 }
 
 export class CancelTrendyolOrderDto {

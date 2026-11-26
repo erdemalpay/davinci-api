@@ -38,6 +38,7 @@ function buildService() {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   const logger = (service as any).logger;
