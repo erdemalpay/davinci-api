@@ -2552,6 +2552,12 @@ export class AccountingService {
         { new: true },
       );
       changedStock = newStock;
+      // Okumayla güncelleme arasında başka bir hareket (ör. aynı anda düşen sipariş) bu stoğu değiştirdi
+      if (newStock.quantity !== oldQuantity + Number(createStockDto.quantity)) {
+        this.logger.warn(
+          `Stock ${stockId} changed by another movement at the same time: read ${oldQuantity}, change ${createStockDto.quantity}, now ${newStock.quantity} (${status})`,
+        );
+      }
 
       if (isEmit) {
         await this.websocketGateway.emitStockChanged([changedStock]);
@@ -2724,7 +2730,7 @@ export class AccountingService {
         this.updateShopifyStock(
           createStockDto.product,
           createStockDto.location,
-          Number(oldQuantity) + Number(createStockDto.quantity),
+          newStock.quantity,
         );
       }
       // Eğer order Trendyol'dan geliyorsa, Trendyol zaten kendi stoğunu düşürüyor, tekrar update yapma
@@ -2732,25 +2738,25 @@ export class AccountingService {
         this.updateTrendyolStock(
           createStockDto.product,
           createStockDto.location,
-          Number(oldQuantity) + Number(createStockDto.quantity),
+          newStock.quantity,
         );
       }
       // Hepsiburada kendi stoğunu otomatik düşürmez, her zaman güncellememiz gerekiyor
       this.updateHepsiburadaStock(
         createStockDto.product,
         createStockDto.location,
-        Number(oldQuantity) + Number(createStockDto.quantity),
+        newStock.quantity,
       );
       // n11'e mutlak değer gönderiliyor; n11 kendi stoğunu düşürse de sonuç doğru
       void this.updateN11Stock(
         createStockDto.product,
         createStockDto.location,
-        Number(oldQuantity) + Number(createStockDto.quantity),
+        newStock.quantity,
       );
       void this.updateIdefixStock(
         createStockDto.product,
         createStockDto.location,
-        Number(oldQuantity) + Number(createStockDto.quantity),
+        newStock.quantity,
       );
     } else {
       const stock = new this.stockModel(stockData);
@@ -2876,6 +2882,7 @@ export class AccountingService {
     if (isEmit) {
       await this.websocketGateway.emitStockChanged([changedStock]);
     }
+    return changedStock;
   }
 
   async updateStock(user: User, id: string, updates: UpdateQuery<Stock>) {
@@ -3005,12 +3012,18 @@ export class AccountingService {
     quantity: number,
     status = StockHistoryStatusEnum.STOCKTRANSFER,
   ) {
+    if (currentStockLocation === transferredStockLocation) {
+      throw new HttpException(
+        'Stock cannot be transferred to the same location',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const currentStockId = usernamify(product + currentStockLocation);
     const stock = await this.stockModel.findById(currentStockId);
     if (!stock) {
       throw new HttpException('Stock not found', HttpStatus.NOT_FOUND);
     }
-    await Promise.all([
+    const changedStocks = await Promise.all([
       this.createStock(
         user,
         {
@@ -3032,7 +3045,8 @@ export class AccountingService {
         false,
       ),
     ]);
-    this.websocketGateway.emitStockChanged();
+    // Panel değişen iki satırı yerinde günceller; tüm stok listesini yeniden çekmez
+    await this.websocketGateway.emitStockChanged(changedStocks);
     return stock;
   }
   async removeStock(user: User, id: string, status: string) {

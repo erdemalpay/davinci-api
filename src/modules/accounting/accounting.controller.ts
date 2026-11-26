@@ -31,6 +31,7 @@ import {
   CreateVendorDto,
   JoinProductDto,
   StockHistoryStatusEnum,
+  StockTransferDto,
   UpdateMultipleProduct,
 } from './accounting.dto';
 import { AccountingService } from './accounting.service';
@@ -528,22 +529,13 @@ export class AccountingController {
   }
 
   @Post('/stock_transfer')
-  stockTransfer(
-    @ReqUser() user: User,
-    @Body()
-    payload: {
-      currentStockLocation: number;
-      transferredStockLocation: number;
-      product: string;
-      quantity: number;
-    },
-  ) {
+  stockTransfer(@ReqUser() user: User, @Body() payload: StockTransferDto) {
     return this.accountingService.stockTransfer(
       user,
       payload.currentStockLocation,
       payload.transferredStockLocation,
       payload.product,
-      Number(payload.quantity),
+      payload.quantity,
     );
   }
 

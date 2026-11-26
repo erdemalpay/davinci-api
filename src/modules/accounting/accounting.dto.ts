@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -116,6 +117,16 @@ export class CreateStockDto {
   location: number;
   quantity: number;
   status: string;
+}
+
+export class StockTransferDto {
+  currentStockLocation: number;
+  transferredStockLocation: number;
+  product: string;
+
+  @IsNumber()
+  @IsPositive()
+  quantity: number;
 }
 
 export class CreateProductStockHistoryDto {
